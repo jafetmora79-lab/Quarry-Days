@@ -155,6 +155,102 @@ func scene_resources() -> void:
 	game.queue_free()
 	await process_frame
 
-## Placeholder for the world/art checks (filled in by later Phase 4 steps).
+func aim(game, pos: Vector3, yaw: float, pitch: float) -> String:
+	game.player.global_position = pos
+	game.player.rotation.y = yaw
+	game.player.camera.rotation.x = pitch
+	var t = game._look_target()
+	return "" if t == null else str(t.get_meta("kind", ""))
+
+func path_ok(game, a: Vector3, b: Vector3) -> bool:
+	var p: PackedVector3Array = NavigationServer3D.map_get_path(game.nav_map, a, b, true)
+	return p.size() > 0 and Vector2(p[p.size() - 1].x, p[p.size() - 1].z).distance_to(Vector2(b.x, b.z)) < 1.0
+
 func scene_world() -> void:
-	pass
+	var game = load("res://Main.tscn").instantiate()
+	root.add_child(game)
+	await process_frame
+	await physics_frame
+	await physics_frame
+	game.tutorial_visible = false
+	game.scripted_input = true
+	# 1 startup with the art layer
+	var meshes: Array = game.art.root.find_children("*", "MeshInstance3D", true, false)
+	check(meshes.size() > 80 and game.art.lights.size() >= 4, "1 art layer built (%d meshes, %d practical lights)" % [meshes.size(), game.art.lights.size()])
+	var dep_mesh: MeshInstance3D = game.deposit_nodes["coal"].get_child(0)
+	check(dep_mesh.mesh is ArrayMesh and not (dep_mesh.mesh is BoxMesh), "1 deposits are modelled rock formations, not boxes")
+	var floor_body = game.world.get_node("Quarry floor")
+	check(not floor_body.get_child(0).visible and floor_body.collision_layer == 1, "1 placeholder floor hidden, its collision unchanged")
+	# 7 building interactions still reachable through the new geometry
+	check(aim(game, Vector3(-14, 0.05, 11.4), PI, -0.5) == "office", "7 management desk inside the office is interactable")
+	check(aim(game, Vector3(-7, 0.05, 7.6), PI, -0.3) == "sell", "7 sales booth counter is interactable")
+	check(aim(game, Vector3(-14, 0.05, 6.6), PI, 0.0) == "upgrades", "7 upgrade notice board is interactable")
+	check(aim(game, Vector3(-2, 0.05, 7.8), PI, -0.3) == "shop", "7 machinery order kiosk is interactable")
+	check(aim(game, Vector3(10, 0.05, 7.6), PI, -0.3) == "storage", "7 storage bin is interactable")
+	# 8 worker navigation through the dressed quarry
+	await frames(3)
+	var spot: Vector3 = game.break_spot(0)
+	check(path_ok(game, spot, Vector3(-7.0, 0, 12.0)), "8 break area -> sales booth is walkable")
+	check(path_ok(game, spot, Vector3(-8.0, 0, -8.6)), "8 break area -> limestone deposit is walkable")
+	check(path_ok(game, spot, Vector3(10.0, 0, 7.8)), "8 break area -> storage bin is walkable")
+	check(path_ok(game, Vector3(0, 0, 8), Vector3(5.5, 0, 12.5)) and path_ok(game, Vector3(5.5, 0, 12.5), Vector3(20.0, 0, 7.5)), "8 yard, garage apron and haul road are connected")
+	# 6 vehicles: drive out of the garage bay, and cannot reverse through the garage back wall
+	game.state.money = 50000
+	game.business.milestones["mechanized"] = true
+	check(game.ui_buy_vehicle("loader").ends_with("parking area."), "6 loader delivered into the garage bay")
+	var loader = game.vehicle_nodes.values()[0]
+	game.enter_vehicle(loader)
+	await frames(5)
+	loader.input = {"throttle": -1.0, "steer": 0.0, "brake": false}
+	var zmax := {"z": -99.0}
+	await frames(180, func():
+		zmax["z"] = maxf(zmax["z"], loader.global_position.z)
+		return false)
+	check(zmax["z"] < 22.4 - 0.125 - 1.5 + 0.15, "6 loader stops at the garage back wall (rear centre z %.2f)" % zmax["z"])
+	loader.input = {"throttle": 0.0, "steer": 0.0, "brake": true}
+	await frames(30)
+	loader.global_position = Vector3(-1.5, 0.05, 18.5)
+	loader.rotation.y = 0.0
+	loader.speed = 0.0
+	loader.input = {"throttle": 1.0, "steer": 0.0, "brake": false}
+	await frames(150, func(): return loader.global_position.z < 12.0)
+	check(loader.global_position.z < 13.0, "6 loader drives out of its bay through the open garage front (z %.2f)" % loader.global_position.z)
+	loader.input = {"throttle": 0.0, "steer": 0.0, "brake": true}
+	# 5 loader scoop + dump with the modelled rubble mound
+	var pile: Vector3 = game.pile_nodes["coal_rubble"].global_position
+	loader.global_position = Vector3(pile.x, 0.05, pile.z + 3.6)
+	loader.rotation.y = 0.0
+	loader.speed = 0.0
+	await frames(5)
+	var got: int = game.loader_primary(loader)
+	check(got == 6 and int(game.fleet.piles["coal_rubble"]["amount"]) == 24, "5 loader scoops 6 coal from the modelled rubble mound")
+	loader.global_position = Vector3(10, 0.05, 7.4)
+	loader.rotation.y = PI
+	await frames(5)
+	var coal0 := int(game.state.storage["coal"])
+	check(game.vehicle_dump(loader) == 6 and int(game.state.storage["coal"]) == coal0 + 6, "5 loader dumps 6 coal into the storage bin")
+	game.exit_vehicle()
+	# 9 Phase 3 save (no deposit stock fields) loads into Phase 4
+	game._save()
+	var f := FileAccess.open("user://quarry_save.json", FileAccess.READ)
+	var data: Dictionary = JSON.parse_string(f.get_as_text())
+	f.close()
+	for k in data["deposits"]:
+		for key in ["stock", "regrow_at", "resource", "infinite", "mined"]:
+			data["deposits"][k].erase(key)
+	data["deposits"]["coal"]["broken"] = true
+	data["deposits"].erase("limestone_face")
+	f = FileAccess.open("user://quarry_save.json", FileAccess.WRITE)
+	f.store_string(JSON.stringify(data))
+	f.close()
+	game._load()
+	await process_frame
+	var coal: Dictionary = game.state.deposits["coal"]
+	check(int(coal["stock"]) == 0 and float(coal["regrow_at"]) > 0.0 and int(game.state.deposits["iron_ore"]["stock"]) == 8, "9 Phase 3 save migrates deposits (broken coal regrows, iron full)")
+	check(game.deposit_nodes.has("limestone_face") and game.state.deposits["limestone_face"]["infinite"], "9 old saves gain the quarry face")
+	game._load()
+	await process_frame
+	await process_frame
+	check(game.vehicles_root.get_child_count() == 1 and game.vehicle_nodes.size() == 1, "9 repeated load keeps one loader")
+	game.queue_free()
+	await process_frame

@@ -87,6 +87,7 @@ func _ready() -> void:
 	_build_quarry()
 	art = ArtScript.new()
 	art.build_environment(self)
+	art.dress_storage(storage_body)
 	for kind in deposit_nodes:
 		_dress_deposit(kind)
 	for id in pile_nodes:
@@ -472,7 +473,12 @@ func _physics_process(delta: float) -> void:
 	for i in range(state.crushers.size()):
 		var machine: Dictionary = state.crushers[i]
 		if i < crusher_nodes.size():
-			crusher_nodes[i].get_child(0).rotation.z = sin(Time.get_ticks_msec()*0.02)*0.025 if bool(machine["running"]) else 0.0
+			if crusher_nodes[i].has_meta("flywheels"):
+				if bool(machine["running"]):
+					for fw in crusher_nodes[i].get_meta("flywheels"):
+						fw.rotation.x += delta * 7.0
+			else:
+				crusher_nodes[i].get_child(0).rotation.z = sin(Time.get_ticks_msec()*0.02)*0.025 if bool(machine["running"]) else 0.0
 	var any_running := false
 	for crusher in state.crushers:
 		any_running = any_running or bool(crusher["running"])
@@ -780,9 +786,8 @@ func _update_ghost() -> void:
 		ghost_ok_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		ghost_bad_mat = ghost_ok_mat.duplicate()
 		ghost_bad_mat.albedo_color = Color(1.0, 0.25, 0.2, 0.5)
-	for child in ghost.get_children():
-		if child is MeshInstance3D:
-			child.material_override = ghost_ok_mat if ghost_valid else ghost_bad_mat
+	for child in ghost.find_children("*", "MeshInstance3D", true, false):
+		child.material_override = ghost_ok_mat if ghost_valid else ghost_bad_mat
 
 func _place_ghost() -> void:
 	if not ghost_valid:
@@ -845,6 +850,9 @@ func _cancel_placement(refund := true) -> void:
 	ghost = null
 
 func _crusher_visual(parent: Node3D, transparent := false) -> void:
+	if art:
+		art.crusher_model(parent, 0.0)
+		return
 	_visual_box(parent,Vector3(0,0.5,0),Vector3(1.6,1.0,1.4),Color(0.19,0.25,0.27))
 	_visual_box(parent,Vector3(0,1.16,0),Vector3(1.1,0.44,1.0),Color(0.44,0.39,0.28))
 	_visual_box(parent,Vector3(0,0.15,-0.68),Vector3(1.15,0.24,0.24),Color(0.12,0.13,0.14))
@@ -859,6 +867,8 @@ func _create_crusher(index: int) -> void:
 	body.set_meta("kind","crusher")
 	body.set_meta("index",index)
 	_visual_box(body,Vector3(0,0.68,0),Vector3(1.0,0.45,1.0),Color(0.44,0.39,0.28))
+	if art:
+		art.dress_crusher(body)
 	crusher_nodes.append(body)
 
 func _save() -> void:
@@ -1191,6 +1201,9 @@ func ui_upgrade(id: int) -> String:
 # --------------------------------------------------------------- structures
 
 func _output_visual(parent: Node3D, transparent := false) -> void:
+	if art:
+		art.output_model(parent, 0.0)
+		return
 	_visual_box(parent,Vector3(0,0.55,0),Vector3(1.4,1.1,1.4),Color(0.24,0.30,0.22))
 	_visual_box(parent,Vector3(0,1.12,0),Vector3(1.5,0.08,1.5),Color(0.40,0.36,0.22))
 	if transparent:
@@ -1198,6 +1211,9 @@ func _output_visual(parent: Node3D, transparent := false) -> void:
 			child.transparency = 0.45
 
 func _conveyor_visual(parent: Node3D, transparent := false) -> void:
+	if art:
+		art.conveyor_model(parent, 0.0)
+		return
 	_visual_box(parent,Vector3(0,0.13,0),Vector3(0.9,0.26,2.0),Color(0.16,0.17,0.18))
 	_visual_box(parent,Vector3(0,0.27,0),Vector3(0.7,0.04,2.0),Color(0.07,0.07,0.07))
 	_visual_box(parent,Vector3(0,0.30,-0.75),Vector3(0.2,0.02,0.32),Color(0.85,0.70,0.15))
@@ -1214,6 +1230,8 @@ func _create_output(index: int) -> void:
 	_visual_box(body,Vector3(0,0.57,0),Vector3(1.5,0.08,1.5),Color(0.40,0.36,0.22))
 	var fill := _visual_box(body,Vector3(0,0.3,0),Vector3(1.2,0.5,1.2),Color(0.75,0.73,0.66))
 	body.set_meta("fill", fill)
+	if art:
+		art.dress_output(body)
 	output_nodes.append(body)
 
 func _create_conveyor(index: int) -> void:
@@ -1235,6 +1253,8 @@ func _create_conveyor(index: int) -> void:
 		item.visible = false
 		items.append(item)
 	body.set_meta("items", items)
+	if art:
+		art.dress_conveyor(body)
 	conveyor_nodes.append(body)
 
 ## Cheap per-frame visuals: belt items slide along, output storages show their fill level.
@@ -1249,6 +1269,12 @@ func _update_structures() -> void:
 			if item.visible:
 				item.position.z = minf(0.75, 0.75 - 1.5 * float(c["progress"]) + 0.55 * k)
 				item.material_override = _mat(WorkerScript.RESOURCE_COLORS.get(str(c["resource"]), Color.GRAY))
+	if storage_body.has_meta("fill"):
+		var sf: MeshInstance3D = storage_body.get_meta("fill")
+		var sratio := float(state.total(state.storage)) / float(maxi(1, state.storage_capacity()))
+		sf.visible = sratio > 0.0
+		sf.scale.y = maxf(0.08, sratio)
+		sf.position.y = -0.55 + 0.6 * maxf(0.08, sratio) * 0.5
 	for i in range(mini(output_nodes.size(), business.outputs.size())):
 		var fill: MeshInstance3D = output_nodes[i].get_meta("fill")
 		var ratio := float(business.output_total(i)) / float(business.output_capacity())
@@ -1667,7 +1693,11 @@ func start_relocation(kind: String, index: int) -> bool:
 		"crusher": _crusher_visual(ghost, true)
 		"output": _output_visual(ghost, true)
 		"conveyor": _conveyor_visual(ghost, true)
-		"storage": _visual_box(ghost, Vector3(0,0.65,0), Vector3(2,1.3,1.6), Color(0.33,0.23,0.13))
+		"storage":
+			if art:
+				art.storage_model(ghost, 0.0)
+			else:
+				_visual_box(ghost, Vector3(0,0.65,0), Vector3(2,1.3,1.6), Color(0.33,0.23,0.13))
 	_notify("Moving %s. LMB confirm, R rotate, Esc cancel (stays where it was)." % _structure_name(kind, index))
 	return true
 

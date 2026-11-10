@@ -99,48 +99,12 @@ func _wheel(x: float, z: float, r: float) -> void:
 	add_child(w)
 	wheels.append(w)
 
+## Phase 4: modelled vehicles (scripts/art/vehicle_models.gd) in THE VEIL pixel style.
 func _build_loader() -> void:
-	var yellow := Color(0.86, 0.62, 0.12)
-	_box(self, Vector3(0, 0.85, 0.45), Vector3(1.8, 0.75, 1.9), yellow) # body / engine
-	_box(self, Vector3(0, 1.5, 0.15), Vector3(1.25, 0.95, 1.1), Color(0.24, 0.30, 0.32)) # cab glass
-	_box(self, Vector3(0, 2.02, 0.15), Vector3(1.4, 0.1, 1.25), yellow) # roof
-	_box(self, Vector3(0, 0.95, 1.45), Vector3(1.7, 0.6, 0.3), Color(0.2, 0.2, 0.2)) # counterweight
-	for x in [-0.95, 0.95]:
-		for z in [-0.75, 1.0]:
-			_wheel(x, z, 0.52)
-	arm = Node3D.new()
-	arm.position = Vector3(0, 1.15, -0.45)
-	add_child(arm)
-	for x in [-0.7, 0.7]:
-		_box(arm, Vector3(x, -0.15, -0.75), Vector3(0.16, 0.18, 1.6), yellow)
-	bucket = Node3D.new()
-	bucket.position = Vector3(0, -0.2, -1.55)
-	arm.add_child(bucket)
-	_box(bucket, Vector3(0, -0.1, -0.15), Vector3(2.1, 0.08, 0.75), Color(0.32, 0.32, 0.30)) # floor
-	_box(bucket, Vector3(0, 0.2, 0.22), Vector3(2.1, 0.6, 0.08), Color(0.32, 0.32, 0.30)) # back
-	for x in [-1.03, 1.03]:
-		_box(bucket, Vector3(x, 0.12, -0.05), Vector3(0.06, 0.45, 0.6), Color(0.32, 0.32, 0.30))
-	bucket_load = _box(bucket, Vector3(0, 0.1, -0.1), Vector3(1.9, 0.35, 0.55), RESOURCE_COLORS["limestone"])
-	bucket_load.visible = false
+	VehicleModels.loader(self)
 
 func _build_truck() -> void:
-	var red := Color(0.62, 0.20, 0.14)
-	_box(self, Vector3(0, 0.55, 0), Vector3(1.9, 0.35, 4.4), Color(0.16, 0.16, 0.17)) # chassis
-	_box(self, Vector3(0, 1.25, -1.65), Vector3(2.0, 1.15, 1.1), red) # cab
-	_box(self, Vector3(0, 1.45, -2.2), Vector3(1.7, 0.5, 0.04), Color(0.24, 0.30, 0.32)) # windscreen
-	for x in [-0.95, 0.95]:
-		for z in [-1.6, 0.9, 1.7]:
-			_wheel(x, z, 0.45)
-	bed = Node3D.new()
-	bed.position = Vector3(0, 0.75, 2.15) # hinge at the rear
-	add_child(bed)
-	var grey := Color(0.38, 0.36, 0.33)
-	_box(bed, Vector3(0, 0.05, -1.4), Vector3(2.1, 0.1, 2.9), grey)
-	_box(bed, Vector3(0, 0.5, -2.8), Vector3(2.1, 0.9, 0.1), grey)
-	for x in [-1.03, 1.03]:
-		_box(bed, Vector3(x, 0.45, -1.4), Vector3(0.08, 0.8, 2.9), grey)
-	bed_load = _box(bed, Vector3(0, 0.3, -1.4), Vector3(1.9, 0.5, 2.7), RESOURCE_COLORS["limestone"])
-	bed_load.visible = false
+	VehicleModels.truck(self)
 
 # ------------------------------------------------------------------ geometry helpers
 
@@ -241,7 +205,7 @@ func _animate(delta: float) -> void:
 		bucket_load.visible = n > 0
 		if n > 0:
 			bucket_load.scale.y = clampf(float(n) / float(fleet.capacity(data)), 0.2, 1.0)
-			bucket_load.material_override = game._mat(RESOURCE_COLORS.get(data["cargo"].keys()[0], Color.GRAY))
+			bucket_load.material_override = MeshKit.mat(QuarryArt.ROCK_MAT.get(data["cargo"].keys()[0], "RockLimestone"))
 	else:
 		if unload_timer > 0.0:
 			unload_timer -= delta
@@ -251,11 +215,12 @@ func _animate(delta: float) -> void:
 		var want := 0.95 if unload_timer > 0.0 else 0.0
 		bed_tilt = move_toward(bed_tilt, want, delta * 1.1)
 		bed.rotation.x = -bed_tilt
+		VehicleModels.update_truck_ram(self)
 		var n := fleet.cargo_total(data)
 		bed_load.visible = n > 0
 		if n > 0:
 			bed_load.scale.y = clampf(float(n) / float(fleet.capacity(data)), 0.15, 1.0)
-			bed_load.material_override = game._mat(RESOURCE_COLORS.get(data["cargo"].keys()[0], Color.GRAY))
+			bed_load.material_override = MeshKit.mat(QuarryArt.ROCK_MAT.get(data["cargo"].keys()[0], "RockLimestone"))
 
 func start_unload(target: Dictionary) -> void:
 	unload_target = target

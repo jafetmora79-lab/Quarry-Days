@@ -514,3 +514,112 @@ func dress_pile(body: StaticBody3D, res: String, seed: int) -> void:
 	MeshKit.inst(mound, s.mesh(), _material(ROCK_MAT.get(res, "RockLimestone")))
 	_hide(body)
 	mound.visible = true
+
+# ------------------------------------------------------------------ processing machinery
+# Builders put one MeshInstance3D per material directly under `parent` (so placement ghosts can tint
+# them). `g` = local height of the ground below the parent's origin.
+
+func _parts(parent: Node3D, parts: Dictionary) -> Dictionary:
+	var out := {}
+	for key in parts:
+		var s: MeshKit.Soup = parts[key]
+		if s.verts.size() > 0:
+			out[key] = MeshKit.inst(parent, s.mesh(), _material(key))
+	return out
+
+func _strip(parent: Node3D, keep: Array) -> void:
+	for c in parent.get_children():
+		if c is MeshInstance3D and not keep.has(c):
+			c.visible = false
+
+func crusher_model(parent: Node3D, g: float) -> void:
+	var p := {"SteelPlate": MeshKit.Soup.new(), "SteelGreen": MeshKit.Soup.new(), "PaintYellow": MeshKit.Soup.new(), "Hazard": MeshKit.Soup.new()}
+	for x in [-0.68, 0.68]:
+		MeshKit.box_into(p["SteelPlate"], Vector3(x, g + 0.08, 0), Vector3(0.16, 0.16, 1.75))           # skids
+	MeshKit.box_into(p["SteelGreen"], Vector3(0, g + 0.55, 0), Vector3(1.3, 0.8, 1.25), Vector2(0.94, 0.94))
+	MeshKit.box_into(p["Hazard"], Vector3(0, g + 0.2, -0.63), Vector3(1.25, 0.12, 0.02))
+	MeshKit.box_into(p["PaintYellow"], Vector3(0, g + 1.08, -0.05), Vector3(1.12, 0.32, 1.0))      # jaw housing
+	MeshKit.box_into(p["PaintYellow"], Vector3(0, g + 1.48, 0.28), Vector3(0.82, 0.5, 0.62), Vector2(1.38, 1.4))   # feed hopper (+Z = input)
+	MeshKit.box_into(p["SteelPlate"], Vector3(-0.32, g + 1.34, -0.42), Vector3(0.42, 0.3, 0.36))  # motor
+	var chute := PackedVector2Array([Vector2(-0.55, 0.42), Vector2(-0.55, 0.32), Vector2(-1.0, 0.08), Vector2(-1.0, 0.18)])
+	MeshKit.extrude_into(p["SteelPlate"], chute, 0.9, Transform3D(Basis(), Vector3(0, g, 0)))      # discharge chute (-Z)
+	var made := _parts(parent, p)
+	var wheels := []
+	for x in [-0.78, 0.78]:
+		var pivot := Node3D.new()
+		pivot.position = Vector3(x, g + 0.78, 0.05)
+		parent.add_child(pivot)
+		var w := MeshKit.Soup.new()
+		MeshKit.drum_into(w, Vector3.ZERO, 0.42, 0.1, 8)
+		MeshKit.box_into(w, Vector3.ZERO, Vector3(0.12, 0.08, 0.78))                                # spokes
+		MeshKit.box_into(w, Vector3.ZERO, Vector3(0.12, 0.78, 0.08))
+		MeshKit.inst(pivot, w.mesh(), _material("SteelPlate"))
+		wheels.append(pivot)
+	parent.set_meta("flywheels", wheels)
+
+func dress_crusher(body: StaticBody3D) -> void:
+	_strip(body, [])
+	crusher_model(body, -body.position.y)
+
+func output_model(parent: Node3D, g: float) -> void:
+	var p := {"SteelGreen": MeshKit.Soup.new(), "SteelPlate": MeshKit.Soup.new(), "Hazard": MeshKit.Soup.new()}
+	for x in [-0.6, 0.6]:
+		for z in [-0.6, 0.6]:
+			MeshKit.box_into(p["SteelPlate"], Vector3(x, g + 0.35, z), Vector3(0.1, 0.7, 0.1))           # legs
+	MeshKit.box_into(p["SteelGreen"], Vector3(0, g + 0.28, 0), Vector3(0.7, 0.36, 0.7), Vector2(1.7, 1.7))      # hopper cone
+	for side in [[Vector3(0, 0, -0.68), Vector3(1.4, 0.62, 0.06)], [Vector3(0, 0, 0.68), Vector3(1.4, 0.62, 0.06)],
+			[Vector3(-0.68, 0, 0), Vector3(0.06, 0.62, 1.4)], [Vector3(0.68, 0, 0), Vector3(0.06, 0.62, 1.4)]]:
+		MeshKit.box_into(p["SteelGreen"], side[0] + Vector3(0, g + 0.79, 0), side[1])               # bin walls
+	MeshKit.box_into(p["Hazard"], Vector3(0, g + 1.12, -0.7), Vector3(1.42, 0.08, 0.02))
+	for y in range(5):                                                                             # side ladder
+		MeshKit.box_into(p["SteelPlate"], Vector3(0.74, g + 0.15 + y * 0.22, 0.0), Vector3(0.04, 0.03, 0.36))
+	_parts(parent, p)
+
+func dress_output(body: StaticBody3D) -> void:
+	var fill: MeshInstance3D = body.get_meta("fill")
+	_strip(body, [fill])
+	output_model(body, -body.position.y)
+	fill.mesh = MeshKit.rock(Vector3(1.25, 0.5, 1.25), 61, 3, 8)
+	fill.material_override = _material("RockLimestone")
+
+func conveyor_model(parent: Node3D, g: float) -> void:
+	var p := {"SteelPlate": MeshKit.Soup.new(), "Belt": MeshKit.Soup.new(), "Hazard": MeshKit.Soup.new(), "SteelGreen": MeshKit.Soup.new()}
+	for x in [-0.42, 0.42]:
+		MeshKit.box_into(p["SteelGreen"], Vector3(x, g + 0.2, 0), Vector3(0.06, 0.14, 2.0))         # side channels
+		for z in [-0.8, 0.8]:
+			MeshKit.box_into(p["SteelPlate"], Vector3(x, g + 0.07, z), Vector3(0.06, 0.14, 0.06))     # legs
+	MeshKit.box_into(p["Belt"], Vector3(0, g + 0.25, 0), Vector3(0.74, 0.03, 1.94))
+	for z in [-0.97, 0.97]:
+		MeshKit.drum_into(p["SteelPlate"], Vector3(0, g + 0.22, z), 0.07, 0.78, 6)                  # end rollers
+	MeshKit.box_into(p["Hazard"], Vector3(0, g + 0.275, -0.75), Vector3(0.18, 0.012, 0.3))         # travel arrow
+	for z in [-0.95, 0.95]:
+		MeshKit.box_into(p["Hazard"], Vector3(0, g + 0.02, z), Vector3(1.0, 0.04, 0.08))            # crossing marks
+	_parts(parent, p)
+
+func dress_conveyor(body: StaticBody3D) -> void:
+	var items: Array = body.get_meta("items")
+	_strip(body, items)
+	conveyor_model(body, -body.position.y)
+	if not piece_meshes.has("belt_item"):
+		piece_meshes["belt_item"] = MeshKit.rock(Vector3(0.28, 0.2, 0.26), 55, 3, 5)
+	for it in items:
+		it.mesh = piece_meshes["belt_item"]
+
+func storage_model(parent: Node3D, g: float) -> void:
+	var p := {"SteelPlate": MeshKit.Soup.new(), "SteelGreen": MeshKit.Soup.new(), "Hazard": MeshKit.Soup.new()}
+	MeshKit.box_into(p["SteelPlate"], Vector3(0, g + 0.08, 0), Vector3(2.0, 0.16, 1.6))
+	for side in [[Vector3(0, 0, -0.78), Vector3(2.0, 1.14, 0.06)], [Vector3(0, 0, 0.78), Vector3(2.0, 1.14, 0.06)],
+			[Vector3(-0.98, 0, 0), Vector3(0.06, 1.14, 1.6)], [Vector3(0.98, 0, 0), Vector3(0.06, 1.14, 1.6)]]:
+		MeshKit.box_into(p["SteelGreen"], side[0] + Vector3(0, g + 0.72, 0), side[1])
+	for x in [-0.6, -0.2, 0.2, 0.6]:
+		for z in [-0.82, 0.82]:
+			MeshKit.box_into(p["SteelPlate"], Vector3(x, g + 0.72, z), Vector3(0.06, 1.1, 0.04))      # ribs
+	MeshKit.box_into(p["Hazard"], Vector3(0, g + 1.24, -0.82), Vector3(2.02, 0.1, 0.03))
+	_parts(parent, p)
+
+func dress_storage(body: StaticBody3D) -> void:
+	_strip(body, [])
+	storage_model(body, -body.position.y)
+	var fill := MeshKit.inst(body, MeshKit.rock(Vector3(1.8, 0.6, 1.4), 62, 3, 8), _material("RockLimestone"), Vector3(0, -0.5, 0))
+	body.set_meta("fill", fill)
+	_sign(body, "Sign_Storage", Vector3(0, 0.45, -0.84), Vector2(1.0, 0.25), PI)
