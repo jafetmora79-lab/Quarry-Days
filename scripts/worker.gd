@@ -65,7 +65,7 @@ func setup(main_node, biz: QuarryBusiness, record: Dictionary) -> void:
 	e = record
 	name = "Worker_%d" % employee_id
 	collision_layer = 4
-	collision_mask = 1
+	collision_mask = 1 | 8 # world and vehicles (conveyors on layer 16 are stepped over)
 	floor_snap_length = 0.3
 	set_meta("kind", "worker")
 	set_meta("employee", employee_id)

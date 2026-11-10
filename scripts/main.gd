@@ -5,6 +5,8 @@ const PlayerScript = preload("res://scripts/player.gd")
 const Business = preload("res://scripts/business.gd")
 const WorkerScript = preload("res://scripts/worker.gd")
 const ManagementScript = preload("res://scripts/management_ui.gd")
+const FleetScript = preload("res://scripts/fleet.gd")
+const VehicleScript = preload("res://scripts/vehicle.gd")
 const SAVE_PATH := "user://quarry_save.json"
 const RESOURCE_ORDER := ["limestone", "coal", "iron_ore", "crushed_stone"]
 const DEPOSIT_INFO := {"limestone": {"pos": Vector3(-8, 0, -11), "color": Color(0.67, 0.66, 0.56), "pieces": 4, "resource": "limestone"}, "coal": {"pos": Vector3(0, 0, -15), "color": Color(0.17, 0.19, 0.21), "pieces": 3, "resource": "coal"}, "iron_ore": {"pos": Vector3(8, 0, -11), "color": Color(0.52, 0.29, 0.23), "pieces": 2, "resource": "iron_ore"}}
@@ -55,6 +57,19 @@ var milestone_label: Label
 var placement_kind := "crusher"
 var grid_snap := true
 var placement_hint := ""
+# Phase 3
+var fleet: QuarryFleet
+var vehicles_root: Node3D
+var vehicle_nodes := {}
+var driving: QuarryVehicle
+var storage_body: StaticBody3D
+var pile_nodes := {}
+var construction := false
+var relocating := {}
+var sell_confirm := ""
+var ghost_ok_mat: StandardMaterial3D
+var ghost_bad_mat: StandardMaterial3D
+var scripted_input := false # tests drive vehicles by setting QuarryVehicle.input directly
 
 func _ready() -> void:
 	var cfg = JSON.parse_string(FileAccess.get_file_as_string("res://data/economy.json"))
@@ -62,6 +77,8 @@ func _ready() -> void:
 	var bcfg = JSON.parse_string(FileAccess.get_file_as_string("res://data/business.json"))
 	business = Business.new(state, bcfg)
 	business.milestone_reached.connect(_on_milestone)
+	var vcfg = JSON.parse_string(FileAccess.get_file_as_string("res://data/vehicles.json"))
+	fleet = FleetScript.new(business, vcfg)
 	world = Node3D.new()
 	world.name = "World"
 	add_child(world)
@@ -70,7 +87,10 @@ func _ready() -> void:
 	player.name = "Player"
 	player.position = Vector3(0, 0.2, 8)
 	add_child(player)
-	player.collision_mask = 1 | 2 | 4 # world, loose pieces, workers
+	player.collision_mask = 1 | 2 | 4 | 8 # world, loose pieces, workers, vehicles (conveyors: layer 16, crossable)
+	vehicles_root = Node3D.new()
+	vehicles_root.name = "Vehicles"
+	add_child(vehicles_root)
 	workers_root = Node3D.new()
 	workers_root.name = "Workers"
 	add_child(workers_root)
@@ -173,11 +193,14 @@ func _build_quarry() -> void:
 	shop.set_meta("kind","upgrades")
 	var storage := _solid(world,"Storage crate",Vector3(10,0.65,10),Vector3(2,1.3,1.6),Color(0.33,0.23,0.13))
 	storage.set_meta("kind","storage")
+	storage.set_meta("index",0)
+	storage_body = storage
 	var machine_shop := _solid(world,"Crusher order kiosk",Vector3(-2,0.75,10),Vector3(1.4,1.5,1.0),Color(0.30,0.38,0.42))
 	machine_shop.set_meta("kind","shop")
 	for kind in DEPOSIT_INFO:
 		_build_deposit(kind)
 	_build_phase2_area()
+	_build_phase3_area()
 	var env := Environment.new()
 	env.background_mode = Environment.BG_COLOR
 	env.background_color = Color(0.34,0.47,0.58)
@@ -342,11 +365,17 @@ func _physics_process(delta: float) -> void:
 		return
 	state.tick(delta)
 	business.tick(delta)
+	fleet.tick()
 	if nav_dirty:
 		_rebake_nav()
 	for w in worker_nodes.values():
 		w.step(delta)
+	if driving and not scripted_input:
+		driving.input = {"throttle": Input.get_axis("move_back", "move_forward"), "steer": Input.get_axis("move_left", "move_right"), "brake": Input.is_physical_key_pressed(KEY_SPACE)}
+	for v in vehicle_nodes.values():
+		v.control(delta)
 	_update_structures()
+	_update_piles()
 	mining_cooldown = maxf(0,mining_cooldown-delta)
 	message_timer = maxf(0,message_timer-delta)
 	_update_light()
@@ -356,10 +385,10 @@ func _physics_process(delta: float) -> void:
 			dep["broken"] = false
 			dep["hits"] = 0
 			_refresh_deposit(kind)
-	last_target = _look_target()
+	last_target = null if driving else _look_target()
 	if placement:
 		_update_ghost()
-	elif Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and mining_cooldown <= 0:
+	elif not driving and not construction and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and mining_cooldown <= 0:
 		mining_cooldown = state.strike_interval()
 		if last_target and last_target.get_meta("kind", "") == "deposit":
 			_strike(str(last_target.get_meta("deposit")))
@@ -388,9 +417,19 @@ func _physics_process(delta: float) -> void:
 					prompt = "%s (%s): %s" % [who["name"], business.profession(who["profession"])["title"], who["task"]]
 			"upgrades": prompt = "E: upgrades"
 			"storage": prompt = "E: storage"
+			"vehicle":
+				var vrec := fleet.vehicle(int(last_target.get_meta("vehicle_id")))
+				if not vrec.is_empty():
+					prompt = "E: drive %s (%d/%d %s)" % [fleet.spec(vrec["type"])["title"], fleet.cargo_total(vrec), fleet.capacity(vrec), "in bucket" if vrec["type"] == "loader" else "in bed"]
+			"pile":
+				prompt = "%s: %d units - scoop it with a front loader" % [fleet.cfg["piles"][str(last_target.get_meta("pile"))]["title"], int(fleet.piles[str(last_target.get_meta("pile"))]["amount"])]
+	if construction and not placement:
+		prompt = _construction_prompt()
+	if driving:
+		prompt = _driving_hud()
 	if placement:
 		prompt = "PLACE %s: %s | LMB place | R rotate | G grid %s | Esc cancel%s" % [placement_kind.replace("output","output storage").to_upper(), "VALID" if ghost_valid else "BLOCKED", "on" if grid_snap else "off", placement_hint]
-	action_label.text = prompt + ("\n"+message if message_timer > 0 else "") + ("\nWASD move  Shift sprint  E interact  M manage  F5 save  F9 load  Esc pause" if tutorial_visible else "")
+	action_label.text = prompt + ("\n"+message if message_timer > 0 else "") + ("\nWASD move  Shift sprint  E interact  M manage  B build mode  F5 save  F9 load  Esc pause" if tutorial_visible and not driving else "")
 	_update_milestone_hud()
 	for i in range(state.crushers.size()):
 		var machine: Dictionary = state.crushers[i]
@@ -414,9 +453,14 @@ func _update_light() -> void:
 	sky_light.environment.ambient_light_energy = 0.14+day*0.4
 
 func _unhandled_input(event: InputEvent) -> void:
+	if driving and menu == "" and _driving_input(event):
+		return
 	if event.is_action_pressed("ui_cancel"):
 		if placement:
 			_cancel_placement()
+		elif construction and menu == "":
+			construction = false
+			_notify("Construction mode off")
 		elif menu != "":
 			_close_menu()
 		else:
@@ -456,6 +500,21 @@ func _unhandled_input(event: InputEvent) -> void:
 			elif event.button_index == MOUSE_BUTTON_LEFT:
 				_place_ghost()
 		return
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_B:
+		construction = not construction
+		sell_confirm = ""
+		_notify("Construction mode: aim at a crusher, conveyor, storage crate or output storage. LMB move, X sell, B exit." if construction else "Construction mode off")
+		return
+	if construction:
+		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			var t := _construction_target()
+			if not t.is_empty():
+				start_relocation(str(t["kind"]), int(t["index"]))
+		if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_X:
+			var t := _construction_target()
+			if not t.is_empty():
+				request_sell(str(t["kind"]), int(t["index"]))
+		return
 	if event.is_action_pressed("place_machine"):
 		_notify("Order machinery at the blue kiosk first.")
 	if event.is_action_pressed("interact") and last_target:
@@ -476,6 +535,10 @@ func _interact(target: Node3D) -> void:
 			_open_menu(str(target.get_meta("kind")),int(target.get_meta("index",-1)))
 		"office":
 			_open_menu("manage")
+		"vehicle":
+			var v = vehicle_nodes.get(int(target.get_meta("vehicle_id")))
+			if v:
+				enter_vehicle(v)
 
 func _open_menu(kind: String, index := -1) -> void:
 	menu = kind
@@ -605,21 +668,44 @@ func _menu_key(event: InputEventKey) -> void:
 	_draw_menu()
 
 func placement_valid(pos: Vector3, yaw: float) -> bool:
-	if absf(pos.x)>23.5 or absf(pos.z)>23.5 or pos.z < -6.0 or pos.distance_to(Vector3(0,0,8))<2.0:
+	if not in_build_area(pos) or pos.distance_to(Vector3(0,0,8))<2.0 or not _on_ground(pos) or _near_vehicle(pos, 3.0):
 		return false
 	for body in world.get_children():
-		if body == ghost or not body is StaticBody3D or body.name == "Quarry floor":
+		if body == ghost or not body is StaticBody3D or body.name == "Quarry floor" or body.has_meta("ground"):
 			continue
 		if not body.collision_layer:
 			continue
 		var d: Vector3 = body.position - pos
 		if absf(d.x)<2.1 and absf(d.z)<2.1:
 			return false
-	for c in state.crushers:
-		var p: Array = c["position"]
+	for i in range(state.crushers.size()):
+		if str(relocating.get("kind", "")) == "crusher" and int(relocating["index"]) == i:
+			continue
+		var p: Array = state.crushers[i]["position"]
 		if Vector2(pos.x,pos.z).distance_to(Vector2(float(p[0]),float(p[2])))<2.5:
 			return false
 	return true
+
+## Buildable ground: the original quarry floor, plus the east expansion once it is open.
+func in_build_area(pos: Vector3, margin := 0.0) -> bool:
+	if absf(pos.x) <= 23.5 - margin and absf(pos.z) <= 23.5 - margin and pos.z >= -6.0:
+		return true
+	return business.expansion_unlocked and pos.x >= 31.0 + margin and pos.x <= 47.5 - margin and absf(pos.z) <= 11.5 - margin
+
+## True when a downward ray at pos lands on open quarry ground (not a structure or slab).
+func _on_ground(pos: Vector3) -> bool:
+	var query := PhysicsRayQueryParameters3D.create(pos + Vector3(0, 3, 0), pos - Vector3(0, 1, 0), 1)
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	if not hit:
+		return false
+	var body: Node = hit["collider"]
+	return body.name == "Quarry floor" or body.has_meta("ground")
+
+func _near_vehicle(pos: Vector3, radius: float) -> bool:
+	for v in vehicle_nodes.values():
+		if Vector2(pos.x, pos.z).distance_to(Vector2(v.global_position.x, v.global_position.z)) < radius:
+			return true
+	return false
 
 func _update_ghost() -> void:
 	var start := player.camera.global_position
@@ -647,13 +733,23 @@ func _update_ghost() -> void:
 		placement_hint = "\nIN: %s  ->  OUT: %s" % [business.describe_ep(link["src"]), business.describe_ep(link["dst"])]
 	else:
 		ghost_valid = placement_valid(ghost.position,placement_yaw)
+	if ghost_ok_mat == null:
+		ghost_ok_mat = StandardMaterial3D.new()
+		ghost_ok_mat.albedo_color = Color(0.35, 0.95, 0.4, 0.5)
+		ghost_ok_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		ghost_ok_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		ghost_bad_mat = ghost_ok_mat.duplicate()
+		ghost_bad_mat.albedo_color = Color(1.0, 0.25, 0.2, 0.5)
 	for child in ghost.get_children():
 		if child is MeshInstance3D:
-			child.transparency = 0.42 if ghost_valid else 0.65
+			child.material_override = ghost_ok_mat if ghost_valid else ghost_bad_mat
 
 func _place_ghost() -> void:
 	if not ghost_valid:
 		_notify("Blocked. Choose clear, level ground.")
+		return
+	if not relocating.is_empty():
+		_finish_relocation()
 		return
 	match placement_kind:
 		"crusher":
@@ -698,6 +794,9 @@ func _start_placement(kind: String) -> void:
 	_notify("Choose a clear patch of ground. R rotates, G toggles grid snap, LMB places.")
 
 func _cancel_placement(refund := true) -> void:
+	if not relocating.is_empty():
+		_restore_relocated() # cancel a move: original spot, no money involved
+		refund = false
 	if refund:
 		state.money += _placement_price(placement_kind)
 	placement = false
@@ -735,9 +834,15 @@ func _save() -> void:
 		if w:
 			e["position"] = [w.global_position.x, w.global_position.y, w.global_position.z]
 			e["yaw"] = w.rotation.y
+	for v in vehicle_nodes.values():
+		var rec := fleet.vehicle(v.vehicle_id)
+		if not rec.is_empty():
+			v.save_into(rec)
+	fleet.driving_id = driving.vehicle_id if driving else -1
 	var data := state.snapshot()
 	data["pieces"] = pieces
 	data["phase2"] = business.snapshot()
+	data["phase3"] = fleet.snapshot()
 	var f := FileAccess.open(SAVE_PATH,FileAccess.WRITE)
 	if f:
 		f.store_string(JSON.stringify(data))
@@ -756,6 +861,11 @@ func _load() -> void:
 		return
 	var phase2 = data.get("phase2", {})
 	business.restore(phase2 if phase2 is Dictionary else {})
+	var phase3 = data.get("phase3", {})
+	fleet.restore(phase3 if phase3 is Dictionary else {})
+	var resume_driving := fleet.driving_id
+	_reset_driving()
+	construction = false
 	if placement:
 		_cancel_placement(false)
 	for body in ground_pieces.values():
@@ -789,8 +899,10 @@ func _load() -> void:
 		_create_output(i)
 	for i in range(business.conveyors.size()):
 		_create_conveyor(i)
+	_place_storage_body()
 	business.compute_links()
 	_sync_workers()
+	_sync_vehicles(true)
 	_rebake_nav()
 	var p: Array = state.player_position
 	player.position = Vector3(float(p[0]),maxf(0.05,float(p[1])),float(p[2]))
@@ -799,6 +911,8 @@ func _load() -> void:
 	_update_light()
 	if menu != "":
 		_close_menu()
+	if resume_driving >= 0 and vehicle_nodes.has(resume_driving):
+		enter_vehicle(vehicle_nodes[resume_driving])
 	_notify("Loaded quarry progress")
 
 # ===================================================================== Phase 2
@@ -843,6 +957,7 @@ func _set_expansion(unlocked: bool) -> void:
 				if str(ground_pieces[id].get_meta("deposit")) == kind:
 					ground_pieces[id].queue_free()
 					ground_pieces.erase(id)
+	_refresh_pile_presence()
 	nav_dirty = true
 
 # --------------------------------------------------------------- navigation
@@ -865,13 +980,18 @@ func _rebake_nav() -> void:
 		if not body is StaticBody3D or not body.is_inside_tree():
 			continue
 		var kind := str(body.get_meta("kind", ""))
-		if kind == "piece" or bool(body.get_meta("nav_skip", false)) or body.is_queued_for_deletion():
-			continue
+		if kind in ["piece", "conveyor"] or bool(body.get_meta("nav_skip", false)) or body.is_queued_for_deletion():
+			continue # loose pieces and low conveyor belts can be stepped over
 		if body.collision_layer == 0 and kind != "deposit":
 			continue
 		for child in body.get_children():
 			if child is CollisionShape3D and child.shape is BoxShape3D:
 				source.add_faces(_box_faces(child.shape.size), body.global_transform * child.transform)
+	for v in vehicle_nodes.values():
+		if v != driving and not v.is_queued_for_deletion():
+			for child in v.get_children():
+				if child is CollisionShape3D and child.shape is BoxShape3D:
+					source.add_faces(_box_faces(child.shape.size), v.global_transform * child.transform)
 	var mesh := NavigationMesh.new()
 	mesh.cell_size = 0.25
 	mesh.cell_height = 0.25
@@ -900,7 +1020,7 @@ func break_spot(slot: int) -> Vector3:
 ## Standing area for a workplace endpoint: centre, radius of reachable ring, preferred side.
 func workplace(ep: Dictionary) -> Dictionary:
 	match str(ep.get("type", "")):
-		"storage": return {"pos": Business.STORAGE_POS, "radius": 2.1, "face": Vector3(-0.3,0,-1)}
+		"storage": return {"pos": business.storage_pos, "radius": 2.1, "face": Vector3(-0.3,0,-1)}
 		"sell": return {"pos": Vector3(-7,0,10), "radius": 2.0, "face": Vector3(0,0,1)}
 		"crusher":
 			var i := int(ep.get("index", -1))
@@ -1036,9 +1156,9 @@ func _output_visual(parent: Node3D, transparent := false) -> void:
 			child.transparency = 0.45
 
 func _conveyor_visual(parent: Node3D, transparent := false) -> void:
-	_visual_box(parent,Vector3(0,0.22,0),Vector3(0.9,0.44,2.0),Color(0.16,0.17,0.18))
-	_visual_box(parent,Vector3(0,0.45,0),Vector3(0.7,0.04,2.0),Color(0.07,0.07,0.07))
-	_visual_box(parent,Vector3(0,0.48,-0.75),Vector3(0.2,0.02,0.32),Color(0.85,0.70,0.15))
+	_visual_box(parent,Vector3(0,0.13,0),Vector3(0.9,0.26,2.0),Color(0.16,0.17,0.18))
+	_visual_box(parent,Vector3(0,0.27,0),Vector3(0.7,0.04,2.0),Color(0.07,0.07,0.07))
+	_visual_box(parent,Vector3(0,0.30,-0.75),Vector3(0.2,0.02,0.32),Color(0.85,0.70,0.15))
 	if transparent:
 		for child in parent.get_children():
 			child.transparency = 0.45
@@ -1057,14 +1177,19 @@ func _create_output(index: int) -> void:
 func _create_conveyor(index: int) -> void:
 	var data: Dictionary = business.conveyors[index]
 	var p := Business.v3(data["position"])
-	var body := _solid(world,"Conveyor",Vector3(p.x,0.22,p.z),Vector3(0.9,0.44,2.0),Color(0.16,0.17,0.18),float(data["yaw"]))
+	# Phase 3: a low belt on its own collision layer (16). People step over it; vehicles,
+	# placement and interaction still see it. Small supports mark the crossing points.
+	var body := _solid(world,"Conveyor",Vector3(p.x,0.13,p.z),Vector3(0.9,0.26,2.0),Color(0.16,0.17,0.18),float(data["yaw"]))
+	body.collision_layer = 16
 	body.set_meta("kind","conveyor")
 	body.set_meta("index",index)
-	_visual_box(body,Vector3(0,0.23,0),Vector3(0.7,0.04,2.0),Color(0.07,0.07,0.07))
-	_visual_box(body,Vector3(0,0.26,-0.75),Vector3(0.2,0.02,0.32),Color(0.85,0.70,0.15))
+	_visual_box(body,Vector3(0,0.14,0),Vector3(0.7,0.04,2.0),Color(0.07,0.07,0.07))
+	_visual_box(body,Vector3(0,0.17,-0.75),Vector3(0.2,0.02,0.32),Color(0.85,0.70,0.15))
+	for z in [-0.95, 0.95]:
+		_visual_box(body,Vector3(0,-0.02,z),Vector3(1.05,0.24,0.1),Color(0.85,0.70,0.15))
 	var items := []
 	for i in range(int(business.cfg.get("conveyor_capacity", 3))):
-		var item := _visual_box(body,Vector3(0,0.42,0),Vector3(0.3,0.3,0.3),Color(0.67,0.66,0.56))
+		var item := _visual_box(body,Vector3(0,0.28,0),Vector3(0.26,0.26,0.26),Color(0.67,0.66,0.56))
 		item.visible = false
 		items.append(item)
 	body.set_meta("items", items)
@@ -1090,7 +1215,7 @@ func _update_structures() -> void:
 		fill.position.y = -0.5 + 0.5 * maxf(0.05, ratio) + 0.08
 
 func conveyor_valid(pos: Vector3, yaw: float) -> bool:
-	if absf(pos.x) > 24.0 or absf(pos.z) > 24.0 or pos.z < -6.5:
+	if not in_build_area(pos) or not _on_ground(pos) or _near_vehicle(pos, 2.6):
 		return false
 	if player and Vector2(pos.x,pos.z).distance_to(Vector2(player.global_position.x,player.global_position.z)) < 1.3:
 		return false
@@ -1098,7 +1223,7 @@ func conveyor_valid(pos: Vector3, yaw: float) -> bool:
 	var side := Vector3(fwd.z, 0, -fwd.x)
 	var points := [pos, pos + fwd * 0.85, pos - fwd * 0.85, pos + side * 0.4, pos - side * 0.4]
 	for body in world.get_children():
-		if body == ghost or not body is StaticBody3D or body.collision_layer != 1 or body.has_meta("ground") or body.name == "Quarry floor":
+		if body == ghost or not body is StaticBody3D or (body.collision_layer & (1 | 16)) == 0 or body.has_meta("ground") or body.name == "Quarry floor":
 			continue
 		for child in body.get_children():
 			if child is CollisionShape3D and child.shape is BoxShape3D:
@@ -1131,3 +1256,443 @@ func _update_milestone_hud() -> void:
 	if alerts > 2:
 		text += "\n! +%d more (M)" % (alerts - 2)
 	milestone_label.text = text
+
+# ===================================================================== Phase 3
+
+func _build_phase3_area() -> void:
+	var road := Color(0.27,0.26,0.24)
+	_visual_box(world, Vector3(5.5,0.012,13.2), Vector3(3.6,0.024,11.0), road)    # parking -> yard
+	_visual_box(world, Vector3(20.0,0.014,7.5), Vector3(20.0,0.028,3.6), road)    # yard -> east expansion
+	_visual_box(world, Vector3(5.0,0.01,18.5), Vector3(19.0,0.02,4.6), Color(0.30,0.29,0.26)) # parking apron
+	for slot in fleet.cfg.get("parking", []):
+		for side in [-1.4, 1.4]:
+			_visual_box(world, Vector3(float(slot[0]) + side,0.03,float(slot[2])), Vector3(0.12,0.02,4.2), Color(0.85,0.75,0.2))
+	var sign := _solid(world, "Equipment parking sign", Vector3(-4.5,1.0,18.5), Vector3(0.2,2.0,1.4), Color(0.85,0.62,0.12))
+	sign.set_meta("kind", "parking_sign")
+	for id in fleet.cfg.get("piles", {}):
+		var info: Dictionary = fleet.cfg["piles"][id]
+		var pos := Business.v3(info["pos"])
+		var color: Color = WorkerScript.RESOURCE_COLORS.get(str(info["resource"]), Color.GRAY)
+		var body := _solid(world, "Rubble pile", pos + Vector3(0,0.3,0), Vector3(1.4,0.6,1.4), color.darkened(0.15))
+		body.set_meta("kind", "pile")
+		body.set_meta("pile", id)
+		var mound := Node3D.new()
+		mound.position.y = -0.3
+		body.add_child(mound)
+		_visual_box(mound, Vector3(0,0.45,0), Vector3(2.5,0.9,2.2), color, 0.2)
+		_visual_box(mound, Vector3(0.2,1.05,-0.1), Vector3(1.5,0.5,1.4), color.lightened(0.08), 0.9)
+		body.set_meta("mound", mound)
+		pile_nodes[id] = body
+	_refresh_pile_presence()
+
+func _refresh_pile_presence() -> void:
+	for id in pile_nodes:
+		var active := fleet.pile_active(id)
+		var body: StaticBody3D = pile_nodes[id]
+		body.visible = active
+		body.collision_layer = 1 if active else 0
+		body.set_meta("nav_skip", not active)
+
+func _update_piles() -> void:
+	var cap := float(fleet.cfg.get("pile_max", 30))
+	for id in pile_nodes:
+		var body: StaticBody3D = pile_nodes[id]
+		if body.visible:
+			var mound: Node3D = body.get_meta("mound")
+			mound.scale = Vector3(1, clampf(float(fleet.piles[id]["amount"]) / cap, 0.08, 1.0), 1)
+
+# --------------------------------------------------------------- vehicles
+
+func _sync_vehicles(rebuild := false) -> void:
+	if rebuild:
+		for v in vehicle_nodes.values():
+			v.queue_free()
+		vehicle_nodes.clear()
+	for rec in fleet.vehicles:
+		var id := int(rec["id"])
+		if vehicle_nodes.has(id):
+			continue
+		var v = VehicleScript.new()
+		v.setup(self, fleet, rec)
+		vehicles_root.add_child(v)
+		vehicle_nodes[id] = v
+
+## First equipment parking slot with nothing on it (vehicles, people, objects).
+func free_parking_slot() -> Variant:
+	for slot in fleet.cfg.get("parking", []):
+		var pos := Vector3(float(slot[0]), 0.05, float(slot[2]))
+		if _near_vehicle(pos, 3.5):
+			continue
+		var shape := BoxShape3D.new()
+		shape.size = Vector3(2.6, 1.8, 4.8)
+		var q := PhysicsShapeQueryParameters3D.new()
+		q.shape = shape
+		q.transform = Transform3D(Basis(), pos + Vector3(0, 1.1, 0))
+		q.collision_mask = 1 | 4 | 8 | 16
+		if get_world_3d().direct_space_state.intersect_shape(q, 1).is_empty():
+			return pos
+	return null
+
+func enter_vehicle(v: QuarryVehicle) -> void:
+	if driving or v == null:
+		return
+	driving = v
+	v.driven = true
+	v.settled_frames = 0
+	fleet.driving_id = v.vehicle_id
+	v.camera.current = true
+	player.visible = false
+	player.process_mode = Node.PROCESS_MODE_DISABLED
+	player.collision_layer = 0
+	player.velocity = Vector3.ZERO
+	construction = false
+	nav_dirty = true
+	_notify("Driving the %s. E to exit." % fleet.spec(v.vtype)["title"])
+
+## Safe exit beside the vehicle; refuses when moving or boxed in.
+func exit_vehicle() -> bool:
+	if driving == null:
+		return false
+	if absf(driving.speed) > 1.2:
+		_notify("Brake to a stop before getting out (Space).")
+		return false
+	var spot = _exit_spot(driving)
+	if spot == null:
+		_notify("No room to get out here - move the vehicle.")
+		return false
+	var v := driving
+	_reset_driving()
+	player.global_position = spot
+	player.rotation.y = v.rotation.y
+	return true
+
+## Returns control to the on-foot player without moving them (used by exit and load).
+func _reset_driving() -> void:
+	if driving:
+		driving.driven = false
+		driving.input = {"throttle": 0.0, "steer": 0.0, "brake": true}
+	driving = null
+	fleet.driving_id = -1
+	player.visible = true
+	player.process_mode = Node.PROCESS_MODE_INHERIT
+	player.collision_layer = 1
+	player.velocity = Vector3.ZERO
+	player.camera.current = true
+	nav_dirty = true # parked vehicle becomes an obstacle for workers
+
+func _exit_spot(v: QuarryVehicle) -> Variant:
+	var hx := v.size.x * 0.5 + 0.8
+	var hz := v.size.z * 0.5 + 0.9
+	var capsule := CapsuleShape3D.new()
+	capsule.radius = 0.36
+	capsule.height = 1.75
+	for local in [Vector3(-hx,0,0), Vector3(hx,0,0), Vector3(0,0,hz), Vector3(0,0,-hz)]:
+		var p: Vector3 = v.global_transform * local
+		p.y = v.global_position.y + 0.05
+		var q := PhysicsShapeQueryParameters3D.new()
+		q.shape = capsule
+		q.transform = Transform3D(Basis(), p + Vector3(0, 0.98, 0))
+		q.collision_mask = 1 | 4 | 8 | 16
+		q.exclude = [v.get_rid()]
+		if not get_world_3d().direct_space_state.intersect_shape(q, 1).is_empty():
+			continue
+		var ray := PhysicsRayQueryParameters3D.create(p + Vector3(0,1,0), p - Vector3(0,1.5,0), 1)
+		if get_world_3d().direct_space_state.intersect_ray(ray):
+			return p
+	return null
+
+func _driving_input(event: InputEvent) -> bool:
+	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+		driving.rotate_camera(event.relative)
+		return true
+	if event.is_action_pressed("interact"):
+		exit_vehicle()
+		return true
+	if event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			if driving.vtype == "loader":
+				loader_primary(driving)
+			return true
+		if event.button_index == MOUSE_BUTTON_RIGHT:
+			vehicle_dump(driving)
+			return true
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.physical_keycode == KEY_R:
+			driving.recover()
+			_notify("Vehicle recovered to its last clear position")
+			return true
+		if event.physical_keycode == KEY_B:
+			return true
+	return false
+
+func _nearest_pile(point: Vector3, radius: float) -> String:
+	var best := ""
+	var best_d := radius
+	for id in pile_nodes:
+		if not fleet.pile_active(id):
+			continue
+		var d := Vector2(point.x, point.z).distance_to(Vector2(pile_nodes[id].global_position.x, pile_nodes[id].global_position.z))
+		if d < best_d:
+			best_d = d
+			best = id
+	return best
+
+## Contextual LMB: a lowered bucket scoops (pile first, then loose pieces) and lifts;
+## a raised bucket lowers.
+func loader_primary(v: QuarryVehicle) -> int:
+	var rec := fleet.vehicle(v.vehicle_id)
+	if v.bucket_target > 0.5:
+		v.bucket_target = 0.0
+		_notify("Bucket lowered - drive into a rubble pile and press LMB to scoop.")
+		return 0
+	var point := v.work_point()
+	var got := 0
+	var source := ""
+	var pile := _nearest_pile(point, 3.0)
+	if pile != "" and int(fleet.piles[pile]["amount"]) > 0:
+		got = fleet.scoop_pile(rec, pile)
+		source = str(fleet.cfg["piles"][pile]["title"]).to_lower()
+	if fleet.space(rec) > 0:
+		var near := []
+		for id in ground_pieces:
+			var body: Node3D = ground_pieces[id]
+			if not body.is_queued_for_deletion() and Vector2(point.x, point.z).distance_to(Vector2(body.global_position.x, body.global_position.z)) < 2.6:
+				near.append(id)
+		for id in near:
+			if fleet.space(rec) <= 0:
+				break
+			var body: Node3D = ground_pieces[id]
+			if fleet.add_cargo(rec, str(body.get_meta("resource")), 1) == 1:
+				ground_pieces.erase(id)
+				body.queue_free()
+				got += 1
+				source = "loose rock" if source == "" else source + " and loose rock"
+	v.bucket_target = 1.0
+	if got > 0:
+		pickup_audio.play()
+		_notify("Scooped %d from %s. Bucket %d/%d." % [got, source, fleet.cargo_total(rec), fleet.capacity(rec)])
+	elif fleet.space(rec) <= 0:
+		_notify("Bucket is full - dump it into a truck, crusher hopper or the storage crate (RMB).")
+	else:
+		_notify("Nothing to scoop here. Lower the bucket at a rubble pile or loose rock.")
+	return got
+
+## Nearest place a vehicle can deliver to around `point`.
+func dump_target(point: Vector3, radius: float, from: QuarryVehicle) -> Dictionary:
+	var best := {}
+	var best_d := radius
+	var candidates := [[{"type": "storage"}, business.storage_pos]]
+	for i in range(state.crushers.size()):
+		candidates.append([{"type": "crusher", "index": i}, Business.v3(state.crushers[i]["position"])])
+	for i in range(business.outputs.size()):
+		candidates.append([{"type": "output", "index": i}, Business.v3(business.outputs[i]["position"])])
+	for c in candidates:
+		var d := Vector2(point.x, point.z).distance_to(Vector2(c[1].x, c[1].z))
+		if d < best_d:
+			best_d = d
+			best = {"ep": c[0]}
+	if from.vtype == "loader":
+		for other in vehicle_nodes.values():
+			if other != from and other.vtype == "truck":
+				var c: Vector3 = other.bed_center()
+				var d := Vector2(point.x, point.z).distance_to(Vector2(c.x, c.z))
+				if d < maxf(best_d, 3.2):
+					best_d = d
+					best = {"truck": other}
+	return best
+
+func _target_name(t: Dictionary) -> String:
+	if t.has("truck"):
+		return "the dump truck"
+	return business.describe_ep(t["ep"])
+
+## RMB: loader dumps its bucket; truck raises its bed and unloads.
+func vehicle_dump(v: QuarryVehicle) -> int:
+	var rec := fleet.vehicle(v.vehicle_id)
+	if fleet.cargo_total(rec) <= 0:
+		_notify("Nothing to unload.")
+		return 0
+	var t := dump_target(v.work_point(), 3.0, v)
+	if t.is_empty():
+		_notify("Nothing to unload into here. Get close to a storage crate, crusher, output storage%s." % (" or truck" if v.vtype == "loader" else ""))
+		return 0
+	if v.vtype == "truck":
+		if v.unload_timer > 0.0:
+			return 0
+		v.start_unload(t)
+		_notify("Raising the bed over %s..." % _target_name(t))
+		return 0
+	var moved := 0
+	if t.has("truck"):
+		moved = fleet.transfer(rec, fleet.vehicle(t["truck"].vehicle_id))
+	else:
+		moved = fleet.dump_to(rec, t["ep"])
+	v.dump_timer = 1.0
+	_notify("Dumped %d into %s.%s" % [moved, _target_name(t), (" %d left in the bucket (target full or wrong material)." % fleet.cargo_total(rec)) if fleet.cargo_total(rec) > 0 else ""])
+	return moved
+
+func truck_finish_unload(v: QuarryVehicle, t: Dictionary) -> int:
+	var rec := fleet.vehicle(v.vehicle_id)
+	if rec.is_empty() or not t.has("ep") or not business.ep_valid(t["ep"]):
+		return 0
+	var moved := fleet.dump_to(rec, t["ep"])
+	_notify("Unloaded %d into %s.%s" % [moved, _target_name(t), (" %d stays on the truck (target full or wrong material)." % fleet.cargo_total(rec)) if fleet.cargo_total(rec) > 0 else ""])
+	return moved
+
+func _driving_hud() -> String:
+	var rec := fleet.vehicle(driving.vehicle_id)
+	var cargo := ""
+	for k in rec["cargo"]:
+		cargo += " %s %d" % [str(k).replace("_", " "), rec["cargo"][k]]
+	var hint := ""
+	var point := driving.work_point()
+	if driving.vtype == "loader":
+		var pile := _nearest_pile(point, 3.0)
+		if driving.bucket_target < 0.5 and pile != "":
+			hint = "  >> LMB scoop %s (%d)" % [fleet.cfg["piles"][pile]["title"], fleet.piles[pile]["amount"]]
+	if fleet.cargo_total(rec) > 0:
+		var t := dump_target(point, 3.0, driving)
+		if not t.is_empty():
+			hint = "  >> RMB unload into " + _target_name(t)
+	var load_label := "BUCKET" if driving.vtype == "loader" else "BED"
+	var controls := "WASD drive  Mouse look  %sRMB %s  Space brake  R recover  E exit" % ["LMB bucket %s  " % ("down" if driving.bucket_target > 0.5 else "up/scoop") if driving.vtype == "loader" else "", "dump bucket" if driving.vtype == "loader" else "raise bed / unload"]
+	return "%s  %.1f m/s   %s %d/%d%s%s\n%s" % [fleet.spec(driving.vtype)["title"].to_upper(), absf(driving.speed), load_label, fleet.cargo_total(rec), fleet.capacity(rec), cargo, hint, controls]
+
+func ui_buy_vehicle(type: String) -> String:
+	var reason := fleet.buy_block_reason(type)
+	if reason != "":
+		return reason
+	var slot = free_parking_slot()
+	if slot == null:
+		return "Equipment parking is blocked - clear a parking bay south of the yard"
+	fleet.buy(type, slot, 0.0)
+	_sync_vehicles()
+	nav_dirty = true
+	return "%s delivered to the equipment parking area." % fleet.spec(type)["title"]
+
+func ui_vehicle_upgrade(key: String) -> String:
+	var reason := fleet.upgrade_block_reason(key)
+	if reason != "":
+		return reason
+	fleet.buy_upgrade(key)
+	return "%s installed." % fleet.cfg["upgrades"][key]["title"]
+
+# --------------------------------------------------------------- construction management
+
+func _structure_node(kind: String, index: int) -> Node3D:
+	match kind:
+		"crusher": return crusher_nodes[index] if index >= 0 and index < crusher_nodes.size() else null
+		"output": return output_nodes[index] if index >= 0 and index < output_nodes.size() else null
+		"conveyor": return conveyor_nodes[index] if index >= 0 and index < conveyor_nodes.size() else null
+		"storage": return storage_body
+	return null
+
+func _construction_target() -> Dictionary:
+	if last_target == null or not is_instance_valid(last_target):
+		return {}
+	var k := str(last_target.get_meta("kind", ""))
+	if k in ["crusher", "output", "conveyor", "storage"]:
+		return {"kind": k, "index": int(last_target.get_meta("index", 0))}
+	return {}
+
+func _structure_name(kind: String, index: int) -> String:
+	return "Storage crate" if kind == "storage" else business.describe_ep({"type": kind, "index": index})
+
+func _construction_prompt() -> String:
+	var t := _construction_target()
+	if t.is_empty():
+		return "CONSTRUCTION MODE: aim at a crusher, conveyor, storage crate or output storage  |  B / Esc exit"
+	var kind := str(t["kind"])
+	var index := int(t["index"])
+	if kind == "storage":
+		return "Storage crate  |  LMB move  (the main crate cannot be sold)  |  B exit"
+	var n := business.contents_total(business.structure_contents(kind, index))
+	return "%s%s  |  LMB move  |  X sell (+$%d refund)  |  B exit" % [_structure_name(kind, index), (" holding %d items" % n) if n > 0 else "", business.refund_value(kind)]
+
+func start_relocation(kind: String, index: int) -> bool:
+	var node := _structure_node(kind, index)
+	if node == null or placement:
+		return false
+	relocating = {"kind": kind, "index": index, "layer": node.collision_layer}
+	node.visible = false
+	node.collision_layer = 0
+	placement = true
+	placement_kind = kind
+	placement_yaw = node.rotation.y
+	ghost = Node3D.new()
+	world.add_child(ghost)
+	match kind:
+		"crusher": _crusher_visual(ghost, true)
+		"output": _output_visual(ghost, true)
+		"conveyor": _conveyor_visual(ghost, true)
+		"storage": _visual_box(ghost, Vector3(0,0.65,0), Vector3(2,1.3,1.6), Color(0.33,0.23,0.13))
+	_notify("Moving %s. LMB confirm, R rotate, Esc cancel (stays where it was)." % _structure_name(kind, index))
+	return true
+
+func _finish_relocation() -> void:
+	var kind := str(relocating["kind"])
+	var index := int(relocating["index"])
+	var node := _structure_node(kind, index)
+	business.move_structure(kind, index, ghost.position, placement_yaw)
+	node.position = Vector3(ghost.position.x, node.position.y, ghost.position.z)
+	node.rotation.y = 0.0 if kind == "storage" else placement_yaw
+	node.collision_layer = int(relocating["layer"])
+	node.visible = true
+	relocating = {}
+	business.compute_links()
+	nav_dirty = true
+	_cancel_placement(false)
+	_notify("%s moved. Connections and worker routes updated." % _structure_name(kind, index))
+
+func _restore_relocated() -> void:
+	var node := _structure_node(str(relocating["kind"]), int(relocating["index"]))
+	if node:
+		node.collision_layer = int(relocating["layer"])
+		node.visible = true
+	relocating = {}
+
+## X in construction mode. Structures holding material need a second press to confirm.
+func request_sell(kind: String, index: int, confirmed := false) -> int:
+	var reason := business.sell_block_reason(kind, index)
+	if reason != "":
+		_notify(reason)
+		return -1
+	var key := "%s:%d" % [kind, index]
+	var n := business.contents_total(business.structure_contents(kind, index))
+	if n > 0 and not confirmed and sell_confirm != key:
+		sell_confirm = key
+		_notify("%s holds %d items. Press X again to sell; contents go to the storage crate, output storage or your bag." % [_structure_name(kind, index), n])
+		return -1
+	sell_confirm = ""
+	var label := _structure_name(kind, index)
+	var refund := business.sell_structure(kind, index)
+	_rebuild_structures(kind)
+	nav_dirty = true
+	_notify("%s sold for $%d.%s" % [label, refund, " Contents returned to storage." if n > 0 else ""])
+	return refund
+
+func _rebuild_structures(kind: String) -> void:
+	match kind:
+		"crusher":
+			for b in crusher_nodes:
+				b.queue_free()
+			crusher_nodes.clear()
+			for i in range(state.crushers.size()):
+				_create_crusher(i)
+		"output":
+			for b in output_nodes:
+				b.queue_free()
+			output_nodes.clear()
+			for i in range(business.outputs.size()):
+				_create_output(i)
+		"conveyor":
+			for b in conveyor_nodes:
+				b.queue_free()
+			conveyor_nodes.clear()
+			for i in range(business.conveyors.size()):
+				_create_conveyor(i)
+	business.compute_links()
+
+func _place_storage_body() -> void:
+	storage_body.position = Vector3(business.storage_pos.x, 0.65, business.storage_pos.z)
+	storage_body.rotation.y = 0.0

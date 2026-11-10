@@ -2,7 +2,7 @@ extends Control
 ## Office management interface. Mouse driven; the world is paused while it is open.
 ## Sized for the 960x540 base canvas, which scales cleanly to 1280x720 and 1920x1080.
 
-const TABS := [["staff", "STAFF"], ["hire", "HIRE"], ["payroll", "PAYROLL"], ["production", "PRODUCTION"], ["milestones", "MILESTONES"]]
+const TABS := [["staff", "STAFF"], ["hire", "HIRE"], ["payroll", "PAYROLL"], ["production", "PRODUCTION"], ["equipment", "EQUIPMENT"], ["milestones", "MILESTONES"]]
 const INK := Color(0.93, 0.88, 0.74)
 const DIM := Color(0.62, 0.58, 0.48)
 const ACCENT := Color(0.95, 0.74, 0.30)
@@ -50,7 +50,7 @@ func setup(main_node) -> void:
 		var b := Button.new()
 		b.text = t[1]
 		b.toggle_mode = true
-		b.custom_minimum_size = Vector2(104, 0)
+		b.custom_minimum_size = Vector2(96, 0)
 		b.pressed.connect(_set_tab.bind(t[0]))
 		tabs.add_child(b)
 		tab_buttons[t[0]] = b
@@ -161,6 +161,7 @@ func refresh() -> void:
 		"hire": _hire(b)
 		"payroll": _payroll(b)
 		"production": _production(b)
+		"equipment": _equipment()
 		"milestones": _milestones(b)
 
 # ------------------------------------------------------------------ staff
@@ -375,8 +376,8 @@ func _production(b: QuarryBusiness) -> void:
 func _milestones(b: QuarryBusiness) -> void:
 	var info := [
 		["first_employee", "1. FIRST EMPLOYEE", "Hire your first worker.", "Remote management with M anywhere and +5% staff productivity."],
-		["mechanized", "2. MECHANIZED QUARRY", "Own a crusher and employ a machine operator.", "Conveyor belts become available at the machinery kiosk."],
-		["automated", "3. AUTOMATED BUSINESS", "Complete one automated production chain: Miner -> Storage -> Hauler/Conveyor -> Crusher -> Output storage -> Sales clerk.", "Opens the east quarry expansion with new limestone, coal and iron deposits."],
+		["mechanized", "2. MECHANIZED QUARRY", "Own a crusher and employ a machine operator.", "Conveyor belts at the machinery kiosk and the Front Loader in EQUIPMENT."],
+		["automated", "3. AUTOMATED BUSINESS", "Run an automated production chain: Miner -> Storage -> Hauler/Conveyor -> Crusher -> Output storage -> Sales clerk, until the clerk has sold %d crushed stone." % b.sales_goal(), "Opens the east quarry expansion (new deposits, rubble piles and building space) and the Dump Truck."],
 	]
 	for m in info:
 		var card := _card()
@@ -388,3 +389,49 @@ func _milestones(b: QuarryBusiness) -> void:
 			var names := {"mined": "Miner delivers ore to storage", "fed": "Limestone fed into a crusher by hauler or conveyor", "processed": "Operator completes a crushing run", "stored": "Crushed stone reaches an output storage automatically", "sold": "Clerk sells crushed stone"}
 			for step in QuarryBusiness.CHAIN_STEPS:
 				card.add_child(_label(("  [x] " if b.chain[step] else "  [ ] ") + names[step], GOOD if b.chain[step] else DIM, 11))
+			var sold_ok := b.auto_crushed_sold >= b.sales_goal()
+			card.add_child(_label(("  [x] " if sold_ok else "  [ ] ") + "Clerk sales of crushed stone: %d / %d" % [mini(b.auto_crushed_sold, b.sales_goal()), b.sales_goal()], GOOD if sold_ok else DIM, 11))
+
+# ------------------------------------------------------------------ equipment (Phase 3)
+
+func _equipment() -> void:
+	var f: QuarryFleet = game.fleet
+	content.add_child(_label("Heavy machinery is delivered to the equipment parking bays south of the yard. Walk up and press E to drive.", DIM))
+	for type in QuarryFleet.TYPES:
+		var spec: Dictionary = f.spec(type)
+		var card := _card()
+		var row := _row()
+		card.add_child(row)
+		var owned := 0
+		for v in f.vehicles:
+			if str(v["type"]) == type:
+				owned += 1
+		row.add_child(_label("%s   $%d   %s" % [spec["title"], spec["price"], ("owned: %d" % owned) if owned > 0 else ""], ACCENT))
+		var reason: String = f.buy_block_reason(type)
+		var t: String = type
+		row.add_child(_button("Buy" if reason == "" else reason, func(): _say(game.ui_buy_vehicle(t)), reason == ""))
+		var desc := "Scoops rubble piles and loose rock; dumps into the storage crate, crusher hoppers, output storage or a truck." if type == "loader" else "Hauls large loads from the loader to the storage crate, crusher hoppers or output storage. Bed tips to unload."
+		card.add_child(_label(desc, DIM, 11))
+		for v in f.vehicles:
+			if str(v["type"]) == type:
+				var cargo := ""
+				for k in v["cargo"]:
+					cargo += " %s %d" % [str(k).replace("_", " "), v["cargo"][k]]
+				card.add_child(_label("  #%d  load %d/%d%s   top speed %.1f m/s   acceleration %.1f m/s2" % [v["id"], f.cargo_total(v), f.capacity(v), cargo, f.max_speed(v), f.accel(v)], INK, 11))
+	var up := _card()
+	up.add_child(_label("EQUIPMENT UPGRADES", ACCENT))
+	for key in ["bucket", "cargo", "engine"]:
+		var u: Dictionary = f.cfg["upgrades"][key]
+		var row := _row()
+		up.add_child(row)
+		row.add_child(_label("%s ($%d): %s" % [u["title"], u["cost"], u["effect"]], INK, 11))
+		var reason: String = f.upgrade_block_reason(key)
+		var k: String = key
+		row.add_child(_button("Install" if reason == "" else reason, func(): _say(game.ui_vehicle_upgrade(k)), reason == ""))
+	var piles := _card()
+	piles.add_child(_label("RUBBLE PILES (regrow 1 unit every %d in-game minutes, max %d)" % [int(f.cfg["pile_regen_minutes"]), int(f.cfg["pile_max"])], ACCENT))
+	for id in f.piles:
+		if f.pile_active(id):
+			piles.add_child(_label("%s: %d" % [f.cfg["piles"][id]["title"], f.piles[id]["amount"]], INK, 11))
+		else:
+			piles.add_child(_label("%s: opens with the east expansion" % f.cfg["piles"][id]["title"], DIM, 11))

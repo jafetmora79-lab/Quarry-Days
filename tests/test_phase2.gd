@@ -410,6 +410,7 @@ func scene_tests() -> void:
 	# --- milestone 3 and expansion
 	for step in QuarryBusiness.CHAIN_STEPS:
 		game.business.chain[step] = true
+	game.business.auto_crushed_sold = game.business.sales_goal() # Phase 3 pacing goal
 	game.business.check_milestones()
 	check(game.business.milestones["automated"] and game.business.expansion_unlocked and game.deposit_nodes.has("limestone_east"), "milestone 3 opens the expansion with new deposits")
 	check(game.expansion_gate[1].collision_layer == 0 and game.deposit_nodes.size() == 7, "expansion barrier removed; only the three existing minerals")
@@ -452,6 +453,9 @@ func chain_test() -> void:
 	var hauler: Dictionary = game.business.employees[1]
 	check(game.ui_assign(int(hauler["id"]), {"src": {"type": "storage"}, "dst": {"type": "crusher", "index": 0}}) == "Assignment updated", "hauler assigned storage -> crusher hopper")
 	game.business.authorized["crushed_stone"] = true
+	# Phase 3 pacing: milestone 3 needs 20 crushed stone sold by the clerk. Seed hand-mined
+	# limestone in the crate so the test does not wait for five deposit regrowth cycles.
+	game.state.storage["limestone"] = 24
 	var start_money: int = game.state.money
 	var f := await frames(game, 15000, func(): return game.business.milestones["automated"])
 	var tasks := []

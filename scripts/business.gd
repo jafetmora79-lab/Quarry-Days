@@ -12,7 +12,7 @@ const SELL_ORDER := ["crushed_stone", "iron_ore", "coal", "limestone"]
 const MILESTONES := ["first_employee", "mechanized", "automated"]
 const CHAIN_STEPS := ["mined", "fed", "processed", "stored", "sold"]
 const TIME_STATS := ["strike_interval", "pickup_seconds", "load_seconds", "downtime", "handle_seconds", "sell_interval"]
-const STORAGE_POS := Vector3(10, 0, 10)
+const STORAGE_POS := Vector3(10, 0, 10) # default (Phase 1/2) storage crate position
 
 var state: QuarryState
 var cfg: Dictionary
@@ -29,6 +29,8 @@ var expansion_unlocked := false
 var outstanding_debt := 0.0
 var payroll_minute := -1
 var daily := {}
+var storage_pos := STORAGE_POS        # Phase 3: the storage crate can be relocated
+var auto_crushed_sold := 0            # crushed stone sold by clerks (milestone 3 goal)
 
 func _init(quarry_state: QuarryState, settings: Dictionary = {}) -> void:
 	state = quarry_state
@@ -380,7 +382,8 @@ func ep_space(ep: Dictionary, res: String) -> int:
 			return maxi(0, int(cfg.get("conveyor_capacity", 3)) - int(c["items"]))
 	return 0
 
-func ep_put(ep: Dictionary, res: String, n: int) -> int:
+## `automated` is false for player-driven deliveries (vehicles), which never count toward the chain milestone.
+func ep_put(ep: Dictionary, res: String, n: int, automated := true) -> int:
 	var added := mini(n, ep_space(ep, res))
 	if added <= 0:
 		return 0
@@ -389,10 +392,12 @@ func ep_put(ep: Dictionary, res: String, n: int) -> int:
 		"crusher":
 			var crusher: Dictionary = state.crushers[int(ep["index"])]
 			crusher["hopper"] = int(crusher.get("hopper", 0)) + added
-			chain["fed"] = true
+			if automated:
+				chain["fed"] = true
 		"output":
 			outputs[int(ep["index"])]["items"][res] = int(outputs[int(ep["index"])]["items"].get(res, 0)) + added
-			chain["stored"] = true
+			if automated:
+				chain["stored"] = true
 		"conveyor":
 			var c: Dictionary = conveyors[int(ep["index"])]
 			c["items"] = int(c["items"]) + added
@@ -515,6 +520,7 @@ func clerk_sell(e: Dictionary) -> Dictionary:
 		record_units(e, units)
 		if res == "crushed_stone":
 			chain["sold"] = true
+			auto_crushed_sold += units
 			check_milestones()
 		return {"units": units, "money": earned, "resource": res}
 	return {"units": 0, "money": 0, "resource": ""}
@@ -572,7 +578,7 @@ func _endpoint_near(point: Vector3, as_source: bool, skip_conveyor: int) -> Dict
 	for i in range(outputs.size()):
 		if _flat(point, v3(outputs[i]["position"])) < 1.7:
 			return {"type": "output", "index": i}
-	if _flat(point, STORAGE_POS) < 2.0:
+	if _flat(point, storage_pos) < 2.0:
 		return {"type": "storage"}
 	return {}
 
@@ -683,6 +689,8 @@ func check_milestones() -> void:
 		for step in CHAIN_STEPS:
 			if not chain[step]:
 				return
+		if auto_crushed_sold < sales_goal():
+			return
 		_reach("automated")
 
 func _reach(id: String) -> void:
@@ -690,6 +698,10 @@ func _reach(id: String) -> void:
 	if id == "automated":
 		expansion_unlocked = true
 	milestone_reached.emit(id)
+
+## Phase 3 pacing: the chain must sell this much crushed stone, not just a single unit.
+func sales_goal() -> int:
+	return int(cfg.get("automated_sales_goal", 1))
 
 func conveyors_unlocked() -> bool:
 	return milestones["mechanized"]
@@ -702,6 +714,7 @@ func snapshot() -> Dictionary:
 		"outputs": outputs.duplicate(true), "conveyors": conveyors.duplicate(true),
 		"authorized": authorized.duplicate(), "milestones": milestones.duplicate(), "chain": chain.duplicate(),
 		"expansion_unlocked": expansion_unlocked, "outstanding_debt": outstanding_debt,
+		"storage_pos": [storage_pos.x, storage_pos.y, storage_pos.z], "auto_crushed_sold": auto_crushed_sold,
 		"payroll_minute": payroll_minute, "daily": daily.duplicate(true)
 	}
 
@@ -752,7 +765,163 @@ func restore(data: Dictionary) -> void:
 	for k in chain:
 		chain[k] = bool(data.get("chain", {}).get(k, false))
 	expansion_unlocked = bool(data.get("expansion_unlocked", milestones["automated"]))
+	var sp = data.get("storage_pos", [])
+	storage_pos = v3(sp) if sp is Array and sp.size() == 3 else STORAGE_POS
+	auto_crushed_sold = maxi(0, int(data.get("auto_crushed_sold", 0)))
 	outstanding_debt = maxf(0.0, float(data.get("outstanding_debt", 0.0)))
 	payroll_minute = int(data.get("payroll_minute", int(floor(state.clock_minutes))))
 	daily = data.get("daily", {}).duplicate(true)
 	compute_links()
+
+# ---------------------------------------------------------------- Phase 3: construction management
+
+func structure_price(kind: String) -> int:
+	match kind:
+		"crusher": return int(state.config["crusher_price"])
+		"output": return int(cfg["output_storage_price"])
+		"conveyor": return int(cfg["conveyor_price"])
+	return 0
+
+func refund_value(kind: String) -> int:
+	return int(floor(structure_price(kind) * 0.5))
+
+func structure_count(kind: String) -> int:
+	match kind:
+		"crusher": return state.crushers.size()
+		"output": return outputs.size()
+		"conveyor": return conveyors.size()
+		"storage": return 1
+	return 0
+
+func structure_record(kind: String, index: int) -> Dictionary:
+	match kind:
+		"crusher": return state.crushers[index] if index >= 0 and index < state.crushers.size() else {}
+		"output": return outputs[index] if index >= 0 and index < outputs.size() else {}
+		"conveyor": return conveyors[index] if index >= 0 and index < conveyors.size() else {}
+	return {}
+
+## Materials held by a structure, by resource (crusher hopper and loaded input are limestone).
+func structure_contents(kind: String, index: int) -> Dictionary:
+	var r := structure_record(kind, index)
+	var out := {}
+	match kind:
+		"crusher":
+			if not r.is_empty():
+				out["limestone"] = int(r.get("hopper", 0)) + int(r["input"])
+				out["crushed_stone"] = int(r["output"])
+		"output":
+			if not r.is_empty():
+				out = r["items"].duplicate()
+		"conveyor":
+			if not r.is_empty() and int(r["items"]) > 0:
+				out[str(r["resource"])] = int(r["items"])
+	for k in out.keys():
+		if int(out[k]) <= 0:
+			out.erase(k)
+	return out
+
+func contents_total(c: Dictionary) -> int:
+	var n := 0
+	for k in c:
+		n += int(c[k])
+	return n
+
+## Where a removed structure's contents can go: storage crate, other output storages
+## (crushed stone), then the player's backpack. Returns the plan or {} if it cannot fit.
+func _return_plan(kind: String, index: int) -> Array:
+	var contents := structure_contents(kind, index)
+	var crate_space := maxi(0, state.storage_capacity() - state.total(state.storage))
+	var bag_space := maxi(0, state.capacity() - state.total(state.inventory))
+	var plan := []
+	for res in contents:
+		var left := int(contents[res])
+		var n := mini(left, crate_space)
+		if n > 0:
+			plan.append(["storage", -1, res, n])
+			crate_space -= n
+			left -= n
+		if res == "crushed_stone":
+			for j in range(outputs.size()):
+				if left <= 0:
+					break
+				if kind == "output" and j == index:
+					continue
+				var room := maxi(0, output_capacity() - output_total(j))
+				for p in plan:
+					if p[0] == "output" and p[1] == j:
+						room -= int(p[3])
+				n = mini(left, room)
+				if n > 0:
+					plan.append(["output", j, res, n])
+					left -= n
+		n = mini(left, bag_space)
+		if n > 0:
+			plan.append(["bag", -1, res, n])
+			bag_space -= n
+			left -= n
+		if left > 0:
+			return [false, plan]
+	return [true, plan]
+
+func sell_block_reason(kind: String, index: int) -> String:
+	if kind == "storage":
+		return "The main storage crate can be moved but not sold"
+	if structure_record(kind, index).is_empty():
+		return "Nothing to sell"
+	if not bool(_return_plan(kind, index)[0]):
+		return "No room for its %d stored items - empty some storage first" % contents_total(structure_contents(kind, index))
+	return ""
+
+## Sells a structure for 50% of its price. Contents are moved (never created or lost),
+## references in worker assignments are repaired, indices above it shift down.
+func sell_structure(kind: String, index: int) -> int:
+	if sell_block_reason(kind, index) != "":
+		return -1
+	for step in _return_plan(kind, index)[1]:
+		match str(step[0]):
+			"storage": state.storage[step[2]] = int(state.storage[step[2]]) + int(step[3])
+			"output": outputs[int(step[1])]["items"][step[2]] = int(outputs[int(step[1])]["items"][step[2]]) + int(step[3])
+			"bag": state.inventory[step[2]] = int(state.inventory[step[2]]) + int(step[3])
+	match kind:
+		"crusher": state.crushers.remove_at(index)
+		"output": outputs.remove_at(index)
+		"conveyor": conveyors.remove_at(index)
+	_fix_references(kind, index)
+	var refund := refund_value(kind)
+	state.money += refund
+	compute_links()
+	return refund
+
+func _fix_ep(ep: Dictionary, kind: String, removed: int) -> Dictionary:
+	if str(ep.get("type", "")) != kind:
+		return ep
+	var i := int(ep.get("index", -1))
+	var out := ep.duplicate()
+	if i == removed:
+		out["index"] = -1 # dangling: worker stops with a warning until reassigned
+	elif i > removed:
+		out["index"] = i - 1
+	return out
+
+func _fix_references(kind: String, removed: int) -> void:
+	for e in employees:
+		var a: Dictionary = e["assignment"]
+		if kind == "crusher" and a.has("crusher"):
+			var c := int(a["crusher"])
+			a["crusher"] = -1 if c == removed else (c - 1 if c > removed else c)
+		if a.has("src"):
+			a["src"] = _fix_ep(a["src"], kind, removed)
+			a["dst"] = _fix_ep(a["dst"], kind, removed)
+
+## Moves a structure's record; links are rebuilt so production reconnects at the new spot.
+func move_structure(kind: String, index: int, pos: Vector3, yaw: float) -> bool:
+	if kind == "storage":
+		storage_pos = Vector3(pos.x, 0, pos.z)
+	else:
+		var r := structure_record(kind, index)
+		if r.is_empty():
+			return false
+		r["position"] = [pos.x, 0.0, pos.z]
+		r["yaw"] = yaw
+	compute_links()
+	return true

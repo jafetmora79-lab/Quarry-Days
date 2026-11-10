@@ -1,5 +1,6 @@
 {
   "max_employees": 4,
+  "automated_sales_goal": 20,
   "wage_per_upgrade": 0.5,
   "skill_speed_bonus": 0.15,
   "milestone_productivity_bonus": 0.05,
