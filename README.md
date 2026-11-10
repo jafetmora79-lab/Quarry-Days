@@ -1,17 +1,19 @@
-# Quarry Days — Phase 3: Heavy Machinery & Expansion
+# Quarry Days — Phase 4: THE VEIL Art Style & Sustainable Resources
 
-Quarry Days is a standalone Godot 4.3 (GL Compatibility) quarry game for Windows. It uses original generated low-poly geometry, 16×16 pixel materials and synthesized sound effects, and does not load THE VEIL or require any of its files.
+Quarry Days is a standalone Godot 4.3 (GL Compatibility) quarry game for Windows. It shares THE VEIL's visual identity: PSX-era low-poly geometry, nearest-filtered pixel textures from THE VEIL's Greyhaven palette, and characters built with THE VEIL's own character pipeline. It is still its own industrial game. The THE VEIL assets it reuses are copied into this project; it does not need THE VEIL installed.
 
 ## Start
 
-Open `QuarrySimulator.exe` from the Windows ZIP. Keep `QuarrySimulator.pck` beside it. A new game starts at 08:00 with $100. Phase 1 and Phase 2 saves (`user://quarry_save.json`) load directly. Everything already earned is kept. Older saves start with no vehicles, full rubble piles and the storage crate in its original spot.
+Open `QuarrySimulator.exe` from the Windows ZIP. Keep `QuarrySimulator.pck` beside it. A new game starts at 08:00 with $100. Saves from Phases 1–3 (`user://quarry_save.json`) load directly and keep everything already earned:
+- Older saves start with no vehicles, full rubble piles and the storage crate in its original spot.
+- Deposits that were broken when you saved come back empty and regrow; intact ones come back full.
 
 For the editable project, import `project.godot` in Godot 4.3 and run the main scene.
 
 ## Controls
 
 - **WASD** move, **Shift** sprint, mouse look.
-- **Hold left mouse** on a rock deposit to mine it. **E** collects broken pieces or uses the station under the crosshair.
+- **Hold left mouse** on a rock deposit to mine it. **E** collects broken pieces or uses the station under the crosshair. Each deposit shows how much is left (see *Resources* below).
 - **Selling station**: **1–4** sell all of a material from your bag. **Shift+1–4** toggles whether the sales clerk may sell that material.
 - **Storage crate**: **1–4** deposit, **Shift+1–4** withdraw.
 - **Upgrade board**: **1–5** buy personal upgrades.
@@ -36,6 +38,16 @@ For the editable project, import `project.godot` in Godot 4.3 and run the main s
 - **R** recovers a stuck vehicle to its last clear driving position.
 - A small hint at the bottom shows speed, load and what LMB/RMB will do at your position.
 - **F5** save, **F9** load, **Esc** pause or close panels. Closing the game pauses the clock. There are no offline earnings.
+
+## Resources (Phase 4)
+
+You can no longer run out of things to mine. The old system made a deposit disappear for 100 in-game minutes after a single break, and staff miners grabbed the pieces you had just broken. That left nothing to mine and no way to recover with $0. The new rules:
+
+- **Visible stock.** Every deposit holds units: limestone 24, coal 15, iron 8. Each break takes its pieces from that stock. The rock shrinks as it is mined, and a label above it shows `LIMESTONE 18/24`, or `DEPLETED - regrows in N min`. Aiming at a deposit shows the same in the prompt.
+- **Predictable regrowth.** One unit comes back every 3 (limestone), 6 (coal) or 12 (iron) in-game minutes, up to the cap. A depleted deposit stays in place as a small, solid stub and is minable again as soon as one unit has regrown.
+- **Quarry face.** A wide limestone face on the north-west pit wall never runs out. It is slow (5 hits, 2 pieces) and reserved for hand mining; staff never use it. A player with no money and nothing loose can always mine it, sell the limestone and recover.
+- **Shared, honest quantities.** You, miners and the loader all draw from the same stock. Pieces you break are yours for 15 in-game minutes; staff leave them alone. Nothing is created beyond what a stock gives up.
+- **Rarer minerals.** Coal and iron regrow more slowly. More of every mineral is in the east expansion and the rubble piles.
 
 ## Running the business
 
@@ -87,6 +99,18 @@ Workers path around machines, walls, parked vehicles and each other, and step ov
 - `data/economy.json`: Phase 1 prices, crusher and storage settings.
 - `data/business.json`: candidates, professions, wages, upgrade paths, shift defaults, conveyor rate and capacity, output storage size and prices, and the Milestone 3 sales goal.
 - `data/vehicles.json`: vehicle prices, unlock milestones, capacities, handling, upgrades, parking bays and rubble piles.
+- `data/economy.json`: also deposit stock (`deposit_stock`), regrowth (`deposit_regrow_minutes`) and the quarry face (`quarry_face`).
+
+## Art pipeline (THE VEIL style)
+
+- `THE_VEIL_ASSETS_V2/`: props, Godot materials and pixel textures reused from THE VEIL at their original paths. `tools/import_veil_assets.py` copies them with their full dependency closure (148 files, under 1 MB) and only ever reads THE VEIL. Reused props include the office desk and computer, chair, notice board, filing cabinet, windows, door, wall lamp, workbench, shelving, toolbox, pallets, electrical cabinet, barriers, cones, dumpster, light poles, bench, retaining walls, railings, pines, rocks and dirt mounds.
+- `tools/qd_textures.py`: paints the quarry-specific textures by THE VEIL's rules. Every pixel comes from the Greyhaven palette, at 64 px/m with top-left light and pixel clusters rather than noise. The set covers bedded limestone, coal and iron rock, drilled cliff strata, quarry gravel, dirt, corrugated metal, painted machine panels, tyre tread, belt, hazard stripes and pixel-font signs. Output goes to `assets/`, imported lossless with nearest filtering.
+- `tools/veil_pipeline/qd_style_cast.py`: builds the four workers with THE VEIL's character pipeline, derived from its `chr_style_cast.py` and the hand-made Eddie reference. It reads a local THE VEIL checkout and writes `assets/characters/`. The workers keep THE VEIL's rig, sockets and texture manner, and add hard hats, gloves and hi-vis fabric.
+- `scripts/art/`:
+  - `mesh_kit.gd`: low-poly builders with meter-UVs.
+  - `quarry_art.gd`: dresses the terrain, buildings, machinery and props. Gameplay colliders are unchanged.
+  - `vehicle_models.gd`: the loader and truck models.
+  - `veil_rig.gd`: worker animation, adapted from THE VEIL's `npc_animator.gd`.
 
 ## Tests
 
@@ -94,16 +118,16 @@ Workers path around machines, walls, parked vehicles and each other, and step ov
 godot --headless -s tests/test_quarry.gd                     # Phase 1 (21 checks)
 godot --headless --fixed-fps 60 -s tests/test_phase2.gd      # Phase 2 (100 checks, accelerated time)
 godot --headless --fixed-fps 60 -s tests/test_phase3.gd      # Phase 3 (75 checks, accelerated time)
+godot --headless --fixed-fps 60 -s tests/test_phase4.gd      # Phase 4 (43 checks: resources, art integrity, navigation, driving, saves)
 ```
 
 ## Known limitations
 
-- Vehicle handling is deliberately simple: a kinematic body with arcade steering and a single box collider. There is no suspension, tipping or slopes beyond gentle ones. The loader bucket and truck bed are animations; material is tracked as counts.
-- While a vehicle is moving it is not part of the worker navigation mesh. Workers bump into it and repath; once it is parked and you get out, the mesh is rebuilt around it.
-- Conveyors are crossable low belts. People and workers walk through the belt's collision, but vehicles do not.
-- The main storage crate can be moved but not sold. Rubble piles, deposits and buildings cannot be moved.
-- Machinery can be built in the main quarry and the east expansion, but not in the narrow cliff opening between them.
-- Placing, moving or selling a structure, or parking a vehicle, rebuilds navigation synchronously. This causes a brief hitch of roughly 10–40 ms.
-- Vehicle recovery (R) and the automatic fall-out-of-world rescue move the vehicle back to its last clear position. That is a jump, used only for abnormal situations.
-- Saving is manual (F5). Saving while driving resumes you in the same vehicle on load.
-- No visual or Windows play-testing has been done in this environment. All verification is headless with accelerated time. Look, feel, camera comfort and animation quality still need your visual QA.
+- **Visual quality is unverified.** No screenshots, renders or visual comparisons were made, as you asked. All checks are headless.
+  - What is tested: the geometry and textures exist, everything loads, colliders and interactions still work, workers path, vehicles drive, the textures stay on the palette, and characters are skinned and pose.
+  - What is not tested: how the quarry, buildings, machinery, vehicles and workers actually look, including prop orientation, tool grip in the hands, animation quality and the lighting mood. These need your visual pass.
+- **Prop orientation.** Reused THE VEIL props are placed by position and rotation without having been seen; a few may face the wrong way or sit slightly off a wall.
+- **Decorative prop collision.** Reused props are decorative: their own colliders are switched off, and explicit boxes block only where it matters (garage shelving and workbench, shed shelving, office cabinets, dumpster, light poles, retaining wall, filler cliffs). You can walk through small decor such as cones, rocks and weeds.
+- **Flat physics ground.** The ground is visually uneven but physically flat, so walking, navigation and vehicles behave exactly as before. Cliffs, benches and embankments are visual meshes over the existing collision boxes. New filler cliffs close the old gaps in the cliff ring.
+- **Workers.** They are procedurally animated (walk, idle, carry and one work loop per job), not motion-captured. Tools sit in the hand sockets; how naturally they are gripped is unverified.
+- **Earlier limits still apply.** Vehicles are arcade-simple, the main storage crate can be moved but not sold, there is a brief hitch when navigation rebuilds, and saving is manual (F5).

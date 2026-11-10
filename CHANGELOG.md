@@ -1,5 +1,29 @@
 # Changelog
 
+## Quarry Days — Phase 4: THE VEIL Art Style & Sustainable Resources
+
+- **Resources fixed:**
+  - Deposits now hold a visible, regrowing stock (limestone 24 / coal 15 / iron 8, +1 unit every 3 / 6 / 12 in-game minutes) instead of vanishing for 100 minutes after one break.
+  - A never-empty quarry face is reserved for hand mining, so a broke player can always recover.
+  - Pieces you break are reserved from staff for 15 in-game minutes.
+  - Older saves migrate.
+- **Reused THE VEIL assets:** props, materials and pixel textures are copied with their full dependency closure.
+- **Quarry textures:** new ones painted to THE VEIL's rules (Greyhaven palette, 64 px/m, top-left light).
+- **Environment:**
+  - Zoned ground: pit floor, gravel yard, haul roads and concrete pads.
+  - Stratified cliffs and excavation benches; gap-filling cliff walls; soil embankments.
+  - Site props, dust fog and night practical lights.
+- **Buildings:**
+  - Modelled site office with windows, door, roof, sign, desk and computer, notice board, cabinets and lighting.
+  - Storage shed.
+  - New open-front equipment garage with steel frame, corrugated roof and a workshop.
+  - Sales booth and order kiosk.
+- **Machinery:** jaw crusher with spinning flywheels, aggregate bin, belt conveyor, ribbed storage bin, faceted rock deposits, loose-rock chunks and rubble mounds.
+- **Vehicles:** front loader and dump truck rebuilt with shaped bodies, cabs and glass, tread tyres, hydraulic rams, a curved bucket and a tipping body.
+- **Workers:** miner, hauler, operator and clerk generated with THE VEIL's character pipeline (from the hand-made Eddie reference), wearing hard hats, gloves and hi-vis. They are animated by a rig controller adapted from THE VEIL's NPC animator.
+- **Gameplay unchanged:** all existing gameplay colliders, interactions, navigation, construction zones and vehicle access are preserved.
+- **Tests:** new `tests/test_phase4.gd` (43 checks). Earlier tests were updated only where deposits now keep their stock instead of vanishing.
+
 ## Quarry Days — Phase 3: Heavy Machinery & Expansion
 
 - Drivable front loader ($2,500, after Mechanized Quarry) and dump truck ($5,000, after Automated Business), bought in the office EQUIPMENT tab and delivered to a free parking bay.
