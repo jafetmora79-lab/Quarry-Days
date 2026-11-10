@@ -1,0 +1,327 @@
+[
+ {
+  "name": "QD_Miner",
+  "source": "Commercial_NPCs/CHR_Eddie.glb (hand-made reference)",
+  "removed": [
+   "drawstrings"
+  ],
+  "textures": {
+   "T_QD_Miner_Top": [
+    64,
+    64,
+    4
+   ],
+   "T_QD_Miner_TopCuff": [
+    32,
+    32,
+    3
+   ],
+   "T_QD_Miner_Shirt": [
+    64,
+    64,
+    4
+   ],
+   "T_QD_Miner_Pants": [
+    64,
+    64,
+    3
+   ],
+   "T_QD_Miner_PantsHem": [
+    32,
+    32,
+    3
+   ],
+   "T_QD_Miner_Skin": [
+    32,
+    32,
+    2
+   ],
+   "T_QD_Miner_Sole": [
+    32,
+    32,
+    1
+   ],
+   "T_QD_Miner_Badge": [
+    32,
+    16,
+    3
+   ],
+   "T_QD_Miner_Hair": [
+    64,
+    64,
+    4
+   ],
+   "T_QD_Miner_Head": [
+    128,
+    64,
+    11
+   ],
+   "T_QD_Miner_Shoes": [
+    64,
+    64,
+    9
+   ],
+   "T_QD_Miner_Gear": [
+    32,
+    32,
+    16
+   ]
+  },
+  "glb": "assets/characters/CHR_QD_Miner.glb",
+  "triangles": 3124,
+  "parts": {
+   "QD_Miner_Body": 1762,
+   "QD_Miner_Hair": 360,
+   "QD_Miner_Head": 346,
+   "QD_Miner_Shoes": 248,
+   "QD_Miner_GearExtras": 408
+  },
+  "materials": 12,
+  "height_m": 1.861,
+  "width_m": 1.253
+ },
+ {
+  "name": "QD_Hauler",
+  "source": "Commercial_NPCs/CHR_Eddie.glb (hand-made reference)",
+  "removed": [
+   "drawstrings"
+  ],
+  "textures": {
+   "T_QD_Hauler_Top": [
+    64,
+    64,
+    4
+   ],
+   "T_QD_Hauler_TopCuff": [
+    32,
+    32,
+    3
+   ],
+   "T_QD_Hauler_Shirt": [
+    64,
+    64,
+    2
+   ],
+   "T_QD_Hauler_Pants": [
+    64,
+    64,
+    3
+   ],
+   "T_QD_Hauler_PantsHem": [
+    32,
+    32,
+    3
+   ],
+   "T_QD_Hauler_Skin": [
+    32,
+    32,
+    2
+   ],
+   "T_QD_Hauler_Sole": [
+    32,
+    32,
+    1
+   ],
+   "T_QD_Hauler_Badge": [
+    32,
+    16,
+    3
+   ],
+   "T_QD_Hauler_Hair": [
+    64,
+    64,
+    3
+   ],
+   "T_QD_Hauler_Head": [
+    128,
+    64,
+    12
+   ],
+   "T_QD_Hauler_Shoes": [
+    64,
+    64,
+    9
+   ],
+   "T_QD_Hauler_Gear": [
+    32,
+    32,
+    16
+   ]
+  },
+  "glb": "assets/characters/CHR_QD_Hauler.glb",
+  "triangles": 3124,
+  "parts": {
+   "QD_Hauler_Body": 1762,
+   "QD_Hauler_Hair": 360,
+   "QD_Hauler_Head": 346,
+   "QD_Hauler_Shoes": 248,
+   "QD_Hauler_GearExtras": 408
+  },
+  "materials": 12,
+  "height_m": 1.811,
+  "width_m": 1.193
+ },
+ {
+  "name": "QD_Operator",
+  "source": "Commercial_NPCs/CHR_Eddie.glb (hand-made reference)",
+  "removed": [
+   "drawstrings"
+  ],
+  "textures": {
+   "T_QD_Operator_Top": [
+    64,
+    64,
+    4
+   ],
+   "T_QD_Operator_TopCuff": [
+    32,
+    32,
+    3
+   ],
+   "T_QD_Operator_Shirt": [
+    64,
+    64,
+    4
+   ],
+   "T_QD_Operator_Pants": [
+    64,
+    64,
+    4
+   ],
+   "T_QD_Operator_PantsHem": [
+    32,
+    32,
+    3
+   ],
+   "T_QD_Operator_Skin": [
+    32,
+    32,
+    2
+   ],
+   "T_QD_Operator_Sole": [
+    32,
+    32,
+    1
+   ],
+   "T_QD_Operator_Badge": [
+    32,
+    16,
+    3
+   ],
+   "T_QD_Operator_Hair": [
+    64,
+    64,
+    3
+   ],
+   "T_QD_Operator_Head": [
+    128,
+    64,
+    11
+   ],
+   "T_QD_Operator_Shoes": [
+    64,
+    64,
+    9
+   ],
+   "T_QD_Operator_Gear": [
+    32,
+    32,
+    16
+   ]
+  },
+  "glb": "assets/characters/CHR_QD_Operator.glb",
+  "triangles": 3148,
+  "parts": {
+   "QD_Operator_Body": 1762,
+   "QD_Operator_Hair": 360,
+   "QD_Operator_Head": 346,
+   "QD_Operator_Shoes": 248,
+   "QD_Operator_GearExtras": 432
+  },
+  "materials": 12,
+  "height_m": 1.791,
+  "width_m": 1.17
+ },
+ {
+  "name": "QD_Clerk",
+  "source": "Commercial_NPCs/CHR_Eddie.glb (hand-made reference)",
+  "removed": [
+   "drawstrings"
+  ],
+  "textures": {
+   "T_QD_Clerk_Top": [
+    64,
+    64,
+    3
+   ],
+   "T_QD_Clerk_TopCuff": [
+    32,
+    32,
+    3
+   ],
+   "T_QD_Clerk_Shirt": [
+    64,
+    64,
+    5
+   ],
+   "T_QD_Clerk_Pants": [
+    64,
+    64,
+    3
+   ],
+   "T_QD_Clerk_PantsHem": [
+    32,
+    32,
+    3
+   ],
+   "T_QD_Clerk_Skin": [
+    32,
+    32,
+    2
+   ],
+   "T_QD_Clerk_Sole": [
+    32,
+    32,
+    1
+   ],
+   "T_QD_Clerk_Badge": [
+    32,
+    16,
+    2
+   ],
+   "T_QD_Clerk_Hair": [
+    64,
+    64,
+    4
+   ],
+   "T_QD_Clerk_Head": [
+    128,
+    64,
+    12
+   ],
+   "T_QD_Clerk_Shoes": [
+    64,
+    64,
+    7
+   ],
+   "T_QD_Clerk_Gear": [
+    32,
+    32,
+    16
+   ]
+  },
+  "glb": "assets/characters/CHR_QD_Clerk.glb",
+  "triangles": 2940,
+  "parts": {
+   "QD_Clerk_Body": 1762,
+   "QD_Clerk_Hair": 360,
+   "QD_Clerk_Head": 346,
+   "QD_Clerk_Shoes": 248,
+   "QD_Clerk_HairExtras": 56,
+   "QD_Clerk_GearExtras": 168
+  },
+  "materials": 12,
+  "height_m": 1.67,
+  "width_m": 1.059
+ }
+]

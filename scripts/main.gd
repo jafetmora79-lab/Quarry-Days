@@ -7,6 +7,7 @@ const WorkerScript = preload("res://scripts/worker.gd")
 const ManagementScript = preload("res://scripts/management_ui.gd")
 const FleetScript = preload("res://scripts/fleet.gd")
 const VehicleScript = preload("res://scripts/vehicle.gd")
+const ArtScript = preload("res://scripts/art/quarry_art.gd")
 const SAVE_PATH := "user://quarry_save.json"
 const RESOURCE_ORDER := ["limestone", "coal", "iron_ore", "crushed_stone"]
 const DEPOSIT_INFO := {"limestone": {"pos": Vector3(-8, 0, -11), "color": Color(0.67, 0.66, 0.56), "pieces": 4, "resource": "limestone"}, "coal": {"pos": Vector3(0, 0, -15), "color": Color(0.17, 0.19, 0.21), "pieces": 3, "resource": "coal"}, "iron_ore": {"pos": Vector3(8, 0, -11), "color": Color(0.52, 0.29, 0.23), "pieces": 2, "resource": "iron_ore"}, "limestone_face": {"pos": Vector3(-12, 0, -18), "color": Color(0.70, 0.68, 0.58), "pieces": 2, "resource": "limestone", "infinite": true, "yaw": -0.65}}
@@ -69,7 +70,8 @@ var relocating := {}
 var sell_confirm := ""
 var ghost_ok_mat: StandardMaterial3D
 var ghost_bad_mat: StandardMaterial3D
-var scripted_input := false # tests drive vehicles by setting QuarryVehicle.input directly
+var scripted_input := false
+var art: QuarryArt # Phase 4 visual layer (THE VEIL style); gameplay never depends on it # tests drive vehicles by setting QuarryVehicle.input directly
 
 func _ready() -> void:
 	var cfg = JSON.parse_string(FileAccess.get_file_as_string("res://data/economy.json"))
@@ -83,6 +85,12 @@ func _ready() -> void:
 	world.name = "World"
 	add_child(world)
 	_build_quarry()
+	art = ArtScript.new()
+	art.build_environment(self)
+	for kind in deposit_nodes:
+		_dress_deposit(kind)
+	for id in pile_nodes:
+		art.dress_pile(pile_nodes[id], str(fleet.cfg["piles"][id]["resource"]), 400 + id.length())
 	player = PlayerScript.new()
 	player.name = "Player"
 	player.position = Vector3(0, 0.2, 8)
@@ -250,6 +258,7 @@ func _build_deposit(kind: String) -> void:
 	body.set_meta("resource",info["resource"])
 	body.set_meta("deposit",kind)
 	deposit_nodes[kind] = body
+	_dress_deposit(kind)
 	_refresh_deposit(kind)
 
 func _refresh_deposit(kind: String) -> void:
@@ -299,6 +308,8 @@ func _spawn_piece(kind: String, generation: int, i: int) -> void:
 	body.set_meta("resource",info["resource"])
 	body.set_meta("deposit",kind)
 	body.set_meta("piece_id",kind+"_"+str(generation)+"_"+str(i))
+	if art:
+		art.dress_piece(body, str(info["resource"]), i + generation)
 	ground_pieces[str(body.get_meta("piece_id"))] = body
 
 func _strike(kind: String, hits_needed := -1, extra_pieces := 0, by_player := true) -> void:
@@ -478,6 +489,8 @@ func _update_light() -> void:
 	daylight.light_energy = 0.14+day*1.4
 	sky_light.environment.background_color = Color(0.025,0.04,0.09).lerp(Color(0.36,0.49,0.62),day)
 	sky_light.environment.ambient_light_energy = 0.14+day*0.4
+	if art:
+		art.set_night(1.0 - day)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if driving and menu == "" and _driving_input(event):
@@ -1755,3 +1768,10 @@ func _update_deposit_label(kind: String) -> void:
 	else:
 		label.text = "%s %d/%d" % [name_text, int(d["stock"]), state.deposit_max(str(d["resource"]))]
 		label.modulate = Color(0.95, 0.9, 0.75)
+
+func _dress_deposit(kind: String) -> void:
+	if art == null or not deposit_nodes.has(kind):
+		return
+	var info := _deposit_info(kind)
+	var face := bool(info.get("infinite", false))
+	art.dress_deposit(deposit_nodes[kind], info, Vector3(3.6, 2.4, 1.4) if face else Vector3(2.4, 1.8, 2.0))

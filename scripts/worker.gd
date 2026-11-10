@@ -7,13 +7,6 @@ class_name QuarryWorker
 
 enum { MOVING, ARRIVED, BLOCKED }
 
-const LOOKS := {
-	"miner": {"shirt": Color(0.78, 0.42, 0.12), "pants": Color(0.22, 0.22, 0.27), "hat": Color(0.92, 0.78, 0.15), "tool": "pick"},
-	"operator": {"shirt": Color(0.18, 0.33, 0.58), "pants": Color(0.16, 0.25, 0.42), "hat": Color(0.9, 0.9, 0.86), "tool": "wrench"},
-	"hauler": {"shirt": Color(0.36, 0.55, 0.22), "pants": Color(0.30, 0.25, 0.18), "hat": Color(0.42, 0.28, 0.16), "tool": ""},
-	"clerk": {"shirt": Color(0.50, 0.17, 0.20), "pants": Color(0.18, 0.18, 0.2), "hat": Color(0.20, 0.13, 0.08), "tool": "board"},
-}
-const SKIN := Color(0.80, 0.62, 0.46)
 const RESOURCE_COLORS := {"limestone": Color(0.67, 0.66, 0.56), "coal": Color(0.17, 0.19, 0.21), "iron_ore": Color(0.52, 0.29, 0.23), "crushed_stone": Color(0.75, 0.73, 0.66)}
 
 var game
@@ -24,11 +17,6 @@ var e: Dictionary
 
 # rig
 var model: Node3D
-var leg_l: Node3D
-var leg_r: Node3D
-var arm_l: Node3D
-var arm_r: Node3D
-var torso: Node3D
 var carry_box: MeshInstance3D
 var anim := "idle"
 var anim_t := 0.0
@@ -80,117 +68,86 @@ func setup(main_node, biz: QuarryBusiness, record: Dictionary) -> void:
 
 # ------------------------------------------------------------------ model
 
-func _part(parent: Node3D, pos: Vector3, size: Vector3, color: Color) -> MeshInstance3D:
-	var m := MeshInstance3D.new()
-	var box := BoxMesh.new()
-	box.size = size
-	m.mesh = box
-	m.position = pos
-	m.material_override = game._mat(color)
-	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	parent.add_child(m)
-	return m
-
-func _pivot(parent: Node3D, pos: Vector3) -> Node3D:
-	var p := Node3D.new()
-	p.position = pos
-	parent.add_child(p)
-	return p
+## Phase 4: THE VEIL-pipeline character (assets/characters/CHR_QD_<Profession>.glb, built by
+## tools/veil_pipeline/qd_style_cast.py from THE VEIL's hand-made reference) animated by VeilRig.
+const CHARACTER := {"miner": "res://assets/characters/CHR_QD_Miner.glb", "operator": "res://assets/characters/CHR_QD_Operator.glb",
+	"hauler": "res://assets/characters/CHR_QD_Hauler.glb", "clerk": "res://assets/characters/CHR_QD_Clerk.glb"}
+static var _packed := {}
+var rig: VeilRig
+var speed_now := 0.0
 
 func _build_rig() -> void:
-	var look: Dictionary = LOOKS[profession]
 	model = Node3D.new()
+	model.name = "Model"
+	model.rotation.y = PI # THE VEIL characters face +Z; workers steer with -Z forward
 	add_child(model)
-	leg_l = _pivot(model, Vector3(-0.12, 0.88, 0))
-	leg_r = _pivot(model, Vector3(0.12, 0.88, 0))
-	for leg in [leg_l, leg_r]:
-		_part(leg, Vector3(0, -0.40, 0), Vector3(0.17, 0.8, 0.2), look["pants"])
-		_part(leg, Vector3(0, -0.83, -0.04), Vector3(0.18, 0.1, 0.28), Color(0.12, 0.1, 0.08))
-	torso = _pivot(model, Vector3(0, 0.88, 0))
-	_part(torso, Vector3(0, 0.32, 0), Vector3(0.46, 0.62, 0.26), look["shirt"])
-	_part(torso, Vector3(0, 0.80, 0), Vector3(0.28, 0.28, 0.28), SKIN)
-	_part(torso, Vector3(0, 0.82, -0.145), Vector3(0.2, 0.05, 0.02), Color(0.1, 0.08, 0.07)) # eyes
+	var path: String = CHARACTER[profession]
+	if not _packed.has(path):
+		_packed[path] = load(path)
+	var body: Node3D = _packed[path].instantiate()
+	model.add_child(body)
+	for gi in body.find_children("*", "GeometryInstance3D", true, false):
+		gi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var found := body.find_children("*", "Skeleton3D", true, false)
+	if found.is_empty():
+		return
+	rig = VeilRig.new()
+	rig.setup(found[0], float(employee_id) * 1.7)
+	var up_fwd := Basis(Vector3.RIGHT, 0.0)
 	match profession:
-		"miner", "operator":
-			_part(torso, Vector3(0, 0.98, 0), Vector3(0.34, 0.1, 0.34), look["hat"])
-			_part(torso, Vector3(0, 0.95, -0.17), Vector3(0.3, 0.04, 0.1), look["hat"])
-		"hauler":
-			_part(torso, Vector3(0, 0.97, 0.02), Vector3(0.3, 0.08, 0.3), look["hat"])
-			_part(torso, Vector3(0, 0.94, -0.18), Vector3(0.26, 0.03, 0.14), look["hat"])
-			_part(torso, Vector3(0, 0.36, -0.135), Vector3(0.4, 0.3, 0.02), Color(0.95, 0.6, 0.1)) # vest stripe
-		"clerk":
-			_part(torso, Vector3(0, 0.95, 0.03), Vector3(0.3, 0.08, 0.3), look["hat"]) # hair
-	arm_l = _pivot(torso, Vector3(-0.31, 0.58, 0))
-	arm_r = _pivot(torso, Vector3(0.31, 0.58, 0))
-	for arm in [arm_l, arm_r]:
-		_part(arm, Vector3(0, -0.26, 0), Vector3(0.13, 0.52, 0.13), look["shirt"])
-		_part(arm, Vector3(0, -0.56, 0), Vector3(0.11, 0.1, 0.11), SKIN)
-	match str(look["tool"]):
-		"pick":
-			_part(arm_r, Vector3(0, -0.6, -0.2), Vector3(0.05, 0.05, 0.5), Color(0.25, 0.16, 0.1))
-			_part(arm_r, Vector3(0, -0.6, -0.45), Vector3(0.05, 0.36, 0.06), Color(0.36, 0.37, 0.38))
-		"wrench":
-			_part(arm_r, Vector3(0, -0.66, -0.08), Vector3(0.05, 0.05, 0.3), Color(0.55, 0.56, 0.58))
-		"board":
-			_part(arm_l, Vector3(0, -0.58, -0.1), Vector3(0.03, 0.3, 0.22), Color(0.75, 0.68, 0.5))
-	carry_box = _part(torso, Vector3(0, 0.25, -0.38), Vector3(0.36, 0.3, 0.3), RESOURCE_COLORS["limestone"])
+		"miner": rig.attach(_tool_pickaxe(), "Right", up_fwd, Vector3.ZERO)
+		"operator": rig.attach(_tool_wrench(), "Right", up_fwd, Vector3.ZERO)
+		"clerk": rig.attach(_tool_clipboard(), "Left", up_fwd, Vector3.ZERO)
+	carry_box = MeshInstance3D.new()
+	carry_box.mesh = MeshKit.rock(Vector3(0.42, 0.3, 0.34), 77 + employee_id, 3, 6)
+	carry_box.position = Vector3(0, 0.88, 0.36) # in front of the chest (model space faces +Z)
 	carry_box.visible = false
+	model.add_child(carry_box)
+
+## Tools are small MeshKit models in hand space: handle along +Z (forward from the fist).
+func _tool_pickaxe() -> Node3D:
+	var n := Node3D.new()
+	var s := MeshKit.Soup.new()
+	MeshKit.box_into(s, Vector3(0, 0, 0.22), Vector3(0.04, 0.04, 0.78))
+	MeshKit.inst(n, s.mesh(), MeshKit.mat(QuarryArt.M_WOOD))
+	var h := MeshKit.Soup.new()
+	var prof := PackedVector2Array([Vector2(-0.26, -0.01), Vector2(-0.02, 0.03), Vector2(0.02, 0.03), Vector2(0.26, -0.01), Vector2(0.2, -0.04), Vector2(0.0, -0.01), Vector2(-0.2, -0.04)])
+	MeshKit.extrude_into(h, prof, 0.045, Transform3D(Basis(Vector3.UP, PI * 0.5) * Basis(Vector3.FORWARD, PI * 0.5), Vector3(0, 0, 0.6)))
+	MeshKit.inst(n, h.mesh(), MeshKit.mat("SteelPlate"))
+	return n
+
+func _tool_wrench() -> Node3D:
+	var n := Node3D.new()
+	var s := MeshKit.Soup.new()
+	MeshKit.box_into(s, Vector3(0, 0, 0.12), Vector3(0.035, 0.018, 0.3))
+	MeshKit.box_into(s, Vector3(0, 0, 0.29), Vector3(0.08, 0.02, 0.06))
+	MeshKit.inst(n, s.mesh(), MeshKit.mat("SteelPlate"))
+	return n
+
+func _tool_clipboard() -> Node3D:
+	var n := Node3D.new()
+	var s := MeshKit.Soup.new()
+	MeshKit.box_into(s, Vector3(0, 0.02, 0.1), Vector3(0.24, 0.012, 0.32))
+	MeshKit.inst(n, s.mesh(), MeshKit.mat(QuarryArt.M_WOOD))
+	var p := MeshKit.Soup.new()
+	MeshKit.box_into(p, Vector3(0, 0.03, 0.11), Vector3(0.2, 0.004, 0.26))
+	MeshKit.inst(n, p.mesh(), MeshKit.flat(Color(0.86, 0.84, 0.76)))
+	return n
 
 func _animate(delta: float) -> void:
-	# Distant workers animate at a reduced rate.
+	# Distant workers animate at a reduced rate (and not at all when far away and off-screen).
 	var far: bool = game.player != null and global_position.distance_squared_to(game.player.global_position) > 900.0
 	anim_skip += 1
 	if far and anim_skip % 4 != 0:
 		return
 	var dt := delta * (4.0 if far else 1.0)
-	anim_t += dt
 	var carrying := business.carry_total(e) > 0
-	carry_box.visible = carrying
+	carry_box.visible = carrying and anim != "work"
 	if carrying:
-		carry_box.material_override = game._mat(RESOURCE_COLORS.get(e["carry"].keys()[0], Color.GRAY))
-	var s := sin(anim_t * 8.5)
-	var la := 0.0
-	var ra := 0.0
-	var ll := 0.0
-	var lr := 0.0
-	var lean := 0.0
-	var bob := 0.0
-	match anim:
-		"walk":
-			ll = s * 0.55
-			lr = -s * 0.55
-			la = -s * 0.5
-			ra = s * 0.5
-			bob = absf(s) * 0.04
-		"work":
-			match profession:
-				"miner":
-					ra = -1.9 + absf(sin(anim_t * 4.0)) * 1.7
-					la = -0.6
-					lean = 0.15
-				"operator":
-					la = -1.2 + sin(anim_t * 5.0) * 0.15
-					ra = -1.0 - sin(anim_t * 5.0) * 0.25
-				"hauler":
-					lean = 0.35 + sin(anim_t * 4.0) * 0.2
-					la = -1.0
-					ra = -1.0
-				"clerk":
-					la = -0.9
-					ra = -0.9 + sin(anim_t * 12.0) * 0.18
-		_:
-			bob = sin(anim_t * 2.0) * 0.012
-			la = sin(anim_t * 1.7) * 0.05
-			ra = -la
-	if carrying and anim != "work":
-		la = -1.15
-		ra = -1.15
-	leg_l.rotation.x = ll
-	leg_r.rotation.x = lr
-	arm_l.rotation.x = la
-	arm_r.rotation.x = ra
-	torso.rotation.x = -lean
-	model.position.y = bob
+		carry_box.material_override = MeshKit.mat(QuarryArt.ROCK_MAT.get(e["carry"].keys()[0], "RockLimestone"))
+	if rig:
+		speed_now = Vector2(velocity.x, velocity.z).length()
+		rig.pose(dt, anim, speed_now, profession, carrying)
 
 # ------------------------------------------------------------------ navigation
 
