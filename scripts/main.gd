@@ -2,9 +2,14 @@ extends Node3D
 
 const State = preload("res://scripts/state.gd")
 const PlayerScript = preload("res://scripts/player.gd")
+const Business = preload("res://scripts/business.gd")
+const WorkerScript = preload("res://scripts/worker.gd")
+const ManagementScript = preload("res://scripts/management_ui.gd")
 const SAVE_PATH := "user://quarry_save.json"
 const RESOURCE_ORDER := ["limestone", "coal", "iron_ore", "crushed_stone"]
-const DEPOSIT_INFO := {"limestone": {"pos": Vector3(-8, 0, -11), "color": Color(0.67, 0.66, 0.56), "pieces": 4}, "coal": {"pos": Vector3(0, 0, -15), "color": Color(0.17, 0.19, 0.21), "pieces": 3}, "iron_ore": {"pos": Vector3(8, 0, -11), "color": Color(0.52, 0.29, 0.23), "pieces": 2}}
+const DEPOSIT_INFO := {"limestone": {"pos": Vector3(-8, 0, -11), "color": Color(0.67, 0.66, 0.56), "pieces": 4, "resource": "limestone"}, "coal": {"pos": Vector3(0, 0, -15), "color": Color(0.17, 0.19, 0.21), "pieces": 3, "resource": "coal"}, "iron_ore": {"pos": Vector3(8, 0, -11), "color": Color(0.52, 0.29, 0.23), "pieces": 2, "resource": "iron_ore"}}
+# Phase 2 quarry expansion (east), unlocked by the Automated Business milestone. Same three minerals.
+const EXPANSION_DEPOSITS := {"limestone_east": {"pos": Vector3(36, 0, -6), "color": Color(0.67, 0.66, 0.56), "pieces": 4, "resource": "limestone"}, "coal_east": {"pos": Vector3(42, 0, 6), "color": Color(0.17, 0.19, 0.21), "pieces": 3, "resource": "coal"}, "iron_ore_east": {"pos": Vector3(44, 0, -5), "color": Color(0.52, 0.29, 0.23), "pieces": 2, "resource": "iron_ore"}, "limestone_east_2": {"pos": Vector3(35, 0, 6), "color": Color(0.67, 0.66, 0.56), "pieces": 4, "resource": "limestone"}}
 var state: QuarryState
 var player: QuarryPlayer
 var world: Node3D
@@ -33,10 +38,30 @@ var pickup_audio: AudioStreamPlayer
 var sell_audio: AudioStreamPlayer
 var crusher_audio: AudioStreamPlayer
 var material_cache := {}
+# Phase 2
+var business: QuarryBusiness
+var nav_region: NavigationRegion3D
+var nav_map: RID
+var nav_version := 0
+var nav_ready_frame := 0
+var nav_dirty := false
+var workers_root: Node3D
+var worker_nodes := {}
+var output_nodes := []
+var conveyor_nodes := []
+var expansion_gate := []
+var management: Control
+var milestone_label: Label
+var placement_kind := "crusher"
+var grid_snap := true
+var placement_hint := ""
 
 func _ready() -> void:
 	var cfg = JSON.parse_string(FileAccess.get_file_as_string("res://data/economy.json"))
 	state = State.new(cfg)
+	var bcfg = JSON.parse_string(FileAccess.get_file_as_string("res://data/business.json"))
+	business = Business.new(state, bcfg)
+	business.milestone_reached.connect(_on_milestone)
 	world = Node3D.new()
 	world.name = "World"
 	add_child(world)
@@ -45,7 +70,19 @@ func _ready() -> void:
 	player.name = "Player"
 	player.position = Vector3(0, 0.2, 8)
 	add_child(player)
+	player.collision_mask = 1 | 2 | 4 # world, loose pieces, workers
+	workers_root = Node3D.new()
+	workers_root.name = "Workers"
+	add_child(workers_root)
+	nav_region = NavigationRegion3D.new()
+	nav_region.name = "QuarryNavigation"
+	add_child(nav_region)
+	nav_map = get_world_3d().navigation_map
 	_setup_ui()
+	management = ManagementScript.new()
+	management.setup(self)
+	ui.add_child(management)
+	_rebake_nav()
 	hit_audio = _audio("res://audio/pick_hit.wav", -12)
 	pickup_audio = _audio("res://audio/pickup.wav", -15)
 	sell_audio = _audio("res://audio/sell.wav", -13)
@@ -119,7 +156,9 @@ func _build_quarry() -> void:
 	for i in range(10):
 		var angle := float(i)*TAU/10.0
 		var cpos := Vector3(cos(angle)*27, 3.0, sin(angle)*27)
-		_solid(world, "Cliff", cpos, Vector3(10,6,5), Color(0.32+0.025*(i%3),0.32,0.29), -angle-PI/2)
+		var cliff := _solid(world, "Cliff", cpos, Vector3(10,6,5), Color(0.32+0.025*(i%3),0.32,0.29), -angle-PI/2)
+		if i == 0:
+			expansion_gate.append(cliff)
 	for x in [-20.0,-15.0,15.0,21.0]:
 		for z in [-22.0,16.0,22.0]:
 			if absf(x) < 19 and z < 0:
@@ -138,6 +177,7 @@ func _build_quarry() -> void:
 	machine_shop.set_meta("kind","shop")
 	for kind in DEPOSIT_INFO:
 		_build_deposit(kind)
+	_build_phase2_area()
 	var env := Environment.new()
 	env.background_mode = Environment.BG_COLOR
 	env.background_color = Color(0.34,0.47,0.58)
@@ -162,17 +202,27 @@ func _building(label: String, pos: Vector3, color: Color) -> void:
 	_solid(world,label+" front right",pos+Vector3(1.6,1.4,-2.35),Vector3(1.8,2.8,0.22),color)
 	_solid(world,label+" roof",pos+Vector3(0,2.92,0),Vector3(5.4,0.27,5.2),Color(0.24,0.25,0.26))
 
+func _deposit_info(kind: String) -> Dictionary:
+	if DEPOSIT_INFO.has(kind):
+		return DEPOSIT_INFO[kind]
+	return EXPANSION_DEPOSITS.get(kind, {})
+
 func _build_deposit(kind: String) -> void:
-	var info: Dictionary = DEPOSIT_INFO[kind]
+	var info: Dictionary = _deposit_info(kind)
 	if not state.deposits.has(kind):
 		state.deposits[kind] = {"hits": 0, "ready_at": 0.0, "broken": false}
 	var body := _solid(world,kind+" deposit",info["pos"]+Vector3(0,0.9,0),Vector3(2.4,1.8,2.0),info["color"],0.4)
 	body.set_meta("kind","deposit")
-	body.set_meta("resource",kind)
+	body.set_meta("resource",info["resource"])
+	body.set_meta("deposit",kind)
 	deposit_nodes[kind] = body
 	_refresh_deposit(kind)
 
 func _refresh_deposit(kind: String) -> void:
+	if not deposit_nodes.has(kind):
+		return
+	if not state.deposits.has(kind):
+		state.deposits[kind] = {"hits": 0, "ready_at": 0.0, "broken": false}
 	var body: StaticBody3D = deposit_nodes[kind]
 	var d: Dictionary = state.deposits[kind]
 	body.visible = not bool(d["broken"])
@@ -187,35 +237,48 @@ func _refresh_deposit(kind: String) -> void:
 			_visual_box(mesh,Vector3(-0.5+0.22*n,0.36,1.01),Vector3(0.025,0.35,0.025),Color(0.07,0.07,0.06),0.3*n)
 
 func _spawn_pieces(kind: String, count: int) -> void:
+	# Indices beyond the deposit's base count are bonus pieces (miner yield upgrade).
 	for i in range(count):
 		_spawn_piece(kind, int(state.deposits[kind].get("generation", 0)), i)
 
 func _spawn_piece(kind: String, generation: int, i: int) -> void:
-	var count: int = int(DEPOSIT_INFO[kind]["pieces"])
-	var center: Vector3 = DEPOSIT_INFO[kind]["pos"]
+	var info := _deposit_info(kind)
+	var count: int = int(info["pieces"])
+	var center: Vector3 = info["pos"]
 	var angle := TAU * float(i)/float(count)
-	var body := _solid(world,"Loose "+kind, center+Vector3(cos(angle)*1.0,0.27,sin(angle)*1.0),Vector3(0.44,0.46,0.42),DEPOSIT_INFO[kind]["color"],angle)
+	var radius := 1.0
+	if i >= count:
+		angle = TAU * (float(i - count) + 0.5) / float(count)
+		radius = 1.45
+	var body := _solid(world,"Loose "+kind, center+Vector3(cos(angle)*radius,0.27,sin(angle)*radius),Vector3(0.44,0.46,0.42),info["color"],angle)
+	body.collision_layer = 2 # walkable for workers; player still collides (mask)
 	body.set_meta("kind","piece")
-	body.set_meta("resource",kind)
+	body.set_meta("resource",info["resource"])
+	body.set_meta("deposit",kind)
 	body.set_meta("piece_id",kind+"_"+str(generation)+"_"+str(i))
 	ground_pieces[str(body.get_meta("piece_id"))] = body
 
-func _strike(kind: String) -> void:
+func _strike(kind: String, hits_needed := -1, extra_pieces := 0, by_player := true) -> void:
 	var d: Dictionary = state.deposits[kind]
 	if bool(d["broken"]):
 		return
 	d["hits"] = int(d["hits"]) + 1
-	player.swing_pickaxe()
-	hit_audio.play()
-	if int(d["hits"]) >= state.required_hits():
+	var need: int = state.required_hits() if hits_needed < 0 else maxi(1, hits_needed)
+	if by_player:
+		player.swing_pickaxe()
+		hit_audio.play()
+	elif player and player.global_position.distance_to(deposit_nodes[kind].global_position) < 16.0:
+		hit_audio.play()
+	if int(d["hits"]) >= need:
 		d["hits"] = 0
 		d["generation"] = int(d.get("generation", 0)) + 1
 		d["broken"] = true
 		d["ready_at"] = state.clock_minutes + float(state.config["deposit_regen_minutes"])
-		_spawn_pieces(kind,int(DEPOSIT_INFO[kind]["pieces"]))
-		_notify(kind.capitalize()+" breaks! Pick up the pieces with E.")
-	else:
-		_notify("Crack! "+str(state.required_hits()-int(d["hits"]))+" strikes remaining")
+		_spawn_pieces(kind,int(_deposit_info(kind)["pieces"]) + maxi(0, extra_pieces))
+		if by_player:
+			_notify(str(_deposit_info(kind)["resource"]).capitalize()+" breaks! Pick up the pieces with E.")
+	elif by_player:
+		_notify("Crack! "+str(need-int(d["hits"]))+" strikes remaining")
 	_refresh_deposit(kind)
 
 func _setup_ui() -> void:
@@ -246,6 +309,19 @@ func _setup_ui() -> void:
 	panel_text = Label.new()
 	panel_text.add_theme_font_size_override("font_size",17)
 	panel.add_child(panel_text)
+	milestone_label = Label.new()
+	milestone_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	milestone_label.offset_left = -330
+	milestone_label.offset_right = -14
+	milestone_label.offset_top = 12
+	milestone_label.offset_bottom = 110
+	milestone_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	milestone_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	milestone_label.add_theme_font_size_override("font_size",12)
+	milestone_label.add_theme_color_override("font_color",Color(0.93,0.88,0.74))
+	milestone_label.add_theme_color_override("font_shadow_color",Color(0,0,0,0.8))
+	milestone_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ui.add_child(milestone_label)
 
 func _notify(s: String) -> void:
 	message = s
@@ -265,12 +341,18 @@ func _physics_process(delta: float) -> void:
 	if menu != "":
 		return
 	state.tick(delta)
+	business.tick(delta)
+	if nav_dirty:
+		_rebake_nav()
+	for w in worker_nodes.values():
+		w.step(delta)
+	_update_structures()
 	mining_cooldown = maxf(0,mining_cooldown-delta)
 	message_timer = maxf(0,message_timer-delta)
 	_update_light()
 	for kind in state.deposits:
 		var dep: Dictionary = state.deposits[kind]
-		if bool(dep["broken"]) and state.clock_minutes >= float(dep["ready_at"]):
+		if bool(dep["broken"]) and state.clock_minutes >= float(dep["ready_at"]) and deposit_nodes.has(kind):
 			dep["broken"] = false
 			dep["hits"] = 0
 			_refresh_deposit(kind)
@@ -280,7 +362,7 @@ func _physics_process(delta: float) -> void:
 	elif Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and mining_cooldown <= 0:
 		mining_cooldown = state.strike_interval()
 		if last_target and last_target.get_meta("kind", "") == "deposit":
-			_strike(str(last_target.get_meta("resource")))
+			_strike(str(last_target.get_meta("deposit")))
 		else:
 			player.swing_pickaxe()
 	var clock := int(state.clock_minutes)
@@ -296,12 +378,20 @@ func _physics_process(delta: float) -> void:
 			"piece": prompt = "E: collect "+str(last_target.get_meta("resource"))
 			"crusher": prompt = "E: use crusher"
 			"sell": prompt = "E: sell materials"
-			"shop": prompt = "E: buy crusher ($%d)" % int(state.config["crusher_price"])
+			"shop": prompt = "E: order machinery"
+			"output": prompt = "E: output storage"
+			"conveyor": prompt = "Conveyor #%d" % (int(last_target.get_meta("index")) + 1)
+			"office": prompt = "E: management office"
+			"worker":
+				var who := business.employee(int(last_target.get_meta("employee")))
+				if not who.is_empty():
+					prompt = "%s (%s): %s" % [who["name"], business.profession(who["profession"])["title"], who["task"]]
 			"upgrades": prompt = "E: upgrades"
 			"storage": prompt = "E: storage"
 	if placement:
-		prompt = "PLACE CRUSHER: %s | LMB place | R rotate | Esc cancel" % ("VALID" if ghost_valid else "BLOCKED")
-	action_label.text = prompt + ("\n"+message if message_timer > 0 else "") + ("\nWASD move  Shift sprint  E interact  P place  F5 save  F9 load  Esc pause" if tutorial_visible else "")
+		prompt = "PLACE %s: %s | LMB place | R rotate | G grid %s | Esc cancel%s" % [placement_kind.replace("output","output storage").to_upper(), "VALID" if ghost_valid else "BLOCKED", "on" if grid_snap else "off", placement_hint]
+	action_label.text = prompt + ("\n"+message if message_timer > 0 else "") + ("\nWASD move  Shift sprint  E interact  M manage  F5 save  F9 load  Esc pause" if tutorial_visible else "")
+	_update_milestone_hud()
 	for i in range(state.crushers.size()):
 		var machine: Dictionary = state.crushers[i]
 		if i < crusher_nodes.size():
@@ -333,25 +423,41 @@ func _unhandled_input(event: InputEvent) -> void:
 			_open_menu("pause")
 		get_viewport().set_input_as_handled()
 		return
+	if menu == "manage":
+		if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_M:
+			_close_menu()
+			get_viewport().set_input_as_handled()
+		return
 	if menu != "":
 		if event is InputEventKey and event.pressed and not event.echo:
 			_menu_key(event)
+		return
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_M and not placement:
+		if business.milestones["first_employee"]:
+			_open_menu("manage")
+		else:
+			_notify("Visit the management desk in the office. Remote management unlocks after your first hire.")
 		return
 	if event.is_action_pressed("save_game"):
 		_save()
 	if event.is_action_pressed("load_game"):
 		_load()
 	if placement:
+		var step := PI/2.0
+		if placement_kind == "conveyor":
+			step = PI/4.0 if grid_snap else PI/12.0
 		if event.is_action_pressed("rotate_machine"):
-			placement_yaw += PI/2.0
+			placement_yaw += step
+		if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_G:
+			grid_snap = not grid_snap
 		if event is InputEventMouseButton and event.pressed:
 			if event.button_index == MOUSE_BUTTON_RIGHT:
-				placement_yaw += PI/2.0
+				placement_yaw += step
 			elif event.button_index == MOUSE_BUTTON_LEFT:
 				_place_ghost()
 		return
 	if event.is_action_pressed("place_machine"):
-		_notify("Buy a crusher at the blue kiosk first.")
+		_notify("Order machinery at the blue kiosk first.")
 	if event.is_action_pressed("interact") and last_target:
 		_interact(last_target)
 
@@ -366,22 +472,18 @@ func _interact(target: Node3D) -> void:
 				_notify("Collected "+kind)
 			else:
 				_notify("Backpack full")
-		"sell", "upgrades", "storage", "crusher":
+		"sell", "upgrades", "storage", "crusher", "output", "shop":
 			_open_menu(str(target.get_meta("kind")),int(target.get_meta("index",-1)))
-		"shop":
-			if state.buy_crusher():
-				placement = true
-				ghost = Node3D.new()
-				world.add_child(ghost)
-				_crusher_visual(ghost,true)
-				_notify("Choose a clear patch of ground. R rotates, LMB places.")
-			else:
-				_notify("Need $"+str(state.config["crusher_price"]))
+		"office":
+			_open_menu("manage")
 
 func _open_menu(kind: String, index := -1) -> void:
 	menu = kind
 	panel.set_meta("crusher_index",index)
-	panel.visible = true
+	panel.visible = kind != "manage"
+	management.visible = kind == "manage"
+	if kind == "manage":
+		management.refresh()
 	player.locked = true
 	if crusher_audio.playing:
 		crusher_audio.stream_paused = true
@@ -391,6 +493,7 @@ func _open_menu(kind: String, index := -1) -> void:
 func _close_menu() -> void:
 	menu = ""
 	panel.visible = false
+	management.visible = false
 	player.locked = false
 	crusher_audio.stream_paused = false
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -403,8 +506,8 @@ func _draw_menu() -> void:
 			text = "SELLING STATION   $%d\n\n" % state.money
 			for i in range(RESOURCE_ORDER.size()):
 				var key: String = RESOURCE_ORDER[i]
-				text += "%d  Sell all %s (%d)  $%d each\n" % [i+1,key.replace("_"," "),state.inventory[key],state.config["prices"][key]]
-			text += "\nEsc Close"
+				text += "%d  Sell all %s (%d)  $%d each   clerk:%s\n" % [i+1,key.replace("_"," "),state.inventory[key],state.config["prices"][key],"SELLS" if business.authorized[key] else "no"]
+			text += "\nShift+1-4 toggle what the sales clerk may sell\nEsc Close"
 		"upgrades":
 			text = "UPGRADES   $%d\n\n" % state.money
 			for i in range(QuarryState.UPGRADE_NAMES.size()):
@@ -421,7 +524,25 @@ func _draw_menu() -> void:
 			var index: int = int(panel.get_meta("crusher_index"))
 			if index >= 0 and index < state.crushers.size():
 				var c: Dictionary = state.crushers[index]
-				text = "STONE CRUSHER\n\nLimestone input: %d  (bag: %d)\nCrushed output: %d\n%s\n\n1 Load all limestone\n2 Start processing\n3 Collect output\nEsc Close" % [c["input"],state.inventory["limestone"],c["output"],"Running: %.1f sec" % c["remaining"] if c["running"] else "Idle"]
+				text = "STONE CRUSHER #%d\n\nHopper (automated feed): %d\nLimestone input: %d  (bag: %d)\nCrushed output: %d\n%s\n\n1 Load all limestone\n2 Start processing\n3 Collect output\n4 Move hopper into input\nEsc Close" % [index+1,c.get("hopper",0),c["input"],state.inventory["limestone"],c["output"],"Running: %.1f sec" % c["remaining"] if c["running"] else "Idle"]
+		"output":
+			var oi: int = int(panel.get_meta("crusher_index"))
+			if oi >= 0 and oi < business.outputs.size():
+				var items: Dictionary = business.outputs[oi]["items"]
+				text = "OUTPUT STORAGE #%d   %d/%d\n\n" % [oi+1,business.output_total(oi),business.output_capacity()]
+				for i in range(RESOURCE_ORDER.size()):
+					var key: String = RESOURCE_ORDER[i]
+					text += "%d  %s  stored:%d  bag:%d\n" % [i+1,key.replace("_"," "),items[key],state.inventory[key]]
+				text += "\n1-4 withdraw all into bag\nShift+4 deposit crushed stone from bag\nEsc Close"
+		"shop":
+			text = "MACHINERY ORDERS   $%d\n\n" % state.money
+			text += "1  Stone crusher      $%d\n" % int(state.config["crusher_price"])
+			text += "2  Output storage     $%d\n" % int(business.cfg["output_storage_price"])
+			if business.conveyors_unlocked():
+				text += "3  Conveyor section   $%d\n" % int(business.cfg["conveyor_price"])
+			else:
+				text += "3  Conveyor section   LOCKED\n   (Milestone: own a crusher + hire an operator)\n"
+			text += "\nPlacement: R rotate, G toggle grid snap, LMB place\nEsc Close"
 	panel_text.text = text
 
 func _menu_key(event: InputEventKey) -> void:
@@ -435,7 +556,9 @@ func _menu_key(event: InputEventKey) -> void:
 		return
 	match menu:
 		"sell":
-			if digit < RESOURCE_ORDER.size():
+			if digit < RESOURCE_ORDER.size() and event.shift_pressed:
+				business.authorized[RESOURCE_ORDER[digit]] = not business.authorized[RESOURCE_ORDER[digit]]
+			elif digit < RESOURCE_ORDER.size():
 				var sold := state.sell(RESOURCE_ORDER[digit],999)
 				if sold > 0:
 					sell_audio.play()
@@ -457,6 +580,28 @@ func _menu_key(event: InputEventKey) -> void:
 				0: state.load_crusher(index,999)
 				1: state.start_crusher(index)
 				2: state.collect_crusher(index)
+				3:
+					while business.hopper_to_input(index) > 0:
+						pass
+		"output":
+			var oi: int = int(panel.get_meta("crusher_index"))
+			if digit < RESOURCE_ORDER.size() and oi >= 0 and oi < business.outputs.size():
+				var key: String = RESOURCE_ORDER[digit]
+				var items: Dictionary = business.outputs[oi]["items"]
+				if event.shift_pressed:
+					if key == "crushed_stone":
+						var moved := mini(int(state.inventory[key]), business.output_capacity() - business.output_total(oi))
+						state.inventory[key] -= moved
+						items[key] += moved
+				else:
+					var taken := state.add_item(key, int(items[key]))
+					items[key] -= taken
+		"shop":
+			match digit:
+				0: _start_placement("crusher")
+				1: _start_placement("output")
+				2: _start_placement("conveyor")
+			return
 	_draw_menu()
 
 func placement_valid(pos: Vector3, yaw: float) -> bool:
@@ -489,10 +634,19 @@ func _update_ghost() -> void:
 		ghost_valid = false
 		return
 	var point := start+dir*distance
-	ghost.position = Vector3(snappedf(point.x,0.5),0,snappedf(point.z,0.5))
+	if grid_snap or placement_kind != "conveyor":
+		ghost.position = Vector3(snappedf(point.x,0.5),0,snappedf(point.z,0.5))
+	else:
+		ghost.position = Vector3(point.x,0,point.z)
 	ghost.rotation.y = placement_yaw
 	ghost.visible = true
-	ghost_valid = placement_valid(ghost.position,placement_yaw)
+	placement_hint = ""
+	if placement_kind == "conveyor":
+		ghost_valid = conveyor_valid(ghost.position,placement_yaw)
+		var link := business.link_for(ghost.position,placement_yaw)
+		placement_hint = "\nIN: %s  ->  OUT: %s" % [business.describe_ep(link["src"]), business.describe_ep(link["dst"])]
+	else:
+		ghost_valid = placement_valid(ghost.position,placement_yaw)
 	for child in ghost.get_children():
 		if child is MeshInstance3D:
 			child.transparency = 0.42 if ghost_valid else 0.65
@@ -501,14 +655,51 @@ func _place_ghost() -> void:
 	if not ghost_valid:
 		_notify("Blocked. Choose clear, level ground.")
 		return
-	state.new_crusher(ghost.position,placement_yaw)
-	_create_crusher(state.crushers.size()-1)
+	match placement_kind:
+		"crusher":
+			state.new_crusher(ghost.position,placement_yaw)
+			_create_crusher(state.crushers.size()-1)
+			_notify("Crusher placed! E to load and process limestone.")
+		"output":
+			_create_output(business.add_output(ghost.position,placement_yaw))
+			_notify("Output storage placed. Place it beside a crusher's chute or at a conveyor end.")
+		"conveyor":
+			_create_conveyor(business.add_conveyor(ghost.position,placement_yaw))
+			_notify("Conveyor placed. The yellow arrow shows the direction of travel.")
+	business.compute_links()
+	business.check_milestones()
+	nav_dirty = true
 	_cancel_placement(false)
-	_notify("Crusher placed! E to load and process limestone.")
+
+func _placement_price(kind: String) -> int:
+	match kind:
+		"output": return int(business.cfg["output_storage_price"])
+		"conveyor": return int(business.cfg["conveyor_price"])
+	return int(state.config["crusher_price"])
+
+func _start_placement(kind: String) -> void:
+	if kind == "conveyor" and not business.conveyors_unlocked():
+		_notify("Conveyors unlock with the Mechanized Quarry milestone.")
+		return
+	if not business.buy(_placement_price(kind)):
+		_notify("Need $%d" % _placement_price(kind))
+		_draw_menu()
+		return
+	_close_menu()
+	placement = true
+	placement_kind = kind
+	placement_yaw = 0.0
+	ghost = Node3D.new()
+	world.add_child(ghost)
+	match kind:
+		"crusher": _crusher_visual(ghost,true)
+		"output": _output_visual(ghost,true)
+		"conveyor": _conveyor_visual(ghost,true)
+	_notify("Choose a clear patch of ground. R rotates, G toggles grid snap, LMB places.")
 
 func _cancel_placement(refund := true) -> void:
 	if refund:
-		state.money += int(state.config["crusher_price"])
+		state.money += _placement_price(placement_kind)
 	placement = false
 	if is_instance_valid(ghost):
 		ghost.queue_free()
@@ -539,8 +730,14 @@ func _save() -> void:
 	var pieces := []
 	for id in ground_pieces:
 		pieces.append(id)
+	for e in business.employees:
+		var w = worker_nodes.get(int(e["id"]))
+		if w:
+			e["position"] = [w.global_position.x, w.global_position.y, w.global_position.z]
+			e["yaw"] = w.rotation.y
 	var data := state.snapshot()
 	data["pieces"] = pieces
+	data["phase2"] = business.snapshot()
 	var f := FileAccess.open(SAVE_PATH,FileAccess.WRITE)
 	if f:
 		f.store_string(JSON.stringify(data))
@@ -557,6 +754,8 @@ func _load() -> void:
 	if not data is Dictionary or not data.has("pieces") or not state.restore(data):
 		_notify("Save could not be read")
 		return
+	var phase2 = data.get("phase2", {})
+	business.restore(phase2 if phase2 is Dictionary else {})
 	if placement:
 		_cancel_placement(false)
 	for body in ground_pieces.values():
@@ -565,7 +764,15 @@ func _load() -> void:
 	for body in crusher_nodes:
 		body.queue_free()
 	crusher_nodes.clear()
-	for kind in DEPOSIT_INFO:
+	for body in output_nodes + conveyor_nodes:
+		body.queue_free()
+	output_nodes.clear()
+	conveyor_nodes.clear()
+	for w in worker_nodes.values():
+		w.queue_free()
+	worker_nodes.clear()
+	_set_expansion(business.expansion_unlocked)
+	for kind in deposit_nodes:
 		_refresh_deposit(kind)
 	var ids := {}
 	for id in data["pieces"]:
@@ -574,10 +781,17 @@ func _load() -> void:
 		var parts: PackedStringArray = str(id).split("_")
 		if parts.size() >= 3:
 			var kind := "_".join(parts.slice(0,parts.size()-2))
-			if DEPOSIT_INFO.has(kind):
+			if deposit_nodes.has(kind):
 				_spawn_piece(kind,int(parts[parts.size()-2]),int(parts[parts.size()-1]))
 	for i in range(state.crushers.size()):
 		_create_crusher(i)
+	for i in range(business.outputs.size()):
+		_create_output(i)
+	for i in range(business.conveyors.size()):
+		_create_conveyor(i)
+	business.compute_links()
+	_sync_workers()
+	_rebake_nav()
 	var p: Array = state.player_position
 	player.position = Vector3(float(p[0]),maxf(0.05,float(p[1])),float(p[2]))
 	player.rotation.y = state.player_yaw
@@ -586,3 +800,334 @@ func _load() -> void:
 	if menu != "":
 		_close_menu()
 	_notify("Loaded quarry progress")
+
+# ===================================================================== Phase 2
+
+func _on_milestone(id: String) -> void:
+	match id:
+		"first_employee": _notify("Milestone: First Employee - remote management (M) and +5% productivity unlocked")
+		"mechanized": _notify("Milestone: Mechanized Quarry - conveyor belts unlocked at the kiosk")
+		"automated":
+			_notify("Milestone: Automated Business - the east quarry expansion is open!")
+			_set_expansion(true)
+
+func fmt_time(minutes: int) -> String:
+	return "%02d:%02d" % [posmod(minutes, 1440) / 60, posmod(minutes, 60)]
+
+func _build_phase2_area() -> void:
+	var floor_body := _solid(world, "Expansion floor", Vector3(39,-0.25,0), Vector3(20,0.5,26), Color(0.36,0.33,0.27))
+	floor_body.set_meta("ground", true)
+	_solid(world, "Expansion cliff", Vector3(39,3,-14), Vector3(22,6,2), Color(0.33,0.32,0.29))
+	_solid(world, "Expansion cliff", Vector3(39,3,14), Vector3(22,6,2), Color(0.34,0.32,0.29))
+	_solid(world, "Expansion cliff", Vector3(50,3,0), Vector3(2,6,30), Color(0.32,0.31,0.28))
+	var barrier := _solid(world, "Rockfall barrier", Vector3(29.6,2.0,0), Vector3(1.2,4.0,26), Color(0.42,0.37,0.31))
+	expansion_gate.append(barrier)
+	var desk := _solid(world, "Management desk", Vector3(-14,0.5,13.4), Vector3(1.8,1.0,0.8), Color(0.30,0.20,0.12))
+	desk.set_meta("kind", "office")
+	_visual_box(desk, Vector3(-0.4,0.62,0), Vector3(0.5,0.24,0.06), Color(0.12,0.2,0.16))
+	_solid(world, "Break bench", Vector3(-9.6,0.25,15.3), Vector3(2.6,0.5,0.6), Color(0.33,0.22,0.12))
+
+## Shows or hides the east expansion. Locked: barrier + cliff in place, no deposits there.
+func _set_expansion(unlocked: bool) -> void:
+	for body in expansion_gate:
+		body.visible = not unlocked
+		body.collision_layer = 0 if unlocked else 1
+		body.set_meta("nav_skip", unlocked)
+	for kind in EXPANSION_DEPOSITS:
+		if unlocked and not deposit_nodes.has(kind):
+			_build_deposit(kind)
+		elif not unlocked and deposit_nodes.has(kind):
+			deposit_nodes[kind].queue_free()
+			deposit_nodes.erase(kind)
+			for id in ground_pieces.keys():
+				if str(ground_pieces[id].get_meta("deposit")) == kind:
+					ground_pieces[id].queue_free()
+					ground_pieces.erase(id)
+	nav_dirty = true
+
+# --------------------------------------------------------------- navigation
+
+func _box_faces(size: Vector3) -> PackedVector3Array:
+	var h := size * 0.5
+	var c := [Vector3(-h.x,-h.y,-h.z),Vector3(h.x,-h.y,-h.z),Vector3(h.x,h.y,-h.z),Vector3(-h.x,h.y,-h.z),Vector3(-h.x,-h.y,h.z),Vector3(h.x,-h.y,h.z),Vector3(h.x,h.y,h.z),Vector3(-h.x,h.y,h.z)]
+	var out := PackedVector3Array()
+	for q in [[3,2,6,7],[4,5,1,0],[7,6,5,4],[0,1,2,3],[3,7,4,0],[6,2,1,5]]:
+		for i in [q[0],q[1],q[2],q[0],q[2],q[3]]:
+			out.append(c[i])
+	return out
+
+## Rebuilds the walkable navigation mesh from the actual static geometry (machines, walls,
+## deposits, conveyors). Called on start, load and after every placement / expansion.
+func _rebake_nav() -> void:
+	nav_dirty = false
+	var source := NavigationMeshSourceGeometryData3D.new()
+	for body in world.get_children():
+		if not body is StaticBody3D or not body.is_inside_tree():
+			continue
+		var kind := str(body.get_meta("kind", ""))
+		if kind == "piece" or bool(body.get_meta("nav_skip", false)) or body.is_queued_for_deletion():
+			continue
+		if body.collision_layer == 0 and kind != "deposit":
+			continue
+		for child in body.get_children():
+			if child is CollisionShape3D and child.shape is BoxShape3D:
+				source.add_faces(_box_faces(child.shape.size), body.global_transform * child.transform)
+	var mesh := NavigationMesh.new()
+	mesh.cell_size = 0.25
+	mesh.cell_height = 0.25
+	mesh.agent_radius = 0.5
+	mesh.agent_height = 1.75
+	mesh.agent_max_climb = 0.25
+	mesh.filter_baking_aabb = AABB(Vector3(-30,-1,-30), Vector3(82,9,60))
+	NavigationServer3D.bake_from_source_geometry_data(mesh, source)
+	nav_region.navigation_mesh = mesh
+	nav_version += 1
+	nav_ready_frame = Engine.get_physics_frames() + 2
+
+func nav_ready() -> bool:
+	return Engine.get_physics_frames() >= nav_ready_frame and NavigationServer3D.map_get_iteration_id(nav_map) > 0
+
+func is_visible_to_player(pos: Vector3) -> bool:
+	if player == null or player.camera == null:
+		return false
+	return pos.distance_to(player.global_position) < 45.0 and player.camera.is_position_in_frustum(pos + Vector3(0,1,0))
+
+# --------------------------------------------------------------- worker services
+
+func break_spot(slot: int) -> Vector3:
+	return Vector3(-10.9 + 0.85 * clampi(slot, 0, 3), 0, 16.4)
+
+## Standing area for a workplace endpoint: centre, radius of reachable ring, preferred side.
+func workplace(ep: Dictionary) -> Dictionary:
+	match str(ep.get("type", "")):
+		"storage": return {"pos": Business.STORAGE_POS, "radius": 2.1, "face": Vector3(-0.3,0,-1)}
+		"sell": return {"pos": Vector3(-7,0,10), "radius": 2.0, "face": Vector3(0,0,1)}
+		"crusher":
+			var i := int(ep.get("index", -1))
+			if i < 0 or i >= state.crushers.size():
+				return {}
+			var c: Dictionary = state.crushers[i]
+			return {"pos": Business.v3(c["position"]) * Vector3(1,0,1), "radius": 2.0, "face": -Business.forward(float(c["yaw"]))}
+		"output":
+			var i := int(ep.get("index", -1))
+			if i < 0 or i >= business.outputs.size():
+				return {}
+			return {"pos": Business.v3(business.outputs[i]["position"]) * Vector3(1,0,1), "radius": 1.7, "face": Vector3(0,0,1)}
+		"deposit_site":
+			var id := str(ep.get("id", ""))
+			if not deposit_nodes.has(id):
+				return {}
+			var p: Vector3 = _deposit_info(id)["pos"]
+			var toward := (Vector3(0,0,8) - p) if not EXPANSION_DEPOSITS.has(id) else (Vector3(30,0,0) - p)
+			return {"pos": p, "radius": 2.4, "face": toward.normalized()}
+	return {}
+
+func nearest_piece(res: String, from: Vector3, skip := {}) -> Node3D:
+	var best: Node3D = null
+	var best_d := INF
+	for id in ground_pieces:
+		var body: Node3D = ground_pieces[id]
+		if str(body.get_meta("resource")) != res or skip.has(id) or body.is_queued_for_deletion():
+			continue
+		var d := body.global_position.distance_squared_to(from)
+		if d < best_d:
+			best_d = d
+			best = body
+	return best
+
+func nearest_deposit(res: String, from: Vector3) -> String:
+	var best := ""
+	var best_d := INF
+	for kind in deposit_nodes:
+		if str(_deposit_info(kind)["resource"]) != res or bool(state.deposits[kind]["broken"]):
+			continue
+		var d: float = deposit_nodes[kind].global_position.distance_squared_to(from)
+		if d < best_d:
+			best_d = d
+			best = kind
+	return best
+
+func worker_strike(kind: String, hits: int, extra: int, _worker: Node3D) -> void:
+	if deposit_nodes.has(kind):
+		_strike(kind, hits, extra, false)
+
+## A worker physically picks up one loose piece next to it. Returns false if it cannot.
+func worker_pick_piece(piece: Node3D, e: Dictionary) -> bool:
+	if piece == null or not is_instance_valid(piece) or piece.is_queued_for_deletion():
+		return false
+	var id := str(piece.get_meta("piece_id"))
+	if not ground_pieces.has(id) or business.carry_total(e) >= int(business.stat(e, "carry")):
+		return false
+	ground_pieces.erase(id)
+	business.carry_add(e, str(piece.get_meta("resource")), 1)
+	piece.queue_free()
+	return true
+
+func worker_sale_feedback(w: Node3D) -> void:
+	if player and w.global_position.distance_to(player.global_position) < 14.0:
+		sell_audio.play()
+
+func _sync_workers() -> void:
+	for id in worker_nodes.keys():
+		if business.employee(id).is_empty():
+			worker_nodes[id].queue_free()
+			worker_nodes.erase(id)
+	for e in business.employees:
+		var id := int(e["id"])
+		if worker_nodes.has(id):
+			continue
+		var w = WorkerScript.new()
+		w.setup(self, business, e)
+		var p: Array = e.get("position", [])
+		if p.size() == 3:
+			w.position = Vector3(float(p[0]), maxf(0.05, float(p[1])), float(p[2]))
+			w.rotation.y = float(e.get("yaw", 0.0))
+		else:
+			w.position = break_spot(business.employees.find(e)) + Vector3(0, 0.05, 0)
+		workers_root.add_child(w)
+		worker_nodes[id] = w
+
+# --------------------------------------------------------------- management actions (UI)
+
+func ui_hire(candidate_id: String) -> String:
+	var reason := business.hire_block_reason(candidate_id)
+	if reason != "":
+		return reason
+	var e := business.hire(candidate_id)
+	_sync_workers()
+	return "Hired %s. They will head to the break area, then to work during their shift." % e["name"]
+
+func ui_fire(id: int) -> String:
+	var e := business.employee(id)
+	if e.is_empty() or not business.fire(id):
+		return "Nobody to dismiss"
+	_sync_workers()
+	return "%s left the company. Final wages settled%s." % [e["name"], "" if business.outstanding_debt <= 0.0 else " (remaining wages are owed)"]
+
+func ui_assign(id: int, a: Dictionary) -> String:
+	if business.assign(id, a):
+		var w = worker_nodes.get(id)
+		if w:
+			w.access_cache.clear()
+			w.path_key = ""
+			w.phase = ""
+		return "Assignment updated"
+	return "That workplace is not compatible"
+
+func ui_shift(id: int, start_minute: int, end_minute: int) -> String:
+	return "Shift updated" if business.set_shift(id, start_minute, end_minute) else "Shift must be at least 30 minutes"
+
+func ui_upgrade(id: int) -> String:
+	var e := business.employee(id)
+	var info := business.upgrade_info(e)
+	if info.is_empty():
+		return "Fully trained"
+	if business.buy_upgrade(id):
+		return "%s trained: %s" % [e["name"], info["name"]]
+	return "Need $%d" % int(info["cost"])
+
+# --------------------------------------------------------------- structures
+
+func _output_visual(parent: Node3D, transparent := false) -> void:
+	_visual_box(parent,Vector3(0,0.55,0),Vector3(1.4,1.1,1.4),Color(0.24,0.30,0.22))
+	_visual_box(parent,Vector3(0,1.12,0),Vector3(1.5,0.08,1.5),Color(0.40,0.36,0.22))
+	if transparent:
+		for child in parent.get_children():
+			child.transparency = 0.45
+
+func _conveyor_visual(parent: Node3D, transparent := false) -> void:
+	_visual_box(parent,Vector3(0,0.22,0),Vector3(0.9,0.44,2.0),Color(0.16,0.17,0.18))
+	_visual_box(parent,Vector3(0,0.45,0),Vector3(0.7,0.04,2.0),Color(0.07,0.07,0.07))
+	_visual_box(parent,Vector3(0,0.48,-0.75),Vector3(0.2,0.02,0.32),Color(0.85,0.70,0.15))
+	if transparent:
+		for child in parent.get_children():
+			child.transparency = 0.45
+
+func _create_output(index: int) -> void:
+	var data: Dictionary = business.outputs[index]
+	var p := Business.v3(data["position"])
+	var body := _solid(world,"Output storage",Vector3(p.x,0.55,p.z),Vector3(1.4,1.1,1.4),Color(0.24,0.30,0.22),float(data["yaw"]))
+	body.set_meta("kind","output")
+	body.set_meta("index",index)
+	_visual_box(body,Vector3(0,0.57,0),Vector3(1.5,0.08,1.5),Color(0.40,0.36,0.22))
+	var fill := _visual_box(body,Vector3(0,0.3,0),Vector3(1.2,0.5,1.2),Color(0.75,0.73,0.66))
+	body.set_meta("fill", fill)
+	output_nodes.append(body)
+
+func _create_conveyor(index: int) -> void:
+	var data: Dictionary = business.conveyors[index]
+	var p := Business.v3(data["position"])
+	var body := _solid(world,"Conveyor",Vector3(p.x,0.22,p.z),Vector3(0.9,0.44,2.0),Color(0.16,0.17,0.18),float(data["yaw"]))
+	body.set_meta("kind","conveyor")
+	body.set_meta("index",index)
+	_visual_box(body,Vector3(0,0.23,0),Vector3(0.7,0.04,2.0),Color(0.07,0.07,0.07))
+	_visual_box(body,Vector3(0,0.26,-0.75),Vector3(0.2,0.02,0.32),Color(0.85,0.70,0.15))
+	var items := []
+	for i in range(int(business.cfg.get("conveyor_capacity", 3))):
+		var item := _visual_box(body,Vector3(0,0.42,0),Vector3(0.3,0.3,0.3),Color(0.67,0.66,0.56))
+		item.visible = false
+		items.append(item)
+	body.set_meta("items", items)
+	conveyor_nodes.append(body)
+
+## Cheap per-frame visuals: belt items slide along, output storages show their fill level.
+func _update_structures() -> void:
+	for i in range(mini(conveyor_nodes.size(), business.conveyors.size())):
+		var c: Dictionary = business.conveyors[i]
+		var items: Array = conveyor_nodes[i].get_meta("items")
+		var n := int(c["items"])
+		for k in range(items.size()):
+			var item: MeshInstance3D = items[k]
+			item.visible = k < n
+			if item.visible:
+				item.position.z = minf(0.75, 0.75 - 1.5 * float(c["progress"]) + 0.55 * k)
+				item.material_override = _mat(WorkerScript.RESOURCE_COLORS.get(str(c["resource"]), Color.GRAY))
+	for i in range(mini(output_nodes.size(), business.outputs.size())):
+		var fill: MeshInstance3D = output_nodes[i].get_meta("fill")
+		var ratio := float(business.output_total(i)) / float(business.output_capacity())
+		fill.visible = ratio > 0.0
+		fill.scale.y = maxf(0.05, ratio)
+		fill.position.y = -0.5 + 0.5 * maxf(0.05, ratio) + 0.08
+
+func conveyor_valid(pos: Vector3, yaw: float) -> bool:
+	if absf(pos.x) > 24.0 or absf(pos.z) > 24.0 or pos.z < -6.5:
+		return false
+	if player and Vector2(pos.x,pos.z).distance_to(Vector2(player.global_position.x,player.global_position.z)) < 1.3:
+		return false
+	var fwd := Business.forward(yaw)
+	var side := Vector3(fwd.z, 0, -fwd.x)
+	var points := [pos, pos + fwd * 0.85, pos - fwd * 0.85, pos + side * 0.4, pos - side * 0.4]
+	for body in world.get_children():
+		if body == ghost or not body is StaticBody3D or body.collision_layer != 1 or body.has_meta("ground") or body.name == "Quarry floor":
+			continue
+		for child in body.get_children():
+			if child is CollisionShape3D and child.shape is BoxShape3D:
+				var h: Vector3 = child.shape.size * 0.5
+				var inv: Transform3D = (body.global_transform * child.transform).affine_inverse()
+				for p in points:
+					var l: Vector3 = inv * (p + Vector3(0, 0.2, 0))
+					if absf(l.x) <= h.x + 0.12 and absf(l.z) <= h.z + 0.12 and absf(l.y) <= h.y + 0.3:
+						return false
+	return true
+
+# --------------------------------------------------------------- HUD
+
+func _update_milestone_hud() -> void:
+	var done := 0
+	var next := ""
+	var names := {"first_employee": "First Employee: hire a worker", "mechanized": "Mechanized Quarry: crusher + operator", "automated": "Automated Business: run a full production chain"}
+	for id in Business.MILESTONES:
+		if business.milestones[id]:
+			done += 1
+		elif next == "":
+			next = names[id]
+	var text := "MILESTONES %d/3%s" % [done, ("\nNext: " + next) if next != "" else "\nAll complete"]
+	var alerts := 0
+	for e in business.employees:
+		if str(e["warning"]) != "":
+			alerts += 1
+			if alerts <= 2:
+				text += "\n! %s: %s" % [str(e["name"]).split(" ")[0], e["warning"]]
+	if alerts > 2:
+		text += "\n! +%d more (M)" % (alerts - 2)
+	milestone_label.text = text

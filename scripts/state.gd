@@ -100,14 +100,15 @@ func load_crusher(index: int, amount: int) -> int:
 	crusher["input"] += taken
 	return taken
 
-func start_crusher(index: int) -> bool:
+func start_crusher(index: int, factor := 1.0, automated := false) -> bool:
 	if index < 0 or index >= crushers.size():
 		return false
 	var crusher: Dictionary = crushers[index]
 	if bool(crusher["running"]) or int(crusher["input"]) <= 0:
 		return false
 	crusher["running"] = true
-	crusher["remaining"] = process_seconds()
+	crusher["remaining"] = process_seconds() * clampf(factor, 0.2, 1.0)
+	crusher["automated"] = automated
 	return true
 
 func tick(seconds: float) -> void:
@@ -119,6 +120,8 @@ func tick(seconds: float) -> void:
 			crusher["remaining"] = maxf(0.0, float(crusher["remaining"]) - seconds)
 			if float(crusher["remaining"]) <= 0.0:
 				crusher["output"] = int(crusher["output"]) + int(crusher["input"])
+				if bool(crusher.get("automated", false)):
+					crusher["auto_done"] = int(crusher.get("auto_done", 0)) + int(crusher["input"])
 				crusher["input"] = 0
 				crusher["running"] = false
 
@@ -131,13 +134,14 @@ func collect_crusher(index: int) -> int:
 	return taken
 
 func new_crusher(pos: Vector3, yaw: float) -> void:
-	crushers.append({"position": [pos.x, pos.y, pos.z], "yaw": yaw, "input": 0, "output": 0, "running": false, "remaining": 0.0})
+	crushers.append({"position": [pos.x, pos.y, pos.z], "yaw": yaw, "input": 0, "output": 0, "running": false, "remaining": 0.0, "hopper": 0, "automated": false, "auto_done": 0})
 
 func snapshot() -> Dictionary:
-	return {"version": 1, "money": money, "inventory": inventory.duplicate(true), "storage": storage.duplicate(true), "upgrades": upgrades.duplicate(true), "clock_minutes": clock_minutes, "player_position": player_position.duplicate(), "player_yaw": player_yaw, "deposits": deposits.duplicate(true), "crushers": crushers.duplicate(true)}
+	return {"version": 2, "money": money, "inventory": inventory.duplicate(true), "storage": storage.duplicate(true), "upgrades": upgrades.duplicate(true), "clock_minutes": clock_minutes, "player_position": player_position.duplicate(), "player_yaw": player_yaw, "deposits": deposits.duplicate(true), "crushers": crushers.duplicate(true)}
 
 func restore(data: Dictionary) -> bool:
-	if int(data.get("version", -1)) != 1:
+	# Version 1 = Phase 1 saves; version 2 adds Phase 2 business data stored beside this snapshot.
+	if not int(data.get("version", -1)) in [1, 2]:
 		return false
 	for key in ["inventory", "storage", "upgrades", "crushers", "deposits", "player_position", "money", "clock_minutes", "player_yaw"]:
 		if not data.has(key):
@@ -155,4 +159,10 @@ func restore(data: Dictionary) -> bool:
 	player_yaw = float(data["player_yaw"])
 	deposits = data["deposits"].duplicate(true)
 	crushers = data["crushers"].duplicate(true)
+	for crusher in crushers:
+		for key in ["input", "output", "hopper", "auto_done"]:
+			crusher[key] = maxi(0, int(crusher.get(key, 0)))
+		crusher["running"] = bool(crusher.get("running", false))
+		crusher["remaining"] = maxf(0.0, float(crusher.get("remaining", 0.0)))
+		crusher["automated"] = bool(crusher.get("automated", false))
 	return true
