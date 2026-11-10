@@ -1,0 +1,267 @@
+extends CharacterBody3D
+class_name QuarryVehicle
+## Lightweight kinematic heavy-machinery controller shared by the front loader and the
+## dump truck. Arcade bicycle steering, momentum, load-dependent acceleration and
+## move_and_slide collisions against terrain, structures, workers and other vehicles.
+## Material lives in QuarryFleet as unit counts; the meshes only visualise it.
+
+const RESOURCE_COLORS := {"limestone": Color(0.67, 0.66, 0.56), "coal": Color(0.17, 0.19, 0.21), "iron_ore": Color(0.52, 0.29, 0.23), "crushed_stone": Color(0.75, 0.73, 0.66)}
+
+var game
+var fleet: QuarryFleet
+var vehicle_id := 0
+var vtype := ""
+var data: Dictionary
+var size := Vector3(2, 1.5, 3)
+
+var driven := false
+var speed := 0.0
+var input := {"throttle": 0.0, "steer": 0.0, "brake": false}
+var settled_frames := 0
+
+var cam_pivot: Node3D
+var camera: Camera3D
+var cam_yaw := 0.0
+var cam_pitch := -0.32
+
+# loader
+var arm: Node3D
+var bucket: Node3D
+var bucket_load: MeshInstance3D
+var bucket_lift := 0.0
+var bucket_target := 0.0
+var dump_timer := 0.0
+# truck
+var bed: Node3D
+var bed_load: MeshInstance3D
+var bed_tilt := 0.0
+var unload_timer := 0.0
+var unload_target := {}
+var wheels: Array = []
+
+# stuck recovery
+var safe_position := Vector3.ZERO
+var safe_yaw := 0.0
+var safe_timer := 0.0
+
+func setup(main_node, f: QuarryFleet, record: Dictionary) -> void:
+	game = main_node
+	fleet = f
+	data = record
+	vehicle_id = int(record["id"])
+	vtype = str(record["type"])
+	name = "Vehicle_%d" % vehicle_id
+	var s: Array = fleet.spec(vtype)["size"]
+	size = Vector3(float(s[0]), float(s[1]), float(s[2]))
+	collision_layer = 8
+	collision_mask = 1 | 4 | 8 | 16 # world, workers, vehicles, conveyors
+	floor_snap_length = 0.6
+	floor_max_angle = deg_to_rad(40)
+	set_meta("kind", "vehicle")
+	set_meta("vehicle_id", vehicle_id)
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = size
+	shape.shape = box
+	shape.position = Vector3(0, size.y * 0.5 + 0.05, 0)
+	add_child(shape)
+	if vtype == "loader":
+		_build_loader()
+	else:
+		_build_truck()
+	cam_pivot = Node3D.new()
+	cam_pivot.position = Vector3(0, 2.0, 0)
+	add_child(cam_pivot)
+	camera = Camera3D.new()
+	camera.position = Vector3(0, 1.6, 7.5 if vtype == "truck" else 6.5)
+	camera.far = 200
+	cam_pivot.add_child(camera)
+	var p: Array = record["position"]
+	position = Vector3(float(p[0]), maxf(0.02, float(p[1])), float(p[2]))
+	rotation.y = float(record.get("yaw", 0.0))
+	safe_position = position
+	safe_yaw = rotation.y
+
+func _box(parent: Node3D, pos: Vector3, s: Vector3, color: Color) -> MeshInstance3D:
+	return game._visual_box(parent, pos, s, color)
+
+func _wheel(x: float, z: float, r: float) -> void:
+	var w := MeshInstance3D.new()
+	var c := CylinderMesh.new()
+	c.top_radius = r
+	c.bottom_radius = r
+	c.height = 0.38
+	c.radial_segments = 8
+	w.mesh = c
+	w.material_override = game._mat(Color(0.09, 0.09, 0.09))
+	w.rotation.z = PI / 2
+	w.position = Vector3(x, r, z)
+	add_child(w)
+	wheels.append(w)
+
+func _build_loader() -> void:
+	var yellow := Color(0.86, 0.62, 0.12)
+	_box(self, Vector3(0, 0.85, 0.45), Vector3(1.8, 0.75, 1.9), yellow) # body / engine
+	_box(self, Vector3(0, 1.5, 0.15), Vector3(1.25, 0.95, 1.1), Color(0.24, 0.30, 0.32)) # cab glass
+	_box(self, Vector3(0, 2.02, 0.15), Vector3(1.4, 0.1, 1.25), yellow) # roof
+	_box(self, Vector3(0, 0.95, 1.45), Vector3(1.7, 0.6, 0.3), Color(0.2, 0.2, 0.2)) # counterweight
+	for x in [-0.95, 0.95]:
+		for z in [-0.75, 1.0]:
+			_wheel(x, z, 0.52)
+	arm = Node3D.new()
+	arm.position = Vector3(0, 1.15, -0.45)
+	add_child(arm)
+	for x in [-0.7, 0.7]:
+		_box(arm, Vector3(x, -0.15, -0.75), Vector3(0.16, 0.18, 1.6), yellow)
+	bucket = Node3D.new()
+	bucket.position = Vector3(0, -0.2, -1.55)
+	arm.add_child(bucket)
+	_box(bucket, Vector3(0, -0.1, -0.15), Vector3(2.1, 0.08, 0.75), Color(0.32, 0.32, 0.30)) # floor
+	_box(bucket, Vector3(0, 0.2, 0.22), Vector3(2.1, 0.6, 0.08), Color(0.32, 0.32, 0.30)) # back
+	for x in [-1.03, 1.03]:
+		_box(bucket, Vector3(x, 0.12, -0.05), Vector3(0.06, 0.45, 0.6), Color(0.32, 0.32, 0.30))
+	bucket_load = _box(bucket, Vector3(0, 0.1, -0.1), Vector3(1.9, 0.35, 0.55), RESOURCE_COLORS["limestone"])
+	bucket_load.visible = false
+
+func _build_truck() -> void:
+	var red := Color(0.62, 0.20, 0.14)
+	_box(self, Vector3(0, 0.55, 0), Vector3(1.9, 0.35, 4.4), Color(0.16, 0.16, 0.17)) # chassis
+	_box(self, Vector3(0, 1.25, -1.65), Vector3(2.0, 1.15, 1.1), red) # cab
+	_box(self, Vector3(0, 1.45, -2.2), Vector3(1.7, 0.5, 0.04), Color(0.24, 0.30, 0.32)) # windscreen
+	for x in [-0.95, 0.95]:
+		for z in [-1.6, 0.9, 1.7]:
+			_wheel(x, z, 0.45)
+	bed = Node3D.new()
+	bed.position = Vector3(0, 0.75, 2.15) # hinge at the rear
+	add_child(bed)
+	var grey := Color(0.38, 0.36, 0.33)
+	_box(bed, Vector3(0, 0.05, -1.4), Vector3(2.1, 0.1, 2.9), grey)
+	_box(bed, Vector3(0, 0.5, -2.8), Vector3(2.1, 0.9, 0.1), grey)
+	for x in [-1.03, 1.03]:
+		_box(bed, Vector3(x, 0.45, -1.4), Vector3(0.08, 0.8, 2.9), grey)
+	bed_load = _box(bed, Vector3(0, 0.3, -1.4), Vector3(1.9, 0.5, 2.7), RESOURCE_COLORS["limestone"])
+	bed_load.visible = false
+
+# ------------------------------------------------------------------ geometry helpers
+
+func forward() -> Vector3:
+	return -global_transform.basis.z
+
+## Point in front of the loader bucket / behind the truck bed where material is handled.
+func work_point() -> Vector3:
+	if vtype == "loader":
+		return global_transform * Vector3(0, 0, -size.z * 0.5 - 1.1)
+	return global_transform * Vector3(0, 0, size.z * 0.5 + 1.0)
+
+func bed_center() -> Vector3:
+	return global_transform * Vector3(0, 0, 0.7)
+
+# ------------------------------------------------------------------ driving
+
+func rotate_camera(rel: Vector2) -> void:
+	cam_yaw -= rel.x * 0.003
+	cam_pitch = clampf(cam_pitch - rel.y * 0.003, -1.1, 0.25)
+
+func control(delta: float) -> void:
+	data = fleet.vehicle(vehicle_id)
+	if data.is_empty():
+		return
+	var throttle := float(input["throttle"]) if driven else 0.0
+	var steer := float(input["steer"]) if driven else 0.0
+	var braking := bool(input["brake"]) if driven else true
+	var busy := unload_timer > 0.0 or dump_timer > 0.0
+	if busy:
+		throttle = 0.0
+	var s := fleet.spec(vtype)
+	var top := fleet.max_speed(data)
+	var a := fleet.accel(data)
+	if braking:
+		speed = move_toward(speed, 0.0, float(s["brake"]) * delta)
+	elif absf(throttle) > 0.05:
+		if signf(throttle) != signf(speed) and absf(speed) > 0.2:
+			speed = move_toward(speed, 0.0, float(s["brake"]) * delta) # throttle against motion brakes first
+		else:
+			speed = clampf(speed + throttle * a * delta, -float(s["reverse_speed"]), top)
+	else:
+		speed = move_toward(speed, 0.0, 1.6 * delta) # rolling resistance: heavy, coasts a little
+	var steer_grip := clampf(speed / 2.5, -1.0, 1.0)
+	rotation.y -= steer * float(s["turn"]) * steer_grip * delta
+	var parked := not driven and absf(speed) < 0.01 and is_on_floor() and settled_frames > 5
+	if parked:
+		_animate(delta)
+		return
+	var f := forward()
+	velocity.x = f.x * speed
+	velocity.z = f.z * speed
+	velocity.y = velocity.y - 22.0 * delta if not is_on_floor() else -0.5
+	move_and_slide()
+	settled_frames = settled_frames + 1 if is_on_floor() else 0
+	# Collisions bleed speed: only motion along the heading survives.
+	var real := get_real_velocity()
+	var along := real.x * f.x + real.z * f.z
+	if absf(along) < absf(speed):
+		speed = along
+	_track_safety(delta)
+	_animate(delta)
+
+func _track_safety(delta: float) -> void:
+	if global_position.y < -3.0:
+		recover() # fell out of the world: never leave it lost
+		return
+	safe_timer += delta
+	if safe_timer > 1.5 and is_on_floor() and absf(speed) > 0.5:
+		safe_timer = 0.0
+		safe_position = global_position
+		safe_yaw = rotation.y
+
+## Manual or automatic recovery: back to the last position where it drove freely.
+func recover() -> void:
+	speed = 0.0
+	velocity = Vector3.ZERO
+	global_position = safe_position + Vector3(0, 0.2, 0)
+	rotation.y = safe_yaw
+	settled_frames = 0
+
+# ------------------------------------------------------------------ animation & feedback
+
+func _animate(delta: float) -> void:
+	if driven:
+		cam_pivot.rotation = Vector3(cam_pitch, cam_yaw, 0)
+		if absf(speed) > 1.0:
+			cam_yaw = lerp_angle(cam_yaw, 0.0, delta * 0.6)
+	for w in wheels:
+		w.rotate_x(-speed * delta / 0.5)
+	if vtype == "loader":
+		bucket_lift = move_toward(bucket_lift, bucket_target, delta * 1.2)
+		dump_timer = maxf(0.0, dump_timer - delta)
+		arm.rotation.x = lerpf(-0.12, 0.75, bucket_lift)
+		var tilt := sin(clampf(dump_timer / 1.0, 0.0, 1.0) * PI) * 1.1
+		bucket.rotation.x = -arm.rotation.x - tilt # keep the bucket level while lifting
+		var n := fleet.cargo_total(data)
+		bucket_load.visible = n > 0
+		if n > 0:
+			bucket_load.scale.y = clampf(float(n) / float(fleet.capacity(data)), 0.2, 1.0)
+			bucket_load.material_override = game._mat(RESOURCE_COLORS.get(data["cargo"].keys()[0], Color.GRAY))
+	else:
+		if unload_timer > 0.0:
+			unload_timer -= delta
+			if unload_timer <= 0.8 and not unload_target.is_empty():
+				game.truck_finish_unload(self, unload_target)
+				unload_target = {}
+		var want := 0.95 if unload_timer > 0.0 else 0.0
+		bed_tilt = move_toward(bed_tilt, want, delta * 1.1)
+		bed.rotation.x = -bed_tilt
+		var n := fleet.cargo_total(data)
+		bed_load.visible = n > 0
+		if n > 0:
+			bed_load.scale.y = clampf(float(n) / float(fleet.capacity(data)), 0.15, 1.0)
+			bed_load.material_override = game._mat(RESOURCE_COLORS.get(data["cargo"].keys()[0], Color.GRAY))
+
+func start_unload(target: Dictionary) -> void:
+	unload_target = target
+	unload_timer = 2.2
+	speed = 0.0
+
+func save_into(record: Dictionary) -> void:
+	record["position"] = [global_position.x, global_position.y, global_position.z]
+	record["yaw"] = rotation.y
