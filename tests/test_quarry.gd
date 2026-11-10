@@ -41,17 +41,18 @@ func run_tests() -> void:
 	var game = packed.instantiate()
 	root.add_child(game)
 	await process_frame
-	check(game.player != null and game.deposit_nodes.size()==3,"project boots with player and three deposits")
+	check(game.player != null and game.deposit_nodes.size()==4,"project boots with player, three deposits and the hand-mining quarry face")
 	check(not game.placement_valid(Vector3(-7,0,10),0) and game.placement_valid(Vector3(4,0,9),0),"placement rejects selling station and permits clear ground")
 	for n in range(game.state.required_hits()):
 		game._strike("limestone")
-	check(game.ground_pieces.size()==4 and game.state.deposits["limestone"]["broken"],"mining yields four collectible pieces")
+	# Phase 4: a break takes 4 units out of the deposit's visible stock instead of making it vanish.
+	check(game.ground_pieces.size()==4 and int(game.state.deposits["limestone"]["stock"])==20 and not game.state.deposits["limestone"]["broken"],"mining yields four collectible pieces from the deposit stock")
 	var first_id: String = game.ground_pieces.keys()[0]
 	game._interact(game.ground_pieces[first_id])
 	check(game.state.inventory["limestone"]==1 and game.ground_pieces.size()==3,"E pickup removes one world piece")
 	game.state.clock_minutes += 110
 	game._physics_process(0.01)
-	check(not game.state.deposits["limestone"]["broken"] and game.ground_pieces.size()==3,"deposit regenerates without deleting uncollected pieces")
+	check(int(game.state.deposits["limestone"]["stock"])==24 and game.ground_pieces.size()==3,"deposit regrows to full without deleting uncollected pieces")
 	game.state.new_crusher(Vector3(4,0,9),0)
 	game._create_crusher(0)
 	game._save()

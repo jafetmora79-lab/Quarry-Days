@@ -6,12 +6,31 @@
   "crusher_seconds": 18,
   "crusher_input_limit": 12,
   "deposit_regen_minutes": 100,
-  "prices": {"limestone": 5, "coal": 12, "iron_ore": 25, "crushed_stone": 11},
+  "prices": {
+    "limestone": 5,
+    "coal": 12,
+    "iron_ore": 25,
+    "crushed_stone": 11
+  },
   "upgrades": {
     "reinforced_pickaxe": 45,
     "larger_backpack": 55,
     "faster_mining": 60,
     "efficient_crusher": 75,
     "expanded_storage": 55
+  },
+  "deposit_stock": {
+    "limestone": 24,
+    "coal": 15,
+    "iron_ore": 8
+  },
+  "deposit_regrow_minutes": {
+    "limestone": 3,
+    "coal": 6,
+    "iron_ore": 12
+  },
+  "quarry_face": {
+    "hits": 5,
+    "pieces": 2
   }
 }

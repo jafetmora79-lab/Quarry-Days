@@ -9,7 +9,7 @@ const FleetScript = preload("res://scripts/fleet.gd")
 const VehicleScript = preload("res://scripts/vehicle.gd")
 const SAVE_PATH := "user://quarry_save.json"
 const RESOURCE_ORDER := ["limestone", "coal", "iron_ore", "crushed_stone"]
-const DEPOSIT_INFO := {"limestone": {"pos": Vector3(-8, 0, -11), "color": Color(0.67, 0.66, 0.56), "pieces": 4, "resource": "limestone"}, "coal": {"pos": Vector3(0, 0, -15), "color": Color(0.17, 0.19, 0.21), "pieces": 3, "resource": "coal"}, "iron_ore": {"pos": Vector3(8, 0, -11), "color": Color(0.52, 0.29, 0.23), "pieces": 2, "resource": "iron_ore"}}
+const DEPOSIT_INFO := {"limestone": {"pos": Vector3(-8, 0, -11), "color": Color(0.67, 0.66, 0.56), "pieces": 4, "resource": "limestone"}, "coal": {"pos": Vector3(0, 0, -15), "color": Color(0.17, 0.19, 0.21), "pieces": 3, "resource": "coal"}, "iron_ore": {"pos": Vector3(8, 0, -11), "color": Color(0.52, 0.29, 0.23), "pieces": 2, "resource": "iron_ore"}, "limestone_face": {"pos": Vector3(-12, 0, -18), "color": Color(0.70, 0.68, 0.58), "pieces": 2, "resource": "limestone", "infinite": true, "yaw": -0.65}}
 # Phase 2 quarry expansion (east), unlocked by the Automated Business milestone. Same three minerals.
 const EXPANSION_DEPOSITS := {"limestone_east": {"pos": Vector3(36, 0, -6), "color": Color(0.67, 0.66, 0.56), "pieces": 4, "resource": "limestone"}, "coal_east": {"pos": Vector3(42, 0, 6), "color": Color(0.17, 0.19, 0.21), "pieces": 3, "resource": "coal"}, "iron_ore_east": {"pos": Vector3(44, 0, -5), "color": Color(0.52, 0.29, 0.23), "pieces": 2, "resource": "iron_ore"}, "limestone_east_2": {"pos": Vector3(35, 0, 6), "color": Color(0.67, 0.66, 0.56), "pieces": 4, "resource": "limestone"}}
 var state: QuarryState
@@ -232,9 +232,20 @@ func _deposit_info(kind: String) -> Dictionary:
 
 func _build_deposit(kind: String) -> void:
 	var info: Dictionary = _deposit_info(kind)
-	if not state.deposits.has(kind):
-		state.deposits[kind] = {"hits": 0, "ready_at": 0.0, "broken": false}
-	var body := _solid(world,kind+" deposit",info["pos"]+Vector3(0,0.9,0),Vector3(2.4,1.8,2.0),info["color"],0.4)
+	state.ensure_deposit(kind, str(info["resource"]), bool(info.get("infinite", false)))
+	var face := bool(info.get("infinite", false))
+	var body := _solid(world,kind+" deposit",info["pos"]+Vector3(0,1.2 if face else 0.9,0),Vector3(3.6,2.4,1.4) if face else Vector3(2.4,1.8,2.0),info["color"],float(info.get("yaw", 0.4)))
+	var status := Label3D.new()
+	status.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	status.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	status.font_size = 28
+	status.pixel_size = 0.006
+	status.outline_size = 6
+	status.position = Vector3(0, 1.55 if face else 1.35, 0)
+	status.visibility_range_end = 16.0
+	status.no_depth_test = false
+	body.add_child(status)
+	body.set_meta("status", status)
 	body.set_meta("kind","deposit")
 	body.set_meta("resource",info["resource"])
 	body.set_meta("deposit",kind)
@@ -244,18 +255,21 @@ func _build_deposit(kind: String) -> void:
 func _refresh_deposit(kind: String) -> void:
 	if not deposit_nodes.has(kind):
 		return
-	if not state.deposits.has(kind):
-		state.deposits[kind] = {"hits": 0, "ready_at": 0.0, "broken": false}
+	var info := _deposit_info(kind)
+	var d: Dictionary = state.ensure_deposit(kind, str(info["resource"]), bool(info.get("infinite", false)))
 	var body: StaticBody3D = deposit_nodes[kind]
-	var d: Dictionary = state.deposits[kind]
-	body.visible = not bool(d["broken"])
-	body.collision_layer = 1 if body.visible else 0
+	# Phase 4: deposits never vanish. They shrink with their stock and stay solid; the label says what is left.
+	body.visible = true
+	body.collision_layer = 1
+	var ratio := float(d["stock"]) / float(state.deposit_max(str(d["resource"])))
 	var mesh: MeshInstance3D = body.get_child(0)
-	mesh.scale = Vector3.ONE * (1.0 - float(d["hits"]) * 0.07)
+	mesh.scale = Vector3.ONE * (0.42 + 0.58 * ratio) * (1.0 - float(d["hits"]) * 0.03)
+	mesh.position.y = -0.9 * (1.0 - (0.42 + 0.58 * ratio)) if not bool(d.get("infinite", false)) else 0.0
+	_update_deposit_label(kind)
 	if mesh.get_child_count() > 0:
 		for child in mesh.get_children():
 			child.queue_free()
-	if int(d["hits"]) > 0 and body.visible:
+	if int(d["hits"]) > 0 and not bool(d["broken"]):
 		for n in range(int(d["hits"])):
 			_visual_box(mesh,Vector3(-0.5+0.22*n,0.36,1.01),Vector3(0.025,0.35,0.025),Color(0.07,0.07,0.06),0.3*n)
 
@@ -268,11 +282,17 @@ func _spawn_piece(kind: String, generation: int, i: int) -> void:
 	var info := _deposit_info(kind)
 	var count: int = int(info["pieces"])
 	var center: Vector3 = info["pos"]
-	var angle := TAU * float(i)/float(count)
-	var radius := 1.0
+	var angle := TAU * float(i)/float(count) + 0.3
+	var radius := 1.85 # Phase 4: pieces land just outside the (still solid) rock
 	if i >= count:
-		angle = TAU * (float(i - count) + 0.5) / float(count)
-		radius = 1.45
+		angle = TAU * (float(i - count) + 0.5) / float(count) + 0.3
+		radius = 2.3
+	if bool(info.get("infinite", false)):
+		var fwd := Vector3(sin(float(info["yaw"])), 0, cos(float(info["yaw"])))
+		var side := Vector3(fwd.z, 0, -fwd.x)
+		center += fwd * 1.5 + side * (0.6 * float(i) - 0.3)
+		angle = 0.0
+		radius = 0.0
 	var body := _solid(world,"Loose "+kind, center+Vector3(cos(angle)*radius,0.27,sin(angle)*radius),Vector3(0.44,0.46,0.42),info["color"],angle)
 	body.collision_layer = 2 # walkable for workers; player still collides (mask)
 	body.set_meta("kind","piece")
@@ -284,7 +304,12 @@ func _spawn_piece(kind: String, generation: int, i: int) -> void:
 func _strike(kind: String, hits_needed := -1, extra_pieces := 0, by_player := true) -> void:
 	var d: Dictionary = state.deposits[kind]
 	if bool(d["broken"]):
+		if by_player:
+			player.swing_pickaxe()
+			_notify(_deposit_status(kind))
 		return
+	if bool(d.get("infinite", false)) and hits_needed < 0:
+		hits_needed = int(state.config.get("quarry_face", {}).get("hits", 5))
 	d["hits"] = int(d["hits"]) + 1
 	var need: int = state.required_hits() if hits_needed < 0 else maxi(1, hits_needed)
 	if by_player:
@@ -295,11 +320,14 @@ func _strike(kind: String, hits_needed := -1, extra_pieces := 0, by_player := tr
 	if int(d["hits"]) >= need:
 		d["hits"] = 0
 		d["generation"] = int(d.get("generation", 0)) + 1
-		d["broken"] = true
-		d["ready_at"] = state.clock_minutes + float(state.config["deposit_regen_minutes"])
-		_spawn_pieces(kind,int(_deposit_info(kind)["pieces"]) + maxi(0, extra_pieces))
+		var n := state.mine_yield(kind, int(_deposit_info(kind)["pieces"]) + maxi(0, extra_pieces))
+		_spawn_pieces(kind, n)
 		if by_player:
-			_notify(str(_deposit_info(kind)["resource"]).capitalize()+" breaks! Pick up the pieces with E.")
+			# Pieces you break are yours for a while; staff will not snatch them from under you.
+			for id in ground_pieces:
+				if str(id).begins_with(kind + "_" + str(d["generation"]) + "_"):
+					ground_pieces[id].set_meta("claim_until", state.clock_minutes + 15.0)
+			_notify("%s breaks into %d pieces! Pick them up with E. %s" % [str(_deposit_info(kind)["resource"]).capitalize(), n, _deposit_status(kind)])
 	elif by_player:
 		_notify("Crack! "+str(need-int(d["hits"]))+" strikes remaining")
 	_refresh_deposit(kind)
@@ -379,12 +407,11 @@ func _physics_process(delta: float) -> void:
 	mining_cooldown = maxf(0,mining_cooldown-delta)
 	message_timer = maxf(0,message_timer-delta)
 	_update_light()
-	for kind in state.deposits:
-		var dep: Dictionary = state.deposits[kind]
-		if bool(dep["broken"]) and state.clock_minutes >= float(dep["ready_at"]) and deposit_nodes.has(kind):
-			dep["broken"] = false
-			dep["hits"] = 0
-			_refresh_deposit(kind)
+	for kind in state.regrow_deposits():
+		_refresh_deposit(kind)
+	if Engine.get_physics_frames() % 30 == 0:
+		for kind in deposit_nodes:
+			_update_deposit_label(kind)
 	last_target = null if driving else _look_target()
 	if placement:
 		_update_ghost()
@@ -403,7 +430,7 @@ func _physics_process(delta: float) -> void:
 	var prompt := ""
 	if last_target:
 		match str(last_target.get_meta("kind","")):
-			"deposit": prompt = "Hold LMB: mine "+str(last_target.get_meta("resource"))
+			"deposit": prompt = "Hold LMB: mine %s  -  %s" % [str(last_target.get_meta("resource")).replace("_", " "), _deposit_status(str(last_target.get_meta("deposit")))]
 			"piece": prompt = "E: collect "+str(last_target.get_meta("resource"))
 			"crusher": prompt = "E: use crusher"
 			"sell": prompt = "E: sell materials"
@@ -1049,6 +1076,8 @@ func nearest_piece(res: String, from: Vector3, skip := {}) -> Node3D:
 		var body: Node3D = ground_pieces[id]
 		if str(body.get_meta("resource")) != res or skip.has(id) or body.is_queued_for_deletion():
 			continue
+		if float(body.get_meta("claim_until", -1.0)) > state.clock_minutes:
+			continue # freshly broken by the player
 		var d := body.global_position.distance_squared_to(from)
 		if d < best_d:
 			best_d = d
@@ -1059,8 +1088,8 @@ func nearest_deposit(res: String, from: Vector3) -> String:
 	var best := ""
 	var best_d := INF
 	for kind in deposit_nodes:
-		if str(_deposit_info(kind)["resource"]) != res or bool(state.deposits[kind]["broken"]):
-			continue
+		if str(_deposit_info(kind)["resource"]) != res or bool(state.deposits[kind]["broken"]) or bool(_deposit_info(kind).get("infinite", false)):
+			continue # the quarry face is reserved for hand mining
 		var d: float = deposit_nodes[kind].global_position.distance_squared_to(from)
 		if d < best_d:
 			best_d = d
@@ -1696,3 +1725,33 @@ func _rebuild_structures(kind: String) -> void:
 func _place_storage_body() -> void:
 	storage_body.position = Vector3(business.storage_pos.x, 0.65, business.storage_pos.z)
 	storage_body.rotation.y = 0.0
+
+# ===================================================================== Phase 4: deposit status
+
+func _deposit_status(kind: String) -> String:
+	var d: Dictionary = state.deposits.get(kind, {})
+	if d.is_empty():
+		return ""
+	if bool(d.get("infinite", false)):
+		return "Quarry face: never runs out (slow hand mining, %d hits)" % int(state.config.get("quarry_face", {}).get("hits", 5))
+	var res := str(d["resource"])
+	var every := state.deposit_regrow(res)
+	if int(d["stock"]) <= 0:
+		return "Depleted - regrows 1 unit every %d min (next in %d min)" % [int(every), int(ceil(state.regrow_eta(kind)))]
+	return "%d/%d left, +1 every %d min" % [int(d["stock"]), state.deposit_max(res), int(every)]
+
+func _update_deposit_label(kind: String) -> void:
+	if not deposit_nodes.has(kind):
+		return
+	var label: Label3D = deposit_nodes[kind].get_meta("status")
+	var d: Dictionary = state.deposits[kind]
+	var name_text := "QUARRY FACE" if bool(d.get("infinite", false)) else str(d["resource"]).replace("_", " ").to_upper()
+	if bool(d.get("infinite", false)):
+		label.text = name_text + "\nalways workable"
+		label.modulate = Color(0.85, 0.95, 0.8)
+	elif int(d["stock"]) <= 0:
+		label.text = "%s DEPLETED\nregrows in %d min" % [name_text, int(ceil(state.regrow_eta(kind)))]
+		label.modulate = Color(1.0, 0.6, 0.45)
+	else:
+		label.text = "%s %d/%d" % [name_text, int(d["stock"]), state.deposit_max(str(d["resource"]))]
+		label.modulate = Color(0.95, 0.9, 0.75)

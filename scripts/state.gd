@@ -136,6 +136,83 @@ func collect_crusher(index: int) -> int:
 func new_crusher(pos: Vector3, yaw: float) -> void:
 	crushers.append({"position": [pos.x, pos.y, pos.z], "yaw": yaw, "input": 0, "output": 0, "running": false, "remaining": 0.0, "hopper": 0, "automated": false, "auto_done": 0})
 
+# ------------------------------------------------------------------ Phase 4: sustainable deposits
+# Each deposit holds a visible stock of units. Breaking it yields pieces out of that stock; the stock
+# regrows one unit at a fixed in-game interval, so a deposit is never gone for long. The quarry face
+# (`infinite`) is a hand-mining fallback that never runs out, so a broke player can always recover.
+
+func deposit_max(res: String) -> int:
+	return int(config.get("deposit_stock", {}).get(res, 20))
+
+func deposit_regrow(res: String) -> float:
+	return float(config.get("deposit_regrow_minutes", {}).get(res, 5))
+
+## Adds any missing Phase 4 fields (old saves) without changing what the save already recorded.
+func ensure_deposit(kind: String, res: String, infinite := false) -> Dictionary:
+	if not deposits.has(kind):
+		deposits[kind] = {"hits": 0, "broken": false, "generation": 0}
+	var d: Dictionary = deposits[kind]
+	d["resource"] = res
+	d["infinite"] = infinite
+	if not d.has("stock"):
+		# Phase 1-3 saves: a broken deposit starts empty and regrows; an intact one is full.
+		d["stock"] = 0 if bool(d.get("broken", false)) else deposit_max(res)
+		d["regrow_at"] = clock_minutes + deposit_regrow(res) if int(d["stock"]) < deposit_max(res) else -1.0
+	if infinite:
+		d["stock"] = deposit_max(res)
+		d["broken"] = false
+	d["stock"] = clampi(int(d["stock"]), 0, deposit_max(res))
+	d["broken"] = int(d["stock"]) <= 0
+	d["hits"] = int(d.get("hits", 0))
+	d["regrow_at"] = float(d.get("regrow_at", -1.0))
+	return d
+
+## Takes up to `want` pieces out of a deposit's stock (nothing is created beyond the stock).
+func mine_yield(kind: String, want: int) -> int:
+	var d: Dictionary = deposits[kind]
+	if bool(d.get("infinite", false)):
+		return want
+	var n := mini(want, int(d["stock"]))
+	d["stock"] = int(d["stock"]) - n
+	d["mined"] = int(d.get("mined", 0)) + n # lifetime units taken (statistics / conservation checks)
+	d["broken"] = int(d["stock"]) <= 0
+	if float(d.get("regrow_at", -1.0)) < 0.0 and int(d["stock"]) < deposit_max(str(d["resource"])):
+		d["regrow_at"] = clock_minutes + deposit_regrow(str(d["resource"]))
+	return n
+
+## Regrows every deposit by whole units for the in-game time that has passed. Returns changed ids.
+func regrow_deposits() -> Array:
+	var changed := []
+	for kind in deposits:
+		var d: Dictionary = deposits[kind]
+		if not d.has("resource") or bool(d.get("infinite", false)):
+			continue
+		var res := str(d["resource"])
+		var cap := deposit_max(res)
+		if int(d["stock"]) >= cap:
+			d["regrow_at"] = -1.0
+			continue
+		if float(d["regrow_at"]) < 0.0:
+			d["regrow_at"] = clock_minutes + deposit_regrow(res)
+			continue
+		var before := int(d["stock"])
+		while clock_minutes >= float(d["regrow_at"]) and int(d["stock"]) < cap:
+			d["stock"] = int(d["stock"]) + 1
+			d["regrow_at"] = float(d["regrow_at"]) + deposit_regrow(res)
+		if int(d["stock"]) >= cap:
+			d["regrow_at"] = -1.0
+		d["broken"] = int(d["stock"]) <= 0
+		if int(d["stock"]) != before:
+			changed.append(kind)
+	return changed
+
+## Minutes until the next unit regrows (or -1 when full / infinite).
+func regrow_eta(kind: String) -> float:
+	var d: Dictionary = deposits.get(kind, {})
+	if d.is_empty() or bool(d.get("infinite", false)) or float(d.get("regrow_at", -1.0)) < 0.0:
+		return -1.0
+	return maxf(0.0, float(d["regrow_at"]) - clock_minutes)
+
 func snapshot() -> Dictionary:
 	return {"version": 2, "money": money, "inventory": inventory.duplicate(true), "storage": storage.duplicate(true), "upgrades": upgrades.duplicate(true), "clock_minutes": clock_minutes, "player_position": player_position.duplicate(), "player_yaw": player_yaw, "deposits": deposits.duplicate(true), "crushers": crushers.duplicate(true)}
 
