@@ -300,7 +300,10 @@ func _walls(center: Vector3, ext_key: String, int_key: String, h := 2.8) -> void
 	bx(int_key, c + Vector3(-2.27, h * 0.5, 0), Vector3(0.02, h - 0.1, 4.5))
 	bx(int_key, c + Vector3(2.27, h * 0.5, 0), Vector3(0.02, h - 0.1, 4.5))
 	bx(int_key, c + Vector3(0, h * 0.5, 2.22), Vector3(4.5, h - 0.1, 0.02))
-	bx(M_FOUNDATION, c + Vector3(0, 0.15, 0), Vector3(5.24, 0.3, 5.04))
+	bx(M_FOUNDATION, c + Vector3(0, 0.08, 0), Vector3(5.24, 0.16, 5.04))
+	# Match the collision ramp from the yard to the raised office/shed floor.
+	MeshKit.box_into(soup(M_FOUNDATION), Vector3.ZERO, Vector3(1.42, 0.08, 1.0), Vector2.ONE,
+		Transform3D(Basis(Vector3.RIGHT, -atan(0.16)), c + Vector3(0, 0.04, -2.95)))
 	bx(M_TRIM, c + Vector3(0, 2.5, -2.38), Vector3(1.5, 0.3, 0.24))                       # door header
 	for x in [-0.76, 0.76]:
 		bx(M_TRIM, c + Vector3(x, 1.25, -2.4), Vector3(0.1, 2.5, 0.08))                    # door jambs
@@ -324,7 +327,7 @@ func _office() -> void:
 	var c := Vector3(-14, 0, 12)
 	_walls(c, M_SIDING, M_DRYWALL)
 	_gable_roof(c, "CorrugatedRed", 5.6, 5.6, 2.8, 1.1)
-	quad_flat(M_LINO, c, Vector2(4.6, 4.5), 0.0, 0.17)
+	quad_flat(M_LINO, c, Vector2(4.6, 4.5), 0.0, 0.16)
 	_sign(root, "Sign_Office", c + Vector3(0, 2.5, -2.62), Vector2(2.2, 0.55), PI)
 	for z in [-0.9, 1.0]:
 		prop(P_WINDOW, c + Vector3(-2.53, 1.05, z), -PI * 0.5)
@@ -344,7 +347,7 @@ func _office() -> void:
 	prop(P_WAITING, c + Vector3(1.85, 0.16, -0.6), -PI * 0.5)
 	solid("Office cabinets", c + Vector3(-1.95, 0.6, 1.4), Vector3(0.6, 1.2, 1.4))
 	# upgrade board outside the door: THE VEIL notice board on two posts
-	var ub := Vector3(-14, 0, 8.6)
+	var ub := Vector3(-14, 0, 7.8)
 	prop(P_NOTICE, ub + Vector3(0, 0.55, 0.05), PI)
 	for x in [-0.95, 0.95]:
 		bx(M_WOOD, ub + Vector3(x, 0.95, 0.1), Vector3(0.1, 1.9, 0.1))
@@ -357,7 +360,7 @@ func _shed() -> void:
 	var c := Vector3(14, 0, 12)
 	_walls(c, "Corrugated", M_BASEMENT)
 	_gable_roof(c, "CorrugatedRed", 5.6, 5.6, 2.8, 0.7)
-	quad_flat(M_BASEMENT, c, Vector2(4.6, 4.5), 0.0, 0.17)
+	quad_flat(M_BASEMENT, c, Vector2(4.6, 4.5), 0.0, 0.16)
 	bx("Corrugated", c + Vector3(0, 2.45, -2.42), Vector3(1.5, 0.7, 0.06))                # rolled-up door
 	bx("SteelPlate", c + Vector3(0, 2.82, -2.45), Vector3(1.6, 0.14, 0.16))
 	_sign(root, "Sign_Storage", c + Vector3(1.6, 2.4, -2.48), Vector2(1.2, 0.3), PI)

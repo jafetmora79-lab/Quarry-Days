@@ -198,7 +198,7 @@ func _build_quarry() -> void:
 	_building("Storage shed", Vector3(14,0,12), Color(0.38,0.37,0.31))
 	var sell := _solid(world,"Selling station",Vector3(-7,0.85,10),Vector3(2.2,1.7,1.25),Color(0.37,0.26,0.14))
 	sell.set_meta("kind","sell")
-	var shop := _solid(world,"Upgrade board",Vector3(-14,1.2,8.6),Vector3(2.1,1.4,0.25),Color(0.15,0.26,0.27))
+	var shop := _solid(world,"Upgrade board",Vector3(-14,1.2,7.8),Vector3(2.1,1.4,0.25),Color(0.15,0.26,0.27))
 	shop.set_meta("kind","upgrades")
 	var storage := _solid(world,"Storage crate",Vector3(10,0.65,10),Vector3(2,1.3,1.6),Color(0.33,0.23,0.13))
 	storage.set_meta("kind","storage")
@@ -227,6 +227,10 @@ func _build_quarry() -> void:
 
 func _building(label: String, pos: Vector3, color: Color) -> void:
 	_solid(world,label+" floor",pos+Vector3(0,0.08,0),Vector3(5,0.16,4.8),color)
+	# A shallow physical approach bridges the 16 cm foundation. The controller has
+	# no step-up or jump, so a bare threshold otherwise blocks both entrances.
+	var approach := _solid(world, label+" entrance ramp", pos+Vector3(0,0.04,-2.95), Vector3(1.42,0.08,1.0),color)
+	approach.rotation.x = -atan(0.16)
 	_solid(world,label+" left",pos+Vector3(-2.4,1.4,0),Vector3(0.22,2.8,4.8),color)
 	_solid(world,label+" right",pos+Vector3(2.4,1.4,0),Vector3(0.22,2.8,4.8),color)
 	_solid(world,label+" back",pos+Vector3(0,1.4,2.35),Vector3(5,2.8,0.22),color)
@@ -448,7 +452,10 @@ func _physics_process(delta: float) -> void:
 			"sell": prompt = "E: sell materials"
 			"shop": prompt = "E: order machinery"
 			"output": prompt = "E: output storage"
-			"conveyor": prompt = "Conveyor #%d" % (int(last_target.get_meta("index")) + 1)
+			"conveyor":
+				var ci := int(last_target.get_meta("index"))
+				var link: Dictionary = business.links[ci] if ci < business.links.size() else {}
+				prompt = "Conveyor #%d: %s -> %s | B to move" % [ci + 1, business.describe_ep(link.get("src", {})), business.describe_ep(link.get("dst", {}))]
 			"office": prompt = "E: management office"
 			"worker":
 				var who := business.employee(int(last_target.get_meta("employee")))
@@ -651,7 +658,7 @@ func _draw_menu() -> void:
 				text += "3  Conveyor section   $%d\n" % int(business.cfg["conveyor_price"])
 			else:
 				text += "3  Conveyor section   LOCKED\n   (Milestone: own a crusher + hire an operator)\n"
-			text += "\nPlacement: R rotate, G toggle grid snap, LMB place\nEsc Close"
+			text += "\nCONVEYOR SETUP\n1. Buy a crusher and hire an operator to unlock.\n2. Press 3, aim at clear ground, rotate with R.\n3. Place IN by the crate / crusher output chute;\n   OUT by the crusher input / output storage.\nYellow arrow shows flow; preview shows connections.\nBelts run automatically when supplied and linked.\nG grid snap, LMB place, Esc refund, B move later."
 	panel_text.text = text
 
 func _menu_key(event: InputEventKey) -> void:
@@ -776,7 +783,7 @@ func _update_ghost() -> void:
 	if placement_kind == "conveyor":
 		ghost_valid = conveyor_valid(ghost.position,placement_yaw)
 		var link := business.link_for(ghost.position,placement_yaw)
-		placement_hint = "\nIN: %s  ->  OUT: %s" % [business.describe_ep(link["src"]), business.describe_ep(link["dst"])]
+		placement_hint = "\nIN: %s  ->  OUT: %s%s" % [business.describe_ep(link["src"]), business.describe_ep(link["dst"]), "  |  CONNECTED" if not link["src"].is_empty() and not link["dst"].is_empty() else "  |  align both ends"]
 	else:
 		ghost_valid = placement_valid(ghost.position,placement_yaw)
 	if ghost_ok_mat == null:
@@ -806,7 +813,8 @@ func _place_ghost() -> void:
 			_notify("Output storage placed. Place it beside a crusher's chute or at a conveyor end.")
 		"conveyor":
 			_create_conveyor(business.add_conveyor(ghost.position,placement_yaw))
-			_notify("Conveyor placed. The yellow arrow shows the direction of travel.")
+			var link: Dictionary = business.links.back()
+			_notify("Conveyor: %s -> %s. B then LMB to move it if disconnected." % [business.describe_ep(link["src"]), business.describe_ep(link["dst"])])
 	business.compute_links()
 	business.check_milestones()
 	nav_dirty = true

@@ -79,7 +79,9 @@ var speed_now := 0.0
 func _build_rig() -> void:
 	model = Node3D.new()
 	model.name = "Model"
-	model.rotation.y = PI # THE VEIL characters face +Z; workers steer with -Z forward
+	# The Quarry Days cast is authored facing -Z (see qd_style_cast.py's front_z).
+	# The worker body's -Z is its travel direction, so no model flip is needed.
+	model.rotation.y = 0.0
 	add_child(model)
 	var path: String = CHARACTER[profession]
 	if not _packed.has(path):
@@ -100,7 +102,7 @@ func _build_rig() -> void:
 		"clerk": rig.attach(_tool_clipboard(), "Left", up_fwd, Vector3.ZERO)
 	carry_box = MeshInstance3D.new()
 	carry_box.mesh = MeshKit.rock(Vector3(0.42, 0.3, 0.34), 77 + employee_id, 3, 6)
-	carry_box.position = Vector3(0, 0.88, 0.36) # in front of the chest (model space faces +Z)
+	carry_box.position = Vector3(0, 0.88, -0.36) # in front of the -Z-facing chest
 	carry_box.visible = false
 	model.add_child(carry_box)
 
