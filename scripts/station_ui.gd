@@ -12,7 +12,7 @@ const ACCENT := QuarryTheme.ACCENT
 const GOOD := QuarryTheme.GOOD
 const WARN := QuarryTheme.WARN
 const MONEY := QuarryTheme.MONEY
-const FS := 15 # body size: a whole multiple of the pixel font's grid at 1280x720 and 1920x1080
+const FS := QuarryTheme.BODY
 
 var game
 var title_label: Label
@@ -46,7 +46,7 @@ func setup(g) -> void:
 	title_label = QuarryTheme.label("", 12, ACCENT, true)
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(title_label)
-	money_label = QuarryTheme.label("", FS, MONEY)
+	money_label = QuarryTheme.label("", FS + 2, MONEY, false, true)
 	top.add_child(money_label)
 	var close := Button.new()
 	close.text = "CLOSE [Esc]"
@@ -73,6 +73,7 @@ func begin(title: String, money := -1, hint := "") -> void:
 		list.remove_child(c)
 		c.queue_free()
 	buttons.clear()
+	_row_n = 0
 	title_label.text = title
 	money_label.text = ("CASH " + QuarryTheme.money_text(money)) if money >= 0 else ""
 	foot.text = hint
@@ -95,11 +96,49 @@ func _box(bg: Color, border: Color) -> PanelContainer:
 	list.add_child(p)
 	return p
 
-func make_button(key: String, label: String, enabled: bool, action: Callable, min_w := 96.0) -> Button:
+static var _styles := {}
+
+## Button looks: "primary" (gold-green: Sell / Buy / Order), "toggle" (quiet outline: clerk on/off), default (brown).
+static func _style(kind: String, state: String) -> StyleBoxFlat:
+	var k := kind + state
+	if _styles.has(k):
+		return _styles[k]
+	var bg := Color(0.27, 0.2, 0.13)
+	var border := QuarryTheme.BORDER
+	if kind == "primary":
+		bg = Color(0.27, 0.4, 0.2)
+		border = Color(0.62, 0.86, 0.48)
+	elif kind == "toggle":
+		bg = Color(0.16, 0.13, 0.1)
+		border = Color(0.55, 0.47, 0.34)
+	if state == "hover":
+		bg = bg.lightened(0.18)
+		border = border.lightened(0.2)
+	elif state == "pressed":
+		bg = bg.darkened(0.15)
+		border = QuarryTheme.ACCENT
+	elif state == "disabled":
+		bg = Color(0.15, 0.125, 0.105, 0.9)
+		border = Color(0.3, 0.26, 0.21)
+	var sb := QuarryTheme.panel_box(bg, border, 6, 2)
+	sb.shadow_size = 0
+	sb.content_margin_top = 3
+	sb.content_margin_bottom = 3
+	_styles[k] = sb
+	return sb
+
+func make_button(key: String, label: String, enabled: bool, action: Callable, min_w := 96.0, kind := "") -> Button:
 	var b := Button.new()
+	if kind != "":
+		for st in ["normal", "hover", "pressed", "disabled"]:
+			b.add_theme_stylebox_override(st, _style(kind, st))
+		if kind == "toggle":
+			b.add_theme_font_override("font", QuarryTheme.body())
+			b.add_theme_font_size_override("font_size", QuarryTheme.SMALL)
+		b.add_theme_color_override("font_disabled_color", Color(0.55, 0.5, 0.42))
 	b.text = label
 	b.disabled = not enabled
-	b.custom_minimum_size = Vector2(min_w, 30)
+	b.custom_minimum_size = Vector2(min_w, 24)
 	b.focus_mode = Control.FOCUS_NONE
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if enabled else Control.CURSOR_ARROW
 	b.pressed.connect(func(): game.ui_click(key, action, b))
@@ -125,7 +164,7 @@ func item(key: String, title: String, desc: String, price: int, level_text: Stri
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	left.add_theme_constant_override("separation", 1)
 	h.add_child(left)
-	left.add_child(QuarryTheme.label(title, FS, ACCENT if locked_note == "" else DIM))
+	left.add_child(QuarryTheme.label(title, FS + 1, ACCENT if locked_note == "" else DIM, false, true))
 	var d := QuarryTheme.label(desc, FS, DIM)
 	d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	d.custom_minimum_size = Vector2(250, 0)
@@ -140,34 +179,54 @@ func item(key: String, title: String, desc: String, price: int, level_text: Stri
 		n.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		mid.add_child(n)
 	else:
-		mid.add_child(_cell(QuarryTheme.money_text(price) if price > 0 else "FREE", GOOD if affordable else WARN, 130, HORIZONTAL_ALIGNMENT_RIGHT))
+		var pc := _cell(QuarryTheme.money_text(price) if price > 0 else "FREE", GOOD if affordable else WARN, 130, HORIZONTAL_ALIGNMENT_RIGHT)
+		pc.add_theme_font_override("font", QuarryTheme.bold())
+		pc.add_theme_font_size_override("font_size", FS + 1)
+		mid.add_child(pc)
 	if level_text != "":
 		mid.add_child(_cell(level_text, DIM, 130, HORIZONTAL_ALIGNMENT_RIGHT))
-	var b := make_button(key, btn_text, can_buy and locked_note == "" and affordable, action)
+	var b := make_button(key, btn_text, can_buy and locked_note == "" and affordable, action, 96.0, "primary")
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(b)
 	return b
 
-## Table row: a swatch + cells (text, colour, width) and trailing buttons [key, label, enabled, action].
-func row(cells: Array, btns: Array, swatch := Color(0, 0, 0, 0)) -> void:
-	var card := _box(Color(0.19, 0.145, 0.1, 0.96), Color(0.36, 0.28, 0.19))
+var _row_n := 0
+
+## Table row: a swatch + cells (text, colour, width[, align[, bold]]) and trailing buttons
+## [key, label, enabled, action, min_width, kind]. Rows alternate background shades; `header` rows are flat
+## captions that keep the swatch column so headings line up with the values below.
+func row(cells: Array, btns: Array, swatch := Color(0, 0, 0, 0), header := false) -> void:
+	var card: PanelContainer
+	if header:
+		card = _box(Color(0, 0, 0, 0), Color(0, 0, 0, 0)) # same margins as a row, so columns line up
+		_row_n = 0
+	else:
+		card = _box(Color(0.21, 0.16, 0.11, 0.97) if _row_n % 2 == 0 else Color(0.16, 0.12, 0.085, 0.97), Color(0.36, 0.28, 0.19))
+		_row_n += 1
 	var h := HBoxContainer.new()
-	h.add_theme_constant_override("separation", 8)
+	h.add_theme_constant_override("separation", 10)
 	card.add_child(h)
-	if swatch.a > 0.0:
-		var sw := ColorRect.new()
-		sw.color = swatch
-		sw.custom_minimum_size = Vector2(10, 22)
-		sw.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		h.add_child(sw)
+	var sw := ColorRect.new()
+	sw.color = swatch
+	sw.custom_minimum_size = Vector2(8, 20)
+	sw.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(sw)
 	for c in cells:
-		h.add_child(_cell(str(c[0]), c[1], float(c[2]), c[3] if c.size() > 3 else HORIZONTAL_ALIGNMENT_LEFT))
+		var cell := _cell(str(c[0]), c[1], float(c[2]), c[3] if c.size() > 3 else HORIZONTAL_ALIGNMENT_LEFT)
+		if header:
+			cell.add_theme_font_size_override("font_size", QuarryTheme.SMALL)
+		elif c.size() > 4 and bool(c[4]):
+			cell.add_theme_font_override("font", QuarryTheme.bold())
+		h.add_child(cell)
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(spacer)
 	for bd in btns:
-		h.add_child(make_button(str(bd[0]), str(bd[1]), bool(bd[2]), bd[3], float(bd[4]) if bd.size() > 4 else 96.0))
+		h.add_child(make_button(str(bd[0]), str(bd[1]), bool(bd[2]), bd[3], float(bd[4]) if bd.size() > 4 else 96.0, str(bd[5]) if bd.size() > 5 else ""))
 
 func button_bar(btns: Array) -> void:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 8)
 	list.add_child(h)
 	for bd in btns:
-		h.add_child(make_button(str(bd[0]), str(bd[1]), bool(bd[2]), bd[3], float(bd[4]) if bd.size() > 4 else 150.0))
+		h.add_child(make_button(str(bd[0]), str(bd[1]), bool(bd[2]), bd[3], float(bd[4]) if bd.size() > 4 else 150.0, str(bd[5]) if bd.size() > 5 else "primary"))

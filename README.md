@@ -238,6 +238,7 @@ godot --headless --fixed-fps 60 -s tests/test_phase4.gd      # Phase 4 (42 check
 godot --headless --fixed-fps 60 -s tests/test_access.gd      # building entrances, worker facing
 godot --headless --fixed-fps 60 -s tests/test_phase5.gd      # Phase 5 (113 checks)
 godot --headless --fixed-fps 60 -s tests/test_phase5_1.gd    # Phase 5.1 polish (97 checks)
+godot --headless --fixed-fps 60 -s tests/test_ui_readability.gd  # fonts, sizes, sales table, viewport (24 checks)
 ```
 
 `test_phase5.gd` covers mining and rock depletion, tool progression, staff and machine extraction, processing, selling, the excavation unlock (player, staff and vehicle access), schedules (resting off shift), story, HUD layout, pacing estimated from the data, and save/load idempotence.
@@ -258,5 +259,5 @@ godot --headless --fixed-fps 60 -s tests/test_phase5_1.gd    # Phase 5.1 polish 
 
 ## Credits
 
-- Fonts: Pixelify Sans and Silkscreen, both under the SIL Open Font License 1.1 (`assets/fonts/*-OFL.txt`).
+- Fonts: Atkinson Hyperlegible (UI body text) and Silkscreen (large headings only), both under the SIL Open Font License 1.1 (`assets/fonts/*-OFL.txt`).
 - Sounds: synthesized by `tools/qd_sounds.py`. Rock textures: painted by `tools/qd_textures.py` from THE VEIL palette.

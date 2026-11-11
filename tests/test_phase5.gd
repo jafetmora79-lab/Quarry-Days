@@ -587,6 +587,6 @@ func scene_story_hud() -> void:
 		for j in range(i + 1, rects.size()):
 			overlap = overlap or rects[i].intersects(rects[j])
 	check(inside and not overlap, "9 HUD panels fit the 960x540 base canvas without overlapping: %s" % str(rects))
-	check(game.hud.money_label.get_theme_font("font") is FontFile and (game.hud.money_label.get_theme_font("font") as FontFile).antialiasing == TextServer.FONT_ANTIALIASING_NONE, "9 the HUD uses the crisp pixel font")
+	check(game.hud.money_label.get_theme_font("font") is FontFile and (game.hud.money_label.get_theme_font("font") as FontFile).antialiasing == TextServer.FONT_ANTIALIASING_GRAY, "9 the HUD body text uses the smooth UI font")
 	game.queue_free()
 	await process_frame

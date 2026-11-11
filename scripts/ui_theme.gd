@@ -1,15 +1,18 @@
 extends RefCounted
 class_name QuarryTheme
-## Shared cozy pixel UI style: Pixelify Sans (body) and Silkscreen (headings), both SIL OFL, rendered
-## without antialiasing; warm muted panels with a 2 px border, small rounded corners and a soft drop shadow.
-## Sizes are for the 960x540 base canvas (the window scales it to 1280x720 / 1920x1080).
-## Font sizes are chosen so the glyph pixel grids land on whole screen pixels at both scales (a 960 px canvas is
-## x1.333 / x2): Pixelify Sans (body) uses 15 (20 / 30 px on screen) or 30; Silkscreen (headings) uses 12 or 24
-## (16 / 24 px, 32 / 48 px). Off-grid sizes (11, 13, 14...) smear the pixel shapes, so avoid them.
-const BODY := 15
-const BODY_BIG := 30
+## Shared cozy UI style. Body text, prices and descriptions use Atkinson Hyperlegible (SIL OFL 1.1, designed for
+## legibility), smooth antialiased and hinted. Silkscreen (SIL OFL 1.1) stays only for headings and decorative
+## labels. The 3D scene keeps its nearest-neighbour pixel textures; only interface text is smooth.
+## Warm muted panels with a 2 px border, small rounded corners and a soft drop shadow.
+## Sizes are in the 960x540 base canvas, which the window scales by 1.333 (1280x720) or 2 (1920x1080):
+##   BODY 9  -> 12 px / 18 px on screen      SMALL 8 -> 10.7 px / 16 px (secondary labels, never below 14 px at 1080p)
+##   HEAD 12 -> 16 px / 24 px (Silkscreen, a whole multiple of its 8 px grid at both scales)
+## Fonts are re-rasterised at the final window scale (canvas_items stretch), so text stays sharp at any DPI.
+
+const BODY := 9
+const SMALL := 8
+const HERO := 16
 const HEAD := 12
-const HEAD_BIG := 24
 
 const BG := Color(0.13, 0.1, 0.075, 0.95)
 const BG_SOFT := Color(0.17, 0.13, 0.095, 0.93)
@@ -25,9 +28,23 @@ const RES_COLORS := {"limestone": Color(0.86, 0.83, 0.74), "coal": Color(0.62, 0
 	"crushed_stone": Color(0.82, 0.8, 0.72), "copper_ore": Color(0.5, 0.86, 0.66), "gold_ore": Color(1.0, 0.82, 0.32)}
 
 static var _body: FontFile
+static var _bold: FontFile
 static var _head: FontFile
 static var _theme: Theme
 
+## Smooth UI text font: grayscale antialiasing, light hinting, no mipmaps.
+static func _smooth(path: String) -> FontFile:
+	var f: FontFile = load(path)
+	if f == null:
+		return null
+	f = f.duplicate()
+	f.antialiasing = TextServer.FONT_ANTIALIASING_GRAY
+	f.hinting = TextServer.HINTING_LIGHT
+	f.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_AUTO
+	f.generate_mipmaps = false
+	return f
+
+## Crisp pixel font for large headings only.
 static func _pixel(path: String) -> FontFile:
 	var f: FontFile = load(path)
 	if f == null:
@@ -41,8 +58,13 @@ static func _pixel(path: String) -> FontFile:
 
 static func body() -> Font:
 	if _body == null:
-		_body = _pixel("res://assets/fonts/PixelifySans.ttf")
+		_body = _smooth("res://assets/fonts/AtkinsonHyperlegible-Regular.ttf")
 	return _body if _body else ThemeDB.fallback_font
+
+static func bold() -> Font:
+	if _bold == null:
+		_bold = _smooth("res://assets/fonts/AtkinsonHyperlegible-Bold.ttf")
+	return _bold if _bold else body()
 
 static func head() -> Font:
 	if _head == null:
@@ -79,7 +101,7 @@ static func theme() -> Theme:
 	var t := Theme.new()
 	t.default_font = body()
 	t.default_font_size = BODY
-	t.set_constant("line_spacing", "Label", 3)
+	t.set_constant("line_spacing", "Label", 2)
 	t.set_color("font_color", "Label", INK)
 	t.set_color("font_shadow_color", "Label", Color(0, 0, 0, 0.55))
 	t.set_constant("shadow_offset_x", "Label", 1)
@@ -97,6 +119,8 @@ static func theme() -> Theme:
 	t.set_stylebox("pressed", "Button", bp)
 	t.set_stylebox("disabled", "Button", bd)
 	t.set_stylebox("focus", "Button", StyleBoxEmpty.new())
+	t.set_font_size("font_size", "Button", BODY)
+	t.set_font("font", "Button", bold())
 	t.set_color("font_color", "Button", INK)
 	t.set_color("font_hover_color", "Button", Color(1, 0.95, 0.82))
 	t.set_color("font_disabled_color", "Button", Color(0.55, 0.5, 0.42))
@@ -105,11 +129,11 @@ static func theme() -> Theme:
 	_theme = t
 	return t
 
-static func label(text: String, size := 15, color := INK, heading := false) -> Label:
+static func label(text: String, size := BODY, color := INK, heading := false, bold_face := false) -> Label:
 	var l := Label.new()
-	l.add_theme_constant_override("line_spacing", 3)
+	l.add_theme_constant_override("line_spacing", 2)
 	l.text = text
-	l.add_theme_font_override("font", head() if heading else body())
+	l.add_theme_font_override("font", head() if heading else (bold() if bold_face else body()))
 	l.add_theme_font_size_override("font_size", size)
 	l.add_theme_color_override("font_color", color)
 	l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.6))

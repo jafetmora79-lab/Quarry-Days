@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://kj8k7v5sb4rs"
-path="res://.godot/imported/PixelifySans.ttf-4613dc276f227b5d31d032a4586e3281.fontdata"
+uid="uid://joac20h0wdvp"
+path="res://.godot/imported/AtkinsonHyperlegible-Bold.ttf-88b8e4bce39666c760f25dd9a57aebce.fontdata"
 
 [deps]
 
-source_file="res://assets/fonts/PixelifySans.ttf"
-dest_files=["res://.godot/imported/PixelifySans.ttf-4613dc276f227b5d31d032a4586e3281.fontdata"]
+source_file="res://assets/fonts/AtkinsonHyperlegible-Bold.ttf"
+dest_files=["res://.godot/imported/AtkinsonHyperlegible-Bold.ttf-88b8e4bce39666c760f25dd9a57aebce.fontdata"]
 
 [params]
 

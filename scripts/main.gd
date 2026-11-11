@@ -998,16 +998,17 @@ func _draw_sell(p: QuarryStationUI) -> void:
 	for key in RESOURCE_ORDER:
 		bag_value += int(state.inventory[key]) * int(state.config["prices"][key])
 	p.begin("SALES BOOTH", state.money, "Optional keys: 1-6 sell, 7 sell all, Shift+1-6 clerk on/off")
-	p.row([["MATERIAL", QuarryTheme.DIM, 130], ["QTY", QuarryTheme.DIM, 50, HORIZONTAL_ALIGNMENT_RIGHT], ["PER UNIT", QuarryTheme.DIM, 80, HORIZONTAL_ALIGNMENT_RIGHT], ["TOTAL", QuarryTheme.DIM, 90, HORIZONTAL_ALIGNMENT_RIGHT]], [])
+	var R := HORIZONTAL_ALIGNMENT_RIGHT
+	p.row([["MATERIAL", QuarryTheme.DIM, 120], ["IN BAG", QuarryTheme.DIM, 60, R], ["PRICE EACH", QuarryTheme.DIM, 90, R], ["SALE VALUE", QuarryTheme.DIM, 100, R]], [], Color(0, 0, 0, 0), true)
 	for i in range(RESOURCE_ORDER.size()):
 		var key: String = RESOURCE_ORDER[i]
 		var n := int(state.inventory[key])
 		var price := int(state.config["prices"][key])
 		var ok: bool = business.authorized[key]
-		p.row([[prog.display(key), QuarryTheme.INK, 130], ["x%d" % n, QuarryTheme.INK if n > 0 else QuarryTheme.DIM, 50, HORIZONTAL_ALIGNMENT_RIGHT], ["$%d" % price, QuarryTheme.DIM, 80, HORIZONTAL_ALIGNMENT_RIGHT], [QuarryTheme.money_text(n * price), QuarryTheme.MONEY if n > 0 else QuarryTheme.DIM, 90, HORIZONTAL_ALIGNMENT_RIGHT]],
-			[["sell_" + key, "SELL", n > 0, func(): menu_act("sell", i, false), 72], ["clerk_" + key, "CLERK: " + ("ON" if ok else "OFF"), true, func(): menu_act("sell", i, true), 112]], QuarryTheme.RES_COLORS.get(key, Color.WHITE))
-	p.button_bar([["sell_all", "SELL ALL   %s" % QuarryTheme.money_text(bag_value), bag_value > 0, func(): menu_act("sell", 6, false), 240]])
-	p.text("CLERK ON/OFF chooses what the sales clerk may sell for you. It does not stop you selling by hand.")
+		p.row([[prog.display(key), QuarryTheme.INK, 120, HORIZONTAL_ALIGNMENT_LEFT, true], [str(n), QuarryTheme.INK if n > 0 else QuarryTheme.DIM, 60, R], ["$%d" % price, QuarryTheme.DIM, 90, R], [QuarryTheme.money_text(n * price), QuarryTheme.MONEY if n > 0 else QuarryTheme.DIM, 100, R, true]],
+			[["clerk_" + key, "Clerk: " + ("on" if ok else "off"), true, func(): menu_act("sell", i, true), 84, "toggle"], ["sell_" + key, "SELL", n > 0, func(): menu_act("sell", i, false), 80, "primary"]], QuarryTheme.RES_COLORS.get(key, Color.WHITE))
+	p.button_bar([["sell_all", "SELL ALL   %s" % QuarryTheme.money_text(bag_value), bag_value > 0, func(): menu_act("sell", 6, false), 260, "primary"]])
+	p.text("'Clerk' chooses what the sales clerk may sell for you. It never stops you selling by hand.")
 
 func _draw_upgrades(p: QuarryStationUI) -> void:
 	p.begin("UPGRADE BOARD", state.money, "Optional keys: 1 next tool, 2-6 upgrades")

@@ -92,9 +92,9 @@ func _build() -> void:
 	var v := _vbox(tl, 0)
 	time_label = QuarryTheme.label("DAY 1  08:00", 12, QuarryTheme.DIM, true)
 	v.add_child(time_label)
-	money_label = QuarryTheme.label("$0", 30, QuarryTheme.MONEY)
+	money_label = QuarryTheme.label("$0", QuarryTheme.HERO, QuarryTheme.MONEY, false, true)
 	v.add_child(money_label)
-	income_label = QuarryTheme.label("", 15, QuarryTheme.GOOD)
+	income_label = QuarryTheme.label("", QuarryTheme.BODY, QuarryTheme.GOOD)
 	v.add_child(income_label)
 	# ---- top-right: objective
 	var tr := _panel(Control.PRESET_TOP_RIGHT)
@@ -106,16 +106,16 @@ func _build() -> void:
 	var v2 := _vbox(tr, 3)
 	stage_label = QuarryTheme.label("STAGE 1", 12, QuarryTheme.ACCENT, true)
 	v2.add_child(stage_label)
-	objective_label = QuarryTheme.label("", 15)
+	objective_label = QuarryTheme.label("", QuarryTheme.BODY)
 	objective_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	objective_label.custom_minimum_size = Vector2(286, 0)
 	v2.add_child(objective_label)
 	objective_bar = _bar(v2, 7, QuarryTheme.ACCENT)
-	objective_detail = QuarryTheme.label("", 15, QuarryTheme.DIM)
+	objective_detail = QuarryTheme.label("", QuarryTheme.SMALL, QuarryTheme.DIM)
 	objective_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	objective_detail.custom_minimum_size = Vector2(286, 0)
 	v2.add_child(objective_detail)
-	status_label = QuarryTheme.label("", 15, QuarryTheme.INK)
+	status_label = QuarryTheme.label("", QuarryTheme.BODY, QuarryTheme.INK)
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status_label.custom_minimum_size = Vector2(286, 0)
 	v2.add_child(status_label)
@@ -142,7 +142,7 @@ func _build() -> void:
 	var tv := _vbox(tp, 0)
 	tool_label = QuarryTheme.label("ROCK HAMMER", 12, QuarryTheme.ACCENT, true)
 	tv.add_child(tool_label)
-	tool_pips = QuarryTheme.label("", 15, QuarryTheme.INK)
+	tool_pips = QuarryTheme.label("", QuarryTheme.BODY, QuarryTheme.INK)
 	tv.add_child(tool_pips)
 	var bp := PanelContainer.new()
 	bp.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -152,7 +152,7 @@ func _build() -> void:
 	bag_label = QuarryTheme.label("BAG 0/18", 12, QuarryTheme.ACCENT, true)
 	bv.add_child(bag_label)
 	bag_bar = _bar(bv, 6, QuarryTheme.GOOD)
-	bag_items = QuarryTheme.label("", 15, QuarryTheme.DIM)
+	bag_items = QuarryTheme.label("", QuarryTheme.SMALL, QuarryTheme.DIM)
 	bag_items.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	bag_items.custom_minimum_size = Vector2(150, 0)
 	bv.add_child(bag_items)
@@ -171,15 +171,15 @@ func _build() -> void:
 	prompt_panel.offset_bottom = -64
 	prompt_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	var pv := _vbox(prompt_panel, 1)
-	prompt_label = QuarryTheme.label("", 15)
+	prompt_label = QuarryTheme.label("", QuarryTheme.BODY)
 	prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	prompt_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	pv.add_child(prompt_label)
-	message_label = QuarryTheme.label("", 15, QuarryTheme.ACCENT)
+	message_label = QuarryTheme.label("", QuarryTheme.BODY, QuarryTheme.ACCENT)
 	message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	message_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	pv.add_child(message_label)
-	hint_label = QuarryTheme.label("WASD move  SHIFT sprint  LMB mine  E use  M manage  B build  F5 save  ESC pause", 15, Color(0.82, 0.76, 0.62))
+	hint_label = QuarryTheme.label("WASD move  SHIFT sprint  LMB mine  E use  M manage  B build  F5 save  ESC pause", QuarryTheme.SMALL, Color(0.82, 0.76, 0.62))
 	add_child(hint_label)
 	hint_label.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	hint_label.set_anchor(SIDE_TOP, 1.0)
@@ -216,7 +216,7 @@ func _build() -> void:
 	dura_root.offset_top = 18
 	dura_root.offset_bottom = 48
 	dura_bar = _bar(dura_root, 5, QuarryTheme.ACCENT)
-	dura_label = QuarryTheme.label("", 15, QuarryTheme.INK)
+	dura_label = QuarryTheme.label("", QuarryTheme.BODY, QuarryTheme.INK)
 	dura_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	dura_root.add_child(dura_label)
 	dura_root.modulate.a = 0.0
@@ -243,11 +243,11 @@ func _build() -> void:
 	card.offset_top = -225
 	card.offset_bottom = 225
 	var cv := _vbox(card, 8)
-	card_title = QuarryTheme.label("", 24, Color(0.36, 0.22, 0.12), true)
+	card_title = QuarryTheme.label("", QuarryTheme.HEAD, Color(0.36, 0.22, 0.12), true)
 	card_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cv.add_child(card_title)
-	card_body = QuarryTheme.label("", 15, Color(0.17, 0.11, 0.06))
-	card_body.add_theme_constant_override("line_spacing", 5)
+	card_body = QuarryTheme.label("", QuarryTheme.BODY, Color(0.17, 0.11, 0.06))
+	card_body.add_theme_constant_override("line_spacing", 4)
 	card_body.remove_theme_color_override("font_shadow_color")
 	card_body.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
 	card_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -283,7 +283,7 @@ func popup_resource(res: String, n: int, text: String) -> void:
 		entry[0].set_meta("age", minf(float(entry[0].get_meta("age")), 0.15))
 		entry[2] = 0.0
 		return
-	var l := QuarryTheme.label("+%d %s" % [n, text.to_upper()], 16, QuarryTheme.RES_COLORS.get(res, QuarryTheme.INK))
+	var l := QuarryTheme.label("+%d %s" % [n, text.to_upper()], 11, QuarryTheme.RES_COLORS.get(res, QuarryTheme.INK))
 	l.set_meta("age", 0.0)
 	l.set_meta("life", 1.05)
 	l.set_meta("origin", size * 0.5 + Vector2(26 + randf_range(-6, 6), -8 + randf_range(-4, 4)))
@@ -314,7 +314,7 @@ func _money_popup(amount: int, gain: bool, anchor: Vector2) -> void:
 		lab.text = ("+" if gain else "-") + QuarryTheme.money_text(int(entry[1]))
 		lab.set_meta("fade_start", maxf(float(lab.get_meta("fade_start")), float(lab.get_meta("age")) + 1.0)) # linger a moment longer
 		return
-	var l := QuarryTheme.label(("+" if gain else "-") + QuarryTheme.money_text(amount), 15, QuarryTheme.MONEY if gain else Color(1.0, 0.33, 0.3))
+	var l := QuarryTheme.label(("+" if gain else "-") + QuarryTheme.money_text(amount), 11, QuarryTheme.MONEY if gain else Color(1.0, 0.33, 0.3), false, true)
 	l.add_theme_color_override("font_outline_color", Color(0.05, 0.03, 0.02, 0.9))
 	l.add_theme_constant_override("outline_size", 3)
 	popups.add_child(l)
@@ -409,10 +409,7 @@ func refresh_panels() -> void:
 	var prog: QuarryProgression = game.prog
 	var t := prog.tool()
 	tool_label.text = str(t["title"]).to_upper()
-	var pips := ""
-	for i in range(prog.tools().size()):
-		pips += "■" if i <= st.tool_tier else "□"
-	tool_pips.text = "%s  %s" % [pips, "HOLD LMB" if prog.is_continuous() else "LMB SWING"]
+	tool_pips.text = "Tool %d/%d   %s" % [st.tool_tier + 1, prog.tools().size(), "hold LMB" if prog.is_continuous() else "LMB swing"]
 	var used := st.total(st.inventory)
 	var cap := st.capacity()
 	bag_label.text = "BAG %d/%d" % [used, cap]
@@ -509,7 +506,7 @@ func _make_toast(title: String, sub: String, kind: String) -> Control:
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
 	if sub != "":
-		var s := QuarryTheme.label(sub, 15, QuarryTheme.INK)
+		var s := QuarryTheme.label(sub, QuarryTheme.BODY, QuarryTheme.INK)
 		s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		if sub.length() > 52: # long subtitles wrap inside the toast instead of running off the screen
 			s.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

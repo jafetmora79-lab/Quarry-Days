@@ -1,5 +1,14 @@
 # Changelog
 
+## Quarry Days — HUD readability fix
+
+- **Fonts:** all body text, prices, descriptions, dialogue and button labels use Atkinson Hyperlegible (SIL OFL 1.1; licence in `assets/fonts/`), antialiased with light hinting. Bold is used for item names, prices and buttons. Silkscreen remains only for headings and decorative labels. Pixelify Sans is removed.
+- **Sizes** (960x540 canvas scaled to the window): body 9 (12 px at 720p, 18 px at 1080p), secondary 8 (16 px at 1080p), headings 12 (24 px at 1080p), cash 16. Line spacing is 2. Text is re-rasterised at the window scale, so it stays sharp on any resolution or DPI.
+- **Selling table:** a header row aligned with the data, alternating row shades, bold gold values and a bold material name. A green SELL button and a quieter "Clerk: on/off" toggle are visually distinct. Shop and upgrade cards use bold names and prices and green action buttons.
+- **Also fixed:** the "Tool n/5" HUD readout no longer relies on glyphs missing from the new font. Long toasts and story text wrap.
+- **Viewport:** the `expand` stretch aspect from the previous phase is verified at 16:9, 16:10 and ultrawide windows: no bands, and the 3D view is not stretched. The 3D textures stay nearest-neighbour; only interface text is smooth.
+- **Tests:** `tests/test_ui_readability.gd` (24 checks).
+
 ## Quarry Days — Phase 5.1: Visual, Tool & Interface Polish
 
 - **Readable pixel UI:**
