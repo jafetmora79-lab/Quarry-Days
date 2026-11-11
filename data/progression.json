@@ -364,7 +364,12 @@
           -1.5708
         ]
       ]
-    }
+    },
+    "hillside_face_01": {"title": "Hillside Face", "resource": "limestone", "center": [-22.3, 0, -10.6], "cell": 1.9, "tier_h": 1.2, "chunk_units": 30, "level": 1,
+      "style": "cut", "closed": ["W", "N", "S"], "strict": true,
+      "_comment": "Phase 6.1: first excavatable hillside, cut into the west rim. 6 columns deep (x, back wall at the west) by 12 wide (z). Only the east face is open; the other sides are solid hill, so rock is mined from the front and the cut deepens. Never resize an existing formation: saves store columns by count.",
+      "tiers": [[3, 3, 3, 2, 2, 1], [4, 4, 4, 3, 2, 1], [4, 4, 4, 3, 3, 2], [4, 4, 4, 3, 3, 2], [4, 4, 4, 3, 3, 2], [4, 4, 4, 3, 3, 2], [4, 4, 4, 3, 3, 2], [4, 4, 4, 3, 3, 2], [4, 4, 4, 3, 3, 2], [4, 4, 4, 3, 3, 2], [4, 4, 4, 3, 2, 1], [3, 3, 3, 2, 2, 1]],
+      "pads": [[-14.4, 0, -4.0, 1.5708], [-14.4, 0, -1.0, 1.5708]]}
   },
   "starting_formations": [
     "stone_mountain",

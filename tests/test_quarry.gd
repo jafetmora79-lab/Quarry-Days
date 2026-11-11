@@ -41,7 +41,7 @@ func run_tests() -> void:
 	var game = packed.instantiate()
 	root.add_child(game)
 	await process_frame
-	check(game.player != null and game.deposit_nodes.size()==4,"project boots with player, three formations and the hand-mining quarry face")
+	check(game.player != null and game.deposit_nodes.size()==5,"project boots with player, four formations (three piles + the Phase 6.1 hillside) and the hand-mining quarry face")
 	check(not game.placement_valid(Vector3(-7,0,10),0) and game.placement_valid(Vector3(4,0,9),0),"placement rejects selling station and permits clear ground")
 	# Phase 5: the starting rocks are enormous formations. Player mining goes straight into the bag;
 	# staff mining drops loose pieces beside the column. Both draw from the same column units.

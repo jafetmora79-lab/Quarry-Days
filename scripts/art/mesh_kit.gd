@@ -175,6 +175,36 @@ static func rock_into(s: Soup, c: Vector3, size: Vector3, seed: int, rings := 4,
 	for k in seg:
 		s.tri(grid[rings][k], top, grid[rings][(k + 1) % seg])
 
+## Cut-stone block for quarry faces: a mostly flat-sided slab (origin at the bottom centre) with chamfered vertical
+## edges (fractured corners), a slightly tilted, slightly inset top and a little vertex jitter. Closed solid,
+## 8 sides + 2 caps = 32 triangles. Stacked and tiled by QuarryFormation with style "cut".
+static func cut_block_into(s: Soup, c: Vector3, size: Vector3, seed: int) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed
+	var hw := size.x * 0.5
+	var hd := size.z * 0.5
+	var cut := [rng.randf_range(0.05, 0.26) * size.x, rng.randf_range(0.05, 0.26) * size.x, rng.randf_range(0.05, 0.26) * size.z, rng.randf_range(0.05, 0.26) * size.z]
+	var ring := [Vector2(-hw + cut[0], -hd), Vector2(hw - cut[1], -hd), Vector2(hw, -hd + cut[1]), Vector2(hw, hd - cut[2]),
+		Vector2(hw - cut[2], hd), Vector2(-hw + cut[3], hd), Vector2(-hw, hd - cut[3]), Vector2(-hw, -hd + cut[0])]
+	var tilt_x := rng.randf_range(-0.05, 0.05)
+	var tilt_z := rng.randf_range(-0.05, 0.05)
+	var bottom := []
+	var top := []
+	for p in ring:
+		var j: Vector2 = Vector2(rng.randf_range(-0.03, 0.03) * size.x, rng.randf_range(-0.03, 0.03) * size.z)
+		bottom.append(c + Vector3(p.x + j.x, 0.0, p.y + j.y))
+		var ti: Vector2 = Vector2(p.x * 0.96 + j.x * 0.5, p.y * 0.96 + j.y * 0.5)
+		var ty: float = size.y * (1.0 + tilt_x * p.x / hw + tilt_z * p.y / hd + rng.randf_range(-0.025, 0.025))
+		top.append(c + Vector3(ti.x, ty, ti.y))
+	var cb := c
+	var ct := c + Vector3(0, size.y * (1.0 + rng.randf_range(-0.02, 0.02)), 0)
+	var n := ring.size()
+	for i in n:
+		var k := (i + 1) % n
+		s.quad(bottom[i], top[i], top[k], bottom[k])
+		s.tri(ct, top[k], top[i])
+		s.tri(cb, bottom[i], bottom[k])
+
 static func rock(size: Vector3, seed: int, rings := 4, seg := 7) -> ArrayMesh:
 	var s := Soup.new()
 	rock_into(s, Vector3.ZERO, size, seed, rings, seg)

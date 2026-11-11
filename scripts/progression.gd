@@ -180,17 +180,30 @@ func column_units(id: String, i: int) -> int:
 func chunks_left(id: String, i: int) -> int:
 	return int(ceil(float(column_units(id, i)) / float(fdef(id)["chunk_units"])))
 
-## Exposed = on the formation's edge or next to an emptied column (reachable from the floor).
+## True when the neighbour cell (nx, ny) lets a person reach the column: it is emptied, or it lies off the grid on a
+## side that is open floor. Sides listed in the formation's "closed" data (W, E = -x / +x, N, S = -z / +z) are solid
+## hillside beyond the grid, so they never count as open (Phase 6.1: only the cut face is exposed).
+func _open_neighbour(id: String, d: Vector2i, nx: int, ny: int) -> bool:
+	if nx < 0 or ny < 0 or nx >= d.x or ny >= d.y:
+		var closed: Array = fdef(id).get("closed", [])
+		var side := "W" if nx < 0 else ("E" if nx >= d.x else ("N" if ny < 0 else "S"))
+		return not closed.has(side)
+	return column_units(id, ny * d.x + nx) <= 0
+
+## Exposed = on the formation's open edge or next to an emptied column (reachable from the floor).
 func column_exposed(id: String, i: int) -> bool:
 	var d := dims(id)
 	var x := i % d.x
 	var y := i / d.x
 	for o in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
-		var nx: int = x + o.x
-		var ny: int = y + o.y
-		if nx < 0 or ny < 0 or nx >= d.x or ny >= d.y or column_units(id, ny * d.x + nx) <= 0:
+		if _open_neighbour(id, d, x + o.x, y + o.y):
 			return true
 	return false
+
+## Formations flagged "strict" (the hillside) only let a column be mined while it is exposed: nothing can be
+## taken through the solid rock in front of it. Free-standing piles keep their old behaviour.
+func column_minable(id: String, i: int) -> bool:
+	return column_units(id, i) > 0 and (not bool(fdef(id).get("strict", false)) or column_exposed(id, i))
 
 ## Outward direction from column i toward open floor (for worker standing spots).
 func column_open_dir(id: String, i: int, from: Vector3) -> Vector3:
@@ -202,7 +215,7 @@ func column_open_dir(id: String, i: int, from: Vector3) -> Vector3:
 	for o in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
 		var nx: int = x + o.x
 		var ny: int = y + o.y
-		if nx < 0 or ny < 0 or nx >= d.x or ny >= d.y or column_units(id, ny * d.x + nx) <= 0:
+		if _open_neighbour(id, d, nx, ny):
 			var dir := Vector3(o.x, 0, o.y)
 			var dist := (column_pos(id, i) + dir * 2.0).distance_squared_to(from)
 			if dist < best_d:

@@ -457,9 +457,10 @@ func _stations() -> void:
 func _site_props() -> void:
 	prop(P_DUMPSTER, Vector3(-19.0, 0, 6.5), PI * 0.5)
 	solid("Dumpster", Vector3(-19.0, 0.65, 6.5), Vector3(1.2, 1.3, 2.0))
-	for z in [-2.0, 0.5, 3.0]:
-		prop(P_RETAIN, Vector3(-21.2, 0, z), PI * 0.5)
-	solid("Retaining wall", Vector3(-21.2, 0.6, 0.5), Vector3(0.4, 1.2, 7.5))
+	if not game.in_hillside_zone(Vector3(-21.2, 0, 0.5), 1.0): # the Phase 6.1 hillside stands here now
+		for z in [-2.0, 0.5, 3.0]:
+			prop(P_RETAIN, Vector3(-21.2, 0, z), PI * 0.5)
+		solid("Retaining wall", Vector3(-21.2, 0.6, 0.5), Vector3(0.4, 1.2, 7.5))
 	for p in [Vector3(-22.0, 0, 9.0), Vector3(19.5, 0, 12.5), Vector3(2.0, 0, 23.8)]:
 		prop(P_POLE, p, 0.0)
 		solid("Light pole", p + Vector3(0, 2.0, 0), Vector3(0.35, 4.0, 0.35))
@@ -471,13 +472,17 @@ func _site_props() -> void:
 	prop(P_JUNCTION, Vector3(-16.7, 0.9, 12.8), -PI * 0.5)
 	for i in range(14):                                                                  # scree at the cliff feet
 		var a := TAU * (i + 0.3) / 14.0
-		if absf(wrapf(a, -PI, PI)) < 0.45:
+		if absf(wrapf(a, -PI, PI)) < 0.45 or game.in_hillside_zone(Vector3(cos(a) * 25.5, 0, sin(a) * 25.5), 1.0):
 			continue
 		prop(P_ROCKS, Vector3(cos(a) * 25.5, 0, sin(a) * 25.5), a, 1.3)
 	for p in [Vector3(-16.0, 0, -2.5), Vector3(16.0, 0, -2.5), Vector3(-8.0, 0, -22.5)]:   # clear of the Phase 5 formations
+		if game.in_hillside_zone(p, 1.0):
+			continue
 		prop(P_MOUND, p, p.x, 1.4)
 	prop(P_GRAVEL, Vector3(15.5, 0, -13.5), 0.0, 1.2)
 	for p in [Vector3(-24.0, 0, 12.0), Vector3(24.0, 0, -6.0), Vector3(-6.0, 0, 25.5), Vector3(18.0, 0, -18.0), Vector3(-18.0, 0, -18.0)]:
+		if game.in_hillside_zone(p, 0.5):
+			continue
 		prop(P_WEEDS if int(p.x) % 2 == 0 else P_DEAD, p, p.z)
 	for p in [Vector3(46.0, 0, -10.0), Vector3(31.0, 0, 11.0), Vector3(47.0, 0, 11.0)]:
 		prop(P_ROCKS, p, p.x, 1.4)

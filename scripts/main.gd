@@ -15,6 +15,7 @@ const HUDScript = preload("res://scripts/hud.gd")
 const ExcavationScript = preload("res://scripts/excavation.gd")
 const RigScript = preload("res://scripts/rig.gd")
 const MINE_REACH := 2.6 # tools reach a little past the visual lunge (QuarryToolView.REACH_MAX)
+const HILLSIDE_ID := "hillside_face_01"
 const SAVE_PATH := "user://quarry_save.json"
 const RESOURCE_ORDER := ["limestone", "coal", "iron_ore", "crushed_stone", "copper_ore", "gold_ore"]
 # Phase 5: the three small starting rocks are replaced by enormous finite formations (data/progression.json).
@@ -78,6 +79,8 @@ var pile_nodes := {}
 var construction := false
 var relocating := {}
 var sell_confirm := ""
+var hillside_retired: Array = [] # rim / cliff bodies the hillside replaced (for tests)
+var nav_rebakes := 0 # number of navigation rebuilds (measured while excavating)
 var _click_ms := {}
 var _tx_anchor := Vector2.INF # where money pop-ups rise from while a menu button is being handled
 const CLICK_GUARD_MS := 150
@@ -127,6 +130,7 @@ func _ready() -> void:
 	_build_quarry()
 	art = ArtScript.new()
 	art.build_environment(self)
+	_carve_hillside_site()
 	art.dress_storage(storage_body)
 	for kind in deposit_nodes:
 		_dress_deposit(kind)
@@ -257,6 +261,8 @@ func _build_quarry() -> void:
 		for z in [-22.0,16.0,22.0]:
 			if absf(x) < 19 and z < 0:
 				continue
+			if in_hillside_zone(Vector3(x, 0, z), 1.5):
+				continue # the hillside replaces this corner of the rim
 			_solid(world,"Tree trunk",Vector3(x,1.1,z),Vector3(0.5,2.2,0.5),Color(0.24,0.18,0.12))
 			_visual_box(world,Vector3(x,2.85,z),Vector3(2.1,2.5,2.1),Color(0.13,0.24,0.16))
 	_building("Office", Vector3(-14,0,12), Color(0.48,0.42,0.31))
@@ -319,6 +325,44 @@ func _building(label: String, pos: Vector3, color: Color) -> void:
 	_solid(world,label+" front left",pos+Vector3(-1.6,1.4,-2.35),Vector3(1.8,2.8,0.22),color)
 	_solid(world,label+" front right",pos+Vector3(1.6,1.4,-2.35),Vector3(1.8,2.8,0.22),color)
 	_solid(world,label+" roof",pos+Vector3(0,2.92,0),Vector3(5.4,0.27,5.2),Color(0.24,0.25,0.26))
+
+## Footprint of the Phase 6.1 hillside (world xz), from its formation data. Empty rect when the data has none.
+func hillside_rect() -> Rect2:
+	var f: Dictionary = prog.fdef(HILLSIDE_ID)
+	if f.is_empty():
+		return Rect2()
+	var d := prog.dims(HILLSIDE_ID)
+	var cell := float(f["cell"])
+	var c: Array = f["center"]
+	var size := Vector2(float(d.x) * cell, float(d.y) * cell)
+	return Rect2(Vector2(float(c[0]), float(c[2])) - size * 0.5, size)
+
+func in_hillside_zone(p: Vector3, margin := 0.0) -> bool:
+	var r := hillside_rect()
+	return r.size != Vector2.ZERO and r.grow(margin).has_point(Vector2(p.x, p.z))
+
+## The hillside takes over the west rim: the low "Excavated rim" walls and the one cliff block that stood in its
+## working area are retired (hidden, no collision, ignored by navigation). Cliffs behind the back wall stay as the
+## taller hill above it, so the ring of rock around the quarry stays closed with no gaps.
+func _carve_hillside_site() -> void:
+	var r := hillside_rect()
+	if r.size == Vector2.ZERO:
+		return
+	var zone := Rect2(Vector2(r.position.x + 4.0, r.position.y - 0.4), Vector2(r.size.x - 4.0 + 2.6, r.size.y + 0.8)) # x: front 7 m of the grid + the strip in front of it
+	for body in world.get_children():
+		if not body is StaticBody3D or body.has_meta("ground") or body.collision_layer != 1:
+			continue
+		if not zone.has_point(Vector2(body.position.x, body.position.z)):
+			continue
+		var h := 0.0
+		for c in body.get_children():
+			if c is CollisionShape3D and c.shape is BoxShape3D:
+				h = maxf(h, (c.shape as BoxShape3D).size.y)
+		if (absf(h - 2.2) < 0.05 or absf(h - 6.0) < 0.05) and not str(body.get_meta("kind", "")) in ["deposit", "sell", "storage"]:
+			body.visible = false
+			body.collision_layer = 0
+			body.set_meta("nav_skip", true)
+			hillside_retired.append(str(body.name))
 
 func _deposit_info(kind: String) -> Dictionary:
 	if DEPOSIT_INFO.has(kind):
@@ -575,8 +619,19 @@ func player_mine(kind: String, col: int, damage: float, point := Vector3.INF, co
 	if not prog.can_mine(res):
 		_too_hard(res)
 		return 0
-	if col < 0 or prog.column_units(kind, col) <= 0:
-		col = prog.nearest_column(kind, player.global_position if point == Vector3.INF else point, false)
+	var strict := bool(prog.fdef(kind).get("strict", false))
+	if col < 0 or prog.column_units(kind, col) <= 0 or (strict and not prog.column_minable(kind, col)):
+		if strict:
+			# hillside: only exposed rock near the strike point can be cut, never a section behind solid rock
+			col = prog.nearest_column(kind, player.global_position if point == Vector3.INF else point, true, 2.6)
+			if col < 0:
+				if prog.units_left(kind) > 0:
+					_notify("Nothing to cut here. Mine the exposed face in front of you.")
+				else:
+					_notify("%s is cleared." % str(prog.fdef(kind)["title"]))
+				return 0
+		else:
+			col = prog.nearest_column(kind, player.global_position if point == Vector3.INF else point, false)
 	if col < 0:
 		_notify("%s is cleared." % str(prog.fdef(kind)["title"]))
 		return 0
@@ -1535,6 +1590,7 @@ func _box_faces(size: Vector3) -> PackedVector3Array:
 ## deposits, conveyors). Called on start, load and after every placement / expansion.
 func _rebake_nav() -> void:
 	nav_dirty = false
+	nav_rebakes += 1
 	var source := NavigationMeshSourceGeometryData3D.new()
 	for body in world.get_children():
 		if not body is StaticBody3D or not body.is_inside_tree():

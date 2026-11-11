@@ -20,6 +20,7 @@ var chunks: Array = []       # per column: Array of MeshInstance3D (bottom -> to
 var shown: Array = []        # chunks currently standing per column
 var jiggle := {}             # MeshInstance3D -> remaining shake time
 var crumbling: Array = []    # [MeshInstance3D, t]
+var cut := false              # style "cut" (quarry-wall blocks)
 var label: Label3D
 
 func setup(main_node, p: QuarryProgression, id: String) -> void:
@@ -41,10 +42,17 @@ func setup(main_node, p: QuarryProgression, id: String) -> void:
 	# the ramp, the lower level) it still renders solid instead of letting the sky show through.
 	var mat: Material = MeshKit.mat(QuarryArt.ROCK_MAT.get(res, "RockLimestone")).duplicate()
 	(mat as BaseMaterial3D).cull_mode = BaseMaterial3D.CULL_DISABLED
+	# Phase 6.1: style "cut" = quarry-wall blocks (flat faces, chamfered corners, bedded strata) instead of boulders.
+	cut = str(f.get("style", "")) == "cut"
+	if cut:
+		mat = MeshKit.mat("CliffStrata")
 	var variants := []
-	for k in range(4):
+	for k in range(5 if cut else 4):
 		var s := MeshKit.Soup.new()
-		MeshKit.rock_into(s, Vector3.ZERO, Vector3(cell * 1.14, tier_h * 1.3, cell * 1.14), 700 + k * 31 + id.length(), 4, 7, true, Vector2(-0.10, 0.18))
+		if cut:
+			MeshKit.cut_block_into(s, Vector3.ZERO, Vector3(cell * 1.02, tier_h * 1.01, cell * 1.02), 900 + k * 17 + id.length())
+		else:
+			MeshKit.rock_into(s, Vector3.ZERO, Vector3(cell * 1.14, tier_h * 1.3, cell * 1.14), 700 + k * 31 + id.length(), 4, 7, true, Vector2(-0.10, 0.18))
 		variants.append(s.mesh())
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(id)
@@ -60,10 +68,17 @@ func setup(main_node, p: QuarryProgression, id: String) -> void:
 		var stack := []
 		for t in range(prog.column_tiers(id, i)):
 			var mi := MeshKit.inst(self, variants[rng.randi() % variants.size()], mat)
-			mi.position = local + Vector3(rng.randf_range(-0.12, 0.12), t * tier_h - 0.08, rng.randf_range(-0.12, 0.12))
-			mi.rotation.y = rng.randf_range(0, TAU)
-			var sc := rng.randf_range(0.92, 1.08) * (1.06 if t == 0 else 1.0)
-			mi.scale = Vector3(sc, rng.randf_range(0.95, 1.08), sc)
+			if cut:
+				# flush courses: blocks sit exactly on the one below, squared up with only a slight wobble
+				mi.position = local + Vector3(rng.randf_range(-0.03, 0.03), t * tier_h, rng.randf_range(-0.03, 0.03))
+				mi.rotation.y = float(rng.randi() % 4) * PI * 0.5 + rng.randf_range(-0.04, 0.04)
+				var cs_ := rng.randf_range(0.99, 1.02)
+				mi.scale = Vector3(cs_, rng.randf_range(0.99, 1.02), cs_)
+			else:
+				mi.position = local + Vector3(rng.randf_range(-0.12, 0.12), t * tier_h - 0.08, rng.randf_range(-0.12, 0.12))
+				mi.rotation.y = rng.randf_range(0, TAU)
+				var sc := rng.randf_range(0.92, 1.08) * (1.06 if t == 0 else 1.0)
+				mi.scale = Vector3(sc, rng.randf_range(0.95, 1.08), sc)
 			mi.set_meta("base_pos", mi.position)
 			mi.set_meta("base_scale", mi.scale)
 			mi.visibility_range_end = 120.0

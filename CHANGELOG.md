@@ -1,5 +1,21 @@
 # Changelog
 
+## Quarry Days — Phase 6.1: The First Real Quarry (hillside)
+
+- **New formation `hillside_face_01`** (`data/progression.json`): a 6-deep x 12-wide grid of 1.9 m columns, 1-4 tiers high (1.2 m each), cut into the west rim at x -28..-16.6, z -22..0.8. It is built on the existing `QuarryFormation` column system: shared meshes, one box collider per column, cracks, crumble and dust.
+  - Only the east face is open. The other three sides are solid hill (`closed` in the data), so the player and staff cut in from the front and expose the next columns behind as they go.
+  - `strict` formations never let a buried column be mined, even by targeting it directly.
+- **Cut-stone look:** `MeshKit.cut_block_into` makes blocks with flat sides, chamfered corners, a slightly tilted top and 32 triangles. Blocks are laid in flush courses on the cliff strata material. Five shared meshes cover the whole hill.
+- **Permanent:** columns never regrow (`regrow_at` is -1). They are saved as a compact int array, like the other formations. Loading twice or letting days pass never refills the cut.
+- **Compatibility:**
+  - The old formations are untouched: same ids, dimensions and column counts. Stage progress still counts only them.
+  - Old saves load with a full hillside and nothing else changes.
+  - The hand-mining quarry face and the original piles remain as starting resources, so there is no economy softlock.
+- **World:** the low rim walls and the one cliff block in the hill's working area are retired (hidden, no collision, ignored by navigation). The cliffs behind it stay as the taller hill above. The tree, retaining wall and scenery props that stood there are skipped.
+- **Staff and rigs:** workers use the existing exposure and standing logic and go to the nearest exposed face. Two rig pads were added on the front.
+- **Measured:** navigation rebuilds once per emptied column at most. No throttling was needed.
+- **Tests:** `tests/test_phase6_1.gd` (45 checks). Older tests updated where they hard-coded three formations.
+
 ## Quarry Days — tool, worker and belt fixes (from your screenshots)
 
 - **First-person tools:** checked with real software renders this time. The pick and hammer now rest leaning forward and are smaller, so they no longer fill the screen. The drill and the jackhammer were far too large and mispositioned; both are rescaled and held at the lower right, and the jackhammer's chisel points forward-down. Power tools only nudge toward the crosshair instead of flying to it.

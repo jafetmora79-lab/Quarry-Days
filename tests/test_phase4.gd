@@ -126,10 +126,11 @@ func scene_resources() -> void:
 	check(game.nearest_deposit("limestone", Vector3.ZERO) == "stone_mountain", "4 miners target the stone formation, never the hand-mining face")
 	Engine.time_scale = 4.0
 	var d: Dictionary = game.state.deposits["stone_mountain"]
-	var mined0 := int(d.get("mined", 0))
+	var hd: Dictionary = game.state.deposits["hillside_face_01"]
+	var mined0 := int(d.get("mined", 0)) + int(hd.get("mined", 0))
 	var storage0 := int(game.state.storage["limestone"])
 	await frames(5000, func(): return int(game.state.storage["limestone"]) >= storage0 + 4)
-	var used := int(d.get("mined", 0)) - mined0
+	var used := int(d.get("mined", 0)) + int(hd.get("mined", 0)) - mined0 # staff take the nearest face: the new hillside or the old pile
 	check(int(game.state.storage["limestone"]) >= storage0 + 4 and used >= 4, "4 worker mining draws from the formation (%d used)" % used)
 	var loose := 0
 	for id in game.ground_pieces:
