@@ -244,6 +244,10 @@ godot --headless --fixed-fps 60 -s tests/test_ui_readability.gd  # fonts, sizes,
 
 `test_phase5.gd` covers mining and rock depletion, tool progression, staff and machine extraction, processing, selling, the excavation unlock (player, staff and vehicle access), schedules (resting off shift), story, HUD layout, pacing estimated from the data, and save/load idempotence.
 
+## Android / touch (temporary support)
+
+Open the project in the Godot Android editor (or run it on any touchscreen with `godot --path . -- --touch`). Touch mode turns on automatically on mobile builds: left thumb stick to move, drag the right side to look, MINE (hold), USE (E), RUN (toggle), MENU, MGR (M), BUILD (B), plus PLACE / ROT while placing and ALT while driving. Menus and shops work with ordinary taps. Landscape orientation is set in `project.godot`. No export preset or keystore is included; `tests/test_touch.gd` (11 checks) covers the controls.
+
 ## Known limitations
 
 - **Visual quality is unverified.** No screenshots or renders were made, as requested. Headless tests check behaviour, not looks. How the formations, chunk crumbling, tool viewmodels, worker poses, rig joints and the HUD actually look all need your visual pass.

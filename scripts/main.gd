@@ -12,6 +12,7 @@ const ProgressionScript = preload("res://scripts/progression.gd")
 const FormationScript = preload("res://scripts/formation.gd")
 const FXScript = preload("res://scripts/fx.gd")
 const HUDScript = preload("res://scripts/hud.gd")
+const TouchScript = preload("res://scripts/touch_controls.gd")
 const ExcavationScript = preload("res://scripts/excavation.gd")
 const RigScript = preload("res://scripts/rig.gd")
 const MINE_REACH := 2.6 # tools reach a little past the visual lunge (QuarryToolView.REACH_MAX)
@@ -79,6 +80,8 @@ var pile_nodes := {}
 var construction := false
 var relocating := {}
 var sell_confirm := ""
+var touch_mode := false      # on-screen controls (Android / --touch)
+var touch_mine := false      # MINE button held
 var hillside_retired: Array = [] # rim / cliff bodies the hillside replaced (for tests)
 var nav_rebakes := 0 # number of navigation rebuilds (measured while excavating)
 var _click_ms := {}
@@ -107,6 +110,7 @@ var rig_nodes: Array = []
 var rig_pick_type := ""
 
 func _ready() -> void:
+	touch_mode = OS.has_feature("mobile") or OS.get_cmdline_user_args().has("--touch")
 	var cfg = JSON.parse_string(FileAccess.get_file_as_string("res://data/economy.json"))
 	state = State.new(cfg)
 	var bcfg = JSON.parse_string(FileAccess.get_file_as_string("res://data/business.json"))
@@ -679,7 +683,7 @@ func _player_mining(delta: float) -> void:
 	power_feedback_t = maxf(0.0, power_feedback_t - delta)
 	too_hard_t = maxf(0.0, too_hard_t - delta)
 	bag_full_t = maxf(0.0, bag_full_t - delta)
-	var lmb := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and not driving and not construction and not placement and not hud.card_open()
+	var lmb := (touch_mine if touch_mode else Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)) and not driving and not construction and not placement and not hud.card_open()
 	if prog.is_continuous():
 		tv.operating = lmb
 		if lmb:
@@ -734,6 +738,11 @@ func _setup_ui() -> void:
 	hud = HUDScript.new()
 	ui.add_child(hud)
 	hud.setup(self)
+	if touch_mode:
+		hud.tutorial = false # keyboard hints make no sense on a touchscreen
+		var touch := TouchScript.new()
+		ui.add_child(touch)
+		touch.setup(self)
 	# Station menus (selling booth, upgrade board, storage, machines): one cozy clickable panel.
 	panel = QuarryStationUI.new()
 	ui.add_child(panel)
@@ -850,6 +859,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 			get_viewport().set_input_as_handled()
 		return
+	if touch_mode and menu == "" and event is InputEventMouseButton and not event.has_meta("touch_ok"):
+		return # screen taps / drags are emulated mouse clicks: only the on-screen buttons act in the world
 	if driving and menu == "" and _driving_input(event):
 		return
 	if event.is_action_pressed("ui_cancel"):
@@ -2079,7 +2090,7 @@ func _exit_spot(v: QuarryVehicle) -> Variant:
 	return null
 
 func _driving_input(event: InputEvent) -> bool:
-	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not touch_mode:
 		driving.rotate_camera(event.relative)
 		return true
 	if event.is_action_pressed("interact"):

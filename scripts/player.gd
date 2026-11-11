@@ -31,9 +31,14 @@ func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not locked:
+	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not locked and not game_touch():
 		rotate_y(-event.relative.x * 0.0024)
 		pitch = clampf(pitch - event.relative.y * 0.0024, -1.42, 1.42)
+
+## Touch builds look with finger drags (touch_controls.gd); emulated mouse motion must not rotate the camera too.
+func game_touch() -> bool:
+	var m := get_parent()
+	return m != null and "touch_mode" in m and bool(m.touch_mode)
 
 ## Legacy: a swing with no gameplay effect (empty air, depleted rock).
 func swing_pickaxe() -> void:
