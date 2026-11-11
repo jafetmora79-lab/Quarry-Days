@@ -67,6 +67,14 @@ func setup(g) -> void:
 	foot.custom_minimum_size = Vector2(660, 0)
 	root.add_child(foot)
 
+## Resizes the centred panel (base-canvas px); small menus such as Pause should not be a huge empty box.
+func fit(w: float, h: float) -> void:
+	offset_left = -w * 0.5
+	offset_right = w * 0.5
+	offset_top = -h * 0.5
+	offset_bottom = h * 0.5
+	foot.custom_minimum_size.x = w - 40.0
+
 func begin(title: String, money := -1, hint := "") -> void:
 	_scroll_keep = scroll.scroll_vertical
 	for c in list.get_children():
@@ -80,8 +88,10 @@ func begin(title: String, money := -1, hint := "") -> void:
 	foot.visible = hint != ""
 	scroll.set_deferred("scroll_vertical", _scroll_keep)
 
-func text(t: String, color := DIM) -> Label:
+func text(t: String, color := DIM, centered := false) -> Label:
 	var l := QuarryTheme.label(t, FS, color)
+	if centered:
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	l.custom_minimum_size = Vector2(300, 0)
@@ -226,6 +236,7 @@ func row(cells: Array, btns: Array, swatch := Color(0, 0, 0, 0), header := false
 
 func button_bar(btns: Array) -> void:
 	var h := HBoxContainer.new()
+	h.alignment = BoxContainer.ALIGNMENT_CENTER
 	h.add_theme_constant_override("separation", 8)
 	list.add_child(h)
 	for bd in btns:

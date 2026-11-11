@@ -1,5 +1,13 @@
 # Changelog
 
+## Quarry Days — tool, worker and belt fixes (from your screenshots)
+
+- **First-person tools:** checked with real software renders this time. The pick and hammer now rest leaning forward and are smaller, so they no longer fill the screen. The drill and the jackhammer were far too large and mispositioned; both are rescaled and held at the lower right, and the jackhammer's chisel points forward-down. Power tools only nudge toward the crosshair instead of flying to it.
+- **Workers:** the pickaxe, wrench and clipboard attach with a defined hold pose (`Worker.TOOL_POSE`) instead of pointing backwards. The pick shaft rises up and back on the wind-up with the head on top and comes down forward on the strike. The pick head now spans across the shaft, in the swing plane.
+- **Pause menu:** the panel is now small, and its text and buttons are centred.
+- **Belt placement:** with grid snap on (G toggles it), a belt ghost within 2.6 m of a crusher feed side, a crusher discharge chute, an output bin or another belt's end snaps flush and faces along the flow, so it links with no fiddling. Free placement is still available with G.
+- **Tests:** snapping checks added to `tests/test_phase5_1.gd` (101 checks).
+
 ## Quarry Days — HUD readability fix
 
 - **Fonts:** all body text, prices, descriptions, dialogue and button labels use Atkinson Hyperlegible (SIL OFL 1.1; licence in `assets/fonts/`), antialiased with light hinting. Bold is used for item names, prices and buttons. Silkscreen remains only for headings and decorative labels. Pixelify Sans is removed.

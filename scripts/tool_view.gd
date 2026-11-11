@@ -30,11 +30,11 @@ var _t := 0.0
 ## `tip` is the working point in model space: the pick point, the hammer face, the bit or chisel end.
 ## Power tools use `rest_rot` (euler) to aim their working end at the crosshair, and `model_pitch` leans the whole model.
 const TOOL := {
-	0: {"grip": Vector3(0.30, -0.50, -0.58), "rest": -0.40, "wind": 0.45, "strike": -1.05, "tip": Vector3(0, 0.36, -0.1)},
-	1: {"grip": Vector3(0.32, -0.54, -0.60), "rest": -0.40, "wind": 0.50, "strike": -1.00, "tip": Vector3(0, 0.48, -0.27)},
-	2: {"grip": Vector3(0.32, -0.54, -0.62), "rest": -0.40, "wind": 0.50, "strike": -1.00, "tip": Vector3(0, 0.52, -0.32)},
-	3: {"grip": Vector3(0.26, -0.28, -0.50), "rest_rot": Vector3(0.09, 0.10, 0.0), "tip": Vector3(0, 0.12, -0.46)},
-	4: {"grip": Vector3(0.20, -0.28, -0.32), "rest_rot": Vector3(0.0, 0.10, 0.0), "model_pitch": 1.3, "tip": Vector3(0, -0.61, 0)},
+	0: {"grip": Vector3(0.30, -0.42, -0.55), "scale": 0.8, "rest": -0.75, "yaw": 0.2, "wind": 0.1, "strike": -1.35, "tip": Vector3(0, 0.36, -0.1)},
+	1: {"grip": Vector3(0.30, -0.42, -0.55), "scale": 0.8, "rest": -0.75, "yaw": 0.2, "wind": 0.1, "strike": -1.35, "tip": Vector3(0, 0.48, -0.27)},
+	2: {"grip": Vector3(0.30, -0.42, -0.55), "scale": 0.75, "rest": -0.75, "yaw": 0.2, "wind": 0.1, "strike": -1.35, "tip": Vector3(0, 0.52, -0.32)},
+	3: {"grip": Vector3(0.28, -0.3, -0.5), "scale": 0.7, "rest_rot": Vector3(0.12, 0.2, 0.0), "tip": Vector3(0, 0.12, -0.46)},
+	4: {"grip": Vector3(0.3, -0.12, -0.5), "scale": 0.7, "rest_rot": Vector3(0.0, 0.3, 0.0), "model_pitch": 0.8, "tip": Vector3(0, -0.61, 0)},
 }
 const REACH_MIN := 0.85      # the working end meets the rock this far in front of the camera, at least...
 const REACH_MAX := 1.6       # ...and at most (mining reach in main.gd is just beyond this)
@@ -67,6 +67,7 @@ func _show(t: int) -> void:
 		models[t] = _build(t)
 		pivot.add_child(models[t])
 	model = models[t]
+	model.scale = Vector3.ONE * float(TOOL[t].get("scale", 1.0))
 	model.visible = true
 	spinner = model.get_meta("spinner") if model.has_meta("spinner") else null
 	phase = -1.0
@@ -110,6 +111,7 @@ func _process(delta: float) -> void:
 	var weight := 0.0
 	if tier < 3:
 		rot.x = rest
+		rot.y = float(def.get("yaw", 0.0))
 		if phase >= 0.0:
 			phase += delta / duration
 			var p := phase
@@ -136,6 +138,7 @@ func _process(delta: float) -> void:
 				if on_impact.is_valid():
 					on_impact.call()
 			rot.x = ang
+			rot.y = float(def.get("yaw", 0.0)) * (1.0 - 0.7 * weight)
 			rot.z = 0.2 * sin(clampf(p, 0.0, 1.0) * PI)
 			if phase >= 1.0:
 				phase = -1.0
@@ -164,8 +167,9 @@ func _process(delta: float) -> void:
 	var tip_now := placed + pivot.transform.basis * (model.transform * tip_local) if model else placed
 	var contact := Vector3(0, 0, -clampf(target_dist, REACH_MIN, REACH_MAX))
 	var corr := (contact - tip_now)
-	if corr.length() > MAX_CORRECTION:
-		corr = corr.normalized() * MAX_CORRECTION
+	var cap := MAX_CORRECTION if tier < 3 else 0.1 # power tools stay in the hands: only a small nudge toward the rock
+	if corr.length() > cap:
+		corr = corr.normalized() * cap
 	engage = weight
 	position = placed + corr * weight
 	tip_cam = tip_now + corr * weight
@@ -207,8 +211,8 @@ func _build(t: int) -> Node3D:
 			_box(paint, Vector3(0, -0.1, 0.06), Vector3(0.11, 0.06, 0.14))      # battery
 			_box(steel, Vector3(0, 0.12, -0.22), Vector3(0.07, 0.07, 0.07))      # chuck
 		4: # jackhammer: tall body, T-handle on top, chisel down
-			_box(steel, Vector3(0, 0.0, 0), Vector3(0.5, 0.05, 0.05))           # T-handle
-			for x in [-0.22, 0.22]:
+			_box(steel, Vector3(0, 0.0, 0), Vector3(0.36, 0.05, 0.05))           # T-handle
+			for x in [-0.15, 0.15]:
 				_box(dark, Vector3(x, 0.0, 0), Vector3(0.09, 0.065, 0.065))
 			_box(paint, Vector3(0, -0.22, 0), Vector3(0.14, 0.36, 0.14), Vector2(0.85, 0.85))
 			_box(steel, Vector3(0, -0.06, 0.08), Vector3(0.08, 0.1, 0.06))      # valve block

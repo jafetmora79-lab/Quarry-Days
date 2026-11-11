@@ -99,16 +99,20 @@ func _build_rig() -> void:
 		return
 	rig = VeilRig.new()
 	rig.setup(found[0], float(employee_id) * 1.7)
-	var up_fwd := Basis(Vector3.RIGHT, 0.0)
+	var pose_deg: Vector3 = TOOL_POSE.get(profession, Vector3.ZERO)
+	var hold := Basis.from_euler(Vector3(deg_to_rad(pose_deg.x), deg_to_rad(pose_deg.y), deg_to_rad(pose_deg.z)))
 	match profession:
-		"miner": rig.attach(_tool_pickaxe(), "Right", up_fwd, Vector3.ZERO)
-		"operator": rig.attach(_tool_wrench(), "Right", up_fwd, Vector3.ZERO)
-		"clerk": rig.attach(_tool_clipboard(), "Left", up_fwd, Vector3.ZERO)
+		"miner": rig.attach(_tool_pickaxe(), "Right", hold, Vector3.ZERO)
+		"operator": rig.attach(_tool_wrench(), "Right", hold, Vector3.ZERO)
+		"clerk": rig.attach(_tool_clipboard(), "Left", hold, Vector3.ZERO)
 	carry_box = MeshInstance3D.new()
 	carry_box.mesh = MeshKit.rock(Vector3(0.42, 0.3, 0.34), 77 + employee_id, 3, 6)
 	carry_box.position = Vector3(0, 0.88, -0.36) # in front of the -Z-facing chest
 	carry_box.visible = false
 	model.add_child(carry_box)
+
+## How each tool sits in the hand at the rest pose, as euler degrees in skeleton space (see VeilRig.attach).
+static var TOOL_POSE := {"miner": Vector3(70, 0, 0), "operator": Vector3(80, 0, 0), "clerk": Vector3(0, 0, 0)}
 
 ## Tools are small MeshKit models in hand space: handle along +Z (forward from the fist).
 func _tool_pickaxe() -> Node3D:
@@ -118,7 +122,8 @@ func _tool_pickaxe() -> Node3D:
 	MeshKit.inst(n, s.mesh(), MeshKit.mat(QuarryArt.M_WOOD))
 	var h := MeshKit.Soup.new()
 	var prof := PackedVector2Array([Vector2(-0.26, -0.01), Vector2(-0.02, 0.03), Vector2(0.02, 0.03), Vector2(0.26, -0.01), Vector2(0.2, -0.04), Vector2(0.0, -0.01), Vector2(-0.2, -0.04)])
-	MeshKit.extrude_into(h, prof, 0.045, Transform3D(Basis(Vector3.UP, PI * 0.5) * Basis(Vector3.FORWARD, PI * 0.5), Vector3(0, 0, 0.6)))
+	# the head spans local Y (the swing plane, across the shaft) with its points curving toward +Z
+	MeshKit.extrude_into(h, prof, 0.045, Transform3D(Basis(Vector3.RIGHT, -PI * 0.5), Vector3(0, 0, 0.6)))
 	MeshKit.inst(n, h.mesh(), MeshKit.mat("SteelPlate"))
 	return n
 

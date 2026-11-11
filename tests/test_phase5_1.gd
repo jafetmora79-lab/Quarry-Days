@@ -261,7 +261,7 @@ func scene_tests() -> void:
 			for i in range(90):
 				tv._process(0.02)
 			var tp := tv.tip_cam
-			check(absf(tp.x) < 0.14 and absf(tp.y) < 0.2 and tp.z < -1.0, "5 tool %d working end reaches the crosshair spot while running %s" % [tier, str(tp.snapped(Vector3(0.01, 0.01, 0.01)))])
+			check(tp.distance_to(Vector3(0, 0, -1.3)) < tip.distance_to(Vector3(0, 0, -1.3)) and absf(tp.x) < 0.3 and tp.y > -0.4 and tp.z < -0.8, "5 tool %d working end points down-range and eases toward the crosshair while running %s" % [tier, str(tp.snapped(Vector3(0.01, 0.01, 0.01)))])
 			tv.operating = false
 			for i in range(200):
 				tv._process(0.02)
@@ -319,6 +319,19 @@ func scene_tests() -> void:
 	check(Rect2(Vector2.ZERO, win.get_visible_rect().size).encloses(Rect2(game.panel.get_global_rect())), "6 the menu panel fits the canvas")
 	game._close_menu()
 
+	# ---- belts snap onto machinery
+	st.new_crusher(Vector3(2, 0, 0), 0.0)
+	game._create_crusher(st.crushers.size() - 1)
+	var ci: int = st.crushers.size() - 1
+	game.business.add_output(Vector3(2, 0, -6.0), 0.0)
+	game._create_output(game.business.outputs.size() - 1)
+	var s_in: Dictionary = game.conveyor_snap(Vector3(2.4, 0, 2.6))
+	check(not s_in.is_empty() and s_in["pos"].distance_to(Vector3(2, 0, 1.8)) < 0.01 and absf(float(s_in["yaw"])) < 0.01, "9 a belt near the crusher's back snaps flush against the feed side, aligned with it")
+	check(str(game.business.link_for(s_in["pos"], float(s_in["yaw"]))["dst"].get("type", "")) == "crusher", "9 the snapped belt links into the crusher")
+	var s_out: Dictionary = game.conveyor_snap(Vector3(2.3, 0, -2.5))
+	check(not s_out.is_empty() and str(game.business.link_for(s_out["pos"], float(s_out["yaw"]))["src"].get("type", "")) == "crusher", "9 a belt near the discharge chute snaps on and takes crushed stone away")
+	var s_far: Dictionary = game.conveyor_snap(Vector3(-20, 0, 20))
+	check(s_far.is_empty(), "9 far from any machine nothing snaps")
 	# ---- 7 save/load
 	st.money = 4321
 	st.tool_tier = 2

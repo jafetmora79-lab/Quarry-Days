@@ -938,10 +938,11 @@ func _draw_menu() -> void:
 	var p: QuarryStationUI = panel
 	var m := state.money
 	var idx := int(panel.get_meta("crusher_index", -1))
+	p.fit(520.0 if menu == "pause" else 700.0, 165.0 if menu == "pause" else 470.0)
 	match menu:
 		"pause":
 			p.begin("PAUSED", -1, "Optional keys:  F5 save   F9 load   Esc resume")
-			p.text("The quarry waits for you. Your progress is saved with the Save button or F5.")
+			p.text("The quarry waits for you. Save with the button or F5.", QuarryTheme.DIM, true)
 			p.button_bar([["resume", "RESUME", true, func(): _close_menu()], ["save", "SAVE GAME", true, func(): _save()], ["load", "LOAD GAME", true, func(): _load()]])
 		"sell": _draw_sell(p)
 		"upgrades": _draw_upgrades(p)
@@ -1214,6 +1215,11 @@ func _update_ghost() -> void:
 		ghost.position = Vector3(snappedf(point.x,0.5),point.y if point.y < -1.0 else 0.0,snappedf(point.z,0.5))
 	else:
 		ghost.position = Vector3(point.x,point.y if point.y < -1.0 else 0.0,point.z)
+	if placement_kind == "conveyor" and grid_snap:
+		var snap := conveyor_snap(ghost.position)
+		if not snap.is_empty():
+			ghost.position = Vector3(snap["pos"].x, ghost.position.y, snap["pos"].z)
+			placement_yaw = float(snap["yaw"])
 	ghost.rotation.y = placement_yaw
 	ghost.visible = true
 	placement_hint = ""
@@ -1817,6 +1823,37 @@ func _update_structures() -> void:
 		fill.visible = ratio > 0.0
 		fill.scale.y = maxf(0.05, ratio)
 		fill.position.y = -0.5 + 0.5 * maxf(0.05, ratio) + 0.08
+
+## Magnetic placement for belts (grid snap on): within 2.6 m of a machine port or the end of another belt, the
+## ghost jumps to the spot where its end touches the machine and faces along the flow, so it links with no
+## fiddling. Returns {"pos", "yaw"} or {} when nothing is near. Press G to place freely.
+func conveyor_snap(at: Vector3) -> Dictionary:
+	var best := {}
+	var best_d := 2.6
+	var cands := []
+	for i in range(state.crushers.size()):
+		var c: Vector3 = Business.v3(state.crushers[i]["position"]) * Vector3(1, 0, 1)
+		var yc := float(state.crushers[i]["yaw"])
+		var f := Business.forward(yc)
+		var adv := int(state.crushers[i].get("tier", 1)) >= 2
+		cands.append({"pos": c - f * (2.0 if adv else 1.8), "yaw": yc})   # feeds the input (back) side
+		cands.append({"pos": c + f * (2.2 if adv else 2.0), "yaw": yc})   # carries away from the discharge chute
+	for o in business.outputs:
+		var op: Vector3 = Business.v3(o["position"]) * Vector3(1, 0, 1)
+		for k in range(4):
+			var yk := float(k) * PI * 0.5
+			cands.append({"pos": op - Business.forward(yk) * 1.75, "yaw": yk})
+	for j in range(business.conveyors.size()):
+		var cp: Vector3 = Business.v3(business.conveyors[j]["position"]) * Vector3(1, 0, 1)
+		var yj := float(business.conveyors[j]["yaw"])
+		cands.append({"pos": cp + Business.forward(yj) * 2.0, "yaw": yj})
+		cands.append({"pos": cp - Business.forward(yj) * 2.0, "yaw": yj})
+	for cd in cands:
+		var d := Vector2(at.x, at.z).distance_to(Vector2(cd["pos"].x, cd["pos"].z))
+		if d < best_d and conveyor_valid(Vector3(cd["pos"].x, at.y, cd["pos"].z), float(cd["yaw"])):
+			best_d = d
+			best = cd
+	return best
 
 func conveyor_valid(pos: Vector3, yaw: float) -> bool:
 	if not in_build_area(pos) or not _on_ground(pos) or _near_vehicle(pos, 2.6):
