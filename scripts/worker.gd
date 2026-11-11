@@ -269,7 +269,7 @@ func access_point(key: String, info: Dictionary) -> Variant:
 		var offset := (slot % 2) * 0.35 + float([0, 1, -1, 2, -2, 3, -3, 4][k]) * TAU / 8.0
 		var angle := base_angle + offset
 		var candidate := center + Vector3(sin(angle), 0, cos(angle)) * float(info["radius"])
-		candidate.y = 0
+		candidate.y = center.y
 		var p := NavigationServer3D.map_get_path(game.nav_map, global_position, candidate, true)
 		if not p.is_empty() and _flat(p[p.size() - 1], candidate) < 0.6:
 			result = candidate

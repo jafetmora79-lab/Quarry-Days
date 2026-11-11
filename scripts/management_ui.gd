@@ -228,7 +228,7 @@ func _assignment_controls(b: QuarryBusiness, e: Dictionary, row: HBoxContainer) 
 			row.add_child(_label("Mine:", DIM, 12, false))
 			var opts := []
 			for r in QuarryBusiness.MINERALS:
-				opts.append([r.replace("_", " ").capitalize() + " deposits", {"resource": r}])
+				opts.append([game.prog.display(r) + " deposits", {"resource": r}])
 			row.add_child(_option(opts, a, func(v): _say(game.ui_assign(id, v))))
 			row.add_child(_label("-> delivers to Storage crate", DIM, 11))
 		"operator":
@@ -250,6 +250,8 @@ func _assignment_controls(b: QuarryBusiness, e: Dictionary, row: HBoxContainer) 
 				srcs.append(["Crusher #%d output" % (i + 1), {"type": "crusher", "index": i}])
 			for i in range(b.outputs.size()):
 				srcs.append(["Output storage #%d" % (i + 1), {"type": "output", "index": i}])
+			for i in range(game.prog.rigs.size()):
+				srcs.append(["%s #%d bin" % [str(game.prog.machine(str(game.prog.rigs[i]["type"]))["title"]), i + 1], {"type": "rig", "index": i}])
 			var dsts := [["Storage crate", {"type": "storage"}]]
 			for i in range(game.state.crushers.size()):
 				dsts.append(["Crusher #%d hopper" % (i + 1), {"type": "crusher", "index": i}])

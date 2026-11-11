@@ -31,6 +31,7 @@ var payroll_minute := -1
 var daily := {}
 var storage_pos := STORAGE_POS        # Phase 3: the storage crate can be relocated
 var auto_crushed_sold := 0            # crushed stone sold by clerks (milestone 3 goal)
+var prog                               # Phase 5 QuarryProgression (rig endpoints); set by main
 
 func _init(quarry_state: QuarryState, settings: Dictionary = {}) -> void:
 	state = quarry_state
@@ -362,6 +363,7 @@ func ep_valid(ep: Dictionary) -> bool:
 		"output": return int(ep.get("index", -1)) >= 0 and int(ep["index"]) < outputs.size()
 		"conveyor": return int(ep.get("index", -1)) >= 0 and int(ep["index"]) < conveyors.size()
 		"deposit": return str(ep.get("resource", "")) in MINERALS
+		"rig": return prog != null and int(ep.get("index", -1)) >= 0 and int(ep["index"]) < prog.rigs.size()
 	return false
 
 ## Units of `res` the endpoint can still accept.
@@ -417,6 +419,7 @@ func ep_available(ep: Dictionary, res: String) -> int:
 		"storage": return int(state.storage.get(res, 0))
 		"crusher": return int(state.crushers[int(ep["index"])]["output"]) if res == "crushed_stone" else 0
 		"output": return int(outputs[int(ep["index"])]["items"].get(res, 0))
+		"rig": return int(prog.rigs[int(ep["index"])]["bin"].get(res, 0))
 	return 0
 
 func ep_take(ep: Dictionary, res: String, n: int) -> int:
@@ -427,6 +430,7 @@ func ep_take(ep: Dictionary, res: String, n: int) -> int:
 		"storage": state.storage[res] = int(state.storage[res]) - taken
 		"crusher": state.crushers[int(ep["index"])]["output"] = int(state.crushers[int(ep["index"])]["output"]) - taken
 		"output": outputs[int(ep["index"])]["items"][res] = int(outputs[int(ep["index"])]["items"][res]) - taken
+		"rig": prog.rig_take(prog.rigs[int(ep["index"])], res, taken)
 	return taken
 
 ## Resource carried along a hauler route, or "" when the route makes no sense.
@@ -438,6 +442,7 @@ func route_resource(src: Dictionary, dst: Dictionary) -> String:
 	var res := ""
 	match st:
 		"deposit": res = str(src.get("resource", ""))
+		"rig": res = prog.rig_resource(prog.rigs[int(src["index"])]) if ep_valid(src) else ""
 		"crusher", "output": res = "crushed_stone"
 		"storage":
 			match dt:
@@ -588,6 +593,10 @@ func _endpoint_near(point: Vector3, as_source: bool, skip_conveyor: int) -> Dict
 			return {"type": "output", "index": i}
 	if _flat(point, storage_pos) < 2.0:
 		return {"type": "storage"}
+	if as_source and prog:
+		for i in range(prog.rigs.size()):
+			if _flat(point, prog.rig_bin_pos(prog.rigs[i])) < 1.3:
+				return {"type": "rig", "index": i}
 	return {}
 
 ## Link description for a conveyor at pos/yaw (also used for the placement preview).
@@ -639,6 +648,7 @@ func describe_ep(ep: Dictionary) -> String:
 		"deposit": return "Loose " + str(ep["resource"]).replace("_", " ")
 		"deposit_site": return "the deposit"
 		"sell": return "the selling station"
+		"rig": return "%s #%d" % [str(prog.machine(str(prog.rigs[int(ep["index"])]["type"]))["title"]), int(ep["index"]) + 1] if ep_valid(ep) else "a rig"
 	return "nothing"
 
 func tick_conveyors(seconds: float) -> void:
@@ -790,8 +800,11 @@ func structure_price(kind: String) -> int:
 		"conveyor": return int(cfg["conveyor_price"])
 	return 0
 
-func refund_value(kind: String) -> int:
-	return int(floor(structure_price(kind) * 0.5))
+func refund_value(kind: String, index := -1) -> int:
+	var price := structure_price(kind)
+	if kind == "crusher" and index >= 0 and index < state.crushers.size() and int(state.crushers[index].get("tier", 1)) >= 2 and prog:
+		price = int(prog.machine("advanced_crusher").get("price", price))
+	return int(floor(price * 0.5))
 
 func structure_count(kind: String) -> int:
 	match kind:
@@ -890,12 +903,12 @@ func sell_structure(kind: String, index: int) -> int:
 			"storage": state.storage[step[2]] = int(state.storage[step[2]]) + int(step[3])
 			"output": outputs[int(step[1])]["items"][step[2]] = int(outputs[int(step[1])]["items"][step[2]]) + int(step[3])
 			"bag": state.inventory[step[2]] = int(state.inventory[step[2]]) + int(step[3])
+	var refund := refund_value(kind, index)
 	match kind:
 		"crusher": state.crushers.remove_at(index)
 		"output": outputs.remove_at(index)
 		"conveyor": conveyors.remove_at(index)
 	_fix_references(kind, index)
-	var refund := refund_value(kind)
 	state.money += refund
 	compute_links()
 	return refund

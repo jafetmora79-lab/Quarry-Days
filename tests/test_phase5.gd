@@ -34,10 +34,20 @@ func run_tests() -> void:
 	test_formation_logic()
 	test_tools()
 	test_stages()
+	test_balance()
 	await scene_mining()
 	await scene_more()
+	await scene_deep()
 	print("RESULT: %d checks, %d failures" % [checks, failures.size()])
 	quit(0 if failures.is_empty() else 1)
+
+## Live (not queued-for-deletion) world nodes of a script class.
+func live(game, cls: String) -> int:
+	var n := 0
+	for c in game.world.get_children():
+		if c.get_script() and c.get_script().get_global_name() == cls and not c.is_queued_for_deletion():
+			n += 1
+	return n
 
 func fresh() -> QuarryProgression:
 	var s := QuarryState.new(cfg)
@@ -95,10 +105,11 @@ func test_tools() -> void:
 		last = p.tool_dps(t)
 	check(ok, "2 every tool tier mines at least 25% faster than the one before")
 	check(p.tool_gain_percent(0, 1) >= 100, "2 the first upgrade feels meaningful (+%d%%)" % p.tool_gain_percent(0, 1))
-	s.money = 59
-	check(not p.buy_next_tool() and s.tool_tier == 0 and s.money == 59, "2 cannot buy the pickaxe without $60; nothing charged")
-	s.money = 60
-	check(p.buy_next_tool() and s.tool_tier == 1 and s.money == 0 and p.can_mine("iron_ore"), "2 pickaxe bought for $60 and cracks iron")
+	var pick := int(p.tools()[1]["cost"])
+	s.money = pick - 1
+	check(not p.buy_next_tool() and s.tool_tier == 0 and s.money == pick - 1, "2 cannot buy the pickaxe without $%d; nothing charged" % pick)
+	s.money = pick
+	check(p.buy_next_tool() and s.tool_tier == 1 and s.money == 0 and p.can_mine("iron_ore"), "2 pickaxe bought for $%d and cracks iron" % pick)
 	s.money = 100000
 	while p.buy_next_tool():
 		pass
@@ -108,6 +119,41 @@ func test_tools() -> void:
 	check(is_equal_approx(p.tool_dps(4), float(p.tools()[4]["dps"]) * 1.25), "2 Mining Technique upgrade adds 25% speed to any tool")
 	var st := QuarryState.new(cfg)
 	check(st.restore({"version": 2, "money": 5, "inventory": {}, "storage": {}, "upgrades": {"reinforced_pickaxe": true}, "crushers": [], "deposits": {}, "player_position": [0, 1, 8], "clock_minutes": 480, "player_yaw": 0}) and st.tool_tier == 2, "2 older saves keep the reinforced pickaxe they bought")
+
+## 12 pacing estimates from the data (no real-time playthrough): mining rate, bag trips, walking.
+func test_balance() -> void:
+	var p := fresh()
+	var hp := float(p.material("limestone")["hp"])
+	var price := float(p.state.config["prices"]["limestone"])
+	var trip := 12.0 # seconds: formation -> sales booth -> back
+	var bag := float(p.state.capacity())
+	var per_s := func(tier: int) -> float:
+		var mine_t: float = bag / (p.tool_dps(tier) / hp)
+		return bag * price / (mine_t + trip)
+	var first: float = (float(p.tools()[1]["cost"]) - float(pcfg["new_game_money"])) / float(per_s.call(0))
+	check(first > 20.0 and first < 180.0, "12 first pickaxe after about %.0f s of hand mining (meaningful, not a grind)" % first)
+	var steps := []
+	for t in range(1, p.tools().size() - 1):
+		steps.append(float(p.tools()[t + 1]["cost"]) / float(per_s.call(t)))
+	var ok := true
+	for v in steps:
+		ok = ok and v < 900.0
+	check(ok, "12 each later tool is a few minutes of mining with the previous one (%s s)" % str(steps.map(func(v): return int(v))))
+	var stone := float(p.max_units("stone_mountain"))
+	var manual := stone / (p.tool_dps(1) / hp) / 60.0
+	var jack := stone / (p.tool_dps(4) / hp) / 60.0
+	check(manual > 8.0 and jack < manual / 5.0, "12 the stone formation is ~%.0f min of pickaxe work but ~%.1f min with the jackhammer" % [manual, jack])
+	var value := 0.0
+	for id in p.cfg["starting_formations"]:
+		value += float(p.max_units(id)) * float(p.state.config["prices"][str(p.fdef(id)["resource"])])
+	var deep_req := float(p.stage_info(p.stage_index("deep"))["req"]["earned"])
+	check(value > deep_req + p.permit_cost(), "12 the starting formations ($%d raw) fund the deep stage and permit" % int(value))
+	var rig := p.machine("drill_rig")
+	var rig_income := float(rig["dps"]) / hp * price * 120.0 # per in-game hour (120 s)
+	var rig_cost := float(rig["cost_per_min"]) * 60.0
+	check(rig_income > rig_cost * 3.0, "12 a drilling rig earns well above its running cost ($%d vs $%d per in-game hour)" % [int(rig_income), int(rig_cost)])
+	var wage := float(bcfg["candidates"][0]["wage"]) * float(bcfg["wage_scale"])
+	check(wage >= 12.0, "12 wages stay meaningful ($%.0f/h for a junior miner)" % wage)
 
 func test_stages() -> void:
 	var p := fresh()
@@ -225,7 +271,7 @@ func scene_mining() -> void:
 	check(int(round(game.hud.shown_money)) == game.state.money, "9 the money counter counts up to the real balance")
 	# tool purchase through the upgrade board
 	game.state.tool_tier = 0
-	game.state.money = 60
+	game.state.money = int(game.prog.tools()[1]["cost"])
 	check(game.buy_next_tool() and game.state.tool_tier == 1 and game.state.money == 0, "2 the upgrade board sells the pickaxe")
 	check(str(game.hud.toast_queue.back()[1]).begins_with("MINING POWER +"), "9 the upgrade shows its improvement (MINING POWER +%%)")
 	# save / load: formations, tools, stage and pieces restored exactly once
@@ -247,7 +293,7 @@ func scene_mining() -> void:
 	check(visible == 0 and node.shapes[col].disabled, "14 an emptied column stays gone after loading")
 	game._load()
 	await process_frame
-	check(game.ground_pieces.size() == pieces_saved and game.world.find_children("stone_mountain*", "", false, false).size() == 1, "14 repeated loads do not duplicate pieces or formations")
+	check(game.ground_pieces.size() == pieces_saved and live(game, "QuarryFormation") == 3, "14 repeated loads do not duplicate pieces or formations")
 	game.queue_free()
 	await process_frame
 
@@ -362,5 +408,137 @@ func scene_more() -> void:
 	check(tilt_at_transfer["v"] > 0.8, "7 cargo leaves the truck once the bed is up (tilt %.2f)" % tilt_at_transfer["v"])
 	check(steps["max"] < 0.03, "7 the bed lifts and lowers smoothly")
 	game.exit_vehicle()
+	game.queue_free()
+	await process_frame
+
+# ------------------------------------------------------------------ 4/7/9 machinery, deep excavation, saves
+
+func scene_deep() -> void:
+	var game = load("res://Main.tscn").instantiate()
+	root.add_child(game)
+	await process_frame
+	await physics_frame
+	await physics_frame
+	game.hud.close_card()
+	game.tutorial_visible = false
+	var prog: QuarryProgression = game.prog
+	game.state.money = 100000
+	check(prog.rig_block_reason("drill_rig", "stone_mountain").begins_with("Unlocks"), "4 the drilling rig is locked before Large-Scale Mining")
+	prog.stage = prog.stage_index("large")
+	check(prog.rig_block_reason("drill_rig", "gold_seam") != "" and prog.permit_block_reason() != "", "6 deep formations and the permit wait for the Deep Excavation stage")
+	# ---- 4 drilling rig extracts from the same formation units
+	var stone0: int = prog.units_left("stone_mountain")
+	var money0: int = game.state.money
+	check(game.install_rig("drill_rig", "stone_mountain") and game.rig_nodes.size() == 1, "4 a drilling rig is installed on the stone formation's pad")
+	check(game.state.money == money0 - int(prog.machine("drill_rig")["price"]), "4 the rig costs exactly its price")
+	var r: Dictionary = prog.rigs[0]
+	var rig = game.rig_nodes[0]
+	game.state.money = 5000
+	var m1: int = game.state.money
+	await frames(900, func(): return prog.rig_bin_total(r) >= 10)
+	var mined: int = stone0 - prog.units_left("stone_mountain")
+	check(bool(r["working"]) and prog.rig_bin_total(r) >= 10 and mined == prog.rig_bin_total(r), "4 the rig drills real units into its bin (%d mined = %d in bin)" % [mined, prog.rig_bin_total(r)])
+	check(game.state.money < m1, "4 the rig charges its operating cost while running ($%d)" % (m1 - game.state.money))
+	check(rig.work > 0.5 and rig.audio.playing, "7 the rig visibly and audibly works while extracting")
+	r["on"] = false
+	await frames(120)
+	check(not r["working"] and rig.work < 0.5, "7 a switched-off rig winds down and stops animating")
+	r["on"] = true
+	# collect into the bag through the rig panel
+	for k in game.state.inventory:
+		game.state.inventory[k] = 0
+	game._open_menu("rig", 0)
+	var inbin: int = prog.rig_bin_total(r)
+	var ev := InputEventKey.new()
+	ev.pressed = true
+	ev.physical_keycode = KEY_1
+	ev.keycode = KEY_1
+	game._menu_key(ev)
+	check(int(game.state.inventory["limestone"]) == mini(inbin, game.state.capacity()) and prog.rig_bin_total(r) == inbin - int(game.state.inventory["limestone"]), "4 collecting the rig bin moves units into the bag without loss")
+	game._close_menu()
+	# a full bin stops extraction (no overflow, no duplication)
+	r["bin"] = {"limestone": prog.rig_bin_cap(r)}
+	var before: int = prog.units_left("stone_mountain")
+	await frames(60)
+	check(prog.units_left("stone_mountain") == before and not r["working"] and str(r["status"]).contains("full"), "4 a full output bin pauses the rig")
+	# hauler / conveyor endpoint
+	var b: QuarryBusiness = game.business
+	check(b.route_resource({"type": "rig", "index": 0}, {"type": "storage"}) == "limestone" and b.route_resource({"type": "rig", "index": 0}, {"type": "crusher", "index": 0}) == "limestone", "4 haulers can route rig output to storage or a crusher")
+	var s0 := int(game.state.storage["limestone"])
+	var took := b.ep_take({"type": "rig", "index": 0}, "limestone", 5)
+	b.ep_put({"type": "storage"}, "limestone", took)
+	check(took == 5 and int(game.state.storage["limestone"]) == s0 + 5 and prog.rig_bin_total(r) == prog.rig_bin_cap(r) - 5, "4 rig output moves through the shared endpoint system exactly")
+	# ---- 5 advanced crusher processes faster with a bigger batch
+	game.state.new_crusher(Vector3(4, 0, 4), 0)
+	game.state.new_crusher(Vector3(-4, 0, 4), 0, 2)
+	game._create_crusher(0)
+	game._create_crusher(1)
+	check(game.state.process_seconds(1) < game.state.process_seconds(0) * 0.5 and game.state.input_limit(1) == 2 * game.state.input_limit(0), "5 the advanced crusher runs twice as fast with twice the batch")
+	game.state.inventory["limestone"] = 24
+	check(game.state.load_crusher(1, 99) == 24 and game.state.start_crusher(1), "5 the advanced crusher takes a 24-stone batch")
+	var t := 0.0
+	while game.state.crushers[1]["running"] and t < 100.0:
+		game.state.tick(0.5)
+		t += 0.5
+	check(int(game.state.crushers[1]["output"]) == 24 and t <= game.state.process_seconds(1) + 0.5, "5 it turns 24 stone into 24 gravel in %.1fs" % t)
+	# ---- 6 deep excavation
+	prog.stage = prog.stage_index("deep")
+	game.state.money = 100000
+	check(prog.permit_block_reason() == "" and game.buy_permit() and prog.level_unlocked == 2, "6 the excavation permit opens the lower level")
+	check(game.formation_nodes.has("copper_vein") and game.formation_nodes.has("gold_seam") and game.excavation.is_open, "6 copper and gold formations appear on the lower level")
+	check(game.excavation.cap.collision_layer == 0 and game.excavation.lower.collision_layer == 1 and game.excavation.ramp.collision_layer == 1, "6 the pit cap is removed; lower floor and ramp are solid")
+	await frames(4)
+	var pth: PackedVector3Array = NavigationServer3D.map_get_path(game.nav_map, Vector3(0, 0, 4), Vector3(2.5, -3.5, -11.5), true)
+	check(pth.size() > 0 and pth[pth.size() - 1].y < -2.5 and Vector2(pth[pth.size() - 1].x, pth[pth.size() - 1].z).distance_to(Vector2(2.5, -11.5)) < 1.0, "8 staff can path down the ramp to the lower level")
+	# the player walks down the ramp
+	game.player.global_position = Vector3(-3.5, 0.1, -6.0)
+	game.player.rotation.y = 0.0
+	game.player.velocity = Vector3.ZERO
+	Input.action_press("move_forward")
+	await frames(240, func(): return game.player.global_position.z < -16.0)
+	Input.action_release("move_forward")
+	check(game.player.global_position.y < -3.0 and game.player.global_position.z < -15.0, "6 the player walks down the access ramp (%s)" % str(game.player.global_position))
+	check(game.player_mine("copper_vein", -1, 1000.0) == 0, "2 copper is too hard for the reinforced pickaxe")
+	game.state.tool_tier = 3
+	for k in game.state.inventory:
+		game.state.inventory[k] = 0
+	check(game.player_mine("copper_vein", -1, 34.0 * 2) == 2 and int(game.state.inventory["copper_ore"]) == 2, "6 the power drill mines copper on the lower level")
+	# a vehicle drives down the ramp
+	game.business.milestones["mechanized"] = true
+	game.ui_buy_vehicle("loader")
+	var loader = game.vehicle_nodes.values()[0]
+	loader.global_position = Vector3(-3.5, 0.1, -4.0)
+	loader.rotation.y = 0.0
+	loader.speed = 0.0
+	game.enter_vehicle(loader)
+	game.scripted_input = true
+	loader.input = {"throttle": 1.0, "steer": 0.0, "brake": false}
+	await frames(400, func(): return loader.global_position.z < -15.0)
+	loader.input = {"throttle": 0.0, "steer": 0.0, "brake": true}
+	check(loader.global_position.y < -2.5 and loader.global_position.z < -14.0, "6 the front loader drives down the ramp (%s)" % str(loader.global_position))
+	await frames(20)
+	game.exit_vehicle()
+	# rock breaker on gold
+	check(game.install_rig("rock_breaker", "gold_seam") and game.rig_nodes.size() == 2, "4 a rock breaker is installed against the gold seam")
+	var gold0: int = prog.units_left("gold_seam")
+	game.state.money = 5000
+	await frames(900, func(): return prog.rig_bin_total(prog.rigs[1]) >= 2)
+	check(prog.rig_bin_total(prog.rigs[1]) >= 2 and gold0 - prog.units_left("gold_seam") == prog.rig_bin_total(prog.rigs[1]), "4 the rock breaker hammers gold out of the seam")
+	# ---- 14 save/load with the lower level, rigs and deep stock
+	game._save()
+	var snap := JSON.stringify(prog.snapshot()["rigs"])
+	var gold_saved: int = prog.units_left("gold_seam")
+	game.state.money = 1
+	game._load()
+	await process_frame
+	await process_frame
+	check(prog.level_unlocked == 2 and game.excavation.is_open and game.formation_nodes.has("gold_seam") and prog.units_left("gold_seam") == gold_saved, "14 the lower level, deep formations and their stock survive a load")
+	check(prog.rigs.size() == 2 and game.rig_nodes.size() == 2 and live(game, "QuarryRig") == 2, "14 rigs reload once, with their bins (%d nodes)" % live(game, "QuarryRig"))
+	var reloaded = JSON.parse_string(JSON.stringify(prog.snapshot()["rigs"]))
+	var saved_r = JSON.parse_string(snap)
+	check(int(reloaded[0]["bin"].get("limestone", 0)) == int(saved_r[0]["bin"].get("limestone", 0)), "14 rig bins restored exactly")
+	game._load()
+	await process_frame
+	check(live(game, "QuarryRig") == 2 and live(game, "QuarryFormation") == 5, "14 repeated loads do not duplicate machines or formations")
 	game.queue_free()
 	await process_frame

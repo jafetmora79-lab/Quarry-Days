@@ -172,7 +172,7 @@ func control(delta: float) -> void:
 	_animate(delta)
 
 func _track_safety(delta: float) -> void:
-	if global_position.y < -3.0:
+	if global_position.y < -8.0:
 		recover() # fell out of the world: never leave it lost
 		return
 	safe_timer += delta

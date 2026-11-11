@@ -69,6 +69,7 @@ var root: Node3D
 var batch := {}            ## material key -> MeshKit.Soup (static, merged at the end)
 var lights: Array = []     ## [OmniLight3D, base energy]
 var piece_meshes := {}
+var pit_cap: MeshInstance3D     ## ground surface over the closed deep pit (hidden once it is dug)
 
 func build_environment(main_node) -> void:
 	game = main_node
@@ -177,7 +178,7 @@ func _clear_placeholders() -> void:
 					prop(P_PINE, Vector3(p.x, 0, p.z), float(int(p.x * 7.0 + p.z * 3.0) % 6), 1.0)
 			elif nm.begins_with("Equipment parking sign"):
 				n.queue_free()                                  # the garage carries its own sign now
-			elif nm in ["Quarry floor", "Expansion floor"] or nm.begins_with("Office ") or nm.begins_with("Storage shed ") \
+			elif nm in ["Quarry floor", "Expansion floor", "Pit cap"] or nm.begins_with("Office ") or nm.begins_with("Storage shed ") \
 					or nm.begins_with("Break bench") or nm.begins_with("Upgrade board") or nm.begins_with("Selling station") \
 					or nm.begins_with("Crusher order kiosk") or nm.begins_with("Management desk"):
 				_hide(n)
@@ -188,18 +189,30 @@ func _ground() -> void:
 	# Base quarry floor: crushed-limestone gravel with a gentle 3-6 cm undulation (physics stays flat).
 	var s := soup("QuarryFloor")
 	var step := 2.0
+	var pit: Array = game.prog.cfg["excavation"]["pit"]
+	var cap := MeshKit.Soup.new()
 	for gx in range(-29, 29, int(step)):
 		for gz in range(-29, 29, int(step)):
-			s.quad(_g(gx, gz), _g(gx, gz + step), _g(gx + step, gz + step), _g(gx + step, gz))
+			var in_pit := gx >= float(pit[0]) - 0.01 and gx + step <= float(pit[2]) + 0.01 and gz >= float(pit[1]) - 0.01 and gz + step <= float(pit[3]) + 0.01
+			(cap if in_pit else s).quad(_g(gx, gz), _g(gx, gz + step), _g(gx + step, gz + step), _g(gx + step, gz))
 	for gx in range(29, 49, int(step)):                         # east expansion: excavated dirt
 		for gz in range(-13, 13, int(step)):
 			soup("ExcavatedDirt").quad(_g(gx, gz), _g(gx, gz + step), _g(gx + step, gz + step), _g(gx + step, gz))
 	# Excavated pit floor (the lower working benches inside the rim).
-	var pit := PackedVector2Array()
-	for i in 20:
-		var a := TAU * i / 20.0
-		pit.append(Vector2(cos(a) * 16.8, -8.0 + sin(a) * 16.8))
-	poly_flat("ExcavatedDirt", pit, 0.012)
+	# Excavated pit floor disc in 1 m cells, leaving the deep-pit rectangle to its own cap mesh.
+	var dirt := soup("ExcavatedDirt")
+	for gx in range(-17, 17):
+		for gz in range(-25, 9):
+			var c := Vector2(gx + 0.5, gz + 0.5)
+			if c.distance_to(Vector2(0, -8)) > 16.8:
+				continue
+			var y := 0.012
+			var q := [Vector3(gx, y, gz), Vector3(gx, y, gz + 1), Vector3(gx + 1, y, gz + 1), Vector3(gx + 1, y, gz)]
+			if c.x > float(pit[0]) and c.x < float(pit[2]) and c.y > float(pit[1]) and c.y < float(pit[3]):
+				cap.quad(q[0], q[1], q[2], q[3])
+			else:
+				dirt.quad(q[0], q[1], q[2], q[3])
+	pit_cap = MeshKit.inst(root, cap.mesh(), _material("ExcavatedDirt"))
 	# Haul roads (dirt), yard (gravel) and pads (concrete).
 	quad_flat(M_DIRT_ROAD, Vector3(0, 0, 4.5), Vector2(7.0, 10.0), 0.0, 0.018)            # pit entrance ramp
 	quad_flat(M_DIRT_ROAD, Vector3(19.5, 0, 7.5), Vector2(21.0, 4.0), 0.0, 0.02)         # road to the expansion
@@ -614,7 +627,7 @@ func advanced_crusher_model(parent: Node3D, g: float) -> void:
 
 func dress_crusher(body: StaticBody3D, tier := 1) -> void:
 	_strip(body, [])
-	crusher_model(body, -body.position.y, tier)
+	crusher_model(body, -(body.position.y - float(body.get_meta("ground_y", 0.0))), tier)
 
 func output_model(parent: Node3D, g: float) -> void:
 	var p := {"SteelGreen": MeshKit.Soup.new(), "SteelPlate": MeshKit.Soup.new(), "Hazard": MeshKit.Soup.new()}
@@ -633,7 +646,7 @@ func output_model(parent: Node3D, g: float) -> void:
 func dress_output(body: StaticBody3D) -> void:
 	var fill: MeshInstance3D = body.get_meta("fill")
 	_strip(body, [fill])
-	output_model(body, -body.position.y)
+	output_model(body, -(body.position.y - float(body.get_meta("ground_y", 0.0))))
 	fill.mesh = MeshKit.rock(Vector3(1.25, 0.5, 1.25), 61, 3, 8)
 	fill.material_override = _material("RockLimestone")
 
@@ -656,7 +669,7 @@ func conveyor_model(parent: Node3D, g: float) -> void:
 func dress_conveyor(body: StaticBody3D) -> void:
 	var items: Array = body.get_meta("items")
 	_strip(body, items)
-	conveyor_model(body, -body.position.y)
+	conveyor_model(body, -(body.position.y - float(body.get_meta("ground_y", 0.0))))
 	if not piece_meshes.has("belt_item"):
 		piece_meshes["belt_item"] = MeshKit.rock(Vector3(0.28, 0.2, 0.26), 55, 3, 5)
 	for it in items:
@@ -676,7 +689,7 @@ func storage_model(parent: Node3D, g: float) -> void:
 
 func dress_storage(body: StaticBody3D) -> void:
 	_strip(body, [])
-	storage_model(body, -body.position.y)
+	storage_model(body, -(body.position.y - float(body.get_meta("ground_y", 0.0))))
 	var fill := MeshKit.inst(body, MeshKit.rock(Vector3(1.8, 0.6, 1.4), 62, 3, 8), _material("RockLimestone"), Vector3(0, -0.5, 0))
 	body.set_meta("fill", fill)
 	_sign(body, "Sign_Storage", Vector3(0, 0.45, -0.84), Vector2(1.0, 0.25), PI)

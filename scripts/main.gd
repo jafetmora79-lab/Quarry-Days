@@ -12,6 +12,8 @@ const ProgressionScript = preload("res://scripts/progression.gd")
 const FormationScript = preload("res://scripts/formation.gd")
 const FXScript = preload("res://scripts/fx.gd")
 const HUDScript = preload("res://scripts/hud.gd")
+const ExcavationScript = preload("res://scripts/excavation.gd")
+const RigScript = preload("res://scripts/rig.gd")
 const SAVE_PATH := "user://quarry_save.json"
 const RESOURCE_ORDER := ["limestone", "coal", "iron_ore", "crushed_stone", "copper_ore", "gold_ore"]
 # Phase 5: the three small starting rocks are replaced by enormous finite formations (data/progression.json).
@@ -94,6 +96,8 @@ var bag_full_t := 0.0
 var hud_refresh_t := 0.0
 var discovery_nodes := {}
 var excavation: Node3D
+var rig_nodes: Array = []
+var rig_pick_type := ""
 
 func _ready() -> void:
 	var cfg = JSON.parse_string(FileAccess.get_file_as_string("res://data/economy.json"))
@@ -105,6 +109,7 @@ func _ready() -> void:
 	fleet = FleetScript.new(business, vcfg)
 	var pcfg = JSON.parse_string(FileAccess.get_file_as_string("res://data/progression.json"))
 	prog = ProgressionScript.new(state, business, pcfg)
+	business.prog = prog
 	state.money = int(pcfg.get("new_game_money", state.money))
 	state.money_earned.connect(_on_income)
 	prog.stage_reached.connect(_on_stage)
@@ -123,6 +128,10 @@ func _ready() -> void:
 		_dress_deposit(kind)
 	for id in pile_nodes:
 		art.dress_pile(pile_nodes[id], str(fleet.cfg["piles"][id]["resource"]), 400 + id.length())
+	excavation = ExcavationScript.new()
+	add_child(excavation)
+	excavation.setup(self)
+	excavation.set_open(prog.level_unlocked >= 2)
 	player = PlayerScript.new()
 	player.name = "Player"
 	player.position = Vector3(0, 0.2, 8)
@@ -216,7 +225,17 @@ func _visual_box(parent: Node3D, pos: Vector3, size: Vector3, color: Color, yaw 
 	return mesh
 
 func _build_quarry() -> void:
-	_solid(world, "Quarry floor", Vector3(0,-0.25,0), Vector3(58,0.5,58), Color(0.38,0.34,0.28))
+	# Phase 5: the floor is split around the future excavation pit; thick pieces form solid pit walls.
+	var pit: Array = prog.cfg["excavation"]["pit"]
+	var x0 := float(pit[0])
+	var z0 := float(pit[1])
+	var x1 := float(pit[2])
+	var z1 := float(pit[3])
+	_solid(world, "Quarry floor", Vector3(0, -0.25, (z1 + 29.0) * 0.5), Vector3(58, 0.5, 29.0 - z1), Color(0.38,0.34,0.28))
+	_floor_piece("Quarry floor north", Vector3(0, -2.75, (z0 - 29.0) * 0.5), Vector3(58, 5.5, z0 + 29.0))
+	_floor_piece("Quarry floor west", Vector3((x0 - 29.0) * 0.5, -2.75, (z0 + z1) * 0.5), Vector3(x0 + 29.0, 5.5, z1 - z0))
+	_floor_piece("Quarry floor east", Vector3((x1 + 29.0) * 0.5, -2.75, (z0 + z1) * 0.5), Vector3(29.0 - x1, 5.5, z1 - z0))
+	_floor_piece("Quarry floor south wall", Vector3((x0 + x1) * 0.5, -3.0, z1 + 0.25), Vector3(x1 - x0, 5.0, 0.5))
 	# The lower pit is open toward the office; the stepped rim provides a walkable entrance.
 	for i in range(8):
 		var angle := (float(i) + 0.5) * TAU / 8.0
@@ -269,6 +288,20 @@ func _build_quarry() -> void:
 	daylight.rotation_degrees = Vector3(-46,-24,0)
 	daylight.light_energy = 1.4
 	add_child(daylight)
+
+## Invisible walkable ground block (the art layer draws the surface).
+func _floor_piece(label: String, pos: Vector3, size: Vector3) -> StaticBody3D:
+	var body := StaticBody3D.new()
+	body.name = label
+	body.position = pos
+	body.set_meta("ground", true)
+	var cs := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = size
+	cs.shape = box
+	body.add_child(cs)
+	world.add_child(body)
+	return body
 
 func _building(label: String, pos: Vector3, color: Color) -> void:
 	_solid(world,label+" floor",pos+Vector3(0,0.08,0),Vector3(5,0.16,4.8),color)
@@ -918,14 +951,36 @@ func _draw_menu() -> void:
 					text += "%d  %s  stored:%d  bag:%d\n" % [i+1,key.replace("_"," "),items[key],state.inventory[key]]
 				text += "\n1-6 withdraw all into bag\nShift+4 deposit gravel (crushed stone) from bag\nEsc Close"
 		"shop":
-			text = "MACHINERY ORDERS   $%d\n\n" % state.money
-			text += "1  Stone crusher      $%d\n" % int(state.config["crusher_price"])
-			text += "2  Output storage     $%d\n" % int(business.cfg["output_storage_price"])
-			if business.conveyors_unlocked():
-				text += "3  Conveyor section   $%d\n" % int(business.cfg["conveyor_price"])
+			text = "MACHINERY ORDERS      %s\n\n" % QuarryTheme.money_text(state.money)
+			text += _shop_line(1, "Stone crusher", int(state.config["crusher_price"]), "crusher")
+			text += _shop_line(2, "Output storage", int(business.cfg["output_storage_price"]), "output")
+			text += ("3  Conveyor section     $%d\n" % int(business.cfg["conveyor_price"])) if business.conveyors_unlocked() else "3  Conveyor section     LOCKED (crusher + operator)\n"
+			text += _shop_line(4, "Advanced crusher", int(prog.machine("advanced_crusher")["price"]), "advanced_crusher", "2x batch, 2x speed")
+			text += _shop_line(5, "Drilling rig", int(prog.machine("drill_rig")["price"]), "drill_rig", "stone/coal/iron/copper")
+			text += _shop_line(6, "Rock breaker", int(prog.machine("rock_breaker")["price"]), "rock_breaker", "any rock, gold too")
+			if prog.level_unlocked >= 2:
+				text += "7  Excavation permit    LOWER LEVEL OPEN\n"
 			else:
-				text += "3  Conveyor section   LOCKED\n   (Milestone: own a crusher + hire an operator)\n"
-			text += "\nCONVEYOR SETUP\n1. Buy a crusher and hire an operator to unlock.\n2. Press 3, aim at clear ground, rotate with R.\n3. Place IN by the crate / crusher output chute;\n   OUT by the crusher input / output storage.\nYellow arrow shows flow; preview shows connections.\nBelts run automatically when supplied and linked.\nG grid snap, LMB place, Esc refund, B move later."
+				text += _shop_line(7, "Excavation permit", prog.permit_cost(), "permit", "opens the lower level")
+			text += "\nRigs work a formation from its drilling pad and fill their own\noutput bin: collect it (E), send a hauler, a belt or the loader.\nPlacement: R rotate, G grid snap, LMB place, Esc refund."
+		"rig_pick":
+			text = "INSTALL %s   %s\nChoose the formation:\n\n" % [str(prog.machine(rig_pick_type)["title"]).to_upper(), QuarryTheme.money_text(int(prog.machine(rig_pick_type)["price"]))]
+			var ids := _rig_formations()
+			for i in range(ids.size()):
+				var why := prog.rig_block_reason(rig_pick_type, ids[i])
+				text += "%d  %-16s %5d left   %s\n" % [i + 1, str(prog.fdef(ids[i])["title"]), prog.units_left(ids[i]), "free pad" if why == "" else why]
+			text += "\nEsc close"
+		"rig":
+			var ri := int(panel.get_meta("crusher_index"))
+			if ri >= 0 and ri < prog.rigs.size():
+				var r: Dictionary = prog.rigs[ri]
+				var m := prog.machine(str(r["type"]))
+				var up := prog.rig_upgrade_info(r)
+				text = "%s #%d   Level %d\n%s\n\n" % [str(m["title"]).to_upper(), ri + 1, int(r["level"]) + 1, str(prog.fdef(str(r["formation"]))["title"])]
+				text += "Status: %s\nRate: %.0f %s per in-game hour\nRunning cost: $%.1f per in-game minute\nOutput bin: %d / %d\n\n" % [str(r["status"]), prog.rig_rate_per_hour(r), prog.display(str(prog.fdef(str(r["formation"]))["resource"])), float(m["cost_per_min"]), prog.rig_bin_total(r), prog.rig_bin_cap(r)]
+				text += "1  Collect the bin into your bag\n2  Switch %s\n" % ("OFF" if bool(r["on"]) else "ON")
+				text += ("3  Upgrade  $%d   %s\n" % [int(up["cost"]), str(up["effect"])]) if not up.is_empty() else "3  Fully upgraded\n"
+				text += "\nEsc close"
 	panel_text.text = text
 
 func _menu_key(event: InputEventKey) -> void:
@@ -983,7 +1038,45 @@ func _menu_key(event: InputEventKey) -> void:
 				0: _start_placement("crusher")
 				1: _start_placement("output")
 				2: _start_placement("conveyor")
+				3: _start_placement("advanced_crusher")
+				4, 5:
+					var t := "drill_rig" if digit == 4 else "rock_breaker"
+					if not prog.unlocked(t):
+						_notify("The %s unlocks at the %s stage." % [str(prog.machine(t)["title"]), prog.feature_stage_title(t)])
+					else:
+						rig_pick_type = t
+						menu = "rig_pick"
+				6: buy_permit()
+			if menu != "":
+				_draw_menu()
 			return
+		"rig_pick":
+			var ids := _rig_formations()
+			if digit < ids.size():
+				install_rig(rig_pick_type, ids[digit])
+				return
+		"rig":
+			var ri := int(panel.get_meta("crusher_index"))
+			if ri >= 0 and ri < prog.rigs.size():
+				var r: Dictionary = prog.rigs[ri]
+				match digit:
+					0:
+						var res := prog.rig_resource(r)
+						var n := state.add_item(res, int(r["bin"].get(res, 0)))
+						prog.rig_take(r, res, n)
+						if n > 0:
+							_reward_popup(res, n)
+						else:
+							_notify("Nothing to collect, or your bag is full.")
+					1:
+						r["on"] = not bool(r["on"])
+					2:
+						var up := prog.rig_upgrade_info(r)
+						if not up.is_empty() and prog.upgrade_rig(r):
+							hud.toast(str(prog.machine(str(r["type"]))["title"]) + " upgraded", str(up["effect"]), "unlock")
+							_sfx_unlock()
+						elif not up.is_empty():
+							_notify("Need $%d" % int(up["cost"]))
 	_draw_menu()
 
 func placement_valid(pos: Vector3, yaw: float) -> bool:
@@ -1007,6 +1100,10 @@ func placement_valid(pos: Vector3, yaw: float) -> bool:
 
 ## Buildable ground: the original quarry floor, plus the east expansion once it is open.
 func in_build_area(pos: Vector3, margin := 0.0) -> bool:
+	if excavation and excavation.lower_build_ok(pos):
+		return true
+	if pos.y < -0.5:
+		return false
 	if absf(pos.x) <= 23.5 - margin and absf(pos.z) <= 23.5 - margin and pos.z >= -6.0:
 		return true
 	return business.expansion_unlocked and pos.x >= 31.0 + margin and pos.x <= 47.5 - margin and absf(pos.z) <= 11.5 - margin
@@ -1039,10 +1136,16 @@ func _update_ghost() -> void:
 		ghost_valid = false
 		return
 	var point := start+dir*distance
+	# Phase 5: aim at the actual ground (upper floor or the lower excavation level)
+	var gq := PhysicsRayQueryParameters3D.create(start, start + dir * 12.0, 1)
+	gq.exclude = [player.get_rid()]
+	var gh := get_world_3d().direct_space_state.intersect_ray(gq)
+	if gh and (str(gh["collider"].name) == "Quarry floor" or gh["collider"].has_meta("ground")) and start.distance_to(gh["position"]) < 12.0:
+		point = gh["position"]
 	if grid_snap or placement_kind != "conveyor":
-		ghost.position = Vector3(snappedf(point.x,0.5),0,snappedf(point.z,0.5))
+		ghost.position = Vector3(snappedf(point.x,0.5),point.y if point.y < -1.0 else 0.0,snappedf(point.z,0.5))
 	else:
-		ghost.position = Vector3(point.x,0,point.z)
+		ghost.position = Vector3(point.x,point.y if point.y < -1.0 else 0.0,point.z)
 	ghost.rotation.y = placement_yaw
 	ghost.visible = true
 	placement_hint = ""
@@ -1070,10 +1173,11 @@ func _place_ghost() -> void:
 		_finish_relocation()
 		return
 	match placement_kind:
-		"crusher":
-			state.new_crusher(ghost.position,placement_yaw)
+		"crusher", "advanced_crusher":
+			state.new_crusher(ghost.position,placement_yaw, 2 if placement_kind == "advanced_crusher" else 1)
 			_create_crusher(state.crushers.size()-1)
 			_notify("Crusher placed! E to load and process limestone.")
+			prog.check_stages()
 		"output":
 			_create_output(business.add_output(ghost.position,placement_yaw))
 			_notify("Output storage placed. Place it beside a crusher's chute or at a conveyor end.")
@@ -1088,6 +1192,7 @@ func _place_ghost() -> void:
 
 func _placement_price(kind: String) -> int:
 	match kind:
+		"advanced_crusher": return int(prog.machine("advanced_crusher")["price"])
 		"output": return int(business.cfg["output_storage_price"])
 		"conveyor": return int(business.cfg["conveyor_price"])
 	return int(state.config["crusher_price"])
@@ -1114,6 +1219,7 @@ func _start_placement(kind: String) -> void:
 	world.add_child(ghost)
 	match kind:
 		"crusher": _crusher_visual(ghost,true)
+		"advanced_crusher": _crusher_visual(ghost,true,2)
 		"output": _output_visual(ghost,true)
 		"conveyor": _conveyor_visual(ghost,true)
 	_notify("Choose a clear patch of ground. R rotates, G toggles grid snap, LMB places.")
@@ -1144,9 +1250,10 @@ func _create_crusher(index: int) -> void:
 	var data: Dictionary = state.crushers[index]
 	var p: Array = data["position"]
 	var tier := int(data.get("tier", 1))
-	var body := _solid(world,"Stone crusher" if tier < 2 else "Advanced crusher",Vector3(float(p[0]),0.57,float(p[2])),Vector3(1.8,1.14,1.6) if tier < 2 else Vector3(2.0,1.14,1.9),Color(0.22,0.27,0.29),float(data["yaw"]))
+	var body := _solid(world,"Stone crusher" if tier < 2 else "Advanced crusher",Vector3(float(p[0]),float(p[1])+0.57,float(p[2])),Vector3(1.8,1.14,1.6) if tier < 2 else Vector3(2.0,1.14,1.9),Color(0.22,0.27,0.29),float(data["yaw"]))
 	body.set_meta("kind","crusher")
 	body.set_meta("index",index)
+	body.set_meta("ground_y", float(p[1]))
 	_visual_box(body,Vector3(0,0.68,0),Vector3(1.0,0.45,1.0),Color(0.44,0.39,0.28))
 	if art:
 		art.dress_crusher(body, tier)
@@ -1239,7 +1346,9 @@ func _load() -> void:
 		w.queue_free()
 	worker_nodes.clear()
 	_set_expansion(business.expansion_unlocked)
+	excavation.set_open(prog.level_unlocked >= 2)
 	_sync_formations()
+	_sync_rigs()
 	for kind in deposit_nodes:
 		_refresh_deposit(kind)
 	var ids := {}
@@ -1370,7 +1479,7 @@ func _rebake_nav() -> void:
 	mesh.agent_radius = 0.5
 	mesh.agent_height = 1.75
 	mesh.agent_max_climb = 0.25
-	mesh.filter_baking_aabb = AABB(Vector3(-30,-1,-30), Vector3(82,9,60))
+	mesh.filter_baking_aabb = AABB(Vector3(-30,-6,-30), Vector3(82,14,60))
 	NavigationServer3D.bake_from_source_geometry_data(mesh, source)
 	nav_region.navigation_mesh = mesh
 	nav_version += 1
@@ -1399,12 +1508,19 @@ func workplace(ep: Dictionary) -> Dictionary:
 			if i < 0 or i >= state.crushers.size():
 				return {}
 			var c: Dictionary = state.crushers[i]
-			return {"pos": Business.v3(c["position"]) * Vector3(1,0,1), "radius": 2.0, "face": -Business.forward(float(c["yaw"]))}
+			return {"pos": Business.v3(c["position"]), "radius": 2.0 if int(c.get("tier", 1)) < 2 else 2.3, "face": -Business.forward(float(c["yaw"]))}
 		"output":
 			var i := int(ep.get("index", -1))
 			if i < 0 or i >= business.outputs.size():
 				return {}
-			return {"pos": Business.v3(business.outputs[i]["position"]) * Vector3(1,0,1), "radius": 1.7, "face": Vector3(0,0,1)}
+			return {"pos": Business.v3(business.outputs[i]["position"]), "radius": 1.7, "face": Vector3(0,0,1)}
+		"rig":
+			var ri := int(ep.get("index", -1))
+			if ri < 0 or ri >= prog.rigs.size():
+				return {}
+			var bp := prog.rig_bin_pos(prog.rigs[ri])
+			var pd := prog.pad(str(prog.rigs[ri]["formation"]), int(prog.rigs[ri]["pad"]))
+			return {"pos": bp, "radius": 1.25, "face": Basis(Vector3.UP, float(pd["yaw"])) * Vector3(1, 0, 0)}
 		"deposit_site":
 			var id := str(ep.get("id", ""))
 			if not deposit_nodes.has(id):
@@ -1569,7 +1685,8 @@ func _conveyor_visual(parent: Node3D, transparent := false) -> void:
 func _create_output(index: int) -> void:
 	var data: Dictionary = business.outputs[index]
 	var p := Business.v3(data["position"])
-	var body := _solid(world,"Output storage",Vector3(p.x,0.55,p.z),Vector3(1.4,1.1,1.4),Color(0.24,0.30,0.22),float(data["yaw"]))
+	var body := _solid(world,"Output storage",Vector3(p.x,p.y+0.55,p.z),Vector3(1.4,1.1,1.4),Color(0.24,0.30,0.22),float(data["yaw"]))
+	body.set_meta("ground_y", p.y)
 	body.set_meta("kind","output")
 	body.set_meta("index",index)
 	_visual_box(body,Vector3(0,0.57,0),Vector3(1.5,0.08,1.5),Color(0.40,0.36,0.22))
@@ -1584,7 +1701,8 @@ func _create_conveyor(index: int) -> void:
 	var p := Business.v3(data["position"])
 	# Phase 3: a low belt on its own collision layer (16). People step over it; vehicles,
 	# placement and interaction still see it. Small supports mark the crossing points.
-	var body := _solid(world,"Conveyor",Vector3(p.x,0.13,p.z),Vector3(0.9,0.26,2.0),Color(0.16,0.17,0.18),float(data["yaw"]))
+	var body := _solid(world,"Conveyor",Vector3(p.x,p.y+0.13,p.z),Vector3(0.9,0.26,2.0),Color(0.16,0.17,0.18),float(data["yaw"]))
+	body.set_meta("ground_y", p.y)
 	body.collision_layer = 16
 	body.set_meta("kind","conveyor")
 	body.set_meta("index",index)
@@ -1845,6 +1963,15 @@ func loader_primary(v: QuarryVehicle) -> int:
 	if pile != "" and int(fleet.piles[pile]["amount"]) > 0:
 		got = fleet.scoop_pile(rec, pile)
 		source = str(fleet.cfg["piles"][pile]["title"]).to_lower()
+	for ri in range(prog.rigs.size()):
+		var r: Dictionary = prog.rigs[ri]
+		var bp := prog.rig_bin_pos(r)
+		if fleet.space(rec) > 0 and got == 0 and prog.rig_bin_total(r) > 0 and Vector2(point.x, point.z).distance_to(Vector2(bp.x, bp.z)) < 2.6:
+			var res := prog.rig_resource(r)
+			var n := fleet.add_cargo(rec, res, prog.rig_bin_total(r))
+			prog.rig_take(r, res, n)
+			got += n
+			source = "the rig's output bin"
 	if fleet.space(rec) > 0:
 		var near := []
 		for id in ground_pieces:
@@ -2008,7 +2135,7 @@ func _construction_prompt() -> String:
 	if kind == "storage":
 		return "Storage crate  |  LMB move  (the main crate cannot be sold)  |  B exit"
 	var n := business.contents_total(business.structure_contents(kind, index))
-	return "%s%s  |  LMB move  |  X sell (+$%d refund)  |  B exit" % [_structure_name(kind, index), (" holding %d items" % n) if n > 0 else "", business.refund_value(kind)]
+	return "%s%s  |  LMB move  |  X sell (+$%d refund)  |  B exit" % [_structure_name(kind, index), (" holding %d items" % n) if n > 0 else "", business.refund_value(kind, index)]
 
 func start_relocation(kind: String, index: int) -> bool:
 	var node := _structure_node(kind, index)
@@ -2023,7 +2150,7 @@ func start_relocation(kind: String, index: int) -> bool:
 	ghost = Node3D.new()
 	world.add_child(ghost)
 	match kind:
-		"crusher": _crusher_visual(ghost, true)
+		"crusher": _crusher_visual(ghost, true, int(state.crushers[index].get("tier", 1)))
 		"output": _output_visual(ghost, true)
 		"conveyor": _conveyor_visual(ghost, true)
 		"storage":
@@ -2039,7 +2166,9 @@ func _finish_relocation() -> void:
 	var index := int(relocating["index"])
 	var node := _structure_node(kind, index)
 	business.move_structure(kind, index, ghost.position, placement_yaw)
-	node.position = Vector3(ghost.position.x, node.position.y, ghost.position.z)
+	var lift := node.position.y - float(node.get_meta("ground_y", 0.0))
+	node.position = ghost.position + Vector3(0, lift, 0)
+	node.set_meta("ground_y", ghost.position.y)
 	node.rotation.y = 0.0 if kind == "storage" else placement_yaw
 	node.collision_layer = int(relocating["layer"])
 	node.visible = true
@@ -2151,6 +2280,14 @@ func _dress_deposit(kind: String) -> void:
 
 func _phase5_tick(delta: float) -> void:
 	prog.check_stages()
+	for ev in prog.tick_rigs(delta):
+		var id := str(ev["formation"])
+		if formation_nodes.has(id):
+			formation_nodes[id].hit(int(ev["column"]))
+			if int(ev["chunks"]) > 0:
+				formation_nodes[id].refresh()
+			else:
+				formation_nodes[id].update_label()
 
 func _on_income(amount: int, source: String) -> void:
 	if hud:
@@ -2454,3 +2591,58 @@ func _update_machines(delta: float) -> void:
 		crusher_audio.play()
 	elif not any_running and crusher_audio.playing:
 		crusher_audio.stop()
+
+# ------------------------------------------------------------------ Phase 5: rigs and the lower level
+
+func _shop_line(n: int, title: String, price: int, feature: String, note := "") -> String:
+	if not prog.unlocked(feature):
+		return "%d  %-20s LOCKED (%s stage)\n" % [n, title, prog.feature_stage_title(feature)]
+	return "%d  %-20s %s   %s\n" % [n, title, QuarryTheme.money_text(price), note]
+
+## Formations a rig can be sent to (active, with rock left).
+func _rig_formations() -> Array:
+	var out := []
+	for id in prog.formation_ids():
+		if prog.formation_active(id) and prog.units_left(id) > 0:
+			out.append(id)
+	return out
+
+func install_rig(type: String, formation: String) -> bool:
+	var why := prog.rig_block_reason(type, formation)
+	if why != "":
+		_notify(why)
+		return false
+	var r := prog.buy_rig(type, formation)
+	_sync_rigs()
+	nav_dirty = true
+	hud.toast("%s installed" % str(prog.machine(type)["title"]), "Working the %s from its drilling pad." % str(prog.fdef(formation)["title"]), "unlock")
+	_sfx_unlock()
+	_close_menu()
+	return not r.is_empty()
+
+func _sync_rigs() -> void:
+	for n in rig_nodes:
+		n.queue_free()
+	rig_nodes.clear()
+	for i in range(prog.rigs.size()):
+		var node = RigScript.new()
+		node.setup(self, prog, i)
+		world.add_child(node)
+		rig_nodes.append(node)
+	business.compute_links()
+
+func buy_permit() -> bool:
+	var why := prog.permit_block_reason()
+	if why != "":
+		_notify(why)
+		return false
+	prog.buy_permit()
+	_open_lower_level()
+	return true
+
+func _open_lower_level() -> void:
+	excavation.set_open(true)
+	_sync_formations()
+	hud.toast("Lower level open!", "A ramp leads 3.5 m down to copper and gold.", "milestone")
+	_sfx_unlock()
+	_notify("Copper needs the Power Drill; gold needs the Heavy Jackhammer (or a rock breaker).")

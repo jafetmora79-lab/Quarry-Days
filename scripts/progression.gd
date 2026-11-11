@@ -516,6 +516,16 @@ func tick_rigs(seconds: float) -> Array:
 			events.append({"rig": r, "formation": id, "column": col, "units": int(ex["units"]), "chunks": int(ex["chunks"]), "emptied": bool(ex["column_emptied"])})
 	return events
 
+## World position of a rig's output bin (rigs creep forward from their pad as the face recedes).
+func rig_bin_pos(r: Dictionary) -> Vector3:
+	var p := pad(str(r["formation"]), int(r["pad"]))
+	if p.is_empty():
+		return Vector3.ZERO
+	var yaw := float(p["yaw"])
+	var fwd := QuarryBusiness.forward(yaw)
+	var base: Vector3 = p["pos"] + fwd * float(r.get("advance", 0.0))
+	return base + Basis(Vector3.UP, yaw) * Vector3(0.5, 0, 0.25)
+
 func rig_take(r: Dictionary, res: String, n: int) -> int:
 	var t := mini(n, int(r["bin"].get(res, 0)))
 	if t <= 0:
