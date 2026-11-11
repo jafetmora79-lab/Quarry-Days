@@ -791,6 +791,14 @@ func _update_light() -> void:
 		art.set_night(1.0 - day)
 
 func _unhandled_input(event: InputEvent) -> void:
+	if hud and hud.card_open():
+		if event.is_action_pressed("interact") or event.is_action_pressed("ui_cancel") or (event is InputEventMouseButton and event.pressed):
+			hud.close_card()
+			if menu == "":
+				player.locked = false
+				Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+			get_viewport().set_input_as_handled()
+		return
 	if driving and menu == "" and _driving_input(event):
 		return
 	if event.is_action_pressed("ui_cancel"):
@@ -1399,6 +1407,11 @@ func _load() -> void:
 # ===================================================================== Phase 2
 
 func _on_milestone(id: String) -> void:
+	if hud:
+		var titles := {"first_employee": ["Milestone: First Employee", "Remote management (M) and +5% staff productivity"], "mechanized": ["Milestone: Mechanized Quarry", "Conveyor belts and the front loader unlocked"], "automated": ["Milestone: Automated Business", "The east expansion is open"]}
+		var t: Array = titles.get(id, [id, ""])
+		hud.toast(str(t[0]), str(t[1]), "milestone")
+		_sfx_unlock()
 	match id:
 		"first_employee": _notify("Milestone: First Employee - remote management (M) and +5% productivity unlocked")
 		"mechanized": _notify("Milestone: Mechanized Quarry - conveyor belts unlocked at the kiosk")
@@ -2311,7 +2324,8 @@ func _sfx_unlock() -> void:
 func _show_intro() -> void:
 	var st: Dictionary = prog.cfg.get("story", {})
 	if hud and not prog.story["intro_seen"]:
-		hud.show_card(str(st.get("intro_title", "")), str(st.get("intro", "")), func(): prog.story["intro_seen"] = true)
+		player.locked = true
+		hud.show_card(str(st.get("intro_title", "")), str(st.get("intro", "")), func(): prog.story["intro_seen"] = true; player.locked = false)
 
 ## First formation fully cleared: grandpa's lockbox appears where the rock stood.
 func _on_formation_cleared(id: String) -> void:

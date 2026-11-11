@@ -1,23 +1,137 @@
-# Quarry Days — Phase 4: THE VEIL Art Style & Sustainable Resources
+# Quarry Days — Phase 5: The Big Progression Overhaul
 
-Quarry Days is a standalone Godot 4.3 (GL Compatibility) quarry game for Windows. It shares THE VEIL's visual identity: PSX-era low-poly geometry, nearest-filtered pixel textures from THE VEIL's Greyhaven palette, and characters built with THE VEIL's own character pipeline. It is still its own industrial game. The THE VEIL assets it reuses are copied into this project; it does not need THE VEIL installed.
+Quarry Days is a standalone Godot 4.3 (GL Compatibility) incremental mining game for Windows. It keeps THE VEIL's pixelated low-poly look, with a warmer, cozier feel.
+
+You inherit Grandpa Walt's nearly bankrupt quarry. Start with his old rock hammer and break into three enormous formations. Sell what you dig, buy better tools, hire a helper, add crushers, rigs and trucks, and finally dig a lower level for copper and gold.
 
 ## Start
 
-Open `QuarrySimulator.exe` from the Windows ZIP. Keep `QuarrySimulator.pck` beside it. A new game starts at 08:00 with $100. Saves from Phases 1–3 (`user://quarry_save.json`) load directly and keep everything already earned:
-- Older saves start with no vehicles, full rubble piles and the storage crate in its original spot.
-- Deposits that were broken when you saved come back empty and regrow; intact ones come back full.
+Open `QuarrySimulator.exe` from the Windows ZIP and keep `QuarrySimulator.pck` beside it.
 
-For the editable project, import `project.godot` in Godot 4.3 and run the main scene.
+- **New game:** starts at 08:00 with $10, the rock hammer and a short letter from Grandpa.
+- **Older saves** (`user://quarry_save.json`, Phases 1–4) load directly and keep everything already bought. See *Old saves* below.
+
+For the editable project, import `project.godot` in Godot 4.3 and run the main scene. The window opens at 1280×720 and scales to 1920×1080. The UI is laid out on a 960×540 canvas.
+
+## Phase 5 at a glance
+
+### The core loop
+
+Mine → collect → transport → process → sell → upgrade → mine faster.
+
+Stages unlock in order. The objective panel (top right) shows the next stage's requirements and progress. All thresholds are in `data/progression.json`.
+
+| Stage | Unlocked when | Opens |
+|---|---|---|
+| 1 Manual Labor | start | hammer, sales booth, upgrade board |
+| 2 Better Tools | $30 earned | goal: buy a pickaxe |
+| 3 First Employee | $350 earned + pickaxe | hiring at the office desk |
+| 4 Early Industrialization | $1,400 earned + 1 employee | crusher, output storage, front loader (conveyors still need Mechanized Quarry) |
+| 5 Large-Scale Mining | $6,000 earned + 1 crusher | drilling rig, advanced crusher, dump truck (truck also still needs Automated Business) |
+| 6 Deep Excavation | $14,000 earned + 55% of the first three formations dug | excavation permit ($5,000), rock breaker |
+
+### Three enormous formations
+
+- **The formations:** a Stone Formation (1,110 units), a Coal Seam (525) and an Iron Ridge (480) dominate the pit.
+- **How they shrink:** each is a grid of columns made of stacked low-poly chunks. Damage first cracks the top chunk. When a chunk's units are gone, it crumbles away with dust and fragments. The column collider gets shorter, and emptied columns expose the rock behind them.
+- **Finite and visible:** formations never regrow. A label shows how much is left, and the STATS tab shows how much of each is excavated.
+- **One shared stock:** you, your staff and your rigs all take units out of the same columns. A full bag drops extra rock beside the formation as loose pieces. This stops at a cap (36 per formation); after that nothing more is extracted. Nothing is lost or duplicated.
+- **Recovery path:** the never-empty quarry face (north-west) is still there.
+
+### Tools
+
+Buy tools at the upgrade board (key **1**) or in the office UPGRADES tab.
+
+| Tool | Price | Use | Works |
+|---|---|---|---|
+| Rock Hammer | start | swing | stone, coal |
+| Basic Pickaxe | $90 | swing | + iron |
+| Reinforced Pickaxe | $320 | swing | + iron |
+| Power Drill | $1,600 | hold LMB | + copper |
+| Heavy Jackhammer | $4,500 | hold LMB | + gold |
+
+- Each tool has its own model, animation, sound and speed. Every tier is at least 25% faster than the last; the first upgrade more than doubles your speed.
+- Swing damage lands at the visible impact frame.
+- Rock that is too hard makes the tool bounce off, and a message names the tool you need.
+- **Mining Technique** (+25% speed) and the bag upgrades (Larger Backpack +16, Hauling Harness +30) are on the same board.
+
+### Mining feedback
+
+- On every hit: crack overlays, chunk shake, rock chips, short dust puffs and a small camera kick.
+- Floating "+3 STONE" pop-ups (merged when they come quickly) and a durability bar under the crosshair while you mine.
+- Selling shows a sale toast with a coin sound; the money counter counts up smoothly.
+- Upgrades show their effect, for example "MINING POWER +134%". Stages and milestones get a short unlock notification.
+
+### Workers
+
+Workers keep their schedules, wages, training and assignments. Their animation now follows the real task:
+
+- **Miner:** picks an exposed column and walks to it. Turns to face it before working, swings, and the rock is removed exactly when the pick lands. Then crouches to pick up the pieces and carries them to the crate.
+- **Hauler:** crouches to load, carries the load, and lowers it into the destination.
+- **Operator:** works the controls to load and start the crusher (lever pull), and stands watching while it runs.
+- **Clerk:** does paperwork between customers and hands over at the moment a sale completes.
+- **All workers:** idle, walk, turn in place, and rest at the break area when off shift.
+
+Movement accelerates and slows smoothly (at most 9 m/s²). The stride matches the walking speed, and crouches keep the feet planted.
+
+**Staff costs (Phase 5 balance):** wages ×6 and hiring fees ×5 (`wage_scale`, `hire_fee_scale` in `data/business.json`). For example, Rosa costs $75 to hire and $18 per hour.
+
+### Machinery
+
+- **Crushers:**
+  - The flywheels spin up and down smoothly, and the jaw only cycles while really crushing.
+  - The hopper and output pile show the real contents, a label shows run progress, and a dust puff marks each completed run.
+  - The **Advanced Crusher** ($2,600, cone crusher with a gyrating mantle) takes double batches at about twice the speed.
+- **Conveyors:** the belt texture scrolls only while it carries material.
+- **Front loader:** the arm eases up and down and the bucket curls when it scoops. The load pours out over the dump.
+- **Dump truck:** the bed rises smoothly, the load slides toward the tailgate, and the cargo leaves near the top of the lift.
+- **Drilling Rig** ($3,200, Large-Scale Mining) and **Industrial Rock Breaker** ($8,500, Deep Excavation):
+  - **Ordering:** at the blue kiosk (**5**/**6**), then choose a formation. Each is installed on that formation's drilling pad.
+  - **Motion:** the turret slews and the mast (rig) or two-link hydraulic arm (breaker) aims at the real target column. The rod spins and feeds, or the hammer strikes, only while extracting. The crawler creeps forward as the face recedes.
+  - **Running:** each has a running cost per in-game minute, an output bin (40) and upgrades. Its label shows the production rate.
+  - **Collecting the bin:** press **E** at the rig, or use a hauler route, a conveyor or the loader.
+
+### Deep excavation
+
+- **Opening it:** buy the excavation permit at the kiosk (**7**) or in the office UPGRADES tab. The flat pit cap disappears and reveals a lower level 3.5 m down.
+- **Access:** a 3 m access ramp works for the player, staff and vehicles, with railings and work lights.
+- **Lower-level rock:** the **Copper Vein** needs the drill and the **Gold Seam** needs the jackhammer or a rock breaker. Copper sells for $45, gold for $90.
+- **Building:** you can build machinery on the lower floor.
+- **Further levels:** add more pit rectangles in the data.
+
+### Story
+
+- **Start:** a short letter from Grandpa opens a new game.
+- **Grandpa's lockbox:** clearing the first starting formation reveals it where the rock stood. Press **E** for his notes, a 1971 crew photo, a core-sample record hinting at copper and gold below, and a $400 savings bond (paid once).
+
+### The office (M or the desk)
+
+The tabs are WORKERS, HIRE, PAYROLL, PRODUCTION, EQUIPMENT, UPGRADES (tools, personal upgrades, rigs, permit), MILESTONES (stages, discoveries, Phase 2 milestones) and STATS (lifetime sales, units mined by hand/staff/rigs, chunks broken, per-formation excavation).
+
+### Old saves
+
+Nothing is confiscated:
+- The three small Phase 1–4 deposits are replaced by the full formations. Their loose pieces go to the storage crate (or your bag, or beside the new formation).
+- You keep your pickaxe (or the reinforced one).
+- Your stage starts at least where your equipment puts it: staff → First Employee; machines or vehicles → Early Industrialization; truck, automation or rigs → Large-Scale Mining.
+- Past revenue counts toward earnings, and the intro letter is skipped.
+
+### Data files
+
+- `data/progression.json`: tools, material hardness and hit points, formations (layout, chunk units, drilling pads), stages, machines, excavation, story text.
+- `data/economy.json`: prices (copper and gold added), upgrade prices, crusher settings.
+- `data/business.json`: staff, wages and the Phase 5 wage and fee scales.
+- `data/vehicles.json`: vehicles.
 
 ## Controls
 
 - **WASD** move, **Shift** sprint, mouse look.
-- **Hold left mouse** on a rock deposit to mine it. **E** collects broken pieces or uses the station under the crosshair. Each deposit shows how much is left (see *Resources* below).
-- **Selling station**: **1–4** sell all of a material from your bag. **Shift+1–4** toggles whether the sales clerk may sell that material.
+- **Left mouse** swings the hammer or pickaxe; hold it with the drill or jackhammer. Mined rock goes straight into your bag. **E** collects loose pieces or uses the station under the crosshair.
+- **Selling station**: **1–6** sell all of a material from your bag, **7** sells everything. **Shift+1–6** toggles whether the sales clerk may sell that material.
 - **Storage crate**: **1–4** deposit, **Shift+1–4** withdraw.
-- **Upgrade board**: **1–5** buy personal upgrades.
-- **Blue machinery kiosk**: **E** opens orders. **1** Stone crusher ($85), **2** Output storage ($60), **3** Conveyor section ($20, unlocked by milestone 2).
+- **Upgrade board**: **1** buys the next tool, **2–6** buy personal upgrades.
+- **Blue machinery kiosk**: **E** opens orders. **1** Stone crusher ($85), **2** Output storage ($60), **3** Conveyor section ($20, unlocked by milestone 2), **4** Advanced crusher, **5** Drilling rig, **6** Rock breaker, **7** Excavation permit. Locked items show which stage opens them.
+- **Rigs**: **E** opens the rig panel. **1** collects the bin into your bag, **2** switches the rig on or off, **3** upgrades it.
 - **Placement**: aim at the ground. **R** or right mouse rotates (crushers and storage 90°; conveyors 45° with grid snap, 15° without). **G** toggles grid snap. **Left mouse** places. **Esc** cancels and refunds.
 - **Crusher**: **1** load bag limestone, **2** start, **3** collect output, **4** move hopper contents into the machine.
 - **Output storage**: **1–4** withdraw into your bag, **Shift+4** deposit crushed stone.
@@ -39,7 +153,7 @@ For the editable project, import `project.godot` in Godot 4.3 and run the main s
 - A small hint at the bottom shows speed, load and what LMB/RMB will do at your position.
 - **F5** save, **F9** load, **Esc** pause or close panels. Closing the game pauses the clock. There are no offline earnings.
 
-## Resources (Phase 4)
+## Resources (Phase 4, superseded in the main pit by the Phase 5 formations)
 
 You can no longer run out of things to mine. The old system made a deposit disappear for 100 in-game minutes after a single break, and staff miners grabbed the pieces you had just broken. That left nothing to mine and no way to recover with $0. The new rules:
 
@@ -115,19 +229,31 @@ Workers path around machines, walls, parked vehicles and each other, and step ov
 ## Tests
 
 ```
-godot --headless -s tests/test_quarry.gd                     # Phase 1 (21 checks)
+godot --headless -s tests/test_quarry.gd                     # Phase 1 (22 checks)
 godot --headless --fixed-fps 60 -s tests/test_phase2.gd      # Phase 2 (100 checks, accelerated time)
 godot --headless --fixed-fps 60 -s tests/test_phase3.gd      # Phase 3 (75 checks, accelerated time)
-godot --headless --fixed-fps 60 -s tests/test_phase4.gd      # Phase 4 (43 checks: resources, art integrity, navigation, driving, saves)
+godot --headless --fixed-fps 60 -s tests/test_phase4.gd      # Phase 4 (42 checks)
+godot --headless --fixed-fps 60 -s tests/test_access.gd      # building entrances, worker facing
+godot --headless --fixed-fps 60 -s tests/test_phase5.gd      # Phase 5 (113 checks)
 ```
+
+`test_phase5.gd` covers mining and rock depletion, tool progression, staff and machine extraction, processing, selling, the excavation unlock (player, staff and vehicle access), schedules (resting off shift), story, HUD layout, pacing estimated from the data, and save/load idempotence.
 
 ## Known limitations
 
-- **Visual quality is unverified.** No screenshots, renders or visual comparisons were made, as you asked. All checks are headless.
-  - What is tested: the geometry and textures exist, everything loads, colliders and interactions still work, workers path, vehicles drive, the textures stay on the palette, and characters are skinned and pose.
-  - What is not tested: how the quarry, buildings, machinery, vehicles and workers actually look, including prop orientation, tool grip in the hands, animation quality and the lighting mood. These need your visual pass.
-- **Prop orientation.** Reused THE VEIL props are placed by position and rotation without having been seen; a few may face the wrong way or sit slightly off a wall.
-- **Decorative prop collision.** Reused props are decorative: their own colliders are switched off, and explicit boxes block only where it matters (garage shelving and workbench, shed shelving, office cabinets, dumpster, light poles, retaining wall, filler cliffs). You can walk through small decor such as cones, rocks and weeds.
-- **Flat physics ground.** The ground is visually uneven but physically flat, so walking, navigation and vehicles behave exactly as before. Cliffs, benches and embankments are visual meshes over the existing collision boxes. New filler cliffs close the old gaps in the cliff ring.
-- **Workers.** They are procedurally animated (walk, idle, carry and one work loop per job), not motion-captured. Tools sit in the hand sockets; how naturally they are gripped is unverified.
-- **Earlier limits still apply.** Vehicles are arcade-simple, the main storage crate can be moved but not sold, there is a brief hitch when navigation rebuilds, and saving is manual (F5).
+- **Visual quality is unverified.** No screenshots or renders were made, as requested. Headless tests check behaviour, not looks. How the formations, chunk crumbling, tool viewmodels, worker poses, rig joints and the HUD actually look all need your visual pass.
+- **Animation is procedural.** Worker states are bone-rotation poses blended in code, not keyframed clips. Tool grips, swing arcs and crouch depth are tuned numerically and unverified by eye. Workers stand rather than sit while resting.
+- **Navigation rebuilds cost about 20 ms.** The navigation mesh is rebuilt when a formation column empties, a rig creeps forward, or something is built. Expect a brief hitch then (measured here; slower PCs may hitch longer).
+- **Rigs only work from fixed drilling pads** (two per starting formation, one per deep formation). They creep forward on their tracks but are not freely placeable. Rigs cannot be sold or moved.
+- **The rest of the pit floor stays flat.** The lower level is the only depth change, and its navigation mesh sits about 0.5 m above the physical floor (voxel rounding). This does not affect movement.
+- **Old-phase quirks remain:**
+  - The east expansion still has the Phase 4 regrowing deposits.
+  - Vehicles are arcade-simple.
+  - Saving is manual (F5).
+  - Station menus are keyboard driven. Their columns use a proportional pixel font, so they are not perfectly aligned.
+- **Not built:** the excavator (priority D) and further depth levels; the data structure allows more pit levels.
+
+## Credits
+
+- Fonts: Pixelify Sans and Silkscreen, both under the SIL Open Font License 1.1 (`assets/fonts/*-OFL.txt`).
+- Sounds: synthesized by `tools/qd_sounds.py`. Rock textures: painted by `tools/qd_textures.py` from THE VEIL palette.

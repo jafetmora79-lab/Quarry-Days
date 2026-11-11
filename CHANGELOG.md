@@ -1,5 +1,36 @@
 # Changelog
 
+## Quarry Days — Phase 5: The Big Progression Overhaul
+
+- **Progression:** six stages (Manual Labor → Deep Excavation) gate hiring, machinery and vehicles. They are driven by lifetime earnings and real milestones, all set in `data/progression.json`.
+- **Three enormous finite formations** (stone 1,110 / coal 525 / iron 480 units):
+  - Chunked low-poly columns that crack, crumble and visibly lose height.
+  - Per-column colliders and navigation updates.
+  - One shared stock for the player, staff and rigs.
+- **Tools:** a five-tier line (Rock Hammer → Heavy Jackhammer).
+  - Each has its own model, animation, sound, speed and hardness limit.
+  - Damage lands on the impact frame; power tools run continuously.
+- **Mining feedback:** cracks, fragments, dust, camera kick, "+N STONE" pop-ups, durability bar, bag overflow to capped loose pieces.
+- **Worker animation:** task-driven states (work swing synced to extraction, pickup, unload, operator interact/monitor, clerk paperwork/hand-over, turn, rest).
+  - Smooth acceleration; workers face the target before working; feet stay grounded.
+- **Machinery motion:**
+  - Crushers spin up and down, the jaw works only while crushing, and contents are visible.
+  - Belts scroll only while loaded.
+  - Loader arm and bucket curl ease; the truck bed eases and the load slides out at the right moment.
+- **New machines:** Drilling Rig, Industrial Rock Breaker (aimed joints, crawl, running cost, bins, upgrades) and Advanced Crusher.
+- **Deep excavation:** a permit opens a 3.5 m lower level with a ramp for the player, staff and vehicles, plus Copper Vein and Gold Seam formations. New materials: copper ($45) and gold ($90).
+- **Cozy pixel HUD:**
+  - Pixelify Sans / Silkscreen (OFL).
+  - Panels: money count-up and income rate, objective with progress, tool and bag bar.
+  - Toasts, sale confirmations, story cards.
+- **Office:** restyled, with new UPGRADES and STATS tabs; MILESTONES now lists stages and discoveries.
+- **Story:** Grandpa's intro letter; a lockbox discovery when the first formation is cleared.
+- **Economy:** new-game $10, wage ×6 and hire-fee ×5, new upgrade prices; pacing checks are computed from the data.
+- **Saves:**
+  - A `phase5` block (stage, lower level, rigs, story, stats); formation columns and tool tier are stored in the state.
+  - Phase 1–4 saves migrate without losing anything.
+- **Tests:** new `tests/test_phase5.gd` (113 checks). Older tests were updated where deposits, stages, wage scales or tabs changed.
+
 ## Quarry Days — Phase 4: THE VEIL Art Style & Sustainable Resources
 
 - **Resources fixed:**

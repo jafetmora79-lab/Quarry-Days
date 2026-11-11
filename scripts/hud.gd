@@ -25,6 +25,7 @@ var bag_label: Label
 var bag_bar: ProgressBar
 var bag_items: Label
 var hint_label: Label
+var bottom: HBoxContainer
 var dura_root: Control
 var dura_bar: ProgressBar
 var dura_label: Label
@@ -117,7 +118,7 @@ func _build() -> void:
 	status_label.custom_minimum_size = Vector2(266, 0)
 	v2.add_child(status_label)
 	# ---- bottom: tool + bag
-	var bottom := HBoxContainer.new()
+	bottom = HBoxContainer.new()
 	bottom.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bottom.add_theme_constant_override("separation", 8)
 	add_child(bottom)
@@ -132,6 +133,7 @@ func _build() -> void:
 	bottom.offset_right = 190
 	bottom.offset_top = -56
 	bottom.offset_bottom = -8
+	bottom.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	var tp := PanelContainer.new()
 	tp.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	tp.custom_minimum_size = Vector2(176, 0)
@@ -353,6 +355,10 @@ func _process(delta: float) -> void:
 	prompt_alpha = move_toward(prompt_alpha, want_prompt, delta * 6.0)
 	prompt_panel.modulate.a = prompt_alpha
 	prompt_panel.visible = prompt_alpha > 0.01
+	# keep the prompt just above the tool/bag bar whatever their heights
+	var bar_top := bottom.get_global_rect().position.y
+	prompt_panel.offset_bottom = bar_top - 540.0 - 6.0
+	prompt_panel.offset_top = prompt_panel.offset_bottom - prompt_panel.get_combined_minimum_size().y
 	hint_label.visible = tutorial
 	# durability bar fade
 	dura_timer = maxf(0.0, dura_timer - delta)

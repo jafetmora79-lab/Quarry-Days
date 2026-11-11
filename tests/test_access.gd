@@ -8,6 +8,8 @@ func run() -> void:
 	var game = load("res://Main.tscn").instantiate()
 	root.add_child(game)
 	await physics_frame
+	await process_frame
+	game.hud.close_card() # Phase 5: a new game opens with grandpa's letter
 	game.scripted_input = true
 	var failures := 0
 	for x in [-14.0, 14.0]:

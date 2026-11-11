@@ -363,7 +363,7 @@ func scene_tests() -> void:
 	game._open_menu("manage")
 	var frame: Control = game.management.get_child(0)
 	var widest := 0.0
-	for t in ["staff", "hire", "payroll", "production", "equipment", "milestones"]:
+	for t in ["staff", "hire", "payroll", "production", "equipment", "upgrades", "milestones", "stats"]:
 		game.management._set_tab(t)
 		await process_frame
 		widest = maxf(widest, frame.get_combined_minimum_size().x)

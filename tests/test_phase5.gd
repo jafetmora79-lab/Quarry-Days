@@ -38,6 +38,7 @@ func run_tests() -> void:
 	await scene_mining()
 	await scene_more()
 	await scene_deep()
+	await scene_story_hud()
 	print("RESULT: %d checks, %d failures" % [checks, failures.size()])
 	quit(0 if failures.is_empty() else 1)
 
@@ -540,5 +541,51 @@ func scene_deep() -> void:
 	game._load()
 	await process_frame
 	check(live(game, "QuarryRig") == 2 and live(game, "QuarryFormation") == 5, "14 repeated loads do not duplicate machines or formations")
+	game.queue_free()
+	await process_frame
+
+# ------------------------------------------------------------------ 11 story discovery, 9 HUD layout
+
+func scene_story_hud() -> void:
+	var game = load("res://Main.tscn").instantiate()
+	root.add_child(game)
+	await process_frame
+	await physics_frame
+	game.hud.close_card()
+	var prog: QuarryProgression = game.prog
+	game.state.tool_tier = 4
+	for i in range(prog.column_count("coal_mountain")):
+		prog.extract("coal_mountain", i, 1e7)
+	check(prog.units_left("coal_mountain") == 0 and prog.story["found"].get("first_clear", false) and game.discovery_nodes.has("first_clear"), "11 clearing the first formation reveals grandpa's lockbox")
+	var box = game.discovery_nodes["first_clear"]
+	game._close_menu()
+	var m0: int = game.state.money
+	game._interact(box)
+	var reward := int(prog.discovery("first_clear")["reward"])
+	check(game.hud.card_open() and game.hud.card_title.text == "GRANDPA'S LOCKBOX" and game.hud.card_body.text.contains("copper"), "11 the discovery card tells of the deeper minerals")
+	check(game.state.money == m0 + reward and prog.story["read"]["first_clear"], "11 the old savings bond pays $%d once" % reward)
+	game.hud.close_card()
+	game._save()
+	game._load()
+	await process_frame
+	check(not game.discovery_nodes.has("first_clear") and game.state.money == m0 + reward and prog.read_discovery("first_clear") == 0, "14 a read discovery stays read after loading (no second reward)")
+	# HUD layout: panels inside the 960x540 canvas and not overlapping
+	game.hud.set_prompt("LMB: mine Stone  -  Stone Formation  1110 / 1110 left")
+	game.hud.set_message("Bag full! Sell at the booth or store at the crate. Extra rock drops beside the formation.")
+	game.hud.refresh_panels()
+	for i in range(10):
+		await process_frame
+	var rects := []
+	for n in [game.hud.time_label.get_parent().get_parent(), game.hud.stage_label.get_parent().get_parent(), game.hud.tool_label.get_parent().get_parent().get_parent(), game.hud.prompt_panel]:
+		rects.append(Rect2(n.get_global_rect()))
+	var inside := true
+	for r in rects:
+		inside = inside and Rect2(0, 0, 960, 540).encloses(r)
+	var overlap := false
+	for i in range(rects.size()):
+		for j in range(i + 1, rects.size()):
+			overlap = overlap or rects[i].intersects(rects[j])
+	check(inside and not overlap, "9 HUD panels fit the 960x540 base canvas without overlapping: %s" % str(rects))
+	check(game.hud.money_label.get_theme_font("font") is FontFile and (game.hud.money_label.get_theme_font("font") as FontFile).antialiasing == TextServer.FONT_ANTIALIASING_NONE, "9 the HUD uses the crisp pixel font")
 	game.queue_free()
 	await process_frame

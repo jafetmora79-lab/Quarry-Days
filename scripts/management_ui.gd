@@ -2,12 +2,12 @@ extends Control
 ## Office management interface. Mouse driven; the world is paused while it is open.
 ## Sized for the 960x540 base canvas, which scales cleanly to 1280x720 and 1920x1080.
 
-const TABS := [["staff", "STAFF"], ["hire", "HIRE"], ["payroll", "PAYROLL"], ["production", "PRODUCTION"], ["equipment", "EQUIPMENT"], ["milestones", "MILESTONES"]]
-const INK := Color(0.93, 0.88, 0.74)
-const DIM := Color(0.62, 0.58, 0.48)
-const ACCENT := Color(0.95, 0.74, 0.30)
-const WARN := Color(1.0, 0.45, 0.35)
-const GOOD := Color(0.55, 0.85, 0.45)
+const TABS := [["staff", "WORKERS"], ["hire", "HIRE"], ["payroll", "PAYROLL"], ["production", "PRODUCTION"], ["equipment", "EQUIPMENT"], ["upgrades", "UPGRADES"], ["milestones", "MILESTONES"], ["stats", "STATS"]]
+const INK := QuarryTheme.INK
+const DIM := QuarryTheme.DIM
+const ACCENT := QuarryTheme.ACCENT
+const WARN := QuarryTheme.WARN
+const GOOD := QuarryTheme.GOOD
 
 var game
 var tab := "staff"
@@ -50,7 +50,7 @@ func setup(main_node) -> void:
 		var b := Button.new()
 		b.text = t[1]
 		b.toggle_mode = true
-		b.custom_minimum_size = Vector2(96, 0)
+		b.custom_minimum_size = Vector2(88, 0)
 		b.pressed.connect(_set_tab.bind(t[0]))
 		tabs.add_child(b)
 		tab_buttons[t[0]] = b
@@ -67,20 +67,15 @@ func setup(main_node) -> void:
 
 func _make_theme() -> Theme:
 	var t := Theme.new()
-	var font: Font = ThemeDB.fallback_font
-	if font is FontFile:
-		var pixel: FontFile = font.duplicate()
-		pixel.antialiasing = TextServer.FONT_ANTIALIASING_NONE
-		pixel.hinting = TextServer.HINTING_NONE
-		pixel.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_DISABLED
-		t.default_font = pixel
-	t.default_font_size = 12
-	t.set_stylebox("panel", "PanelContainer", _box(Color(0.07, 0.065, 0.055, 0.97), Color(0.62, 0.50, 0.28), 2, 10))
-	t.set_stylebox("normal", "Button", _box(Color(0.16, 0.14, 0.11), Color(0.45, 0.38, 0.24), 1, 4))
-	t.set_stylebox("hover", "Button", _box(Color(0.25, 0.21, 0.14), Color(0.75, 0.6, 0.3), 1, 4))
-	t.set_stylebox("pressed", "Button", _box(Color(0.40, 0.30, 0.13), Color(0.95, 0.74, 0.3), 1, 4))
-	t.set_stylebox("hover_pressed", "Button", _box(Color(0.40, 0.30, 0.13), Color(0.95, 0.74, 0.3), 1, 4))
-	t.set_stylebox("disabled", "Button", _box(Color(0.10, 0.10, 0.09), Color(0.25, 0.23, 0.2), 1, 4))
+	t.default_font = QuarryTheme.body()
+	t.default_font_size = 13
+	var frame := QuarryTheme.panel_box(Color(0.13, 0.1, 0.075, 0.97), QuarryTheme.BORDER_HI, 12, 4)
+	t.set_stylebox("panel", "PanelContainer", frame)
+	t.set_stylebox("normal", "Button", _box(Color(0.24, 0.18, 0.12), Color(0.5, 0.37, 0.23), 2, 4))
+	t.set_stylebox("hover", "Button", _box(Color(0.33, 0.25, 0.15), Color(0.72, 0.56, 0.34), 2, 4))
+	t.set_stylebox("pressed", "Button", _box(Color(0.47, 0.34, 0.16), Color(0.98, 0.76, 0.34), 2, 4))
+	t.set_stylebox("hover_pressed", "Button", _box(Color(0.47, 0.34, 0.16), Color(0.98, 0.76, 0.34), 2, 4))
+	t.set_stylebox("disabled", "Button", _box(Color(0.15, 0.12, 0.1), Color(0.3, 0.26, 0.21), 2, 4))
 	t.set_stylebox("focus", "Button", StyleBoxEmpty.new())
 	for type in ["OptionButton", "CheckBox"]:
 		t.set_stylebox("normal", type, _box(Color(0.12, 0.11, 0.09), Color(0.45, 0.38, 0.24), 1, 4))
@@ -101,7 +96,8 @@ func _box(bg: Color, border: Color, width: int, margin: int) -> StyleBoxFlat:
 	b.bg_color = bg
 	b.border_color = border
 	b.set_border_width_all(width)
-	b.set_corner_radius_all(0)
+	b.set_corner_radius_all(2)
+	b.corner_detail = 2
 	b.set_content_margin_all(margin)
 	b.anti_aliasing = false
 	return b
@@ -130,7 +126,7 @@ func _row() -> HBoxContainer:
 
 func _card() -> VBoxContainer:
 	var p := PanelContainer.new()
-	p.add_theme_stylebox_override("panel", _box(Color(0.11, 0.10, 0.085), Color(0.30, 0.26, 0.18), 1, 6))
+	p.add_theme_stylebox_override("panel", _box(Color(0.19, 0.145, 0.1), Color(0.36, 0.28, 0.19), 1, 7))
 	content.add_child(p)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 4)
@@ -150,7 +146,7 @@ func _say(text: String) -> void:
 func refresh() -> void:
 	var b: QuarryBusiness = game.business
 	var clock := int(game.state.clock_minutes)
-	header.text = "QUARRY OFFICE   DAY %d  %s   $%d   STAFF %d/%d" % [clock / 1440 + 1, game.fmt_time(clock), game.state.money, b.employees.size(), b.max_employees()]
+	header.text = "GRANDPA WALT'S QUARRY  -  DAY %d  %s   %s   STAFF %d/%d   STAGE: %s" % [clock / 1440 + 1, game.fmt_time(clock), QuarryTheme.money_text(game.state.money), b.employees.size(), b.max_employees(), str(game.prog.stage_info()["title"]).to_upper()]
 	for id in tab_buttons:
 		tab_buttons[id].button_pressed = id == tab
 	for child in content.get_children():
@@ -163,6 +159,8 @@ func refresh() -> void:
 		"production": _production(b)
 		"equipment": _equipment()
 		"milestones": _milestones(b)
+		"upgrades": _upgrades()
+		"stats": _stats(b)
 
 # ------------------------------------------------------------------ staff
 
@@ -354,16 +352,23 @@ func _production(b: QuarryBusiness) -> void:
 	auth.add_child(_label("SALES CLERK MAY SELL", ACCENT))
 	var row := _row()
 	auth.add_child(row)
-	for res in ["limestone", "coal", "iron_ore", "crushed_stone"]:
+	for res in QuarryState.RESOURCE_NAMES:
 		var cb := CheckBox.new()
-		cb.text = "%s (stock %d)" % [res.replace("_", " ").capitalize(), b.stock(res)]
+		cb.text = "%s %d" % [game.prog.display(res), b.stock(res)]
 		cb.button_pressed = b.authorized[res]
 		var key: String = res
 		cb.toggled.connect(func(on): b.authorized[key] = on)
 		row.add_child(cb)
 	var st := _card()
 	st.add_child(_label("STRUCTURES", ACCENT))
-	st.add_child(_label("Storage crate: %d/%d  (limestone %d, coal %d, iron %d, crushed %d)" % [game.state.total(game.state.storage), game.state.storage_capacity(), game.state.storage["limestone"], game.state.storage["coal"], game.state.storage["iron_ore"], game.state.storage["crushed_stone"]], INK, 11))
+	var held := []
+	for res in QuarryState.RESOURCE_NAMES:
+		if int(game.state.storage[res]) > 0:
+			held.append("%s %d" % [game.prog.display(res), int(game.state.storage[res])])
+	st.add_child(_label("Storage crate: %d/%d  %s" % [game.state.total(game.state.storage), game.state.storage_capacity(), ", ".join(held)], INK, 11))
+	for i in range(game.prog.rigs.size()):
+		var r: Dictionary = game.prog.rigs[i]
+		st.add_child(_label("%s #%d at %s: %s, %.0f/h, bin %d/%d" % [game.prog.machine(str(r["type"]))["title"], i + 1, game.prog.fdef(str(r["formation"]))["title"], r["status"], game.prog.rig_rate_per_hour(r), game.prog.rig_bin_total(r), game.prog.rig_bin_cap(r)], INK, 11))
 	for i in range(game.state.crushers.size()):
 		var c: Dictionary = game.state.crushers[i]
 		st.add_child(_label("Crusher #%d: hopper %d, input %d, output %d, %s" % [i + 1, c.get("hopper", 0), c["input"], c["output"], ("running %.0fs" % float(c["remaining"])) if c["running"] else "idle"], INK, 11))
@@ -376,6 +381,25 @@ func _production(b: QuarryBusiness) -> void:
 # ------------------------------------------------------------------ milestones
 
 func _milestones(b: QuarryBusiness) -> void:
+	var prog: QuarryProgression = game.prog
+	var sc := _card()
+	sc.add_child(_label("QUARRY STAGES", ACCENT))
+	for i in range(prog.stages().size()):
+		var st := prog.stage_info(i)
+		var done := i <= prog.stage
+		sc.add_child(_label("%s %d. %s  -  %s" % ["[x]" if done else "[ ]", i + 1, str(st["title"]).to_upper(), str(st["goal"])], GOOD if done else (ACCENT if i == prog.stage + 1 else DIM), 11))
+		if i == prog.stage + 1:
+			for r in prog.requirement_progress(i):
+				sc.add_child(_label("      %s: %s" % [r[0], "done" if float(r[1]) >= float(r[2]) else "%d / %d" % [int(r[1] if not str(r[0]).begins_with("Clear") else float(r[1]) * 100.0), int(r[2] if not str(r[0]).begins_with("Clear") else float(r[2]) * 100.0)]], DIM, 11))
+	var dc := _card()
+	dc.add_child(_label("DISCOVERIES", ACCENT))
+	var any := false
+	for did in prog.cfg.get("story", {}).get("discoveries", {}):
+		if prog.story["found"].get(did, false):
+			any = true
+			dc.add_child(_label("%s  %s" % [str(prog.discovery(did)["title"]), "(read)" if prog.story["read"].get(did, false) else "(waiting where the rock stood - press E on it)"], INK, 11))
+	if not any:
+		dc.add_child(_label("Nothing yet. Grandpa always said the good stuff is under the rock.", DIM, 11))
 	var info := [
 		["first_employee", "1. FIRST EMPLOYEE", "Hire your first worker.", "Remote management with M anywhere and +5% staff productivity."],
 		["mechanized", "2. MECHANIZED QUARRY", "Own a crusher and employ a machine operator.", "Conveyor belts at the machinery kiosk and the Front Loader in EQUIPMENT."],
@@ -437,3 +461,78 @@ func _equipment() -> void:
 			piles.add_child(_label("%s: %d" % [f.cfg["piles"][id]["title"], f.piles[id]["amount"]], INK, 11))
 		else:
 			piles.add_child(_label("%s: opens with the east expansion" % f.cfg["piles"][id]["title"], DIM, 11))
+
+# ------------------------------------------------------------------ Phase 5: upgrades and statistics
+
+func _upgrades() -> void:
+	var prog: QuarryProgression = game.prog
+	var st: QuarryState = game.state
+	var tc := _card()
+	tc.add_child(_label("MINING TOOLS", ACCENT))
+	for i in range(prog.tools().size()):
+		var t: Dictionary = prog.tools()[i]
+		var row := _row()
+		tc.add_child(row)
+		var owned := i <= st.tool_tier
+		row.add_child(_label("%s %s  -  %s" % ["[x]" if owned else "[ ]", str(t["title"]), str(t.get("desc", ""))], GOOD if i == st.tool_tier else (INK if owned else DIM), 11))
+		if i == st.tool_tier + 1:
+			row.add_child(_button("Buy $%d  (+%d%%)" % [int(t["cost"]), prog.tool_gain_percent(st.tool_tier, i)], func(): game.buy_next_tool(); _say("Tool upgraded" if st.tool_tier >= i else "Need $%d" % int(t["cost"])), st.money >= int(t["cost"])))
+	var uc := _card()
+	uc.add_child(_label("PERSONAL UPGRADES", ACCENT))
+	for key in game.UPGRADE_MENU:
+		var info: Dictionary = prog.cfg.get("player_upgrades", {}).get(key, {})
+		var row := _row()
+		uc.add_child(row)
+		row.add_child(_label("%s  -  %s" % [str(info.get("title", key)), str(info.get("effect", ""))], INK if not st.upgrades[key] else GOOD, 11))
+		var k: String = key
+		if not st.upgrades[key]:
+			row.add_child(_button("Buy $%d" % int(st.config["upgrades"][key]), func(): game.buy_player_upgrade(k); _say(""), st.money >= int(st.config["upgrades"][key])))
+	var rc := _card()
+	rc.add_child(_label("MINING MACHINES (order at the blue kiosk)", ACCENT))
+	if prog.rigs.is_empty():
+		rc.add_child(_label("No rigs yet. Drilling rigs unlock at the %s stage." % prog.feature_stage_title("drill_rig"), DIM, 11))
+	for i in range(prog.rigs.size()):
+		var r: Dictionary = prog.rigs[i]
+		var row := _row()
+		rc.add_child(row)
+		row.add_child(_label("%s #%d  Lv %d  @ %s  -  %s" % [prog.machine(str(r["type"]))["title"], i + 1, int(r["level"]) + 1, prog.fdef(str(r["formation"]))["title"], r["status"]], INK, 11))
+		var up := prog.rig_upgrade_info(r)
+		var rr := r
+		if not up.is_empty():
+			row.add_child(_button("Upgrade $%d" % int(up["cost"]), func(): _say(str(up["effect"]) if prog.upgrade_rig(rr) else "Need $%d" % int(up["cost"])), st.money >= int(up["cost"])))
+		row.add_child(_button("Turn off" if bool(r["on"]) else "Turn on", func(): rr["on"] = not bool(rr["on"]); _say("")))
+	var ec := _card()
+	ec.add_child(_label("DEEP EXCAVATION", ACCENT))
+	if prog.level_unlocked >= 2:
+		ec.add_child(_label("The lower level is open: copper vein and gold seam, reached by the ramp.", GOOD, 11))
+	else:
+		var why := prog.permit_block_reason()
+		var row := _row()
+		ec.add_child(row)
+		row.add_child(_label("Excavation permit: dig a 3.5 m lower level into the pit floor.", INK, 11))
+		row.add_child(_button("Buy $%d" % prog.permit_cost() if why == "" else why, func(): game.buy_permit(); _say("The lower level is open!"), why == ""))
+
+func _stats(b: QuarryBusiness) -> void:
+	var prog: QuarryProgression = game.prog
+	var st: QuarryState = game.state
+	var c := _card()
+	c.add_child(_label("BUSINESS", ACCENT))
+	var vehicles: int = game.fleet.vehicles.size()
+	c.add_child(_label("Lifetime sales %s   -   cash %s   -   day %d" % [QuarryTheme.money_text(st.earned), QuarryTheme.money_text(st.money), int(st.clock_minutes) / 1440 + 1], INK, 11))
+	c.add_child(_label("Staff %d   -   crushers %d   -   rigs %d   -   vehicles %d   -   tool: %s" % [b.employees.size(), st.crushers.size(), prog.rigs.size(), vehicles, prog.tool()["title"]], INK, 11))
+	var m := _card()
+	m.add_child(_label("ROCK MINED (units)", ACCENT))
+	m.add_child(_label("By hand %d   -   by staff %d   -   by rigs %d   -   chunks broken off %d" % [int(prog.stats["hand"]), int(prog.stats["crew"]), int(prog.stats["rigs"]), int(prog.stats["chunks"])], INK, 11))
+	var f := _card()
+	f.add_child(_label("FORMATIONS", ACCENT))
+	for id in prog.formation_ids():
+		if not st.deposits.has(id):
+			f.add_child(_label("%s  -  lower level (locked)" % prog.fdef(id)["title"], DIM, 11))
+			continue
+		var left := prog.units_left(id)
+		var total := prog.max_units(id)
+		var frac := 1.0 - float(left) / float(maxi(1, total))
+		var bar := ""
+		for k in range(20):
+			bar += "|" if float(k) / 20.0 < frac else "."
+		f.add_child(_label("%-16s [%s] %3d%% excavated   %d / %d %s left" % [prog.fdef(id)["title"], bar, int(frac * 100.0), left, total, prog.display(str(prog.fdef(id)["resource"]))], GOOD if left <= 0 else INK, 11))
