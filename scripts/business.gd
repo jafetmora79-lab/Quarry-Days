@@ -7,8 +7,8 @@ class_name QuarryBusiness
 signal milestone_reached(id: String)
 
 const PROFESSIONS := ["miner", "operator", "hauler", "clerk"]
-const MINERALS := ["limestone", "coal", "iron_ore"]
-const SELL_ORDER := ["crushed_stone", "iron_ore", "coal", "limestone"]
+const MINERALS := ["limestone", "coal", "iron_ore", "copper_ore", "gold_ore"]
+const SELL_ORDER := ["gold_ore", "copper_ore", "crushed_stone", "iron_ore", "coal", "limestone"]
 const MILESTONES := ["first_employee", "mechanized", "automated"]
 const CHAIN_STEPS := ["mined", "fed", "processed", "stored", "sold"]
 const TIME_STATS := ["strike_interval", "pickup_seconds", "load_seconds", "downtime", "handle_seconds", "sell_interval"]
@@ -22,7 +22,7 @@ var outputs: Array = []
 var conveyors: Array = []
 var links: Array = []          # runtime, per conveyor: {"src": ep, "dst": ep, "resource": String}
 var crusher_outputs: Array = [] # runtime, per crusher: index of directly attached output storage or -1
-var authorized := {"limestone": false, "coal": false, "iron_ore": false, "crushed_stone": false}
+var authorized := {"limestone": false, "coal": false, "iron_ore": false, "crushed_stone": false, "copper_ore": false, "gold_ore": false}
 var milestones := {"first_employee": false, "mechanized": false, "automated": false}
 var chain := {"mined": false, "fed": false, "processed": false, "stored": false, "sold": false}
 var expansion_unlocked := false
@@ -80,15 +80,15 @@ func hire_block_reason(candidate_id: String) -> String:
 		return "Staff limit reached (%d)" % max_employees()
 	if outstanding_debt > 0.0:
 		return "Pay outstanding wages first"
-	if state.money < int(c["hire_fee"]):
-		return "Need $%d hiring fee" % int(c["hire_fee"])
+	if state.money < hire_fee(c):
+		return "Need $%d hiring fee" % hire_fee(c)
 	return ""
 
 func hire(candidate_id: String) -> Dictionary:
 	if hire_block_reason(candidate_id) != "":
 		return {}
 	var c := candidate(candidate_id)
-	state.money -= int(c["hire_fee"])
+	state.money -= hire_fee(c)
 	var prof := str(c["profession"])
 	var shift: Array = cfg.get("default_shifts", {}).get(prof, [480, 960])
 	var e := {
@@ -101,7 +101,7 @@ func hire(candidate_id: String) -> Dictionary:
 	}
 	next_employee_id += 1
 	employees.append(e)
-	_add_daily("hire_fees", int(c["hire_fee"]))
+	_add_daily("hire_fees", hire_fee(c))
 	check_milestones()
 	return e
 
@@ -176,7 +176,11 @@ func can_work(e: Dictionary) -> bool:
 	return employees.has(e) and on_shift(e) and not bool(e["suspended"])
 
 func wage(e: Dictionary) -> float:
-	return float(e["base_wage"]) + float(cfg.get("wage_per_upgrade", 0.5)) * int(e["upgrade"])
+	return (float(e["base_wage"]) + float(cfg.get("wage_per_upgrade", 0.5)) * int(e["upgrade"])) * float(cfg.get("wage_scale", 1.0))
+
+## Phase 5: hiring fees and wages scale with the much more productive quarry (data/business.json).
+func hire_fee(c: Dictionary) -> int:
+	return int(round(float(c["hire_fee"]) * float(cfg.get("hire_fee_scale", 1.0))))
 
 # ---------------------------------------------------------------- upgrades & stats
 
@@ -370,7 +374,8 @@ func ep_space(ep: Dictionary, res: String) -> int:
 		"crusher":
 			if res != "limestone":
 				return 0
-			return maxi(0, int(cfg.get("crusher_hopper_capacity", 24)) - int(state.crushers[int(ep["index"])].get("hopper", 0)))
+			var hc := int(cfg.get("crusher_hopper_capacity", 24)) * (2 if int(state.crushers[int(ep["index"])].get("tier", 1)) >= 2 else 1)
+			return maxi(0, hc - int(state.crushers[int(ep["index"])].get("hopper", 0)))
 		"output":
 			if res != "crushed_stone":
 				return 0
@@ -452,7 +457,7 @@ func hopper_to_input(index: int) -> int:
 	if index < 0 or index >= state.crushers.size():
 		return 0
 	var crusher: Dictionary = state.crushers[index]
-	if bool(crusher["running"]) or int(crusher.get("hopper", 0)) <= 0 or int(crusher["input"]) >= int(state.config["crusher_input_limit"]):
+	if bool(crusher["running"]) or int(crusher.get("hopper", 0)) <= 0 or int(crusher["input"]) >= state.input_limit(index):
 		return 0
 	crusher["hopper"] = int(crusher["hopper"]) - 1
 	crusher["input"] = int(crusher["input"]) + 1
@@ -460,7 +465,7 @@ func hopper_to_input(index: int) -> int:
 
 func crusher_output_full(index: int) -> bool:
 	var crusher: Dictionary = state.crushers[index]
-	return int(crusher["output"]) + int(crusher["input"]) > int(cfg.get("crusher_output_capacity", 24))
+	return int(crusher["output"]) + int(crusher["input"]) > int(cfg.get("crusher_output_capacity", 24)) * (2 if int(crusher.get("tier", 1)) >= 2 else 1)
 
 func operator_start(e: Dictionary, index: int) -> bool:
 	if str(e["profession"]) != "operator" or not can_work(e):
@@ -514,7 +519,7 @@ func clerk_sell(e: Dictionary) -> Dictionary:
 			left -= ep_take({"type": "output", "index": i}, res, left)
 		var units := want - left
 		var earned := int(floor(units * int(state.config["prices"][res]) * stat(e, "price_mult") + 0.0001))
-		state.money += earned
+		state.add_income(earned, "clerk")
 		_add_daily("revenue", earned)
 		_add_daily("sold", units)
 		record_units(e, units)
@@ -534,7 +539,10 @@ func buy(price: int) -> bool:
 	return true
 
 func add_output(pos: Vector3, yaw: float) -> int:
-	outputs.append({"position": [pos.x, pos.y, pos.z], "yaw": yaw, "items": {"limestone": 0, "coal": 0, "iron_ore": 0, "crushed_stone": 0}})
+	var items := {}
+	for k in QuarryState.RESOURCE_NAMES:
+		items[k] = 0
+	outputs.append({"position": [pos.x, pos.y, pos.z], "yaw": yaw, "items": items})
 	compute_links()
 	return outputs.size() - 1
 

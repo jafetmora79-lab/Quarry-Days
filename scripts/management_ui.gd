@@ -298,7 +298,7 @@ func _hire(b: QuarryBusiness) -> void:
 		var row := _row()
 		card.add_child(row)
 		var prof: Dictionary = b.profession(c["profession"])
-		row.add_child(_label("%s  -  %s   Skill %d   $%.2f/h   Hiring fee $%d" % [c["name"], prof["title"], c["skill"], c["wage"], c["hire_fee"]], INK))
+		row.add_child(_label("%s  -  %s   Skill %d   $%.2f/h   Hiring fee $%d" % [c["name"], prof["title"], c["skill"], float(c["wage"]) * float(b.cfg.get("wage_scale", 1.0)), b.hire_fee(c)], INK))
 		var reason := b.hire_block_reason(str(c["id"]))
 		var cid := str(c["id"])
 		row.add_child(_button("Hire" if reason == "" else reason, func(): _say(game.ui_hire(cid)), reason == ""))

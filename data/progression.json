@@ -1,0 +1,451 @@
+{
+  "_comment": "Phase 5 progression. Mining damage: a material yields 1 unit per `hp` damage. Tools deal `power` per swing every `interval` seconds, or `dps` while held (power tools). A tool (or machine) can only work material whose hardness <= its `max_hardness`.",
+  "new_game_money": 10,
+  "display_names": {
+    "limestone": "Stone",
+    "coal": "Coal",
+    "iron_ore": "Iron",
+    "crushed_stone": "Gravel",
+    "copper_ore": "Copper",
+    "gold_ore": "Gold"
+  },
+  "materials": {
+    "limestone": {
+      "hp": 10,
+      "hardness": 1
+    },
+    "coal": {
+      "hp": 14,
+      "hardness": 1
+    },
+    "iron_ore": {
+      "hp": 22,
+      "hardness": 2
+    },
+    "copper_ore": {
+      "hp": 34,
+      "hardness": 3
+    },
+    "gold_ore": {
+      "hp": 50,
+      "hardness": 4
+    }
+  },
+  "tools": [
+    {
+      "id": "hand",
+      "title": "Rock Hammer",
+      "cost": 0,
+      "power": 4,
+      "interval": 0.62,
+      "max_hardness": 1,
+      "sound": "hit_hammer",
+      "pitch": 1.0,
+      "desc": "Grandpa's old hammer. Stone and coal only."
+    },
+    {
+      "id": "pickaxe",
+      "title": "Basic Pickaxe",
+      "cost": 60,
+      "power": 9,
+      "interval": 0.56,
+      "max_hardness": 2,
+      "sound": "hit_pick",
+      "pitch": 1.0,
+      "desc": "Bites into stone and can crack iron."
+    },
+    {
+      "id": "reinforced",
+      "title": "Reinforced Pickaxe",
+      "cost": 320,
+      "power": 16,
+      "interval": 0.5,
+      "max_hardness": 2,
+      "sound": "hit_reinforced",
+      "pitch": 1.0,
+      "desc": "Steel-tipped. Every swing takes a real chunk."
+    },
+    {
+      "id": "drill",
+      "title": "Power Drill",
+      "cost": 1600,
+      "dps": 55,
+      "max_hardness": 3,
+      "sound": "drill_loop",
+      "continuous": true,
+      "desc": "Hold to drill. Cuts copper veins."
+    },
+    {
+      "id": "jackhammer",
+      "title": "Heavy Jackhammer",
+      "cost": 6500,
+      "dps": 125,
+      "max_hardness": 4,
+      "sound": "jackhammer_loop",
+      "continuous": true,
+      "desc": "Shatters anything, including gold-bearing rock."
+    }
+  ],
+  "player_upgrades": {
+    "faster_mining": {
+      "title": "Mining Technique",
+      "cost": 90,
+      "effect": "MINING SPEED +25%"
+    },
+    "larger_backpack": {
+      "title": "Larger Backpack",
+      "cost": 55,
+      "effect": "BAG +16"
+    },
+    "hauling_harness": {
+      "title": "Hauling Harness",
+      "cost": 700,
+      "effect": "BAG +30"
+    },
+    "efficient_crusher": {
+      "title": "Crusher Tuning",
+      "cost": 150,
+      "effect": "CRUSHING 45% FASTER"
+    },
+    "expanded_storage": {
+      "title": "Expanded Storage",
+      "cost": 120,
+      "effect": "STORAGE +40"
+    }
+  },
+  "loose_piece_cap": 36,
+  "worker_tool": {
+    "damage": 9.0,
+    "power_per_tier": 0.35
+  },
+  "stages": [
+    {
+      "id": "manual",
+      "title": "Manual Labor",
+      "goal": "Break rock with the hammer and sell it at the sales booth.",
+      "req": {}
+    },
+    {
+      "id": "tools",
+      "title": "Better Tools",
+      "goal": "Buy a pickaxe at the upgrade board.",
+      "req": {
+        "earned": 30
+      }
+    },
+    {
+      "id": "crew",
+      "title": "First Employee",
+      "goal": "Hire your first helper at the office desk.",
+      "req": {
+        "earned": 350,
+        "tool": 1
+      }
+    },
+    {
+      "id": "industry",
+      "title": "Early Industrialization",
+      "goal": "Order a crusher, output storage and a front loader.",
+      "req": {
+        "earned": 1400,
+        "employees": 1
+      }
+    },
+    {
+      "id": "large",
+      "title": "Large-Scale Mining",
+      "goal": "Install a drilling rig and buy the dump truck.",
+      "req": {
+        "earned": 6000,
+        "crushers": 1
+      }
+    },
+    {
+      "id": "deep",
+      "title": "Deep Excavation",
+      "goal": "Buy the excavation permit and open the lower level.",
+      "req": {
+        "earned": 14000,
+        "cleared": 0.55
+      }
+    }
+  ],
+  "formations": {
+    "stone_mountain": {
+      "title": "Stone Formation",
+      "resource": "limestone",
+      "center": [
+        -10.0,
+        0,
+        -9.0
+      ],
+      "cell": 1.9,
+      "tier_h": 1.2,
+      "chunk_units": 30,
+      "level": 1,
+      "tiers": [
+        [
+          2,
+          3,
+          3,
+          2
+        ],
+        [
+          3,
+          5,
+          5,
+          3
+        ],
+        [
+          2,
+          3,
+          4,
+          2
+        ]
+      ],
+      "pads": [
+        [
+          -10.0,
+          0,
+          -4.3,
+          0.0
+        ],
+        [
+          -10.0,
+          0,
+          -13.7,
+          3.1416
+        ]
+      ]
+    },
+    "coal_mountain": {
+      "title": "Coal Seam",
+      "resource": "coal",
+      "center": [
+        0.0,
+        0,
+        -20.6
+      ],
+      "cell": 1.9,
+      "tier_h": 1.1,
+      "chunk_units": 25,
+      "level": 1,
+      "tiers": [
+        [
+          2,
+          3,
+          3,
+          2
+        ],
+        [
+          2,
+          4,
+          3,
+          2
+        ]
+      ],
+      "pads": [
+        [
+          -5.2,
+          0,
+          -20.6,
+          -1.5708
+        ],
+        [
+          5.2,
+          0,
+          -20.6,
+          1.5708
+        ]
+      ]
+    },
+    "iron_mountain": {
+      "title": "Iron Ridge",
+      "resource": "iron_ore",
+      "center": [
+        11.0,
+        0,
+        -9.0
+      ],
+      "cell": 1.8,
+      "tier_h": 1.15,
+      "chunk_units": 20,
+      "level": 1,
+      "tiers": [
+        [
+          2,
+          3,
+          2
+        ],
+        [
+          3,
+          4,
+          3
+        ],
+        [
+          2,
+          3,
+          2
+        ]
+      ],
+      "pads": [
+        [
+          11.0,
+          0,
+          -4.4,
+          0.0
+        ],
+        [
+          11.0,
+          0,
+          -13.6,
+          3.1416
+        ]
+      ]
+    },
+    "copper_vein": {
+      "title": "Copper Vein",
+      "resource": "copper_ore",
+      "center": [
+        3.8,
+        -3.5,
+        -14.2
+      ],
+      "cell": 1.6,
+      "tier_h": 1.0,
+      "chunk_units": 25,
+      "level": 2,
+      "tiers": [
+        [
+          3,
+          3
+        ],
+        [
+          2,
+          3
+        ]
+      ],
+      "pads": [
+        [
+          0.2,
+          -3.5,
+          -14.2,
+          -1.5708
+        ]
+      ]
+    },
+    "gold_seam": {
+      "title": "Gold Seam",
+      "resource": "gold_ore",
+      "center": [
+        3.8,
+        -3.5,
+        -9.0
+      ],
+      "cell": 1.5,
+      "tier_h": 0.95,
+      "chunk_units": 15,
+      "level": 2,
+      "tiers": [
+        [
+          2,
+          3
+        ],
+        [
+          3,
+          2
+        ]
+      ],
+      "pads": [
+        [
+          0.2,
+          -3.5,
+          -9.0,
+          -1.5708
+        ]
+      ]
+    }
+  },
+  "starting_formations": [
+    "stone_mountain",
+    "coal_mountain",
+    "iron_mountain"
+  ],
+  "excavation": {
+    "permit_cost": 5000,
+    "depth": 3.5,
+    "pit": [
+      -4.6,
+      -16.8,
+      6.2,
+      -6.8
+    ],
+    "ramp": [
+      -4.6,
+      -1.6,
+      -6.8,
+      -15.0
+    ],
+    "discovery_cost_refund": 400
+  },
+  "machines": {
+    "drill_rig": {
+      "title": "Drilling Rig",
+      "price": 3200,
+      "stage": 4,
+      "dps": 9.0,
+      "max_hardness": 3,
+      "cost_per_min": 0.8,
+      "bin": 40,
+      "reach": 4.6,
+      "upgrades": [
+        {
+          "cost": 1800,
+          "mult": 1.5,
+          "effect": "RIG OUTPUT +50%"
+        },
+        {
+          "cost": 4200,
+          "mult": 1.5,
+          "effect": "RIG OUTPUT +50%"
+        }
+      ]
+    },
+    "rock_breaker": {
+      "title": "Industrial Rock Breaker",
+      "price": 8500,
+      "stage": 5,
+      "dps": 22.0,
+      "max_hardness": 4,
+      "cost_per_min": 2.0,
+      "bin": 40,
+      "reach": 4.6,
+      "upgrades": [
+        {
+          "cost": 4000,
+          "mult": 1.4,
+          "effect": "BREAKER OUTPUT +40%"
+        }
+      ]
+    },
+    "advanced_crusher": {
+      "title": "Advanced Crusher",
+      "price": 2600,
+      "stage": 4,
+      "speed_mult": 0.45,
+      "capacity_mult": 2
+    }
+  },
+  "story": {
+    "intro_title": "A LETTER FROM GRANDPA",
+    "intro": "Kiddo,\n\nIf you're reading this, the quarry is yours now. The bank says it's worth nothing. The town says it never made a cent.\n\nThey're wrong. There's good rock in those hills, and better rock under them. I just got too old to dig.\n\nStart small. Use my hammer. Sell what you break. The rest will come.\n\n- Grandpa Walt",
+    "discoveries": {
+      "first_clear": {
+        "title": "GRANDPA'S LOCKBOX",
+        "trigger": "first_formation_cleared",
+        "text": "Under the last of the rock sits a rusted lockbox. Inside:\n\n- A faded photo of the crew in 1971, standing on this same floor.\n- Mining records: 'Core sample, 3.5 m below the north bench: copper staining, trace gold.'\n- A note: 'Didn't have the machines to go deeper. Maybe you will.'\n\nThere's also an old savings bond. It's still good.",
+        "reward": 400
+      }
+    }
+  }
+}

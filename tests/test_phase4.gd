@@ -77,42 +77,36 @@ func test_stock_logic() -> void:
 func scene_resources() -> void:
 	var game = load("res://Main.tscn").instantiate()
 	root.add_child(game)
+	game.prog.stage = game.prog.stage_index("large") # Phase 5 stage gates (tested in test_phase5)
 	await process_frame
 	await physics_frame
 	game.tutorial_visible = false
 	check(game.player != null and game.deposit_nodes.has("limestone_face"), "1 game starts with the hand-mining quarry face")
-	# deplete the limestone deposit by hand
-	var spawned := 0
-	for b in range(6):
-		var before: int = game.ground_pieces.size()
-		for n in range(game.state.required_hits()):
-			game._strike("limestone")
-		spawned += game.ground_pieces.size() - before
-	var dep: Dictionary = game.state.deposits["limestone"]
-	check(spawned == 24 and int(dep["stock"]) == 0 and dep["broken"], "2 hand mining takes exactly the 24-unit stock as pieces")
-	var body = game.deposit_nodes["limestone"]
-	check(body.visible and body.collision_layer == 1 and body.get_child(0).scale.x < 0.5, "2 depleted deposit stays visible and solid, shrunk")
-	check(str(body.get_meta("status").text).contains("DEPLETED"), "2 deposit label shows it is depleted and when it regrows")
-	var before: int = game.ground_pieces.size()
-	for n in range(4):
-		game._strike("limestone")
-	check(game.ground_pieces.size() == before, "2 striking a depleted deposit produces nothing")
-	# regrowth, then player mining again
-	game.state.clock_minutes += 12.0
+	# Phase 5: the small regrowing rocks became finite formations; the quarry face is still the recovery path.
+	var iron: int = game.prog.max_units("iron_mountain")
+	game.state.tool_tier = 4
+	var taken := 0
+	for i in range(400):
+		for k in game.state.inventory:
+			game.state.inventory[k] = 0
+		taken += game.player_mine("iron_mountain", -1, 200.0)
+		if game.prog.units_left("iron_mountain") <= 0:
+			break
+	check(taken == iron and game.prog.units_left("iron_mountain") == 0, "2 hand mining takes exactly the formation's units (%d/%d)" % [taken, iron])
+	var body = game.deposit_nodes["iron_mountain"]
+	var enabled := 0
+	for cs in body.shapes:
+		enabled += 0 if cs.disabled else 1
+	check(enabled == 0 and str(body.label.text).contains("CLEARED"), "2 a cleared formation has no colliders left and says so")
+	check(game.player_mine("iron_mountain", -1, 200.0) == 0, "2 mining a cleared formation produces nothing")
+	game.state.clock_minutes += 600.0
 	await frames(2)
-	check(int(dep["stock"]) == 4 and not dep["broken"], "2 deposit regrows 4 units in 12 in-game minutes")
-	before = game.ground_pieces.size()
-	for n in range(game.state.required_hits()):
-		game._strike("limestone")
-	check(game.ground_pieces.size() == before + 4 and int(dep["stock"]) == 0, "3 player mines the regrown deposit")
-	# recovery from zero: no money, nothing loose, deposits empty -> quarry face
+	check(game.prog.units_left("iron_mountain") == 0, "2 formations are finite: nothing regrows")
+	# recovery from zero: no money, nothing loose, formations empty -> quarry face
+	game.state.tool_tier = 0
 	for id in game.ground_pieces.keys():
 		game.ground_pieces[id].queue_free()
 		game.ground_pieces.erase(id)
-	for k in game.state.deposits:
-		if not game.state.deposits[k].get("infinite", false):
-			game.state.deposits[k]["stock"] = 0
-			game.state.deposits[k]["broken"] = true
 	game.state.money = 0
 	for k in game.state.inventory:
 		game.state.inventory[k] = 0
@@ -120,37 +114,29 @@ func scene_resources() -> void:
 	for b in range(3):
 		for n in range(5):
 			game._strike("limestone_face")
-	check(game.ground_pieces.size() == 6, "3 broke player can still hand-mine the quarry face (3 breaks -> 6 pieces)")
-	for id in game.ground_pieces.keys():
-		game._interact(game.ground_pieces[id])
+	check(int(game.state.inventory["limestone"]) == 6, "3 broke player can still hand-mine the quarry face (3 breaks -> 6 stone)")
 	check(game.state.sell("limestone", 99) == 6 and game.state.money == 30, "3 face limestone sells: $0 -> $30, recovery possible without free money")
-	# workers share the same stock and leave player-broken pieces alone
+	# staff draw from the same formation units, with conservation
 	game.state.money = 2000
-	game.state.deposits["limestone"]["stock"] = 24
-	game.state.deposits["limestone"]["broken"] = false
-	game._refresh_deposit("limestone")
-	for n in range(game.state.required_hits()):
-		game._strike("limestone")
-	check(game.nearest_piece("limestone", Vector3(-8, 0, -9)) == null, "4 staff skip pieces the player just broke")
 	game.state.clock_minutes = 480.0
 	game.business.payroll_minute = 480
 	game.ui_hire("rosa")
 	var miner: Dictionary = game.business.employees[0]
 	game.business.set_shift(int(miner["id"]), 0, 1439)
-	check(game.nearest_deposit("limestone", Vector3.ZERO) == "limestone", "4 miners never target the hand-mining face")
+	check(game.nearest_deposit("limestone", Vector3.ZERO) == "stone_mountain", "4 miners target the stone formation, never the hand-mining face")
 	Engine.time_scale = 4.0
-	var stock0 := int(game.state.deposits["limestone"]["stock"])
-	var mined0 := int(game.state.deposits["limestone"].get("mined", 0))
+	var d: Dictionary = game.state.deposits["stone_mountain"]
+	var mined0 := int(d.get("mined", 0))
 	var storage0 := int(game.state.storage["limestone"])
 	await frames(5000, func(): return int(game.state.storage["limestone"]) >= storage0 + 4)
-	var used := stock0 - int(game.state.deposits["limestone"]["stock"])
-	check(int(game.state.storage["limestone"]) >= storage0 + 4 and used >= 4, "4 worker mining draws from the same deposit stock (%d used)" % used)
+	var used := int(d.get("mined", 0)) - mined0
+	check(int(game.state.storage["limestone"]) >= storage0 + 4 and used >= 4, "4 worker mining draws from the formation (%d used)" % used)
 	var loose := 0
 	for id in game.ground_pieces:
 		if str(game.ground_pieces[id].get_meta("resource")) == "limestone":
 			loose += 1
 	var carried: int = game.business.carry_total(miner)
-	check(int(game.state.storage["limestone"]) - storage0 + carried + loose == int(game.state.deposits["limestone"]["mined"]) - mined0 + 4, "4 limestone conserved: storage + carried + loose == units taken from the stock (%d)" % (int(game.state.deposits["limestone"]["mined"]) - mined0))
+	check(int(game.state.storage["limestone"]) - storage0 + carried + loose == used, "4 limestone conserved: storage + carried + loose == units taken from the formation (%d)" % used)
 	Engine.time_scale = 1.0
 	game.queue_free()
 	await process_frame
@@ -169,6 +155,7 @@ func path_ok(game, a: Vector3, b: Vector3) -> bool:
 func scene_world() -> void:
 	var game = load("res://Main.tscn").instantiate()
 	root.add_child(game)
+	game.prog.stage = game.prog.stage_index("large") # Phase 5 stage gates (tested in test_phase5)
 	await process_frame
 	await physics_frame
 	await physics_frame
@@ -177,7 +164,7 @@ func scene_world() -> void:
 	# 1 startup with the art layer
 	var meshes: Array = game.art.root.find_children("*", "MeshInstance3D", true, false)
 	check(meshes.size() > 80 and game.art.lights.size() >= 4, "1 art layer built (%d meshes, %d practical lights)" % [meshes.size(), game.art.lights.size()])
-	var dep_mesh: MeshInstance3D = game.deposit_nodes["coal"].get_child(0)
+	var dep_mesh: MeshInstance3D = game.deposit_nodes["coal_mountain"].chunks[0][0]
 	check(dep_mesh.mesh is ArrayMesh and not (dep_mesh.mesh is BoxMesh), "1 deposits are modelled rock formations, not boxes")
 	var floor_body = game.world.get_node("Quarry floor")
 	check(not floor_body.get_child(0).visible and floor_body.collision_layer == 1, "1 placeholder floor hidden, its collision unchanged")
@@ -191,7 +178,7 @@ func scene_world() -> void:
 	await frames(3)
 	var spot: Vector3 = game.break_spot(0)
 	check(path_ok(game, spot, Vector3(-7.0, 0, 12.0)), "8 break area -> sales booth is walkable")
-	check(path_ok(game, spot, Vector3(-8.0, 0, -8.6)), "8 break area -> limestone deposit is walkable")
+	check(path_ok(game, spot, Vector3(-10.0, 0, -5.0)), "8 break area -> stone formation face is walkable")
 	check(path_ok(game, spot, Vector3(10.0, 0, 7.8)), "8 break area -> storage bin is walkable")
 	check(path_ok(game, Vector3(0, 0, 8), Vector3(5.5, 0, 12.5)) and path_ok(game, Vector3(5.5, 0, 12.5), Vector3(20.0, 0, 7.5)), "8 yard, garage apron and haul road are connected")
 	# 6 vehicles: drive out of the garage bay, and cannot reverse through the garage back wall
@@ -235,18 +222,25 @@ func scene_world() -> void:
 	var f := FileAccess.open("user://quarry_save.json", FileAccess.READ)
 	var data: Dictionary = JSON.parse_string(f.get_as_text())
 	f.close()
-	for k in data["deposits"]:
-		for key in ["stock", "regrow_at", "resource", "infinite", "mined"]:
-			data["deposits"][k].erase(key)
-	data["deposits"]["coal"]["broken"] = true
+	# Rebuild it as a Phase 3 save: the three small deposits, no formations, no Phase 5 data.
+	for k in data["deposits"].keys():
+		if k != "limestone_face":
+			data["deposits"].erase(k)
+	data["deposits"]["coal"] = {"hits": 1, "broken": true, "generation": 3}
+	data["deposits"]["iron_ore"] = {"hits": 0, "broken": false}
 	data["deposits"].erase("limestone_face")
+	for key in ["phase5", "tool_tier", "earned"]:
+		data.erase(key)
+	data["pieces"] = ["coal_3_0", "coal_3_1"]
+	var coal_before := int(data["storage"]["coal"])
 	f = FileAccess.open("user://quarry_save.json", FileAccess.WRITE)
 	f.store_string(JSON.stringify(data))
 	f.close()
 	game._load()
 	await process_frame
-	var coal: Dictionary = game.state.deposits["coal"]
-	check(int(coal["stock"]) == 0 and float(coal["regrow_at"]) > 0.0 and int(game.state.deposits["iron_ore"]["stock"]) == 8, "9 Phase 3 save migrates deposits (broken coal regrows, iron full)")
+	check(not game.state.deposits.has("coal") and not game.state.deposits.has("iron_ore") and game.prog.units_left("coal_mountain") == game.prog.max_units("coal_mountain"), "9 Phase 3 save migrates: small deposits replaced by full formations")
+	check(int(game.state.storage["coal"]) == coal_before + 2 and game.ground_pieces.size() == 0, "9 loose pieces of the old deposits are returned to storage, not lost")
+	check(game.state.tool_tier == 1 and game.prog.stage >= game.prog.stage_index("industry") and game.prog.story["intro_seen"], "9 old players keep their pickaxe, a stage matching their loader, and skip the intro")
 	check(game.deposit_nodes.has("limestone_face") and game.state.deposits["limestone_face"]["infinite"], "9 old saves gain the quarry face")
 	game._load()
 	await process_frame

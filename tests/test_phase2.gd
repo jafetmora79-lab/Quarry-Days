@@ -35,6 +35,9 @@ func advance(b: QuarryBusiness, minutes: float, step_seconds := 30.0) -> void:
 func run_tests() -> void:
 	cfg = JSON.parse_string(FileAccess.get_file_as_string("res://data/economy.json"))
 	bcfg = JSON.parse_string(FileAccess.get_file_as_string("res://data/business.json"))
+	# Phase 5 scales wages and hiring fees (data/business.json); these arithmetic checks use the base values.
+	bcfg["wage_scale"] = 1.0
+	bcfg["hire_fee_scale"] = 1.0
 	test_hiring()
 	test_specialties()
 	test_shifts()
@@ -272,6 +275,7 @@ func scene_tests() -> void:
 	var packed := load("res://Main.tscn")
 	var game = packed.instantiate()
 	root.add_child(game)
+	game.prog.stage = game.prog.stage_index("large") # Phase 5 stage gates (tested in test_phase5)
 	await process_frame
 	await physics_frame
 	await physics_frame
@@ -281,13 +285,7 @@ func scene_tests() -> void:
 	game.state.money = 2000
 	Engine.time_scale = 4.0
 	# --- 13: manual mining and selling still work with the Phase 2 systems running
-	for n in range(game.state.required_hits()):
-		game._strike("coal")
-	var piece_id: String = ""
-	for id in game.ground_pieces:
-		if str(id).begins_with("coal"):
-			piece_id = id
-	game._interact(game.ground_pieces[piece_id])
+	game.player_mine("coal_mountain", -1, 14.0)
 	var m: int = game.state.money
 	check(game.state.sell("coal", 1) == 1 and game.state.money == m + 12, "13 manual mining and selling still work")
 	# --- clerk walks to the station and sells authorized stock
@@ -316,9 +314,6 @@ func scene_tests() -> void:
 	# --- miner: walks, strikes the deposit, picks up the pieces, delivers them to storage
 	game.state.clock_minutes = 480.0
 	game.business.payroll_minute = 480
-	game.state.deposits["limestone"]["broken"] = false
-	game.state.deposits["limestone"]["hits"] = 0
-	game._refresh_deposit("limestone")
 	for id in game.ground_pieces.keys():
 		game.ground_pieces[id].queue_free()
 		game.ground_pieces.erase(id)
@@ -434,6 +429,7 @@ func scene_tests() -> void:
 func chain_test() -> void:
 	var game = load("res://Main.tscn").instantiate()
 	root.add_child(game)
+	game.prog.stage = game.prog.stage_index("large") # Phase 5 stage gates (tested in test_phase5)
 	await process_frame
 	await physics_frame
 	await physics_frame

@@ -1,18 +1,22 @@
 extends RefCounted
 class_name QuarryState
 
-const RESOURCE_NAMES := ["limestone", "coal", "iron_ore", "crushed_stone"]
-const UPGRADE_NAMES := ["reinforced_pickaxe", "larger_backpack", "faster_mining", "efficient_crusher", "expanded_storage"]
+const RESOURCE_NAMES := ["limestone", "coal", "iron_ore", "crushed_stone", "copper_ore", "gold_ore"]
+const UPGRADE_NAMES := ["reinforced_pickaxe", "larger_backpack", "faster_mining", "efficient_crusher", "expanded_storage", "hauling_harness"]
 var config: Dictionary
 var money: int
-var inventory := {"limestone": 0, "coal": 0, "iron_ore": 0, "crushed_stone": 0}
-var storage := {"limestone": 0, "coal": 0, "iron_ore": 0, "crushed_stone": 0}
+var inventory := {"limestone": 0, "coal": 0, "iron_ore": 0, "crushed_stone": 0, "copper_ore": 0, "gold_ore": 0}
+var storage := {"limestone": 0, "coal": 0, "iron_ore": 0, "crushed_stone": 0, "copper_ore": 0, "gold_ore": 0}
 var upgrades := {}
 var clock_minutes := 480.0
 var player_position := [0.0, 1.0, 8.0]
 var player_yaw := 0.0
 var deposits := {}
 var crushers := []
+# Phase 5
+var tool_tier := 0          ## index into progression tools (0 hand hammer .. 4 jackhammer)
+var earned := 0             ## lifetime sales revenue (drives the progression stages)
+signal money_earned(amount: int, source: String)
 
 func _init(settings: Dictionary = {}) -> void:
 	config = settings
@@ -21,7 +25,7 @@ func _init(settings: Dictionary = {}) -> void:
 		upgrades[key] = false
 
 func capacity() -> int:
-	return int(config.get("backpack_capacity", 18)) + (16 if upgrades["larger_backpack"] else 0)
+	return int(config.get("backpack_capacity", 18)) + (16 if upgrades["larger_backpack"] else 0) + (30 if upgrades.get("hauling_harness", false) else 0)
 
 func storage_capacity() -> int:
 	return int(config.get("storage_capacity", 40)) + (40 if upgrades["expanded_storage"] else 0)
@@ -44,8 +48,16 @@ func sell(key: String, amount: int) -> int:
 		return 0
 	var sold: int = mini(amount, int(inventory[key]))
 	inventory[key] -= sold
-	money += sold * int(config["prices"].get(key, 0))
+	add_income(sold * int(config["prices"].get(key, 0)), "sale")
 	return sold
+
+## Every revenue source goes through here so lifetime earnings (stage progress) stay honest.
+func add_income(amount: int, source := "sale") -> void:
+	if amount <= 0:
+		return
+	money += amount
+	earned += amount
+	money_earned.emit(amount, source)
 
 func buy_upgrade(key: String) -> bool:
 	if not upgrades.has(key) or upgrades[key]:
@@ -55,6 +67,8 @@ func buy_upgrade(key: String) -> bool:
 		return false
 	money -= cost
 	upgrades[key] = true
+	if key == "reinforced_pickaxe":
+		tool_tier = maxi(tool_tier, 2)
 	return true
 
 func buy_crusher() -> bool:
@@ -80,20 +94,31 @@ func withdraw_item(key: String, amount: int) -> int:
 	inventory[key] += taken
 	return taken
 
+## Hits for the small (non-formation) deposits: quarry face and east expansion rocks.
 func required_hits() -> int:
-	return 2 if upgrades["reinforced_pickaxe"] else 4
+	return 2 if upgrades["reinforced_pickaxe"] or tool_tier >= 2 else 4
 
 func strike_interval() -> float:
 	return 0.33 if upgrades["faster_mining"] else 0.58
 
-func process_seconds() -> float:
-	return float(config["crusher_seconds"]) * (0.55 if upgrades["efficient_crusher"] else 1.0)
+func process_seconds(index := -1) -> float:
+	var t := float(config["crusher_seconds"]) * (0.55 if upgrades["efficient_crusher"] else 1.0)
+	if index >= 0 and index < crushers.size() and int(crushers[index].get("tier", 1)) >= 2:
+		t *= float(config.get("advanced_speed_mult", 0.45))
+	return t
+
+## Input batch limit; the advanced crusher takes twice as much per run.
+func input_limit(index: int) -> int:
+	var n := int(config["crusher_input_limit"])
+	if index >= 0 and index < crushers.size() and int(crushers[index].get("tier", 1)) >= 2:
+		n *= int(config.get("advanced_capacity_mult", 2))
+	return n
 
 func load_crusher(index: int, amount: int) -> int:
 	if index < 0 or index >= crushers.size():
 		return 0
 	var crusher: Dictionary = crushers[index]
-	var taken: int = mini(mini(amount, int(inventory["limestone"])), int(config["crusher_input_limit"]) - int(crusher["input"]))
+	var taken: int = mini(mini(amount, int(inventory["limestone"])), input_limit(index) - int(crusher["input"]))
 	if taken <= 0:
 		return 0
 	inventory["limestone"] -= taken
@@ -107,7 +132,9 @@ func start_crusher(index: int, factor := 1.0, automated := false) -> bool:
 	if bool(crusher["running"]) or int(crusher["input"]) <= 0:
 		return false
 	crusher["running"] = true
-	crusher["remaining"] = process_seconds() * clampf(factor, 0.2, 1.0)
+	crusher["remaining"] = process_seconds(index) * clampf(factor, 0.2, 1.0)
+	crusher["batch"] = int(crusher["input"])
+	crusher["duration"] = float(crusher["remaining"])
 	crusher["automated"] = automated
 	return true
 
@@ -133,8 +160,8 @@ func collect_crusher(index: int) -> int:
 	crusher["output"] -= taken
 	return taken
 
-func new_crusher(pos: Vector3, yaw: float) -> void:
-	crushers.append({"position": [pos.x, pos.y, pos.z], "yaw": yaw, "input": 0, "output": 0, "running": false, "remaining": 0.0, "hopper": 0, "automated": false, "auto_done": 0})
+func new_crusher(pos: Vector3, yaw: float, tier := 1) -> void:
+	crushers.append({"position": [pos.x, pos.y, pos.z], "yaw": yaw, "input": 0, "output": 0, "running": false, "remaining": 0.0, "hopper": 0, "automated": false, "auto_done": 0, "tier": tier})
 
 # ------------------------------------------------------------------ Phase 4: sustainable deposits
 # Each deposit holds a visible stock of units. Breaking it yields pieces out of that stock; the stock
@@ -185,7 +212,7 @@ func regrow_deposits() -> Array:
 	var changed := []
 	for kind in deposits:
 		var d: Dictionary = deposits[kind]
-		if not d.has("resource") or bool(d.get("infinite", false)):
+		if not d.has("resource") or bool(d.get("infinite", false)) or bool(d.get("formation", false)):
 			continue
 		var res := str(d["resource"])
 		var cap := deposit_max(res)
@@ -214,7 +241,7 @@ func regrow_eta(kind: String) -> float:
 	return maxf(0.0, float(d["regrow_at"]) - clock_minutes)
 
 func snapshot() -> Dictionary:
-	return {"version": 2, "money": money, "inventory": inventory.duplicate(true), "storage": storage.duplicate(true), "upgrades": upgrades.duplicate(true), "clock_minutes": clock_minutes, "player_position": player_position.duplicate(), "player_yaw": player_yaw, "deposits": deposits.duplicate(true), "crushers": crushers.duplicate(true)}
+	return {"version": 2, "tool_tier": tool_tier, "earned": earned, "money": money, "inventory": inventory.duplicate(true), "storage": storage.duplicate(true), "upgrades": upgrades.duplicate(true), "clock_minutes": clock_minutes, "player_position": player_position.duplicate(), "player_yaw": player_yaw, "deposits": deposits.duplicate(true), "crushers": crushers.duplicate(true)}
 
 func restore(data: Dictionary) -> bool:
 	# Version 1 = Phase 1 saves; version 2 adds Phase 2 business data stored beside this snapshot.
@@ -231,6 +258,12 @@ func restore(data: Dictionary) -> bool:
 		storage[key] = maxi(0, int(data["storage"].get(key, 0)))
 	for key in UPGRADE_NAMES:
 		upgrades[key] = bool(data["upgrades"].get(key, false))
+	# Phase 5: Phase 1-4 players already swung a pickaxe; keep it (or the reinforced one) - never confiscate.
+	if data.has("tool_tier"):
+		tool_tier = clampi(int(data["tool_tier"]), 0, 4)
+	else:
+		tool_tier = 2 if upgrades["reinforced_pickaxe"] else 1
+	earned = maxi(0, int(data.get("earned", 0)))
 	clock_minutes = maxf(0.0, float(data["clock_minutes"]))
 	player_position = data["player_position"].duplicate()
 	player_yaw = float(data["player_yaw"])
@@ -242,4 +275,5 @@ func restore(data: Dictionary) -> bool:
 		crusher["running"] = bool(crusher.get("running", false))
 		crusher["remaining"] = maxf(0.0, float(crusher.get("remaining", 0.0)))
 		crusher["automated"] = bool(crusher.get("automated", false))
+		crusher["tier"] = clampi(int(crusher.get("tier", 1)), 1, 2)
 	return true

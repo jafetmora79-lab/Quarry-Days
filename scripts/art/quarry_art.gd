@@ -62,7 +62,7 @@ const M_RUSTED := VEIL + "Materials_Godot/Furniture/M_Furn_MetalRusted.tres"
 const M_RUBBER := VEIL + "Materials_Godot/Furniture/M_Furn_Rubber.tres"
 const M_WOOD := VEIL + "Materials_Godot/Furniture/M_Furn_WoodLight.tres"
 const M_GLASS := VEIL + "05_Vehicles/Shared_Materials/M_Veh_Glass_Dirty.tres"
-const ROCK_MAT := {"limestone": "RockLimestone", "coal": "RockCoal", "iron_ore": "RockIron", "crushed_stone": "RockLimestone"}
+const ROCK_MAT := {"limestone": "RockLimestone", "coal": "RockCoal", "iron_ore": "RockIron", "crushed_stone": "RockGravel", "copper_ore": "RockCopper", "gold_ore": "RockGold"}
 
 var game
 var root: Node3D
@@ -461,9 +461,9 @@ func _site_props() -> void:
 		if absf(wrapf(a, -PI, PI)) < 0.45:
 			continue
 		prop(P_ROCKS, Vector3(cos(a) * 25.5, 0, sin(a) * 25.5), a, 1.3)
-	for p in [Vector3(-12.0, 0, -6.0), Vector3(11.5, 0, -7.0), Vector3(-3.0, 0, -19.5)]:
+	for p in [Vector3(-16.0, 0, -2.5), Vector3(16.0, 0, -2.5), Vector3(-8.0, 0, -22.5)]:   # clear of the Phase 5 formations
 		prop(P_MOUND, p, p.x, 1.4)
-	prop(P_GRAVEL, Vector3(14.0, 0, -12.5), 0.0, 1.2)
+	prop(P_GRAVEL, Vector3(15.5, 0, -13.5), 0.0, 1.2)
 	for p in [Vector3(-24.0, 0, 12.0), Vector3(24.0, 0, -6.0), Vector3(-6.0, 0, 25.5), Vector3(18.0, 0, -18.0), Vector3(-18.0, 0, -18.0)]:
 		prop(P_WEEDS if int(p.x) % 2 == 0 else P_DEAD, p, p.z)
 	for p in [Vector3(46.0, 0, -10.0), Vector3(31.0, 0, 11.0), Vector3(47.0, 0, 11.0)]:

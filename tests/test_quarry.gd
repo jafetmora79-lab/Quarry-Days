@@ -41,28 +41,33 @@ func run_tests() -> void:
 	var game = packed.instantiate()
 	root.add_child(game)
 	await process_frame
-	check(game.player != null and game.deposit_nodes.size()==4,"project boots with player, three deposits and the hand-mining quarry face")
+	check(game.player != null and game.deposit_nodes.size()==4,"project boots with player, three formations and the hand-mining quarry face")
 	check(not game.placement_valid(Vector3(-7,0,10),0) and game.placement_valid(Vector3(4,0,9),0),"placement rejects selling station and permits clear ground")
-	for n in range(game.state.required_hits()):
-		game._strike("limestone")
-	# Phase 4: a break takes 4 units out of the deposit's visible stock instead of making it vanish.
-	check(game.ground_pieces.size()==4 and int(game.state.deposits["limestone"]["stock"])==20 and not game.state.deposits["limestone"]["broken"],"mining yields four collectible pieces from the deposit stock")
+	# Phase 5: the starting rocks are enormous formations. Player mining goes straight into the bag;
+	# staff mining drops loose pieces beside the column. Both draw from the same column units.
+	var stone_max: int = game.prog.max_units("stone_mountain")
+	var got: int = game.player_mine("stone_mountain", -1, 30.0)
+	check(got == 3 and game.state.inventory["limestone"] == 3 and game.prog.units_left("stone_mountain") == stone_max - 3, "mining a formation puts 3 stone in the bag and takes 3 from its stock")
+	game.worker_strike("stone_mountain", 1, 0, null)
+	var dropped: int = game.ground_pieces.size()
+	check(dropped >= 1 and game.prog.units_left("stone_mountain") == stone_max - 3 - dropped, "staff strikes drop exactly the units removed as loose pieces")
 	var first_id: String = game.ground_pieces.keys()[0]
 	game._interact(game.ground_pieces[first_id])
-	check(game.state.inventory["limestone"]==1 and game.ground_pieces.size()==3,"E pickup removes one world piece")
+	check(game.state.inventory["limestone"] == 4 and game.ground_pieces.size() == dropped - 1, "E pickup removes one world piece")
 	game.state.clock_minutes += 110
 	game._physics_process(0.01)
-	check(int(game.state.deposits["limestone"]["stock"])==24 and game.ground_pieces.size()==3,"deposit regrows to full without deleting uncollected pieces")
+	check(game.prog.units_left("stone_mountain") == stone_max - 3 - dropped and game.ground_pieces.size() == dropped - 1, "formations never regrow and loose pieces stay")
 	game.state.new_crusher(Vector3(4,0,9),0)
 	game._create_crusher(0)
+	var money_saved: int = game.state.money
 	game._save()
 	game.state.money=9999
 	game.state.inventory["limestone"]=99
 	game._load()
 	await process_frame
-	check(game.state.money==100 and game.state.inventory["limestone"]==1 and game.crusher_nodes.size()==1 and game.ground_pieces.size()==3,"disk save restores machine and pickups without duplication")
+	check(game.state.money==money_saved and game.state.inventory["limestone"]==4 and game.crusher_nodes.size()==1 and game.ground_pieces.size()==dropped - 1 and game.prog.units_left("stone_mountain") == stone_max - 3 - dropped, "disk save restores machine, pickups and formation stock without duplication")
 	game._load()
 	await process_frame
-	check(game.crusher_nodes.size()==1 and game.ground_pieces.size()==3,"repeated load stays idempotent")
+	check(game.crusher_nodes.size()==1 and game.ground_pieces.size()==dropped - 1,"repeated load stays idempotent")
 	print("RESULT: %d checks, %d failures" % [checks,failures.size()])
 	quit(0 if failures.is_empty() else 1)

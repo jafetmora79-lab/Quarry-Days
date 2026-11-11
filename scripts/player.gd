@@ -4,8 +4,11 @@ class_name QuarryPlayer
 var camera: Camera3D
 var pitch := 0.0
 var locked := false
-var pickaxe: Node3D
-var swing := 0.0
+var tool_view: QuarryToolView
+var pickaxe: Node3D # kept for older callers: the tool view node
+var shake := 0.0
+var kick := 0.0
+var _shake_t := 0.0
 
 func _ready() -> void:
 	var collider := CollisionShape3D.new()
@@ -18,47 +21,40 @@ func _ready() -> void:
 	camera = Camera3D.new()
 	camera.position.y = 1.58
 	camera.current = true
+	camera.fov = 72.0
 	add_child(camera)
-	pickaxe = Node3D.new()
-	pickaxe.position = Vector3(0.36, -0.34, -0.72)
-	camera.add_child(pickaxe)
-	var handle := MeshInstance3D.new()
-	var cylinder := CylinderMesh.new()
-	cylinder.top_radius = 0.026
-	cylinder.bottom_radius = 0.035
-	cylinder.height = 0.53
-	handle.mesh = cylinder
-	handle.rotation.z = 0.3
-	handle.material_override = _material(Color(0.23, 0.14, 0.09))
-	pickaxe.add_child(handle)
-	var head := MeshInstance3D.new()
-	var box := BoxMesh.new()
-	box.size = Vector3(0.32, 0.075, 0.075)
-	head.mesh = box
-	head.position.y = 0.26
-	head.material_override = _material(Color(0.33, 0.35, 0.36))
-	pickaxe.add_child(head)
+	tool_view = QuarryToolView.new()
+	camera.add_child(tool_view)
+	pickaxe = tool_view
+	floor_snap_length = 0.35
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-
-func _material(color: Color) -> StandardMaterial3D:
-	var m := StandardMaterial3D.new()
-	m.albedo_color = color
-	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-	return m
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not locked:
 		rotate_y(-event.relative.x * 0.0024)
 		pitch = clampf(pitch - event.relative.y * 0.0024, -1.42, 1.42)
-		camera.rotation.x = pitch
 
+## Legacy: a swing with no gameplay effect (empty air, depleted rock).
 func swing_pickaxe() -> void:
-	swing = 1.0
+	if tool_view and not tool_view.is_busy() and tool_view.tier < 3:
+		tool_view.swing(0.45, Callable())
+
+## Subtle camera feedback on impact: a tiny upward kick and a short, damped shake.
+func impact_feedback(strength := 1.0) -> void:
+	kick = minf(0.022, kick + 0.012 * strength)
+	shake = minf(0.03, shake + 0.012 * strength)
+
+func _process(delta: float) -> void:
+	_shake_t += delta
+	kick = move_toward(kick, 0.0, delta * 0.12)
+	shake = move_toward(shake, 0.0, delta * 0.16)
+	camera.rotation.x = pitch + kick
+	camera.h_offset = sin(_shake_t * 63.0) * shake * 0.6
+	camera.v_offset = cos(_shake_t * 71.0) * shake * 0.5
+	if tool_view:
+		tool_view.moving = clampf(Vector2(velocity.x, velocity.z).length() / 4.2, 0.0, 1.5) if is_on_floor() else 0.0
 
 func _physics_process(delta: float) -> void:
-	if swing > 0.0:
-		swing = maxf(0.0, swing - delta * 3.8)
-		pickaxe.rotation.x = -sin(swing * PI) * 0.9
 	if locked:
 		velocity.x = move_toward(velocity.x, 0, delta * 20)
 		velocity.z = move_toward(velocity.z, 0, delta * 20)

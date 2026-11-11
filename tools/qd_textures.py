@@ -345,6 +345,30 @@ texture_filter = 4
     return png
 
 
+def phase5(stone, conc, soil, ink, tar, metal, rust):
+    """Phase 5 deep-layer rock: copper-stained greenstone, gold-bearing quartz, crushed gravel, deep wall."""
+    moss, lichen, ochre, yel = ramp("moss"), ramp("lichen"), ramp("motif_ochre"), ramp("road_yellow")
+    save("T_QD_RockCopper", strata(128, [ink[0], tar[1], moss[0], tar[2], moss[1], lichen[1]], 15, seams=(ink, 0), veins=(lichen, 2, 18)))
+    save("T_QD_RockGold", strata(128, [ink[1], conc[1], tar[2], conc[2], conc[3], conc[4]], 16, seams=(ink, 0), veins=(yel, len(yel) - 2, 16)))
+    save("T_QD_RockGravel", gravel(64, conc, 17, base=4, dust=(stone, 3)))
+    ink_c = ink[0]
+    for stage, (count, length) in enumerate([(3, 14), (6, 22), (10, 30)], start=1):
+        a = np.zeros((64, 64, 4), np.uint8)
+        r = np.random.default_rng(40 + stage)
+        for k in range(count):
+            x, y = float(r.integers(8, 56)), float(r.integers(8, 56))
+            ang = r.uniform(0, 6.283)
+            for step in range(length):
+                ang += r.uniform(-0.6, 0.6)
+                x, y = (x + np.cos(ang)) % 64, (y + np.sin(ang)) % 64
+                a[int(y), int(x)] = (*ink_c, 235)
+                hy, hx = (int(y) + 1) % 64, (int(x) + 1) % 64
+                if a[hy, hx, 3] == 0:
+                    a[hy, hx] = (*conc[5], 150)
+        save("T_QD_Crack%d" % stage, a, tiling=False)
+    save("T_QD_RockDeep", strata(128, [ink[1], tar[1], soil[1], tar[2], soil[2], conc[2]], 18, seams=(ink, 0), drill=4))
+
+
 def main():
     stone, conc, soil, mud = ramp("stone_warm"), ramp("concrete"), ramp("soil"), ramp("mud")
     rust, metal, rubber, ink, tar = ramp("rust"), ramp("metal"), ramp("rubber"), ramp("ink"), ramp("tar")
@@ -365,6 +389,7 @@ def main():
     save("T_QD_PaintOrange", painted(64, orange, 43, base=2, chips=(metal, 2), grime=(soil, 1)), rough=0.75, metal_spec=0.35)
     save("T_QD_SteelPlate", painted(64, metal, 44, base=2, chips=(rust, 2), grime=(rust, 1), bolts=(metal, 3)), rough=0.6, metal_spec=0.5)
     save("T_QD_SteelGreen", painted(64, green, 45, base=1, chips=(metal, 2), grime=(soil, 1), bolts=(metal, 3)), rough=0.7, metal_spec=0.4)
+    phase5(stone, conc, soil, ink, tar, metal, rust)
     save("T_QD_Tire", tread(64, 64, rubber), rough=1.0, metal_spec=0.1)
     save("T_QD_Belt", belt(32, 32, rubber, metal), rough=1.0, metal_spec=0.1)
     save("T_QD_Hazard", hazard(32, yel, ink), rough=0.8)

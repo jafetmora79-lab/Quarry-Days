@@ -7,7 +7,7 @@ class_name QuarryWorker
 
 enum { MOVING, ARRIVED, BLOCKED }
 
-const RESOURCE_COLORS := {"limestone": Color(0.67, 0.66, 0.56), "coal": Color(0.17, 0.19, 0.21), "iron_ore": Color(0.52, 0.29, 0.23), "crushed_stone": Color(0.75, 0.73, 0.66)}
+const RESOURCE_COLORS := {"limestone": Color(0.67, 0.66, 0.56), "coal": Color(0.17, 0.19, 0.21), "iron_ore": Color(0.52, 0.29, 0.23), "crushed_stone": Color(0.75, 0.73, 0.66), "copper_ore": Color(0.36, 0.52, 0.42), "gold_ore": Color(0.78, 0.62, 0.24)}
 
 var game
 var business: QuarryBusiness
@@ -44,6 +44,8 @@ var timer := 0.0
 var target_piece: Node3D
 var piece_timer := 0.0
 var skip_pieces := {}
+var mine_dep := ""
+var mine_col := -1
 
 func setup(main_node, biz: QuarryBusiness, record: Dictionary) -> void:
 	game = main_node
@@ -363,7 +365,14 @@ func _collect_pieces(res: String, delta: float) -> bool:
 	e["task"] = "Collecting loose " + res.replace("_", " ")
 	var dist := _flat(global_position, target_piece.global_position)
 	if dist > 2.6:
-		var r := goto_workplace({"type": "deposit_site", "id": dep_id}, delta)
+		var r := travel(target_piece.global_position, "piece_" + str(target_piece.get_meta("piece_id")), delta, 1.6)
+		if r == BLOCKED:
+			if not game.is_formation(dep_id):
+				r = goto_workplace({"type": "deposit_site", "id": dep_id}, delta)
+			if r == BLOCKED:
+				skip_pieces[target_piece.get_meta("piece_id")] = true
+				target_piece = null
+				return true
 		if r != ARRIVED:
 			return true
 	# Close in directly (the rock it came from is gone; collisions still apply).
@@ -432,7 +441,17 @@ func _miner(delta: float) -> void:
 		else:
 			_wait(delta, "Waiting for %s to regrow" % res.replace("_", " "))
 		return
-	var r := goto_workplace({"type": "deposit_site", "id": dep}, delta)
+	var ep := {"type": "deposit_site", "id": dep}
+	if game.is_formation(dep):
+		# Stay on one exposed column until it is gone, so the miner keeps working one face.
+		if mine_dep != dep or mine_col < 0 or game.prog.column_units(dep, mine_col) <= 0 or not game.prog.column_exposed(dep, mine_col):
+			mine_dep = dep
+			mine_col = game.formation_column(dep, global_position)
+		if mine_col < 0:
+			_wait(delta, "Waiting: no exposed %s face" % res.replace("_", " "))
+			return
+		ep["col"] = mine_col
+	var r := goto_workplace(ep, delta)
 	if r == MOVING:
 		e["task"] = "Walking to " + res.replace("_", " ") + " deposit"
 	elif r == ARRIVED:
@@ -504,7 +523,7 @@ func _operator(delta: float) -> void:
 	if r != ARRIVED:
 		return
 	var c: Dictionary = game.state.crushers[index]
-	var limit := int(game.state.config["crusher_input_limit"])
+	var limit: int = game.state.input_limit(index)
 	var outlet: int = business.crusher_outputs[index] if index < business.crusher_outputs.size() else -1
 	if int(c["output"]) > 0 and outlet >= 0 and business.ep_space({"type": "output", "index": outlet}, "crushed_stone") > 0 and phase in ["", "collect"]:
 		e["task"] = "Collecting crushed stone"

@@ -1,0 +1,591 @@
+extends RefCounted
+class_name QuarryProgression
+## Phase 5 progression rules (pure logic, no nodes - testable headless):
+##  * tool tiers and mining damage (data/progression.json "tools", "materials")
+##  * the finite rock formations: per-column unit counts stored in state.deposits[id]["columns"]
+##  * business stages that gate equipment, lifetime earnings, the deep-excavation permit
+##  * stationary rigs (drilling rig / rock breaker) extracting from the same formation columns
+##  * story flags and lifetime mining statistics
+## Every unit taken from a formation leaves its column exactly once (extract()), so the player, staff and
+## machines can never create or duplicate material.
+
+signal stage_reached(index: int)
+signal formation_cleared(id: String)
+
+const MIN_PER_SECOND := 0.5 # in-game minutes per real second (48-minute day)
+
+var state: QuarryState
+var business # QuarryBusiness (untyped: avoids a cyclic class dependency in tests)
+var cfg: Dictionary
+var stage := 0
+var level_unlocked := 1
+var rigs: Array = []
+var next_rig_id := 1
+var story := {"intro_seen": false, "found": {}, "read": {}}
+var stats := {"hand": 0, "crew": 0, "rigs": 0, "chunks": 0, "best_tool": 0}
+
+func _init(s: QuarryState, biz, settings: Dictionary) -> void:
+	state = s
+	business = biz
+	cfg = settings
+
+# ------------------------------------------------------------------ names, materials, tools
+
+func display(res: String) -> String:
+	return str(cfg.get("display_names", {}).get(res, res.replace("_", " ").capitalize()))
+
+func material(res: String) -> Dictionary:
+	return cfg.get("materials", {}).get(res, {"hp": 10, "hardness": 1})
+
+func tools() -> Array:
+	return cfg.get("tools", [])
+
+func tool(tier := -1) -> Dictionary:
+	var t := state.tool_tier if tier < 0 else tier
+	return tools()[clampi(t, 0, tools().size() - 1)]
+
+func next_tool() -> Dictionary:
+	return tools()[state.tool_tier + 1] if state.tool_tier + 1 < tools().size() else {}
+
+func speed_mult() -> float:
+	return 1.25 if state.upgrades.get("faster_mining", false) else 1.0
+
+func is_continuous(tier := -1) -> bool:
+	return bool(tool(tier).get("continuous", false))
+
+## Damage per swing (swing tools) - power tools use tool_dps().
+func tool_power(tier := -1) -> float:
+	var t := tool(tier)
+	return float(t.get("power", float(t.get("dps", 10.0)) * 0.25))
+
+func tool_interval(tier := -1) -> float:
+	return float(tool(tier).get("interval", 0.25)) / speed_mult()
+
+func tool_dps(tier := -1) -> float:
+	var t := tool(tier)
+	if t.has("dps"):
+		return float(t["dps"]) * speed_mult()
+	return tool_power(tier) / tool_interval(tier)
+
+func can_mine(res: String, tier := -1) -> bool:
+	return int(material(res).get("hardness", 1)) <= int(tool(tier).get("max_hardness", 1))
+
+## Lowest tool that can work a material (for "too hard" hints).
+func tool_for(res: String) -> Dictionary:
+	for t in tools():
+		if int(material(res).get("hardness", 1)) <= int(t.get("max_hardness", 1)):
+			return t
+	return tools().back()
+
+func buy_next_tool() -> bool:
+	var t := next_tool()
+	if t.is_empty() or state.money < int(t["cost"]):
+		return false
+	state.money -= int(t["cost"])
+	state.tool_tier += 1
+	stats["best_tool"] = maxi(int(stats["best_tool"]), state.tool_tier)
+	check_stages()
+	return true
+
+## How much faster the next tool mines than the current one ("MINING POWER +40%").
+func tool_gain_percent(from_tier: int, to_tier: int) -> int:
+	return int(round((tool_dps(to_tier) / maxf(0.01, tool_dps(from_tier)) - 1.0) * 100.0))
+
+## Staff miners carry company tools: they can work whatever the best owned tool can.
+func crew_damage(hits_stat: float, yield_stat: float) -> float:
+	var w: Dictionary = cfg.get("worker_tool", {})
+	var base := float(w.get("damage", 9.0)) * (1.0 + float(w.get("power_per_tier", 0.35)) * maxf(0.0, float(state.tool_tier) - 1.0))
+	return base * (4.0 / maxf(1.0, hits_stat)) * (1.0 + 0.25 * yield_stat)
+
+# ------------------------------------------------------------------ formations
+
+func fdef(id: String) -> Dictionary:
+	return cfg.get("formations", {}).get(id, {})
+
+func formation_ids() -> Array:
+	return cfg.get("formations", {}).keys()
+
+func is_formation(id: String) -> bool:
+	return cfg.get("formations", {}).has(id)
+
+func formation_active(id: String) -> bool:
+	return is_formation(id) and int(fdef(id).get("level", 1)) <= level_unlocked
+
+func dims(id: String) -> Vector2i:
+	var tiers: Array = fdef(id)["tiers"]
+	return Vector2i(tiers[0].size(), tiers.size()) # x = columns, y = rows
+
+func column_count(id: String) -> int:
+	var d := dims(id)
+	return d.x * d.y
+
+func column_tiers(id: String, i: int) -> int:
+	var d := dims(id)
+	return int(fdef(id)["tiers"][i / d.x][i % d.x])
+
+func column_max(id: String, i: int) -> int:
+	return column_tiers(id, i) * int(fdef(id)["chunk_units"])
+
+func max_units(id: String) -> int:
+	var n := 0
+	for i in range(column_count(id)):
+		n += column_max(id, i)
+	return n
+
+## Column centre at ground level (world space).
+func column_pos(id: String, i: int) -> Vector3:
+	var f := fdef(id)
+	var d := dims(id)
+	var c: Array = f["center"]
+	var cell := float(f["cell"])
+	return Vector3(float(c[0]) + (float(i % d.x) - (d.x - 1) * 0.5) * cell, float(c[1]), float(c[2]) + (float(i / d.x) - (d.y - 1) * 0.5) * cell)
+
+## Creates or migrates a formation record. Saves that already hold its columns keep them exactly.
+func init_formation(id: String) -> Dictionary:
+	var d: Dictionary = state.deposits.get(id, {})
+	var n := column_count(id)
+	var cols: Array = d.get("columns", [])
+	if cols.size() != n:
+		cols = []
+		for i in range(n):
+			cols.append(column_max(id, i))
+	for i in range(n):
+		cols[i] = clampi(int(cols[i]), 0, column_max(id, i))
+	d["columns"] = cols
+	d["formation"] = true
+	d["resource"] = str(fdef(id)["resource"])
+	d["infinite"] = false
+	d["hits"] = int(d.get("hits", 0))
+	d["generation"] = int(d.get("generation", 0))
+	d["progress"] = maxf(0.0, float(d.get("progress", 0.0)))
+	d["regrow_at"] = -1.0
+	_sync_stock(d)
+	d["cleared"] = bool(d.get("cleared", false)) or int(d["stock"]) <= 0
+	state.deposits[id] = d
+	return d
+
+func _sync_stock(d: Dictionary) -> void:
+	var s := 0
+	for v in d["columns"]:
+		s += int(v)
+	d["stock"] = s
+	d["broken"] = s <= 0
+
+func units_left(id: String) -> int:
+	return int(state.deposits.get(id, {}).get("stock", 0))
+
+func column_units(id: String, i: int) -> int:
+	return int(state.deposits[id]["columns"][i])
+
+func chunks_left(id: String, i: int) -> int:
+	return int(ceil(float(column_units(id, i)) / float(fdef(id)["chunk_units"])))
+
+## Exposed = on the formation's edge or next to an emptied column (reachable from the floor).
+func column_exposed(id: String, i: int) -> bool:
+	var d := dims(id)
+	var x := i % d.x
+	var y := i / d.x
+	for o in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var nx: int = x + o.x
+		var ny: int = y + o.y
+		if nx < 0 or ny < 0 or nx >= d.x or ny >= d.y or column_units(id, ny * d.x + nx) <= 0:
+			return true
+	return false
+
+## Outward direction from column i toward open floor (for worker standing spots).
+func column_open_dir(id: String, i: int, from: Vector3) -> Vector3:
+	var d := dims(id)
+	var x := i % d.x
+	var y := i / d.x
+	var best := Vector3.ZERO
+	var best_d := INF
+	for o in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var nx: int = x + o.x
+		var ny: int = y + o.y
+		if nx < 0 or ny < 0 or nx >= d.x or ny >= d.y or column_units(id, ny * d.x + nx) <= 0:
+			var dir := Vector3(o.x, 0, o.y)
+			var dist := (column_pos(id, i) + dir * 2.0).distance_squared_to(from)
+			if dist < best_d:
+				best_d = dist
+				best = dir
+	return best if best != Vector3.ZERO else Vector3.BACK
+
+func nearest_column(id: String, from: Vector3, exposed_only := true, max_dist := INF) -> int:
+	if not state.deposits.has(id):
+		return -1
+	var best := -1
+	var best_d := INF
+	for i in range(column_count(id)):
+		if column_units(id, i) <= 0 or (exposed_only and not column_exposed(id, i)):
+			continue
+		var p := column_pos(id, i)
+		var dd := Vector2(p.x, p.z).distance_to(Vector2(from.x, from.z))
+		if dd < best_d and dd <= max_dist:
+			best_d = dd
+			best = i
+	return best
+
+func cleared_fraction(ids: Array = []) -> float:
+	if ids.is_empty():
+		ids = cfg.get("starting_formations", [])
+	var total := 0
+	var left := 0
+	for id in ids:
+		if not state.deposits.has(id):
+			init_formation(id)
+		total += max_units(id)
+		left += units_left(id)
+	return 1.0 - float(left) / float(maxi(1, total))
+
+## Applies mining damage to one column. At most `limit` units leave the column (the caller has room for
+## them); damage beyond that is not banked. Returns {"units", "chunks", "column_emptied"}.
+func extract(id: String, col: int, damage: float, limit := 1 << 30, source := "hand") -> Dictionary:
+	var out := {"units": 0, "chunks": 0, "column_emptied": false}
+	if not state.deposits.has(id) or col < 0 or col >= column_count(id) or column_units(id, col) <= 0 or damage <= 0.0:
+		return out
+	var d: Dictionary = state.deposits[id]
+	var hp := float(material(str(d["resource"])).get("hp", 10))
+	d["progress"] = float(d["progress"]) + damage
+	var avail := mini(limit, column_units(id, col))
+	var n := mini(int(floor(float(d["progress"]) / hp)), maxi(0, avail))
+	d["progress"] = float(d["progress"]) - float(n) * hp
+	if n >= avail:
+		d["progress"] = minf(float(d["progress"]), hp * 0.999) # no room / column empty: damage is not banked
+	if n <= 0:
+		return out
+	var before := chunks_left(id, col)
+	d["columns"][col] = column_units(id, col) - n
+	d["mined"] = int(d.get("mined", 0)) + n
+	_sync_stock(d)
+	out["units"] = n
+	out["chunks"] = before - chunks_left(id, col)
+	out["column_emptied"] = column_units(id, col) <= 0
+	stats["chunks"] = int(stats["chunks"]) + int(out["chunks"])
+	stats[source] = int(stats.get(source, 0)) + n
+	if int(d["stock"]) <= 0 and not bool(d.get("cleared", false)):
+		d["cleared"] = true
+		formation_cleared.emit(id)
+	return out
+
+## Fraction (0..1) of the top chunk of a column already removed: drives crack decals.
+func top_chunk_damage(id: String, col: int) -> float:
+	var cu := int(fdef(id)["chunk_units"])
+	var u := column_units(id, col)
+	if u <= 0:
+		return 0.0
+	var rem := u % cu
+	var hp := float(material(str(state.deposits[id]["resource"])).get("hp", 10))
+	var dmg := float(cu - rem) if rem > 0 else 0.0
+	return clampf((dmg + float(state.deposits[id].get("progress", 0.0)) / hp) / float(cu), 0.0, 1.0)
+
+# ------------------------------------------------------------------ stages
+
+func stages() -> Array:
+	return cfg.get("stages", [])
+
+func stage_info(i := -1) -> Dictionary:
+	return stages()[clampi(stage if i < 0 else i, 0, stages().size() - 1)]
+
+## [label, current, target] for each requirement of stage i.
+func requirement_progress(i: int) -> Array:
+	var out := []
+	var req: Dictionary = stage_info(i).get("req", {})
+	for k in req:
+		var target = req[k]
+		match k:
+			"earned": out.append(["Earn $%d total" % int(target), float(state.earned), float(target)])
+			"tool": out.append(["Own the %s" % str(tool(int(target))["title"]), float(state.tool_tier), float(target)])
+			"employees": out.append(["Hire %d worker" % int(target), float(business.employees.size() if business else 0), float(target)])
+			"crushers": out.append(["Own %d crusher" % int(target), float(state.crushers.size()), float(target)])
+			"cleared": out.append(["Clear %d%% of the first deposits" % int(float(target) * 100.0), cleared_fraction(), float(target)])
+	return out
+
+func requirements_met(i: int) -> bool:
+	for r in requirement_progress(i):
+		if float(r[1]) < float(r[2]) - 0.00001:
+			return false
+	return true
+
+func check_stages() -> void:
+	while stage + 1 < stages().size() and requirements_met(stage + 1):
+		stage += 1
+		stage_reached.emit(stage)
+
+## Lowest stage consistent with what an older save already owns (nothing is ever taken away).
+func implied_stage(vehicle_types: Array = []) -> int:
+	var s := 0
+	if state.tool_tier >= 1:
+		s = 1
+	if business and (business.employees.size() > 0 or business.milestones.get("first_employee", false)):
+		s = maxi(s, 2)
+	if state.crushers.size() > 0 or (business and (business.outputs.size() > 0 or business.conveyors.size() > 0)) or vehicle_types.size() > 0:
+		s = maxi(s, 3)
+	if "truck" in vehicle_types or (business and business.milestones.get("automated", false)) or rigs.size() > 0:
+		s = maxi(s, 4)
+	if level_unlocked >= 2:
+		s = maxi(s, 5)
+	return s
+
+func stage_id() -> String:
+	return str(stage_info()["id"])
+
+func stage_index(id: String) -> int:
+	for i in range(stages().size()):
+		if str(stages()[i]["id"]) == id:
+			return i
+	return 0
+
+## Equipment / feature gates by stage id.
+func unlocked(feature: String) -> bool:
+	match feature:
+		"hire": return stage >= stage_index("crew")
+		"crusher", "output", "loader": return stage >= stage_index("industry")
+		"truck": return stage >= stage_index("large")
+		"permit": return stage >= stage_index("deep")
+	if cfg.get("machines", {}).has(feature):
+		return stage >= int(cfg["machines"][feature].get("stage", 0))
+	return true
+
+func feature_stage_title(feature: String) -> String:
+	match feature:
+		"hire": return str(stage_info(stage_index("crew"))["title"])
+		"crusher", "output", "loader": return str(stage_info(stage_index("industry"))["title"])
+		"truck": return str(stage_info(stage_index("large"))["title"])
+		"permit": return str(stage_info(stage_index("deep"))["title"])
+	if cfg.get("machines", {}).has(feature):
+		return str(stage_info(int(cfg["machines"][feature].get("stage", 0)))["title"])
+	return ""
+
+# ------------------------------------------------------------------ deep excavation
+
+func permit_cost() -> int:
+	return int(cfg.get("excavation", {}).get("permit_cost", 5000))
+
+func permit_block_reason() -> String:
+	if level_unlocked >= 2:
+		return "The lower level is already open"
+	if not unlocked("permit"):
+		return "Reach the %s stage first" % feature_stage_title("permit")
+	if state.money < permit_cost():
+		return "Need $%d" % permit_cost()
+	return ""
+
+func buy_permit() -> bool:
+	if permit_block_reason() != "":
+		return false
+	state.money -= permit_cost()
+	level_unlocked = 2
+	return true
+
+# ------------------------------------------------------------------ rigs (stationary machines)
+
+func machine(type: String) -> Dictionary:
+	return cfg.get("machines", {}).get(type, {})
+
+func pad(formation: String, p: int) -> Dictionary:
+	var pads: Array = fdef(formation).get("pads", [])
+	if p < 0 or p >= pads.size():
+		return {}
+	var a: Array = pads[p]
+	return {"pos": Vector3(float(a[0]), float(a[1]), float(a[2])), "yaw": float(a[3])}
+
+func pad_taken(formation: String, p: int) -> bool:
+	for r in rigs:
+		if str(r["formation"]) == formation and int(r["pad"]) == p:
+			return true
+	return false
+
+func free_pad(formation: String) -> int:
+	for p in range(fdef(formation).get("pads", []).size()):
+		if not pad_taken(formation, p):
+			return p
+	return -1
+
+func rig_block_reason(type: String, formation: String) -> String:
+	var m := machine(type)
+	if m.is_empty() or type == "advanced_crusher":
+		return "Unknown machine"
+	if not unlocked(type):
+		return "Unlocks at the %s stage" % feature_stage_title(type)
+	if not formation_active(formation):
+		return "That formation is not reachable yet"
+	if units_left(formation) <= 0:
+		return "That formation is cleared"
+	if int(material(str(fdef(formation)["resource"]))["hardness"]) > int(m["max_hardness"]):
+		return "%s is too hard for the %s" % [display(str(fdef(formation)["resource"])), str(m["title"])]
+	if free_pad(formation) < 0:
+		return "Every drilling pad at the %s is taken" % str(fdef(formation)["title"])
+	if state.money < int(m["price"]):
+		return "Need $%d" % int(m["price"])
+	return ""
+
+func buy_rig(type: String, formation: String) -> Dictionary:
+	if rig_block_reason(type, formation) != "":
+		return {}
+	state.money -= int(machine(type)["price"])
+	var r := {"id": next_rig_id, "type": type, "formation": formation, "pad": free_pad(formation), "level": 0, "on": true,
+		"bin": {}, "cost_acc": 0.0, "target": -1, "status": "Starting", "working": false}
+	next_rig_id += 1
+	rigs.append(r)
+	check_stages()
+	return r
+
+func rig_index(id: int) -> int:
+	for i in range(rigs.size()):
+		if int(rigs[i]["id"]) == id:
+			return i
+	return -1
+
+func rig_dps(r: Dictionary) -> float:
+	var m := machine(str(r["type"]))
+	var v := float(m.get("dps", 5.0))
+	var ups: Array = m.get("upgrades", [])
+	for k in range(mini(int(r["level"]), ups.size())):
+		v *= float(ups[k].get("mult", 1.0))
+	return v
+
+## Units per in-game hour at the current target (for the "clear production rate" readout).
+func rig_rate_per_hour(r: Dictionary) -> float:
+	var res := str(fdef(str(r["formation"])).get("resource", "limestone"))
+	return rig_dps(r) / float(material(res)["hp"]) * 60.0 / MIN_PER_SECOND
+
+func rig_bin_total(r: Dictionary) -> int:
+	var n := 0
+	for v in r["bin"].values():
+		n += int(v)
+	return n
+
+func rig_bin_cap(r: Dictionary) -> int:
+	return int(machine(str(r["type"])).get("bin", 40))
+
+func rig_upgrade_info(r: Dictionary) -> Dictionary:
+	var ups: Array = machine(str(r["type"])).get("upgrades", [])
+	return ups[int(r["level"])] if int(r["level"]) < ups.size() else {}
+
+func upgrade_rig(r: Dictionary) -> bool:
+	var u := rig_upgrade_info(r)
+	if u.is_empty() or state.money < int(u["cost"]):
+		return false
+	state.money -= int(u["cost"])
+	r["level"] = int(r["level"]) + 1
+	return true
+
+## Target column for a rig: the nearest column with rock within reach of its drill head.
+func rig_target(r: Dictionary) -> int:
+	var p := pad(str(r["formation"]), int(r["pad"]))
+	if p.is_empty():
+		return -1
+	return nearest_column(str(r["formation"]), p["pos"], false, float(machine(str(r["type"])).get("reach", 4.5)))
+
+## Runs every rig for `seconds` of real (unpaused) time. Returns extraction events for the visuals.
+func tick_rigs(seconds: float) -> Array:
+	var events := []
+	for r in rigs:
+		var m := machine(str(r["type"]))
+		r["working"] = false
+		if not bool(r["on"]):
+			r["status"] = "Switched off"
+			continue
+		var id := str(r["formation"])
+		var col := rig_target(r)
+		r["target"] = col
+		if col < 0:
+			r["status"] = "No rock in reach - formation cleared here"
+			continue
+		var space := rig_bin_cap(r) - rig_bin_total(r)
+		if space <= 0:
+			r["status"] = "Output bin full - collect it"
+			continue
+		r["cost_acc"] = float(r["cost_acc"]) + float(m.get("cost_per_min", 1.0)) * seconds * MIN_PER_SECOND
+		var due := int(floor(float(r["cost_acc"])))
+		if due > 0:
+			if state.money < due:
+				r["cost_acc"] = minf(float(r["cost_acc"]), float(due))
+				r["status"] = "No money for fuel and power"
+				continue
+			state.money -= due
+			r["cost_acc"] = float(r["cost_acc"]) - due
+			if business:
+				business.record("rig_costs", due)
+		r["working"] = true
+		r["status"] = "Drilling"
+		var ex := extract(id, col, rig_dps(r) * seconds, space, "rigs")
+		if int(ex["units"]) > 0:
+			var res := str(state.deposits[id]["resource"])
+			r["bin"][res] = int(r["bin"].get(res, 0)) + int(ex["units"])
+			events.append({"rig": r, "formation": id, "column": col, "units": int(ex["units"]), "chunks": int(ex["chunks"]), "emptied": bool(ex["column_emptied"])})
+	return events
+
+func rig_take(r: Dictionary, res: String, n: int) -> int:
+	var t := mini(n, int(r["bin"].get(res, 0)))
+	if t <= 0:
+		return 0
+	r["bin"][res] = int(r["bin"][res]) - t
+	if int(r["bin"][res]) <= 0:
+		r["bin"].erase(res)
+	return t
+
+func rig_resource(r: Dictionary) -> String:
+	return str(r["bin"].keys()[0]) if not r["bin"].is_empty() else str(fdef(str(r["formation"]))["resource"])
+
+# ------------------------------------------------------------------ story
+
+func discovery(id: String) -> Dictionary:
+	return cfg.get("story", {}).get("discoveries", {}).get(id, {})
+
+func mark_found(id: String) -> void:
+	story["found"][id] = true
+
+## Reading a discovery pays its reward exactly once (save/load safe).
+func read_discovery(id: String) -> int:
+	if not story["found"].get(id, false) or story["read"].get(id, false):
+		return 0
+	story["read"][id] = true
+	var reward := int(discovery(id).get("reward", 0))
+	state.add_income(reward, "discovery")
+	return reward
+
+# ------------------------------------------------------------------ save / load
+
+func snapshot() -> Dictionary:
+	return {"stage": stage, "level_unlocked": level_unlocked, "rigs": rigs.duplicate(true), "next_rig_id": next_rig_id,
+		"story": story.duplicate(true), "stats": stats.duplicate(true)}
+
+## Empty dictionary = Phase 1-4 save: stage derived from what is owned, never lower than earned.
+func restore(data: Dictionary, vehicle_types: Array = []) -> void:
+	level_unlocked = clampi(int(data.get("level_unlocked", 1)), 1, 2)
+	rigs = []
+	for raw in data.get("rigs", []):
+		if raw is Dictionary and not machine(str(raw.get("type", ""))).is_empty() and is_formation(str(raw.get("formation", ""))):
+			var r: Dictionary = raw.duplicate(true)
+			r["id"] = int(r.get("id", 0))
+			r["pad"] = int(r.get("pad", 0))
+			r["level"] = clampi(int(r.get("level", 0)), 0, machine(str(r["type"])).get("upgrades", []).size())
+			r["on"] = bool(r.get("on", true))
+			var bin := {}
+			for k in r.get("bin", {}):
+				if state.inventory.has(k) and int(r["bin"][k]) > 0:
+					bin[k] = int(r["bin"][k])
+			r["bin"] = bin
+			while rig_bin_total(r) > rig_bin_cap(r):
+				rig_take(r, rig_resource(r), rig_bin_total(r) - rig_bin_cap(r))
+			r["cost_acc"] = clampf(float(r.get("cost_acc", 0.0)), 0.0, 1.0)
+			r["target"] = -1
+			r["status"] = "Resuming"
+			r["working"] = false
+			rigs.append(r)
+	next_rig_id = int(data.get("next_rig_id", 1))
+	for r in rigs:
+		next_rig_id = maxi(next_rig_id, int(r["id"]) + 1)
+	var st = data.get("story", {})
+	story = {"intro_seen": bool(st.get("intro_seen", true)) if st is Dictionary else true, "found": {}, "read": {}}
+	if st is Dictionary:
+		for k in st.get("found", {}):
+			story["found"][str(k)] = true
+		for k in st.get("read", {}):
+			story["read"][str(k)] = true
+	var s = data.get("stats", {})
+	for k in stats:
+		stats[k] = maxi(0, int(s.get(k, 0))) if s is Dictionary else 0
+	stage = maxi(clampi(int(data.get("stage", 0)), 0, stages().size() - 1), implied_stage(vehicle_types))
+	check_stages()

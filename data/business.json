@@ -12,54 +12,208 @@
   "crusher_hopper_capacity": 24,
   "crusher_output_capacity": 24,
   "default_shifts": {
-    "miner": [360, 840],
-    "hauler": [420, 900],
-    "operator": [480, 960],
-    "clerk": [600, 1080]
+    "miner": [
+      360,
+      840
+    ],
+    "hauler": [
+      420,
+      900
+    ],
+    "operator": [
+      480,
+      960
+    ],
+    "clerk": [
+      600,
+      1080
+    ]
   },
   "professions": {
     "miner": {
-      "title": "Miner", "speed": 2.6, "carry": 4, "strike_interval": 1.1, "hits": 4, "yield": 0, "pickup_seconds": 0.6,
+      "title": "Miner",
+      "speed": 2.6,
+      "carry": 4,
+      "strike_interval": 1.1,
+      "hits": 4,
+      "yield": 0,
+      "pickup_seconds": 0.6,
       "upgrades": [
-        {"name": "Faster mining", "cost": 60, "stat": "strike_interval", "mult": 0.7},
-        {"name": "Improved tool", "cost": 110, "stat": "hits", "add": -1},
-        {"name": "Higher yield", "cost": 170, "stat": "yield", "add": 1}
+        {
+          "name": "Faster mining",
+          "cost": 60,
+          "stat": "strike_interval",
+          "mult": 0.7
+        },
+        {
+          "name": "Improved tool",
+          "cost": 110,
+          "stat": "hits",
+          "add": -1
+        },
+        {
+          "name": "Higher yield",
+          "cost": 170,
+          "stat": "yield",
+          "add": 1
+        }
       ]
     },
     "operator": {
-      "title": "Machine Operator", "speed": 2.4, "load_seconds": 0.9, "downtime": 5.0, "process_factor": 1.0,
+      "title": "Machine Operator",
+      "speed": 2.4,
+      "load_seconds": 0.9,
+      "downtime": 5.0,
+      "process_factor": 1.0,
       "upgrades": [
-        {"name": "Faster loading", "cost": 70, "stat": "load_seconds", "mult": 0.5},
-        {"name": "Reduced downtime", "cost": 110, "stat": "downtime", "mult": 0.35},
-        {"name": "Processing efficiency", "cost": 170, "stat": "process_factor", "mult": 0.8}
+        {
+          "name": "Faster loading",
+          "cost": 70,
+          "stat": "load_seconds",
+          "mult": 0.5
+        },
+        {
+          "name": "Reduced downtime",
+          "cost": 110,
+          "stat": "downtime",
+          "mult": 0.35
+        },
+        {
+          "name": "Processing efficiency",
+          "cost": 170,
+          "stat": "process_factor",
+          "mult": 0.8
+        }
       ]
     },
     "hauler": {
-      "title": "Hauler", "speed": 2.5, "carry": 5, "handle_seconds": 0.6,
+      "title": "Hauler",
+      "speed": 2.5,
+      "carry": 5,
+      "handle_seconds": 0.6,
       "upgrades": [
-        {"name": "Carrying capacity", "cost": 60, "stat": "carry", "add": 4},
-        {"name": "Faster movement", "cost": 100, "stat": "speed", "mult": 1.3},
-        {"name": "Delivery efficiency", "cost": 150, "stat": "handle_seconds", "mult": 0.4}
+        {
+          "name": "Carrying capacity",
+          "cost": 60,
+          "stat": "carry",
+          "add": 4
+        },
+        {
+          "name": "Faster movement",
+          "cost": 100,
+          "stat": "speed",
+          "mult": 1.3
+        },
+        {
+          "name": "Delivery efficiency",
+          "cost": 150,
+          "stat": "handle_seconds",
+          "mult": 0.4
+        }
       ]
     },
     "clerk": {
-      "title": "Sales Clerk", "speed": 2.3, "sell_interval": 10.0, "batch": 3, "price_mult": 1.0,
+      "title": "Sales Clerk",
+      "speed": 2.3,
+      "sell_interval": 10.0,
+      "batch": 3,
+      "price_mult": 1.0,
       "upgrades": [
-        {"name": "Faster selling", "cost": 50, "stat": "sell_interval", "mult": 0.6},
-        {"name": "Transaction capacity", "cost": 90, "stat": "batch", "add": 3},
-        {"name": "Price bonus", "cost": 150, "stat": "price_mult", "add": 0.06}
+        {
+          "name": "Faster selling",
+          "cost": 50,
+          "stat": "sell_interval",
+          "mult": 0.6
+        },
+        {
+          "name": "Transaction capacity",
+          "cost": 90,
+          "stat": "batch",
+          "add": 3
+        },
+        {
+          "name": "Price bonus",
+          "cost": 150,
+          "stat": "price_mult",
+          "add": 0.06
+        }
       ]
     }
   },
   "candidates": [
-    {"id": "rosa", "name": "Rosa Quintero", "profession": "miner", "skill": 1, "wage": 3.0, "hire_fee": 15},
-    {"id": "dmitri", "name": "Dmitri Holt", "profession": "miner", "skill": 2, "wage": 4.0, "hire_fee": 25},
-    {"id": "ines", "name": "Ines Varga", "profession": "miner", "skill": 3, "wage": 5.5, "hire_fee": 40},
-    {"id": "tomas", "name": "Tomas Reyes", "profession": "operator", "skill": 1, "wage": 4.0, "hire_fee": 20},
-    {"id": "hana", "name": "Hana Okafor", "profession": "operator", "skill": 2, "wage": 5.0, "hire_fee": 30},
-    {"id": "bram", "name": "Bram Keller", "profession": "hauler", "skill": 1, "wage": 3.0, "hire_fee": 15},
-    {"id": "lucia", "name": "Lucia Moreno", "profession": "hauler", "skill": 2, "wage": 4.0, "hire_fee": 25},
-    {"id": "petra", "name": "Petra Lind", "profession": "clerk", "skill": 1, "wage": 2.5, "hire_fee": 15},
-    {"id": "omar", "name": "Omar Saleh", "profession": "clerk", "skill": 2, "wage": 3.5, "hire_fee": 25}
-  ]
+    {
+      "id": "rosa",
+      "name": "Rosa Quintero",
+      "profession": "miner",
+      "skill": 1,
+      "wage": 3.0,
+      "hire_fee": 15
+    },
+    {
+      "id": "dmitri",
+      "name": "Dmitri Holt",
+      "profession": "miner",
+      "skill": 2,
+      "wage": 4.0,
+      "hire_fee": 25
+    },
+    {
+      "id": "ines",
+      "name": "Ines Varga",
+      "profession": "miner",
+      "skill": 3,
+      "wage": 5.5,
+      "hire_fee": 40
+    },
+    {
+      "id": "tomas",
+      "name": "Tomas Reyes",
+      "profession": "operator",
+      "skill": 1,
+      "wage": 4.0,
+      "hire_fee": 20
+    },
+    {
+      "id": "hana",
+      "name": "Hana Okafor",
+      "profession": "operator",
+      "skill": 2,
+      "wage": 5.0,
+      "hire_fee": 30
+    },
+    {
+      "id": "bram",
+      "name": "Bram Keller",
+      "profession": "hauler",
+      "skill": 1,
+      "wage": 3.0,
+      "hire_fee": 15
+    },
+    {
+      "id": "lucia",
+      "name": "Lucia Moreno",
+      "profession": "hauler",
+      "skill": 2,
+      "wage": 4.0,
+      "hire_fee": 25
+    },
+    {
+      "id": "petra",
+      "name": "Petra Lind",
+      "profession": "clerk",
+      "skill": 1,
+      "wage": 2.5,
+      "hire_fee": 15
+    },
+    {
+      "id": "omar",
+      "name": "Omar Saleh",
+      "profession": "clerk",
+      "skill": 2,
+      "wage": 3.5,
+      "hire_fee": 25
+    }
+  ],
+  "wage_scale": 6.0,
+  "hire_fee_scale": 5.0
 }

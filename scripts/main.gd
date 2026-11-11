@@ -8,9 +8,17 @@ const ManagementScript = preload("res://scripts/management_ui.gd")
 const FleetScript = preload("res://scripts/fleet.gd")
 const VehicleScript = preload("res://scripts/vehicle.gd")
 const ArtScript = preload("res://scripts/art/quarry_art.gd")
+const ProgressionScript = preload("res://scripts/progression.gd")
+const FormationScript = preload("res://scripts/formation.gd")
+const FXScript = preload("res://scripts/fx.gd")
+const HUDScript = preload("res://scripts/hud.gd")
 const SAVE_PATH := "user://quarry_save.json"
-const RESOURCE_ORDER := ["limestone", "coal", "iron_ore", "crushed_stone"]
-const DEPOSIT_INFO := {"limestone": {"pos": Vector3(-8, 0, -11), "color": Color(0.67, 0.66, 0.56), "pieces": 4, "resource": "limestone"}, "coal": {"pos": Vector3(0, 0, -15), "color": Color(0.17, 0.19, 0.21), "pieces": 3, "resource": "coal"}, "iron_ore": {"pos": Vector3(8, 0, -11), "color": Color(0.52, 0.29, 0.23), "pieces": 2, "resource": "iron_ore"}, "limestone_face": {"pos": Vector3(-12, 0, -18), "color": Color(0.70, 0.68, 0.58), "pieces": 2, "resource": "limestone", "infinite": true, "yaw": -0.65}}
+const RESOURCE_ORDER := ["limestone", "coal", "iron_ore", "crushed_stone", "copper_ore", "gold_ore"]
+# Phase 5: the three small starting rocks are replaced by enormous finite formations (data/progression.json).
+# The quarry face stays as the never-empty hand-mining fallback.
+const DEPOSIT_INFO := {"limestone_face": {"pos": Vector3(-12.6, 0, -17.6), "color": Color(0.70, 0.68, 0.58), "pieces": 2, "resource": "limestone", "infinite": true, "yaw": -0.65}}
+const UPGRADE_MENU := ["larger_backpack", "faster_mining", "hauling_harness", "efficient_crusher", "expanded_storage"]
+const LEGACY_DEPOSITS := {"limestone": "stone_mountain", "coal": "coal_mountain", "iron_ore": "iron_mountain"}
 # Phase 2 quarry expansion (east), unlocked by the Automated Business milestone. Same three minerals.
 const EXPANSION_DEPOSITS := {"limestone_east": {"pos": Vector3(36, 0, -6), "color": Color(0.67, 0.66, 0.56), "pieces": 4, "resource": "limestone"}, "coal_east": {"pos": Vector3(42, 0, 6), "color": Color(0.17, 0.19, 0.21), "pieces": 3, "resource": "coal"}, "iron_ore_east": {"pos": Vector3(44, 0, -5), "color": Color(0.52, 0.29, 0.23), "pieces": 2, "resource": "iron_ore"}, "limestone_east_2": {"pos": Vector3(35, 0, 6), "color": Color(0.67, 0.66, 0.56), "pieces": 4, "resource": "limestone"}}
 var state: QuarryState
@@ -72,6 +80,20 @@ var ghost_ok_mat: StandardMaterial3D
 var ghost_bad_mat: StandardMaterial3D
 var scripted_input := false
 var art: QuarryArt # Phase 4 visual layer (THE VEIL style); gameplay never depends on it # tests drive vehicles by setting QuarryVehicle.input directly
+# Phase 5
+var prog: QuarryProgression
+var fx: QuarryFX
+var hud: QuarryHUD
+var formation_nodes := {}
+var sfx := {}
+var power_audio: AudioStreamPlayer
+var power_feedback_t := 0.0
+var small_power_t := 0.0
+var too_hard_t := 0.0
+var bag_full_t := 0.0
+var hud_refresh_t := 0.0
+var discovery_nodes := {}
+var excavation: Node3D
 
 func _ready() -> void:
 	var cfg = JSON.parse_string(FileAccess.get_file_as_string("res://data/economy.json"))
@@ -81,6 +103,15 @@ func _ready() -> void:
 	business.milestone_reached.connect(_on_milestone)
 	var vcfg = JSON.parse_string(FileAccess.get_file_as_string("res://data/vehicles.json"))
 	fleet = FleetScript.new(business, vcfg)
+	var pcfg = JSON.parse_string(FileAccess.get_file_as_string("res://data/progression.json"))
+	prog = ProgressionScript.new(state, business, pcfg)
+	state.money = int(pcfg.get("new_game_money", state.money))
+	state.money_earned.connect(_on_income)
+	prog.stage_reached.connect(_on_stage)
+	prog.formation_cleared.connect(_on_formation_cleared)
+	fx = FXScript.new()
+	add_child(fx)
+	fx.game_audio_break = func(at: Vector3): _sfx_at("rock_break", at, -6.0)
 	world = Node3D.new()
 	world.name = "World"
 	add_child(world)
@@ -112,6 +143,14 @@ func _ready() -> void:
 	management.setup(self)
 	ui.add_child(management)
 	_rebake_nav()
+	for key in ["hit_hammer", "hit_pick", "hit_reinforced", "rock_break", "ui_pop", "coin", "unlock", "breaker_hit"]:
+		sfx[key] = _audio("res://audio/%s.wav" % key, -9.0)
+	power_audio = _audio("res://audio/drill_loop.wav", -14.0)
+	for key in ["drill_loop", "jackhammer_loop", "rig_loop"]:
+		var ls: AudioStreamWAV = load("res://audio/%s.wav" % key)
+		ls.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		ls.loop_end = ls.data.size() / 2
+	player.tool_view.equip(state.tool_tier, true)
 	hit_audio = _audio("res://audio/pick_hit.wav", -12)
 	pickup_audio = _audio("res://audio/pickup.wav", -15)
 	sell_audio = _audio("res://audio/sell.wav", -13)
@@ -119,6 +158,9 @@ func _ready() -> void:
 	var loop_stream: AudioStreamWAV = crusher_audio.stream
 	loop_stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
 	_update_light()
+	_refresh_stage_hud()
+	if not prog.story["intro_seen"]:
+		call_deferred("_show_intro")
 
 func _audio(path: String, volume: float) -> AudioStreamPlayer:
 	var audio := AudioStreamPlayer.new()
@@ -208,6 +250,9 @@ func _build_quarry() -> void:
 	machine_shop.set_meta("kind","shop")
 	for kind in DEPOSIT_INFO:
 		_build_deposit(kind)
+	for id in prog.formation_ids():
+		if prog.formation_active(id):
+			_build_formation(id)
 	_build_phase2_area()
 	_build_phase3_area()
 	var env := Environment.new()
@@ -241,7 +286,24 @@ func _building(label: String, pos: Vector3, color: Color) -> void:
 func _deposit_info(kind: String) -> Dictionary:
 	if DEPOSIT_INFO.has(kind):
 		return DEPOSIT_INFO[kind]
+	if prog and prog.is_formation(kind):
+		var c: Array = prog.fdef(kind)["center"]
+		return {"pos": Vector3(float(c[0]), float(c[1]), float(c[2])), "resource": str(prog.fdef(kind)["resource"]), "pieces": 0, "formation": true, "color": WorkerScript.RESOURCE_COLORS.get(str(prog.fdef(kind)["resource"]), Color.GRAY)}
 	return EXPANSION_DEPOSITS.get(kind, {})
+
+func is_formation(kind: String) -> bool:
+	return formation_nodes.has(kind)
+
+## Phase 5: one enormous chunked formation (see scripts/formation.gd).
+func _build_formation(id: String) -> void:
+	if formation_nodes.has(id):
+		return
+	prog.init_formation(id)
+	var node = FormationScript.new()
+	node.setup(self, prog, id)
+	world.add_child(node)
+	formation_nodes[id] = node
+	deposit_nodes[id] = node
 
 func _build_deposit(kind: String) -> void:
 	var info: Dictionary = _deposit_info(kind)
@@ -269,6 +331,9 @@ func _build_deposit(kind: String) -> void:
 func _refresh_deposit(kind: String) -> void:
 	if not deposit_nodes.has(kind):
 		return
+	if formation_nodes.has(kind):
+		formation_nodes[kind].refresh(true)
+		return
 	var info := _deposit_info(kind)
 	var d: Dictionary = state.ensure_deposit(kind, str(info["resource"]), bool(info.get("infinite", false)))
 	var body: StaticBody3D = deposit_nodes[kind]
@@ -294,6 +359,9 @@ func _spawn_pieces(kind: String, count: int) -> void:
 
 func _spawn_piece(kind: String, generation: int, i: int) -> void:
 	var info := _deposit_info(kind)
+	if bool(info.get("formation", false)):
+		_place_formation_piece(kind, generation, i)
+		return
 	var count: int = int(info["pieces"])
 	var center: Vector3 = info["pos"]
 	var angle := TAU * float(i)/float(count) + 0.3
@@ -317,8 +385,41 @@ func _spawn_piece(kind: String, generation: int, i: int) -> void:
 		art.dress_piece(body, str(info["resource"]), i + generation)
 	ground_pieces[str(body.get_meta("piece_id"))] = body
 
+func _place_formation_piece(kind: String, generation: int, i: int) -> void:
+	var col := posmod(generation, 100)
+	if col >= prog.column_count(kind):
+		col = 0
+	var cell := float(prog.fdef(kind)["cell"])
+	var base := prog.column_pos(kind, col)
+	var out := prog.column_open_dir(kind, col, player.global_position if player else base + Vector3(0, 0, 5))
+	var side := Vector3(out.z, 0, -out.x)
+	var h := float(abs(hash(str(generation) + "_" + str(i))) % 1000) / 1000.0
+	var p := base + out * (cell * 0.5 + 0.5 + 0.45 * float(i / 3) + h * 0.2) + side * ((float(i % 3) - 1.0) * 0.5 + (h - 0.5) * 0.2)
+	var body := _solid(world, "Loose " + kind, p + Vector3(0, 0.27, 0), Vector3(0.44, 0.46, 0.42), info_color(kind), h * TAU)
+	body.collision_layer = 2
+	body.set_meta("kind", "piece")
+	body.set_meta("resource", str(prog.fdef(kind)["resource"]))
+	body.set_meta("deposit", kind)
+	body.set_meta("piece_id", "%s_%d_%d" % [kind, generation, i])
+	if art:
+		art.dress_piece(body, str(prog.fdef(kind)["resource"]), i + generation)
+	ground_pieces[str(body.get_meta("piece_id"))] = body
+
+func info_color(kind: String) -> Color:
+	return _deposit_info(kind).get("color", Color.GRAY)
+
 func _strike(kind: String, hits_needed := -1, extra_pieces := 0, by_player := true) -> void:
+	if formation_nodes.has(kind):
+		# Phase 5 formations take damage, not hits (the old signature stays for staff and tests).
+		if by_player:
+			player_mine(kind, -1, prog.tool_power() if not prog.is_continuous() else prog.tool_dps() * 0.25)
+		else:
+			worker_strike(kind, maxi(1, hits_needed), extra_pieces, null)
+		return
 	var d: Dictionary = state.deposits[kind]
+	if by_player and not prog.can_mine(str(d["resource"])):
+		_too_hard(str(d["resource"]))
+		return
 	if bool(d["broken"]):
 		if by_player:
 			player.swing_pickaxe()
@@ -329,24 +430,202 @@ func _strike(kind: String, hits_needed := -1, extra_pieces := 0, by_player := tr
 	d["hits"] = int(d["hits"]) + 1
 	var need: int = state.required_hits() if hits_needed < 0 else maxi(1, hits_needed)
 	if by_player:
-		player.swing_pickaxe()
-		hit_audio.play()
+		_play_tool_hit()
+		player.impact_feedback(0.6)
 	elif player and player.global_position.distance_to(deposit_nodes[kind].global_position) < 16.0:
 		hit_audio.play()
+	if fx and deposit_nodes.has(kind):
+		fx.impact(deposit_nodes[kind].global_position + Vector3(0, 1.0, 0), str(d["resource"]), 0.6)
 	if int(d["hits"]) >= need:
 		d["hits"] = 0
 		d["generation"] = int(d.get("generation", 0)) + 1
 		var n := state.mine_yield(kind, int(_deposit_info(kind)["pieces"]) + maxi(0, extra_pieces))
-		_spawn_pieces(kind, n)
 		if by_player:
-			# Pieces you break are yours for a while; staff will not snatch them from under you.
-			for id in ground_pieces:
-				if str(id).begins_with(kind + "_" + str(d["generation"]) + "_"):
-					ground_pieces[id].set_meta("claim_until", state.clock_minutes + 15.0)
-			_notify("%s breaks into %d pieces! Pick them up with E. %s" % [str(_deposit_info(kind)["resource"]).capitalize(), n, _deposit_status(kind)])
+			# Phase 5: what you break goes straight into the bag; only an overflow drops as loose pieces.
+			var res := str(_deposit_info(kind)["resource"])
+			var put := state.add_item(res, n)
+			if put > 0:
+				_reward_popup(res, put)
+				prog.stats["hand"] = int(prog.stats["hand"]) + put
+			if n - put > 0:
+				for i in range(put, n):
+					_spawn_piece(kind, int(d["generation"]), i)
+				for id in ground_pieces:
+					if str(id).begins_with(kind + "_" + str(d["generation"]) + "_"):
+						ground_pieces[id].set_meta("claim_until", state.clock_minutes + 15.0)
+				_bag_full_notice()
+			fx.chunk_break(deposit_nodes[kind].global_position + Vector3(0, 0.9, 0), res)
+		else:
+			_spawn_pieces(kind, n)
 	elif by_player:
-		_notify("Crack! "+str(need-int(d["hits"]))+" strikes remaining")
+		hud.show_mining("%s  %d more strikes" % [prog.display(str(d["resource"])).to_upper(), need - int(d["hits"])], 1.0 - float(d["hits"]) / float(need))
 	_refresh_deposit(kind)
+
+# ------------------------------------------------------------------ Phase 5: player mining
+
+func _play_tool_hit() -> void:
+	var t := prog.tool()
+	var key := str(t.get("sound", "hit_pick"))
+	var a: AudioStreamPlayer = sfx.get(key, hit_audio)
+	a.pitch_scale = randf_range(0.93, 1.07)
+	a.play()
+
+func _sfx_at(key: String, at: Vector3, db := 0.0) -> void:
+	if not sfx.has(key):
+		return
+	var d := player.global_position.distance_to(at) if player else 0.0
+	if d > 30.0:
+		return
+	var a: AudioStreamPlayer = sfx[key]
+	a.volume_db = -9.0 + db - d * 0.4
+	a.pitch_scale = randf_range(0.92, 1.08)
+	a.play()
+
+func _reward_popup(res: String, n: int) -> void:
+	if hud:
+		hud.popup_resource(res, n, prog.display(res))
+	var a: AudioStreamPlayer = sfx.get("ui_pop")
+	if a:
+		a.pitch_scale = randf_range(1.0, 1.15)
+		a.play()
+
+func _too_hard(res: String) -> void:
+	player.tool_view.deflect()
+	if too_hard_t <= 0.0:
+		too_hard_t = 1.2
+		var a: AudioStreamPlayer = sfx["hit_reinforced"]
+		a.pitch_scale = 1.6
+		a.play()
+		_notify("Too hard for the %s - %s needs the %s." % [str(prog.tool()["title"]), prog.display(res), str(prog.tool_for(res)["title"])])
+
+func _bag_full_notice() -> void:
+	if bag_full_t <= 0.0:
+		bag_full_t = 2.5
+		_notify("Bag full! Sell at the booth or store at the crate. Extra rock drops beside the formation.")
+
+## Ray from the camera: {"node", "column", "point"} for whatever the crosshair is on.
+func _mining_ray() -> Dictionary:
+	var start := player.camera.global_position
+	var end := start - player.camera.global_transform.basis.z * 4.2
+	var query := PhysicsRayQueryParameters3D.create(start, end)
+	query.exclude = [player.get_rid()]
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	if hit.is_empty() or not hit["collider"] is Node3D:
+		return {}
+	var node: Node3D = hit["collider"]
+	var col := -1
+	if node is QuarryFormation:
+		col = node.column_from_shape(int(hit["shape"]))
+	return {"node": node, "column": col, "point": hit["position"]}
+
+func loose_count(kind: String) -> int:
+	var n := 0
+	for id in ground_pieces:
+		if str(ground_pieces[id].get_meta("deposit", "")) == kind:
+			n += 1
+	return n
+
+## Applies player mining damage to a formation column. Units go to the bag, overflow drops as loose
+## pieces (up to a cap); with no room at all nothing is extracted. Returns units mined.
+func player_mine(kind: String, col: int, damage: float, point := Vector3.INF, continuous := false) -> int:
+	if not formation_nodes.has(kind):
+		return 0
+	var node: QuarryFormation = formation_nodes[kind]
+	var res := str(state.deposits[kind]["resource"])
+	if not prog.can_mine(res):
+		_too_hard(res)
+		return 0
+	if col < 0 or prog.column_units(kind, col) <= 0:
+		col = prog.nearest_column(kind, player.global_position if point == Vector3.INF else point, false)
+	if col < 0:
+		_notify("%s is cleared." % str(prog.fdef(kind)["title"]))
+		return 0
+	var bag_room := state.capacity() - state.total(state.inventory)
+	var drop_room := maxi(0, int(prog.cfg.get("loose_piece_cap", 36)) - loose_count(kind))
+	var ex := prog.extract(kind, col, damage, bag_room + drop_room, "hand")
+	var n := int(ex["units"])
+	var at := node.column_top(col) if point == Vector3.INF else point
+	if not continuous:
+		_play_tool_hit()
+		player.impact_feedback(0.5 + 0.25 * float(state.tool_tier))
+		fx.impact(at, res, 1.0)
+	elif power_feedback_t <= 0.0:
+		power_feedback_t = 0.12
+		fx.impact(at, res, 0.7)
+		player.impact_feedback(0.25)
+	node.hit(col)
+	if n > 0:
+		var put := state.add_item(res, n)
+		if put > 0:
+			_reward_popup(res, put)
+		for i in range(n - put):
+			_spawn_formation_piece(kind, col, i)
+		if n - put > 0:
+			_bag_full_notice()
+	elif bag_room + drop_room <= 0:
+		_bag_full_notice()
+	if int(ex["chunks"]) > 0:
+		node.refresh()
+	else:
+		node.update_label()
+	var left := prog.column_units(kind, col)
+	hud.show_mining("%s  %d LEFT" % [prog.display(res).to_upper(), prog.units_left(kind)], 1.0 - prog.top_chunk_damage(kind, col) if left > 0 else 0.0)
+	return n
+
+## Loose piece beside a formation column (deterministic spot, so saved pieces reload in place).
+func _spawn_formation_piece(kind: String, col: int, i: int) -> void:
+	var d: Dictionary = state.deposits[kind]
+	d["generation"] = int(d.get("generation", 0)) + 1
+	_spawn_piece(kind, int(d["generation"]) * 100 + col, i)
+
+func _player_mining(delta: float) -> void:
+	var tv: QuarryToolView = player.tool_view
+	tv.equip(state.tool_tier)
+	power_feedback_t = maxf(0.0, power_feedback_t - delta)
+	too_hard_t = maxf(0.0, too_hard_t - delta)
+	bag_full_t = maxf(0.0, bag_full_t - delta)
+	var lmb := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and not driving and not construction and not placement and not hud.card_open()
+	if prog.is_continuous():
+		tv.operating = lmb
+		if lmb:
+			var want := "res://audio/%s.wav" % str(prog.tool()["sound"])
+			if power_audio.stream == null or power_audio.stream.resource_path != want:
+				power_audio.stream = load(want)
+			if not power_audio.playing:
+				power_audio.play()
+			var hit := _mining_ray()
+			if not hit.is_empty() and str(hit["node"].get_meta("kind", "")) == "deposit":
+				var kind := str(hit["node"].get_meta("deposit"))
+				if formation_nodes.has(kind):
+					player_mine(kind, int(hit["column"]), prog.tool_dps() * delta, hit["point"], true)
+				else:
+					small_power_t += delta
+					if small_power_t >= 0.22:
+						small_power_t = 0.0
+						_strike(kind)
+		elif power_audio.playing:
+			power_audio.stop()
+		return
+	tv.operating = false
+	if power_audio.playing:
+		power_audio.stop()
+	if lmb and not tv.is_busy() and mining_cooldown <= 0.0:
+		mining_cooldown = prog.tool_interval()
+		tv.swing(prog.tool_interval(), _on_swing_impact)
+
+## Swing tools apply damage at the visible moment of impact, against whatever is under the crosshair then.
+func _on_swing_impact() -> void:
+	var hit := _mining_ray()
+	if hit.is_empty():
+		return
+	var node: Node3D = hit["node"]
+	if str(node.get_meta("kind", "")) != "deposit":
+		return
+	var kind := str(node.get_meta("deposit"))
+	if formation_nodes.has(kind):
+		player_mine(kind, int(hit["column"]), prog.tool_power(), hit["point"])
+	else:
+		_strike(kind)
 
 func _setup_ui() -> void:
 	var layer := CanvasLayer.new()
@@ -354,45 +633,33 @@ func _setup_ui() -> void:
 	ui = Control.new()
 	ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ui.theme = QuarryTheme.theme()
 	layer.add_child(ui)
-	status_label = Label.new()
-	status_label.position = Vector2(18,13)
-	status_label.add_theme_font_size_override("font_size",17)
-	ui.add_child(status_label)
-	action_label = Label.new()
-	action_label.position = Vector2(18,448)
-	action_label.add_theme_font_size_override("font_size",17)
-	ui.add_child(action_label)
-	var cross := Label.new()
-	cross.text = "+"
-	cross.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	cross.add_theme_font_size_override("font_size",26)
-	ui.add_child(cross)
+	hud = HUDScript.new()
+	ui.add_child(hud)
+	hud.setup(self)
+	# Station menus (selling booth, upgrade board, storage, machines): one cozy panel, keyboard driven.
 	panel = PanelContainer.new()
 	panel.visible = false
-	panel.position = Vector2(250,80)
-	panel.custom_minimum_size = Vector2(470,350)
+	panel.add_theme_stylebox_override("panel", QuarryTheme.panel_box(QuarryTheme.BG, QuarryTheme.BORDER_HI, 16, 4))
 	ui.add_child(panel)
-	panel_text = Label.new()
-	panel_text.add_theme_font_size_override("font_size",17)
+	panel.set_anchor(SIDE_LEFT, 0.5)
+	panel.set_anchor(SIDE_RIGHT, 0.5)
+	panel.set_anchor(SIDE_TOP, 0.5)
+	panel.set_anchor(SIDE_BOTTOM, 0.5)
+	panel.offset_left = -250
+	panel.offset_right = 250
+	panel.offset_top = -200
+	panel.offset_bottom = 200
+	panel_text = QuarryTheme.label("", 15)
+	panel_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	panel.add_child(panel_text)
-	milestone_label = Label.new()
-	milestone_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	milestone_label.offset_left = -330
-	milestone_label.offset_right = -14
-	milestone_label.offset_top = 12
-	milestone_label.offset_bottom = 110
-	milestone_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	milestone_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	milestone_label.add_theme_font_size_override("font_size",12)
-	milestone_label.add_theme_color_override("font_color",Color(0.93,0.88,0.74))
-	milestone_label.add_theme_color_override("font_shadow_color",Color(0,0,0,0.8))
-	milestone_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ui.add_child(milestone_label)
 
 func _notify(s: String) -> void:
 	message = s
 	message_timer = 3.0
+	if hud:
+		hud.set_message(s, 3.2)
 
 func _look_target() -> Node3D:
 	var start := player.camera.global_position
@@ -431,22 +698,18 @@ func _physics_process(delta: float) -> void:
 	last_target = null if driving else _look_target()
 	if placement:
 		_update_ghost()
-	elif not driving and not construction and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and mining_cooldown <= 0:
-		mining_cooldown = state.strike_interval()
-		if last_target and last_target.get_meta("kind", "") == "deposit":
-			_strike(str(last_target.get_meta("deposit")))
-		else:
-			player.swing_pickaxe()
-	var clock := int(state.clock_minutes)
-	var items := ""
-	for key in RESOURCE_ORDER:
-		if int(state.inventory[key]) > 0:
-			items += "  "+key.replace("_"," ")+": "+str(state.inventory[key])
-	status_label.text = "DAY %d  %02d:%02d     $%d     BAG %d/%d\n%s" % [clock / 1440 + 1, (clock / 60) % 24, clock % 60, state.money, state.total(state.inventory), state.capacity(), items]
+	_player_mining(delta)
+	_phase5_tick(delta)
 	var prompt := ""
 	if last_target:
 		match str(last_target.get_meta("kind","")):
-			"deposit": prompt = "Hold LMB: mine %s  -  %s" % [str(last_target.get_meta("resource")).replace("_", " "), _deposit_status(str(last_target.get_meta("deposit")))]
+			"deposit": prompt = "%s %s  -  %s" % ["Hold LMB: drill" if prog.is_continuous() else "LMB: mine", prog.display(str(last_target.get_meta("resource"))), _deposit_status(str(last_target.get_meta("deposit")))]
+			"discovery": prompt = "E: open the old lockbox"
+			"rig":
+				var ri := int(last_target.get_meta("index"))
+				if ri < prog.rigs.size():
+					var rr: Dictionary = prog.rigs[ri]
+					prompt = "E: %s  -  %s  (bin %d/%d)" % [str(prog.machine(str(rr["type"]))["title"]), str(rr["status"]), prog.rig_bin_total(rr), prog.rig_bin_cap(rr)]
 			"piece": prompt = "E: collect "+str(last_target.get_meta("resource"))
 			"crusher": prompt = "E: use crusher"
 			"sell": prompt = "E: sell materials"
@@ -475,8 +738,12 @@ func _physics_process(delta: float) -> void:
 		prompt = _driving_hud()
 	if placement:
 		prompt = "PLACE %s: %s | LMB place | R rotate | G grid %s | Esc cancel%s" % [placement_kind.replace("output","output storage").to_upper(), "VALID" if ghost_valid else "BLOCKED", "on" if grid_snap else "off", placement_hint]
-	action_label.text = prompt + ("\n"+message if message_timer > 0 else "") + ("\nWASD move  Shift sprint  E interact  M manage  B build mode  F5 save  F9 load  Esc pause" if tutorial_visible and not driving else "")
-	_update_milestone_hud()
+	hud.set_prompt(prompt)
+	hud.tutorial = tutorial_visible and not driving
+	hud_refresh_t -= delta
+	if hud_refresh_t <= 0.0:
+		hud_refresh_t = 0.2
+		hud.refresh_panels()
 	for i in range(state.crushers.size()):
 		var machine: Dictionary = state.crushers[i]
 		if i < crusher_nodes.size():
@@ -588,6 +855,10 @@ func _interact(target: Node3D) -> void:
 			_open_menu(str(target.get_meta("kind")),int(target.get_meta("index",-1)))
 		"office":
 			_open_menu("manage")
+		"discovery":
+			_read_discovery(str(target.get_meta("discovery")))
+		"rig":
+			_open_menu("rig", int(target.get_meta("index")))
 		"vehicle":
 			var v = vehicle_nodes.get(int(target.get_meta("vehicle_id")))
 			if v:
@@ -619,23 +890,34 @@ func _draw_menu() -> void:
 	match menu:
 		"pause": text = "PAUSED\n\nF5 Save     F9 Load\nEsc Resume"
 		"sell":
-			text = "SELLING STATION   $%d\n\n" % state.money
+			text = "SALES BOOTH        %s\n\n" % QuarryTheme.money_text(state.money)
+			var bag_value := 0
 			for i in range(RESOURCE_ORDER.size()):
 				var key: String = RESOURCE_ORDER[i]
-				text += "%d  Sell all %s (%d)  $%d each   clerk:%s\n" % [i+1,key.replace("_"," "),state.inventory[key],state.config["prices"][key],"SELLS" if business.authorized[key] else "no"]
-			text += "\nShift+1-4 toggle what the sales clerk may sell\nEsc Close"
+				var n := int(state.inventory[key])
+				bag_value += n * int(state.config["prices"][key])
+				text += "%d  %-8s x%-3d  $%-3d each  = %-6s clerk: %s\n" % [i+1, prog.display(key), n, state.config["prices"][key], QuarryTheme.money_text(n * int(state.config["prices"][key])), "sells" if business.authorized[key] else "-"]
+			text += "\n7  SELL EVERYTHING   %s\n\nShift+1-6 toggle what the sales clerk may sell\nEsc close" % QuarryTheme.money_text(bag_value)
 		"upgrades":
-			text = "UPGRADES   $%d\n\n" % state.money
-			for i in range(QuarryState.UPGRADE_NAMES.size()):
-				var key: String = QuarryState.UPGRADE_NAMES[i]
-				text += "%d  %s   %s\n" % [i+1,key.replace("_"," ").capitalize(),"OWNED" if state.upgrades[key] else "$"+str(state.config["upgrades"][key])]
-			text += "\nEsc Close"
+			text = "UPGRADE BOARD      %s\n\n" % QuarryTheme.money_text(state.money)
+			var nt := prog.next_tool()
+			text += "TOOL: %s\n" % str(prog.tool()["title"])
+			if nt.is_empty():
+				text += "1  (best tool owned)\n"
+			else:
+				text += "1  %s   $%d   MINING POWER +%d%%\n   %s\n" % [str(nt["title"]), int(nt["cost"]), prog.tool_gain_percent(state.tool_tier, state.tool_tier + 1), str(nt.get("desc", ""))]
+			text += "\n"
+			for i in range(UPGRADE_MENU.size()):
+				var key: String = UPGRADE_MENU[i]
+				var info: Dictionary = prog.cfg.get("player_upgrades", {}).get(key, {})
+				text += "%d  %-18s %s   %s\n" % [i + 2, str(info.get("title", key)), "OWNED" if state.upgrades[key] else "$" + str(state.config["upgrades"][key]), str(info.get("effect", ""))]
+			text += "\nEsc close"
 		"storage":
 			text = "STORAGE  %d/%d\n\n" % [state.total(state.storage),state.storage_capacity()]
 			for i in range(RESOURCE_ORDER.size()):
 				var key: String = RESOURCE_ORDER[i]
 				text += "%d  %s  bag:%d  stored:%d\n" % [i+1,key.replace("_"," "),state.inventory[key],state.storage[key]]
-			text += "\n1–4 deposit all  |  Shift+1–4 withdraw all\nEsc Close"
+			text += "\n1-6 deposit all  |  Shift+1-6 withdraw all\nEsc Close"
 		"crusher":
 			var index: int = int(panel.get_meta("crusher_index"))
 			if index >= 0 and index < state.crushers.size():
@@ -649,7 +931,7 @@ func _draw_menu() -> void:
 				for i in range(RESOURCE_ORDER.size()):
 					var key: String = RESOURCE_ORDER[i]
 					text += "%d  %s  stored:%d  bag:%d\n" % [i+1,key.replace("_"," "),items[key],state.inventory[key]]
-				text += "\n1-4 withdraw all into bag\nShift+4 deposit crushed stone from bag\nEsc Close"
+				text += "\n1-6 withdraw all into bag\nShift+4 deposit gravel (crushed stone) from bag\nEsc Close"
 		"shop":
 			text = "MACHINERY ORDERS   $%d\n\n" % state.money
 			text += "1  Stone crusher      $%d\n" % int(state.config["crusher_price"])
@@ -667,7 +949,7 @@ func _menu_key(event: InputEventKey) -> void:
 	elif event.keycode == KEY_F9:
 		_load()
 	var digit := int(event.physical_keycode) - KEY_1
-	if digit < 0 or digit > 4:
+	if digit < 0 or digit > 8:
 		_draw_menu()
 		return
 	match menu:
@@ -675,15 +957,14 @@ func _menu_key(event: InputEventKey) -> void:
 			if digit < RESOURCE_ORDER.size() and event.shift_pressed:
 				business.authorized[RESOURCE_ORDER[digit]] = not business.authorized[RESOURCE_ORDER[digit]]
 			elif digit < RESOURCE_ORDER.size():
-				var sold := state.sell(RESOURCE_ORDER[digit],999)
-				if sold > 0:
-					sell_audio.play()
-				_notify("Sold %d units" % sold)
+				sell_from_bag([RESOURCE_ORDER[digit]])
+			elif digit == 6:
+				sell_from_bag(RESOURCE_ORDER)
 		"upgrades":
-			if state.buy_upgrade(QuarryState.UPGRADE_NAMES[digit]):
-				_notify("Upgrade purchased")
-			else:
-				_notify("Unavailable or insufficient funds")
+			if digit == 0:
+				buy_next_tool()
+			elif digit - 1 < UPGRADE_MENU.size():
+				buy_player_upgrade(UPGRADE_MENU[digit - 1])
 		"storage":
 			if digit < RESOURCE_ORDER.size():
 				if event.shift_pressed:
@@ -827,6 +1108,12 @@ func _placement_price(kind: String) -> int:
 	return int(state.config["crusher_price"])
 
 func _start_placement(kind: String) -> void:
+	if kind in ["crusher", "output", "advanced_crusher"] and not prog.unlocked("crusher"):
+		_notify("Machinery unlocks at the %s stage." % prog.feature_stage_title("crusher"))
+		return
+	if kind == "advanced_crusher" and not prog.unlocked("advanced_crusher"):
+		_notify("The advanced crusher unlocks at the %s stage." % prog.feature_stage_title("advanced_crusher"))
+		return
 	if kind == "conveyor" and not business.conveyors_unlocked():
 		_notify("Conveyors unlock with the Mechanized Quarry milestone.")
 		return
@@ -901,6 +1188,7 @@ func _save() -> void:
 	data["pieces"] = pieces
 	data["phase2"] = business.snapshot()
 	data["phase3"] = fleet.snapshot()
+	data["phase5"] = prog.snapshot()
 	var f := FileAccess.open(SAVE_PATH,FileAccess.WRITE)
 	if f:
 		f.store_string(JSON.stringify(data))
@@ -921,6 +1209,19 @@ func _load() -> void:
 	business.restore(phase2 if phase2 is Dictionary else {})
 	var phase3 = data.get("phase3", {})
 	fleet.restore(phase3 if phase3 is Dictionary else {})
+	var phase5 = data.get("phase5", {})
+	var vtypes := []
+	for v in fleet.vehicles:
+		vtypes.append(str(v["type"]))
+	prog.restore(phase5 if phase5 is Dictionary else {}, vtypes)
+	if not data.has("phase5") and not data.has("earned"):
+		# Phase 1-4 save: count what the business has already sold toward the stages.
+		var rev := 0
+		for day in business.daily:
+			rev += int(business.daily[day].get("revenue", 0))
+		state.earned = maxi(state.earned, rev + state.money)
+		prog.check_stages()
+	var legacy := _migrate_legacy_deposits()
 	var resume_driving := fleet.driving_id
 	_reset_driving()
 	construction = false
@@ -940,17 +1241,29 @@ func _load() -> void:
 		w.queue_free()
 	worker_nodes.clear()
 	_set_expansion(business.expansion_unlocked)
+	_sync_formations()
 	for kind in deposit_nodes:
 		_refresh_deposit(kind)
 	var ids := {}
 	for id in data["pieces"]:
 		ids[str(id)] = true
+	var legacy_pieces := {}
 	for id in ids:
 		var parts: PackedStringArray = str(id).split("_")
 		if parts.size() >= 3:
 			var kind := "_".join(parts.slice(0,parts.size()-2))
 			if deposit_nodes.has(kind):
 				_spawn_piece(kind,int(parts[parts.size()-2]),int(parts[parts.size()-1]))
+			elif LEGACY_DEPOSITS.has(kind):
+				legacy_pieces[kind] = int(legacy_pieces.get(kind, 0)) + 1
+	_restore_legacy_pieces(legacy_pieces)
+	for did in discovery_nodes.keys():
+		discovery_nodes[did].queue_free()
+	discovery_nodes.clear()
+	for did in prog.story["found"]:
+		if not prog.story["read"].get(did, false):
+			_spawn_discovery(did, str(prog.story.get("found_at", prog.cfg.get("starting_formations", ["stone_mountain"])[0])))
+	player.tool_view.equip(state.tool_tier, true)
 	for i in range(state.crushers.size()):
 		_create_crusher(i)
 	for i in range(business.outputs.size()):
@@ -971,7 +1284,10 @@ func _load() -> void:
 		_close_menu()
 	if resume_driving >= 0 and vehicle_nodes.has(resume_driving):
 		enter_vehicle(vehicle_nodes[resume_driving])
-	_notify("Loaded quarry progress")
+	_notify("Loaded quarry progress" + (" - your old quarry has grown: three huge formations replace the small rocks." if legacy else ""))
+	if hud:
+		hud.shown_money = float(state.money)
+		hud.refresh_panels()
 
 # ===================================================================== Phase 2
 
@@ -1095,6 +1411,13 @@ func workplace(ep: Dictionary) -> Dictionary:
 			var id := str(ep.get("id", ""))
 			if not deposit_nodes.has(id):
 				return {}
+			if formation_nodes.has(id):
+				var col := int(ep.get("col", -1))
+				if col < 0 or col >= prog.column_count(id) or prog.column_units(id, col) <= 0:
+					return {}
+				var cp := prog.column_pos(id, col)
+				var cell := float(prog.fdef(id)["cell"])
+				return {"pos": cp, "radius": cell * 0.5 + 0.95, "face": prog.column_open_dir(id, col, cp + Vector3(0, 0, 9))}
 			var p: Vector3 = _deposit_info(id)["pos"]
 			var toward := (Vector3(0,0,8) - p) if not EXPANSION_DEPOSITS.has(id) else (Vector3(30,0,0) - p)
 			return {"pos": p, "radius": 2.4, "face": toward.normalized()}
@@ -1121,14 +1444,24 @@ func nearest_deposit(res: String, from: Vector3) -> String:
 	for kind in deposit_nodes:
 		if str(_deposit_info(kind)["resource"]) != res or bool(state.deposits[kind]["broken"]) or bool(_deposit_info(kind).get("infinite", false)):
 			continue # the quarry face is reserved for hand mining
-		var d: float = deposit_nodes[kind].global_position.distance_squared_to(from)
+		if not prog.can_mine(res):
+			continue # staff carry company tools: nothing harder than the best owned tool
+		var p: Vector3 = deposit_nodes[kind].global_position
+		if formation_nodes.has(kind):
+			var col := prog.nearest_column(kind, from, true)
+			if col < 0:
+				continue
+			p = prog.column_pos(kind, col)
+		var d: float = p.distance_squared_to(from)
 		if d < best_d:
 			best_d = d
 			best = kind
 	return best
 
-func worker_strike(kind: String, hits: int, extra: int, _worker: Node3D) -> void:
-	if deposit_nodes.has(kind):
+func worker_strike(kind: String, hits: int, extra: int, worker: Node3D) -> void:
+	if formation_nodes.has(kind):
+		_crew_strike_formation(kind, hits, extra, worker)
+	elif deposit_nodes.has(kind):
 		_strike(kind, hits, extra, false)
 
 ## A worker physically picks up one loose piece next to it. Returns false if it cannot.
@@ -1170,11 +1503,17 @@ func _sync_workers() -> void:
 # --------------------------------------------------------------- management actions (UI)
 
 func ui_hire(candidate_id: String) -> String:
+	if not prog.unlocked("hire"):
+		return "Hiring opens at the %s stage. Keep mining and selling!" % prog.feature_stage_title("hire")
 	var reason := business.hire_block_reason(candidate_id)
 	if reason != "":
 		return reason
 	var e := business.hire(candidate_id)
 	_sync_workers()
+	prog.check_stages()
+	if business.employees.size() == 1:
+		hud.toast("First employee: " + str(e["name"]), "They'll mine right beside you.", "milestone")
+		_sfx_unlock()
 	return "Hired %s. They will head to the break area, then to work during their shift." % e["name"]
 
 func ui_fire(id: int) -> String:
@@ -1312,26 +1651,6 @@ func conveyor_valid(pos: Vector3, yaw: float) -> bool:
 	return true
 
 # --------------------------------------------------------------- HUD
-
-func _update_milestone_hud() -> void:
-	var done := 0
-	var next := ""
-	var names := {"first_employee": "First Employee: hire a worker", "mechanized": "Mechanized Quarry: crusher + operator", "automated": "Automated Business: run a full production chain"}
-	for id in Business.MILESTONES:
-		if business.milestones[id]:
-			done += 1
-		elif next == "":
-			next = names[id]
-	var text := "MILESTONES %d/3%s" % [done, ("\nNext: " + next) if next != "" else "\nAll complete"]
-	var alerts := 0
-	for e in business.employees:
-		if str(e["warning"]) != "":
-			alerts += 1
-			if alerts <= 2:
-				text += "\n! %s: %s" % [str(e["name"]).split(" ")[0], e["warning"]]
-	if alerts > 2:
-		text += "\n! +%d more (M)" % (alerts - 2)
-	milestone_label.text = text
 
 # ===================================================================== Phase 3
 
@@ -1635,6 +1954,8 @@ func _driving_hud() -> String:
 	return "%s  %.1f m/s   %s %d/%d%s%s\n%s" % [fleet.spec(driving.vtype)["title"].to_upper(), absf(driving.speed), load_label, fleet.cargo_total(rec), fleet.capacity(rec), cargo, hint, controls]
 
 func ui_buy_vehicle(type: String) -> String:
+	if not prog.unlocked(type):
+		return "The %s unlocks at the %s stage" % [fleet.spec(type)["title"], prog.feature_stage_title(type)]
 	var reason := fleet.buy_block_reason(type)
 	if reason != "":
 		return reason
@@ -1783,6 +2104,11 @@ func _deposit_status(kind: String) -> String:
 	var d: Dictionary = state.deposits.get(kind, {})
 	if d.is_empty():
 		return ""
+	if formation_nodes.has(kind):
+		var res := str(d["resource"])
+		if not prog.can_mine(res):
+			return "too hard: needs the %s" % str(prog.tool_for(res)["title"])
+		return "%s  %d / %d left" % [str(prog.fdef(kind)["title"]), prog.units_left(kind), prog.max_units(kind)]
 	if bool(d.get("infinite", false)):
 		return "Quarry face: never runs out (slow hand mining, %d hits)" % int(state.config.get("quarry_face", {}).get("hits", 5))
 	var res := str(d["resource"])
@@ -1793,6 +2119,9 @@ func _deposit_status(kind: String) -> String:
 
 func _update_deposit_label(kind: String) -> void:
 	if not deposit_nodes.has(kind):
+		return
+	if formation_nodes.has(kind):
+		formation_nodes[kind].update_label()
 		return
 	var label: Label3D = deposit_nodes[kind].get_meta("status")
 	var d: Dictionary = state.deposits[kind]
@@ -1808,8 +2137,237 @@ func _update_deposit_label(kind: String) -> void:
 		label.modulate = Color(0.95, 0.9, 0.75)
 
 func _dress_deposit(kind: String) -> void:
-	if art == null or not deposit_nodes.has(kind):
+	if art == null or not deposit_nodes.has(kind) or formation_nodes.has(kind):
 		return
 	var info := _deposit_info(kind)
 	var face := bool(info.get("infinite", false))
 	art.dress_deposit(deposit_nodes[kind], info, Vector3(3.6, 2.4, 1.4) if face else Vector3(2.4, 1.8, 2.0))
+
+# ===================================================================== Phase 5: progression glue
+
+func _phase5_tick(delta: float) -> void:
+	prog.check_stages()
+
+func _on_income(amount: int, source: String) -> void:
+	if hud:
+		hud.on_income(amount, source)
+
+func _refresh_stage_hud() -> void:
+	if hud:
+		hud.refresh_panels()
+
+func _on_stage(index: int) -> void:
+	var info := prog.stage_info(index)
+	if hud:
+		hud.toast("Stage %d: %s" % [index + 1, str(info["title"])], str(info["goal"]), "unlock")
+	_sfx_unlock()
+	_refresh_stage_hud()
+
+func _sfx_unlock() -> void:
+	if sfx.has("unlock"):
+		sfx["unlock"].play()
+
+func _show_intro() -> void:
+	var st: Dictionary = prog.cfg.get("story", {})
+	if hud and not prog.story["intro_seen"]:
+		hud.show_card(str(st.get("intro_title", "")), str(st.get("intro", "")), func(): prog.story["intro_seen"] = true)
+
+## First formation fully cleared: grandpa's lockbox appears where the rock stood.
+func _on_formation_cleared(id: String) -> void:
+	nav_dirty = true
+	if hud:
+		hud.toast("%s cleared!" % str(prog.fdef(id)["title"]), "Every last chunk of it. Look at the space you've opened up.", "milestone")
+	_sfx_unlock()
+	if id in prog.cfg.get("starting_formations", []) and not prog.story["found"].get("first_clear", false):
+		prog.mark_found("first_clear")
+		prog.story["found_at"] = id
+		_spawn_discovery("first_clear", id)
+		if hud:
+			hud.toast("Something under the rock...", "An old lockbox is lying where the formation stood.", "unlock")
+
+func _spawn_discovery(did: String, formation: String) -> void:
+	if discovery_nodes.has(did) or not prog.is_formation(formation):
+		return
+	var c: Array = prog.fdef(formation)["center"]
+	var body := _solid(world, "Lockbox", Vector3(float(c[0]), float(c[1]) + 0.25, float(c[2])), Vector3(0.7, 0.5, 0.45), Color(0.32, 0.22, 0.14), 0.4)
+	body.set_meta("kind", "discovery")
+	body.set_meta("discovery", did)
+	var mi: MeshInstance3D = body.get_child(0)
+	mi.mesh = MeshKit.box(Vector3(0.7, 0.5, 0.45), Vector2(0.96, 0.96))
+	mi.material_override = MeshKit.mat("SteelGreen")
+	MeshKit.inst(body, MeshKit.box(Vector3(0.74, 0.08, 0.49)), MeshKit.mat("SteelPlate"), Vector3(0, 0.2, 0))
+	var glow := OmniLight3D.new()
+	glow.light_color = Color(1.0, 0.85, 0.55)
+	glow.light_energy = 0.8
+	glow.omni_range = 3.0
+	glow.position = Vector3(0, 0.8, 0)
+	body.add_child(glow)
+	discovery_nodes[did] = body
+
+func _read_discovery(did: String) -> void:
+	var info := prog.discovery(did)
+	var reward := prog.read_discovery(did)
+	if discovery_nodes.has(did):
+		discovery_nodes[did].queue_free()
+		discovery_nodes.erase(did)
+	nav_dirty = true
+	var body := str(info.get("text", ""))
+	if reward > 0:
+		body += "\n\n(+%s)" % QuarryTheme.money_text(reward)
+	_close_menu()
+	hud.show_card(str(info.get("title", "DISCOVERY")), body)
+	player.locked = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+## One line per production fact for the HUD (only what is really happening).
+func hud_status_text() -> String:
+	var lines := []
+	var done := 0
+	for id in Business.MILESTONES:
+		if business.milestones[id]:
+			done += 1
+	lines.append("Milestones %d/3" % done)
+	var running := 0
+	for c in state.crushers:
+		if bool(c["running"]):
+			running += 1
+	if state.crushers.size() > 0:
+		lines.append("Crushers %d/%d running" % [running, state.crushers.size()])
+	if prog.rigs.size() > 0:
+		var working := 0
+		for r in prog.rigs:
+			if bool(r["working"]):
+				working += 1
+		lines.append("Rigs %d/%d drilling" % [working, prog.rigs.size()])
+	if business.employees.size() > 0:
+		var on := 0
+		for e in business.employees:
+			if business.can_work(e):
+				on += 1
+		lines.append("Staff %d/%d on shift" % [on, business.employees.size()])
+	var alerts := 0
+	for e in business.employees:
+		if str(e["warning"]) != "":
+			alerts += 1
+			if alerts <= 2:
+				lines.append("! %s: %s" % [str(e["name"]).split(" ")[0], e["warning"]])
+	if alerts > 2:
+		lines.append("! +%d more (M)" % (alerts - 2))
+	return "\n".join(lines)
+
+# ------------------------------------------------------------------ staff mining a formation
+
+## Nearest column a staff miner can reach (exposed) on a formation, or -1.
+func formation_column(kind: String, from: Vector3) -> int:
+	if not formation_nodes.has(kind):
+		return -1
+	return prog.nearest_column(kind, from, true)
+
+func _crew_strike_formation(kind: String, hits: int, extra: int, w: Node3D) -> void:
+	var node: QuarryFormation = formation_nodes[kind]
+	var col: int = int(w.mine_col) if w and "mine_col" in w else -1
+	if col < 0 or prog.column_units(kind, col) <= 0:
+		col = prog.nearest_column(kind, w.global_position if w else node.global_position, true)
+	if col < 0:
+		return
+	var room := maxi(0, int(prog.cfg.get("loose_piece_cap", 36)) - loose_count(kind))
+	var ex := prog.extract(kind, col, prog.crew_damage(float(hits), float(extra)), room, "crew")
+	var res := str(state.deposits[kind]["resource"])
+	for i in range(int(ex["units"])):
+		_spawn_formation_piece(kind, col, i)
+	node.hit(col)
+	if int(ex["chunks"]) > 0:
+		node.refresh()
+	else:
+		node.update_label()
+	var at := node.column_top(col)
+	if player and player.global_position.distance_to(at) < 22.0:
+		fx.impact(at, res, 0.7)
+		_sfx_at("hit_pick", at, -4.0)
+
+# ------------------------------------------------------------------ Phase 5: selling and buying
+
+## Sells the listed materials from the bag with one combined confirmation. Returns money earned.
+func sell_from_bag(keys: Array) -> int:
+	var total := 0
+	var parts := []
+	for key in keys:
+		var n := int(state.inventory[key])
+		if n <= 0:
+			continue
+		var before := state.money
+		state.sell(key, n)
+		total += state.money - before
+		parts.append("%d %s" % [n, prog.display(key).to_upper()])
+	if total > 0:
+		sfx["coin"].play()
+		hud.toast("Sold " + ", ".join(parts), "+" + QuarryTheme.money_text(total), "sale")
+		_notify("Sold %s for %s" % [", ".join(parts), QuarryTheme.money_text(total)])
+	else:
+		_notify("Nothing of that in your bag.")
+	return total
+
+func buy_next_tool() -> bool:
+	var from := state.tool_tier
+	var nt := prog.next_tool()
+	if nt.is_empty():
+		_notify("You already own the best tool.")
+		return false
+	if not prog.buy_next_tool():
+		_notify("The %s costs %s." % [str(nt["title"]), QuarryTheme.money_text(int(nt["cost"]))])
+		return false
+	player.tool_view.equip(state.tool_tier)
+	hud.toast("New tool: " + str(nt["title"]), "MINING POWER +%d%%" % prog.tool_gain_percent(from, state.tool_tier), "unlock")
+	_sfx_unlock()
+	_notify(str(nt.get("desc", "")))
+	return true
+
+func buy_player_upgrade(key: String) -> bool:
+	var info: Dictionary = prog.cfg.get("player_upgrades", {}).get(key, {})
+	if not state.buy_upgrade(key):
+		_notify("Already owned" if state.upgrades.get(key, false) else "Need $%d" % int(state.config["upgrades"].get(key, 0)))
+		return false
+	hud.toast(str(info.get("title", key)), str(info.get("effect", "")), "unlock")
+	_sfx_unlock()
+	return true
+
+# ------------------------------------------------------------------ Phase 5: save migration
+
+## Phase 1-4 saves recorded three small deposits (limestone / coal / iron_ore). They are replaced by the
+## formations, which start full; the old records are dropped. Returns true if anything was migrated.
+func _migrate_legacy_deposits() -> bool:
+	var found := false
+	for k in LEGACY_DEPOSITS:
+		if state.deposits.has(k) and not bool(state.deposits[k].get("formation", false)):
+			state.deposits.erase(k)
+			found = true
+	return found
+
+## Loose pieces of the old small deposits go back to the player: storage crate, then bag, then as
+## loose pieces beside the matching new formation. Nothing is lost or duplicated.
+func _restore_legacy_pieces(counts: Dictionary) -> void:
+	for kind in counts:
+		var res := str(kind)
+		var n := int(counts[kind])
+		var room := state.storage_capacity() - state.total(state.storage)
+		var a := mini(n, maxi(0, room))
+		state.storage[res] = int(state.storage[res]) + a
+		n -= a
+		n -= state.add_item(res, n)
+		var f := str(LEGACY_DEPOSITS[kind])
+		for i in range(n):
+			if formation_nodes.has(f):
+				_spawn_formation_piece(f, maxi(0, prog.nearest_column(f, Vector3(0, 0, 8), false)), i)
+
+## Builds or removes formation nodes to match the unlocked level, then re-reads every column.
+func _sync_formations() -> void:
+	for id in prog.formation_ids():
+		if prog.formation_active(id):
+			if not formation_nodes.has(id):
+				_build_formation(id)
+			prog.init_formation(id)
+			formation_nodes[id].refresh(true)
+		elif formation_nodes.has(id):
+			formation_nodes[id].queue_free()
+			formation_nodes.erase(id)
+			deposit_nodes.erase(id)
