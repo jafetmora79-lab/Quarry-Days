@@ -38,6 +38,9 @@ var bed_tilt := 0.0
 var unload_timer := 0.0
 var unload_target := {}
 var wheels: Array = []
+# Phase 5: smoothed visuals
+var shown_load := 0.0       ## visual cargo that eases toward the real cargo (spills out / fills in)
+var curl_timer := 0.0       ## loader bucket curl when it scoops
 
 # stuck recovery
 var safe_position := Vector3.ZERO
@@ -195,17 +198,23 @@ func _animate(delta: float) -> void:
 			cam_yaw = lerp_angle(cam_yaw, 0.0, delta * 0.6)
 	for w in wheels:
 		w.rotate_x(-speed * delta / 0.5)
+	var n := fleet.cargo_total(data)
+	# cargo visuals ease: material pours out over the dump instead of vanishing in one frame
+	shown_load = move_toward(shown_load, float(n), delta * maxf(4.0, absf(float(n) - shown_load) * 2.2))
 	if vtype == "loader":
-		bucket_lift = move_toward(bucket_lift, bucket_target, delta * 1.2)
+		bucket_lift = move_toward(bucket_lift, bucket_target, delta * 0.9)
 		dump_timer = maxf(0.0, dump_timer - delta)
-		arm.rotation.x = lerpf(-0.12, 0.75, bucket_lift)
+		curl_timer = maxf(0.0, curl_timer - delta)
+		var lift := smoothstep(0.0, 1.0, bucket_lift) # hydraulic arm accelerates and settles
+		arm.rotation.x = lerpf(-0.12, 0.75, lift)
 		var tilt := sin(clampf(dump_timer / 1.0, 0.0, 1.0) * PI) * 1.1
-		bucket.rotation.x = -arm.rotation.x - tilt # keep the bucket level while lifting
-		var n := fleet.cargo_total(data)
-		bucket_load.visible = n > 0
-		if n > 0:
-			bucket_load.scale.y = clampf(float(n) / float(fleet.capacity(data)), 0.2, 1.0)
-			bucket_load.material_override = MeshKit.mat(QuarryArt.ROCK_MAT.get(data["cargo"].keys()[0], "RockLimestone"))
+		var curl := sin(clampf(curl_timer / 0.6, 0.0, 1.0) * PI) * 0.45
+		bucket.rotation.x = -arm.rotation.x - tilt + curl # level while lifting, curls back to scoop
+		bucket_load.visible = shown_load > 0.2
+		if bucket_load.visible:
+			bucket_load.scale.y = clampf(shown_load / float(fleet.capacity(data)), 0.2, 1.0)
+			if not data["cargo"].is_empty():
+				bucket_load.material_override = MeshKit.mat(QuarryArt.ROCK_MAT.get(data["cargo"].keys()[0], "RockLimestone"))
 	else:
 		if unload_timer > 0.0:
 			unload_timer -= delta
@@ -214,13 +223,17 @@ func _animate(delta: float) -> void:
 				unload_target = {}
 		var want := 0.95 if unload_timer > 0.0 else 0.0
 		bed_tilt = move_toward(bed_tilt, want, delta * 1.1)
-		bed.rotation.x = -bed_tilt
+		bed.rotation.x = -0.95 * smoothstep(0.0, 0.95, bed_tilt) # ram eases in and out
 		VehicleModels.update_truck_ram(self)
-		var n := fleet.cargo_total(data)
-		bed_load.visible = n > 0
-		if n > 0:
-			bed_load.scale.y = clampf(float(n) / float(fleet.capacity(data)), 0.15, 1.0)
-			bed_load.material_override = MeshKit.mat(QuarryArt.ROCK_MAT.get(data["cargo"].keys()[0], "RockLimestone"))
+		bed_load.visible = shown_load > 0.2
+		if bed_load.visible:
+			bed_load.scale.y = clampf(shown_load / float(fleet.capacity(data)), 0.15, 1.0)
+			if not bed_load.has_meta("base_z"):
+				bed_load.set_meta("base_z", bed_load.position.z)
+			# the load slides toward the tailgate as the bed tips
+			bed_load.position.z = float(bed_load.get_meta("base_z")) + 0.6 * smoothstep(0.4, 0.95, bed_tilt)
+			if not data["cargo"].is_empty():
+				bed_load.material_override = MeshKit.mat(QuarryArt.ROCK_MAT.get(data["cargo"].keys()[0], "RockLimestone"))
 
 func start_unload(target: Dictionary) -> void:
 	unload_target = target

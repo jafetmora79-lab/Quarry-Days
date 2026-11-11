@@ -252,4 +252,115 @@ func scene_mining() -> void:
 	await process_frame
 
 func scene_more() -> void:
-	pass
+	var game = load("res://Main.tscn").instantiate()
+	root.add_child(game)
+	await process_frame
+	await physics_frame
+	await physics_frame
+	game.hud.close_card()
+	game.tutorial_visible = false
+	game.prog.stage = game.prog.stage_index("large")
+	game.state.money = 50000
+	game.state.clock_minutes = 480.0
+	game.business.payroll_minute = 480
+	# ---- 3/8 a miner really works the formation, with matching animation
+	game.ui_hire("rosa")
+	var miner: Dictionary = game.business.employees[0]
+	game.business.set_shift(int(miner["id"]), 0, 1439)
+	var w = game.worker_nodes[int(miner["id"])]
+	var seen := {}
+	var stats := {"bad_face": 0, "empty": 0, "far": 0, "max_dv": 0.0, "float": 0.0, "strikes": 0, "strike_anim_ok": 0, "prev_anim": "", "prev_phase": 0.0}
+	var d: Dictionary = game.state.deposits["stone_mountain"]
+	var mined := {"v": int(d.get("mined", 0))}
+	var last_v := {"v": Vector3.ZERO}
+	Engine.time_scale = 4.0
+	await frames(5000, func():
+		seen[w.anim] = true
+		if w.anim == "work":
+			if absf(angle_difference(w.rotation.y, w.facing)) > 0.35:
+				stats["bad_face"] += 1
+			if w.mine_col >= 0 and game.prog.column_units(w.mine_dep, w.mine_col) <= 0:
+				stats["empty"] += 1
+			if w.mine_col >= 0 and w._flat(w.global_position, game.prog.column_pos(w.mine_dep, w.mine_col)) > float(game.prog.fdef(w.mine_dep)["cell"]) * 0.5 + 1.6:
+				stats["far"] += 1
+		var dv: float = Vector2(w.velocity.x - last_v["v"].x, w.velocity.z - last_v["v"].z).length() / (Engine.time_scale / 60.0)
+		stats["max_dv"] = maxf(stats["max_dv"], dv)
+		last_v["v"] = w.velocity
+		if w.rig:
+			stats["float"] = maxf(stats["float"], w.rig.skel.position.y)
+		var now := int(d.get("mined", 0))
+		if now > mined["v"]:
+			stats["strikes"] += 1
+			if stats["prev_anim"] == "work" and float(stats["prev_phase"]) > 0.85:
+				stats["strike_anim_ok"] += 1
+			mined["v"] = now
+		stats["prev_anim"] = w.anim
+		stats["prev_phase"] = w.anim_phase
+		return int(game.state.storage["limestone"]) >= 8)
+	check(int(game.state.storage["limestone"]) >= 8, "3 the first helper mines stone and delivers it to storage (%s)" % miner["task"])
+	check(seen.has("walk") and seen.has("work") and seen.has("pickup") and seen.has("unload"), "8 miner animation states follow the job: %s" % str(seen.keys()))
+	check(stats["strikes"] > 0 and stats["strike_anim_ok"] == stats["strikes"], "8 every rock extraction lands at the end of a visible swing (%d/%d)" % [stats["strike_anim_ok"], stats["strikes"]])
+	check(stats["bad_face"] == 0 and stats["far"] == 0, "8 the miner faces the rock and stands at it while swinging")
+	check(stats["empty"] == 0, "8 no swinging at an empty column")
+	check(stats["max_dv"] < 12.0, "8 smooth acceleration: no velocity snaps (max %.1f m/s^2)" % stats["max_dv"])
+	check(stats["float"] < 0.04, "8 feet stay on the ground (max hip lift %.3f m)" % stats["float"])
+	# off shift -> resting at the break area
+	game.business.set_shift(int(miner["id"]), 0, 30)
+	game.state.clock_minutes = 600.0
+	var rested := await frames(4000, func(): return w.anim == "rest")
+	check(rested < 4000 and w._flat(w.global_position, game.break_spot(0)) < 1.0, "8 off shift, the worker walks to the break area and rests")
+	Engine.time_scale = 1.0
+	# ---- 4/7 crusher: real processing drives the animation
+	game.state.new_crusher(Vector3(4, 0, 4), 0)
+	game._create_crusher(game.state.crushers.size() - 1)
+	var body = game.crusher_nodes[0]
+	game.state.crushers[0]["input"] = 4
+	await frames(30)
+	check(float(body.get_meta("spin")) == 0.0 and not game.state.crushers[0]["running"], "7 an idle crusher does not animate")
+	game.state.start_crusher(0)
+	await frames(20)
+	var spin1: float = float(body.get_meta("spin"))
+	await frames(40)
+	check(spin1 > 0.0 and spin1 < float(body.get_meta("spin")), "7 the crusher spins up smoothly when it starts (%.2f -> %.2f)" % [spin1, float(body.get_meta("spin"))])
+	check(str(body.get_meta("label").text).begins_with("CRUSHING"), "7 the crusher label shows real run progress")
+	game.state.crushers[0]["remaining"] = 0.01
+	await frames(3)
+	check(int(game.state.crushers[0]["output"]) == 4 and body.get_meta("output_pile").visible, "7 output appears in the chute pile when the run completes")
+	await frames(20)
+	check(float(body.get_meta("spin")) < 1.0 and float(body.get_meta("spin")) > 0.0, "7 the crusher spins down instead of stopping dead")
+	# ---- conveyor belt only scrolls while carrying
+	game.business.add_conveyor(Vector3(10, 0, 4), 0)
+	game._create_conveyor(0)
+	await frames(2)
+	var belt = game.conveyor_nodes[0].get_meta("belt")
+	check(belt.material_override != game.belt_mat_moving, "7 an empty belt stands still")
+	game.business.conveyors[0]["items"] = 1
+	game.business.conveyors[0]["resource"] = "limestone"
+	await frames(2)
+	check(belt.material_override == game.belt_mat_moving, "7 a loaded belt visibly moves")
+	# ---- truck: bed lifts smoothly; cargo changes near the top of the lift
+	game.business.milestones["mechanized"] = true
+	game.business.milestones["automated"] = true
+	check(game.ui_buy_vehicle("truck").ends_with("parking area."), "5 dump truck bought")
+	var truck = game.vehicle_nodes.values()[0]
+	var rec: Dictionary = game.fleet.vehicle(truck.vehicle_id)
+	game.fleet.add_cargo(rec, "limestone", 10)
+	truck.global_position = game.business.storage_pos + Vector3(0, 0.05, -3.6)
+	truck.rotation.y = 0.0
+	await frames(5)
+	var s0 := int(game.state.storage["limestone"])
+	game.enter_vehicle(truck)
+	game.vehicle_dump(truck)
+	var tilt_at_transfer := {"v": -1.0}
+	var steps := {"max": 0.0, "last": 0.0}
+	await frames(200, func():
+		steps["max"] = maxf(steps["max"], absf(truck.bed_tilt - steps["last"]))
+		steps["last"] = truck.bed_tilt
+		if tilt_at_transfer["v"] < 0.0 and int(game.state.storage["limestone"]) > s0:
+			tilt_at_transfer["v"] = truck.bed_tilt
+		return false)
+	check(tilt_at_transfer["v"] > 0.8, "7 cargo leaves the truck once the bed is up (tilt %.2f)" % tilt_at_transfer["v"])
+	check(steps["max"] < 0.03, "7 the bed lifts and lowers smoothly")
+	game.exit_vehicle()
+	game.queue_free()
+	await process_frame

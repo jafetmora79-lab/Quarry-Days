@@ -535,18 +535,24 @@ func _strip(parent: Node3D, keep: Array) -> void:
 		if c is MeshInstance3D and not keep.has(c):
 			c.visible = false
 
-func crusher_model(parent: Node3D, g: float) -> void:
+func crusher_model(parent: Node3D, g: float, tier := 1) -> void:
+	if tier >= 2:
+		advanced_crusher_model(parent, g)
+		return
 	var p := {"SteelPlate": MeshKit.Soup.new(), "SteelGreen": MeshKit.Soup.new(), "PaintYellow": MeshKit.Soup.new(), "Hazard": MeshKit.Soup.new()}
 	for x in [-0.68, 0.68]:
 		MeshKit.box_into(p["SteelPlate"], Vector3(x, g + 0.08, 0), Vector3(0.16, 0.16, 1.75))           # skids
 	MeshKit.box_into(p["SteelGreen"], Vector3(0, g + 0.55, 0), Vector3(1.3, 0.8, 1.25), Vector2(0.94, 0.94))
 	MeshKit.box_into(p["Hazard"], Vector3(0, g + 0.2, -0.63), Vector3(1.25, 0.12, 0.02))
-	MeshKit.box_into(p["PaintYellow"], Vector3(0, g + 1.08, -0.05), Vector3(1.12, 0.32, 1.0))      # jaw housing
+	# jaw housing as two cheek plates, open at the front so the moving jaw is visible
+	for x in [-0.5, 0.5]:
+		MeshKit.box_into(p["PaintYellow"], Vector3(x, g + 1.08, -0.05), Vector3(0.12, 0.32, 1.0))
+	MeshKit.box_into(p["PaintYellow"], Vector3(0, g + 1.08, 0.38), Vector3(1.12, 0.32, 0.24))       # fixed jaw (back)
 	MeshKit.box_into(p["PaintYellow"], Vector3(0, g + 1.48, 0.28), Vector3(0.82, 0.5, 0.62), Vector2(1.38, 1.4))   # feed hopper (+Z = input)
 	MeshKit.box_into(p["SteelPlate"], Vector3(-0.32, g + 1.34, -0.42), Vector3(0.42, 0.3, 0.36))  # motor
 	var chute := PackedVector2Array([Vector2(-0.55, 0.42), Vector2(-0.55, 0.32), Vector2(-1.0, 0.08), Vector2(-1.0, 0.18)])
 	MeshKit.extrude_into(p["SteelPlate"], chute, 0.9, Transform3D(Basis(), Vector3(0, g, 0)))      # discharge chute (-Z)
-	var made := _parts(parent, p)
+	_parts(parent, p)
 	var wheels := []
 	for x in [-0.78, 0.78]:
 		var pivot := Node3D.new()
@@ -559,10 +565,56 @@ func crusher_model(parent: Node3D, g: float) -> void:
 		MeshKit.inst(pivot, w.mesh(), _material("SteelPlate"))
 		wheels.append(pivot)
 	parent.set_meta("flywheels", wheels)
+	# swing jaw: pivots at the top on the eccentric shaft, its lower end moves toward the fixed jaw
+	var jaw := Node3D.new()
+	jaw.position = Vector3(0, g + 1.26, -0.2)
+	parent.add_child(jaw)
+	var j := MeshKit.Soup.new()
+	MeshKit.box_into(j, Vector3(0, -0.2, 0), Vector3(0.82, 0.4, 0.12), Vector2(1.0, 0.9))
+	for k in range(4):
+		MeshKit.box_into(j, Vector3(-0.3 + 0.2 * k, -0.2, 0.07), Vector3(0.05, 0.36, 0.04))        # wear teeth
+	MeshKit.inst(jaw, j.mesh(), _material("SteelPlate"))
+	parent.set_meta("jaw", jaw)
+	_crusher_fill(parent, g, Vector3(0, 1.62, 0.28), Vector3(0.62, 0.32, 0.5), Vector3(0, 0.18, -1.35), Vector3(0.9, 0.36, 0.8))
 
-func dress_crusher(body: StaticBody3D) -> void:
+## Shared hopper-fill and output-pile meshes, scaled by main with the crusher's real contents.
+func _crusher_fill(parent: Node3D, g: float, hop_pos: Vector3, hop_size: Vector3, out_pos: Vector3, out_size: Vector3) -> void:
+	var fill := MeshKit.inst(parent, MeshKit.rock(hop_size, 81, 3, 7), _material("RockLimestone"), hop_pos + Vector3(0, g, 0))
+	fill.visible = false
+	parent.set_meta("hopper_fill", fill)
+	var pile := MeshKit.inst(parent, MeshKit.rock(out_size, 82, 3, 8), _material("RockGravel"), out_pos + Vector3(0, g, 0))
+	pile.visible = false
+	parent.set_meta("output_pile", pile)
+
+## Phase 5 advanced crusher: a cone crusher with a gyrating mantle, belt-driven motor and twin chute.
+func advanced_crusher_model(parent: Node3D, g: float) -> void:
+	var p := {"SteelPlate": MeshKit.Soup.new(), "SteelGreen": MeshKit.Soup.new(), "PaintOrange": MeshKit.Soup.new(), "Hazard": MeshKit.Soup.new()}
+	for x in [-0.82, 0.82]:
+		MeshKit.box_into(p["SteelPlate"], Vector3(x, g + 0.1, 0), Vector3(0.2, 0.2, 2.0))
+	MeshKit.box_into(p["SteelGreen"], Vector3(0, g + 0.42, 0), Vector3(1.7, 0.5, 1.7))
+	MeshKit.frustum_into(p["PaintOrange"], Vector3(0, g + 0.67, 0), 0.82, 0.7, 0.7, 10)          # crusher bowl
+	MeshKit.frustum_into(p["PaintOrange"], Vector3(0, g + 1.37, 0), 0.7, 0.86, 0.32, 10)         # feed ring
+	MeshKit.box_into(p["Hazard"], Vector3(0, g + 0.24, -0.86), Vector3(1.7, 0.14, 0.02))
+	MeshKit.box_into(p["SteelPlate"], Vector3(0.95, g + 0.75, 0.55), Vector3(0.45, 0.42, 0.6))    # motor
+	MeshKit.box_into(p["SteelGreen"], Vector3(0.95, g + 0.95, 0.1), Vector3(0.12, 0.5, 0.95))     # belt guard
+	var chute := PackedVector2Array([Vector2(-0.7, 0.5), Vector2(-0.7, 0.38), Vector2(-1.25, 0.1), Vector2(-1.25, 0.22)])
+	MeshKit.extrude_into(p["SteelPlate"], chute, 1.1, Transform3D(Basis(), Vector3(0, g, 0)))
+	_parts(parent, p)
+	var mantle := Node3D.new()
+	mantle.position = Vector3(0, g + 1.3, 0)
+	parent.add_child(mantle)
+	var m := MeshKit.Soup.new()
+	MeshKit.frustum_into(m, Vector3(0, -0.1, 0), 0.5, 0.12, 0.42, 8)
+	MeshKit.box_into(m, Vector3(0.0, 0.3, 0), Vector3(0.1, 0.12, 0.6))
+	MeshKit.inst(mantle, m.mesh(), _material("SteelPlate"))
+	parent.set_meta("flywheels", [mantle])
+	parent.set_meta("spin_axis", "y")
+	parent.set_meta("jaw", mantle)
+	_crusher_fill(parent, g, Vector3(0, 1.55, 0), Vector3(0.9, 0.3, 0.9), Vector3(0, 0.2, -1.65), Vector3(1.1, 0.4, 0.9))
+
+func dress_crusher(body: StaticBody3D, tier := 1) -> void:
 	_strip(body, [])
-	crusher_model(body, -body.position.y)
+	crusher_model(body, -body.position.y, tier)
 
 func output_model(parent: Node3D, g: float) -> void:
 	var p := {"SteelGreen": MeshKit.Soup.new(), "SteelPlate": MeshKit.Soup.new(), "Hazard": MeshKit.Soup.new()}
@@ -597,7 +649,9 @@ func conveyor_model(parent: Node3D, g: float) -> void:
 	MeshKit.box_into(p["Hazard"], Vector3(0, g + 0.275, -0.75), Vector3(0.18, 0.012, 0.3))         # travel arrow
 	for z in [-0.95, 0.95]:
 		MeshKit.box_into(p["Hazard"], Vector3(0, g + 0.02, z), Vector3(1.0, 0.04, 0.08))            # crossing marks
-	_parts(parent, p)
+	var made := _parts(parent, p)
+	if made.has("Belt"):
+		parent.set_meta("belt", made["Belt"])
 
 func dress_conveyor(body: StaticBody3D) -> void:
 	var items: Array = body.get_meta("items")

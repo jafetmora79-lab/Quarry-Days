@@ -744,22 +744,7 @@ func _physics_process(delta: float) -> void:
 	if hud_refresh_t <= 0.0:
 		hud_refresh_t = 0.2
 		hud.refresh_panels()
-	for i in range(state.crushers.size()):
-		var machine: Dictionary = state.crushers[i]
-		if i < crusher_nodes.size():
-			if crusher_nodes[i].has_meta("flywheels"):
-				if bool(machine["running"]):
-					for fw in crusher_nodes[i].get_meta("flywheels"):
-						fw.rotation.x += delta * 7.0
-			else:
-				crusher_nodes[i].get_child(0).rotation.z = sin(Time.get_ticks_msec()*0.02)*0.025 if bool(machine["running"]) else 0.0
-	var any_running := false
-	for crusher in state.crushers:
-		any_running = any_running or bool(crusher["running"])
-	if any_running and not crusher_audio.playing:
-		crusher_audio.play()
-	elif not any_running and crusher_audio.playing:
-		crusher_audio.stop()
+	_update_machines(delta)
 
 func _update_light() -> void:
 	var phase := fposmod(state.clock_minutes,1440.0)/1440.0
@@ -1144,9 +1129,9 @@ func _cancel_placement(refund := true) -> void:
 		ghost.queue_free()
 	ghost = null
 
-func _crusher_visual(parent: Node3D, transparent := false) -> void:
+func _crusher_visual(parent: Node3D, transparent := false, tier := 1) -> void:
 	if art:
-		art.crusher_model(parent, 0.0)
+		art.crusher_model(parent, 0.0, tier)
 		return
 	_visual_box(parent,Vector3(0,0.5,0),Vector3(1.6,1.0,1.4),Color(0.19,0.25,0.27))
 	_visual_box(parent,Vector3(0,1.16,0),Vector3(1.1,0.44,1.0),Color(0.44,0.39,0.28))
@@ -1158,12 +1143,25 @@ func _crusher_visual(parent: Node3D, transparent := false) -> void:
 func _create_crusher(index: int) -> void:
 	var data: Dictionary = state.crushers[index]
 	var p: Array = data["position"]
-	var body := _solid(world,"Stone crusher",Vector3(float(p[0]),0.57,float(p[2])),Vector3(1.8,1.14,1.6),Color(0.22,0.27,0.29),float(data["yaw"]))
+	var tier := int(data.get("tier", 1))
+	var body := _solid(world,"Stone crusher" if tier < 2 else "Advanced crusher",Vector3(float(p[0]),0.57,float(p[2])),Vector3(1.8,1.14,1.6) if tier < 2 else Vector3(2.0,1.14,1.9),Color(0.22,0.27,0.29),float(data["yaw"]))
 	body.set_meta("kind","crusher")
 	body.set_meta("index",index)
 	_visual_box(body,Vector3(0,0.68,0),Vector3(1.0,0.45,1.0),Color(0.44,0.39,0.28))
 	if art:
-		art.dress_crusher(body)
+		art.dress_crusher(body, tier)
+	var lbl := Label3D.new()
+	lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	lbl.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	lbl.font_size = 26
+	lbl.pixel_size = 0.006
+	lbl.outline_size = 7
+	lbl.position = Vector3(0, 1.75, 0)
+	lbl.visibility_range_end = 14.0
+	body.add_child(lbl)
+	body.set_meta("label", lbl)
+	body.set_meta("spin", 0.0)
+	body.set_meta("last_output", int(data["output"]))
 	crusher_nodes.append(body)
 
 func _save() -> void:
@@ -1864,6 +1862,8 @@ func loader_primary(v: QuarryVehicle) -> int:
 				source = "loose rock" if source == "" else source + " and loose rock"
 	v.bucket_target = 1.0
 	if got > 0:
+		v.curl_timer = 0.6
+		fx.impact(point + Vector3(0, 0.5, 0), str(rec["cargo"].keys()[0]) if not rec["cargo"].is_empty() else "limestone", 1.0)
 		pickup_audio.play()
 		_notify("Scooped %d from %s. Bucket %d/%d." % [got, source, fleet.cargo_total(rec), fleet.capacity(rec)])
 	elif fleet.space(rec) <= 0:
@@ -1923,6 +1923,8 @@ func vehicle_dump(v: QuarryVehicle) -> int:
 	else:
 		moved = fleet.dump_to(rec, t["ep"])
 	v.dump_timer = 1.0
+	if moved > 0:
+		fx.chunk_break(v.work_point() + Vector3(0, 1.0, 0), "limestone")
 	_notify("Dumped %d into %s.%s" % [moved, _target_name(t), (" %d left in the bucket (target full or wrong material)." % fleet.cargo_total(rec)) if fleet.cargo_total(rec) > 0 else ""])
 	return moved
 
@@ -1931,6 +1933,8 @@ func truck_finish_unload(v: QuarryVehicle, t: Dictionary) -> int:
 	if rec.is_empty() or not t.has("ep") or not business.ep_valid(t["ep"]):
 		return 0
 	var moved := fleet.dump_to(rec, t["ep"])
+	if moved > 0:
+		fx.chunk_break(v.work_point() + Vector3(0, 0.8, 0), "limestone")
 	_notify("Unloaded %d into %s.%s" % [moved, _target_name(t), (" %d stays on the truck (target full or wrong material)." % fleet.cargo_total(rec)) if fleet.cargo_total(rec) > 0 else ""])
 	return moved
 
@@ -2371,3 +2375,82 @@ func _sync_formations() -> void:
 			formation_nodes[id].queue_free()
 			formation_nodes.erase(id)
 			deposit_nodes.erase(id)
+
+# ------------------------------------------------------------------ Phase 5: machinery that shows what it does
+
+var belt_mat_moving: StandardMaterial3D
+var _belt_scroll := 0.0
+
+## Crushers: flywheels/mantle spin up and down smoothly, the jaw cycles only while really crushing,
+## the hopper shows its real contents, the output pile grows when a run completes, and a small label
+## shows run progress. Conveyors: the belt texture scrolls only while the belt carries material.
+func _update_machines(delta: float) -> void:
+	var any_running := false
+	var t := Time.get_ticks_msec() * 0.001
+	for i in range(mini(state.crushers.size(), crusher_nodes.size())):
+		var c: Dictionary = state.crushers[i]
+		var body: Node3D = crusher_nodes[i]
+		var running := bool(c["running"])
+		any_running = any_running or running
+		var spin := move_toward(float(body.get_meta("spin", 0.0)), 1.0 if running else 0.0, delta * (0.8 if running else 0.45))
+		body.set_meta("spin", spin)
+		var ease := spin * spin * (3.0 - 2.0 * spin)
+		var axis_y := str(body.get_meta("spin_axis", "x")) == "y"
+		for fw in body.get_meta("flywheels", []):
+			if axis_y:
+				fw.rotation.y += delta * 9.0 * ease
+				fw.rotation.x = sin(t * 9.0) * 0.05 * ease # gyrating mantle
+			else:
+				fw.rotation.x += delta * 8.0 * ease
+		if body.has_meta("jaw") and not axis_y:
+			body.get_meta("jaw").rotation.x = sin(t * 7.5) * 0.16 * ease
+		var tier := int(c.get("tier", 1))
+		var hop: MeshInstance3D = body.get_meta("hopper_fill", null)
+		if hop:
+			var cap := float(int(business.cfg.get("crusher_hopper_capacity", 24)) * (2 if tier >= 2 else 1) + state.input_limit(i))
+			var amount := float(int(c.get("hopper", 0)) + int(c["input"]))
+			hop.visible = amount > 0.0
+			hop.scale = Vector3(1, clampf(amount / cap, 0.15, 1.0), 1)
+		var pile: MeshInstance3D = body.get_meta("output_pile", null)
+		if pile:
+			var outn := int(c["output"])
+			pile.visible = outn > 0
+			pile.scale = Vector3.ONE * clampf(0.4 + float(outn) / 24.0, 0.4, 1.3)
+		var last := int(body.get_meta("last_output", 0))
+		if int(c["output"]) > last:
+			# a run just finished: short completion feedback at the chute
+			var chute: Vector3 = body.global_transform * Vector3(0, 0.3, -1.3)
+			fx.chunk_break(chute, "crushed_stone")
+			if player and player.global_position.distance_to(body.global_position) < 18.0:
+				sfx["ui_pop"].play()
+				_notify("Crusher #%d finished: +%d gravel" % [i + 1, int(c["output"]) - last])
+		body.set_meta("last_output", int(c["output"]))
+		var lbl: Label3D = body.get_meta("label", null)
+		if lbl:
+			if running:
+				var dur := maxf(0.01, float(c.get("duration", state.process_seconds(i))))
+				lbl.text = "CRUSHING %d%%\n%d stone -> gravel" % [int(100.0 * (1.0 - float(c["remaining"]) / dur)), int(c["input"])]
+				lbl.modulate = Color(1.0, 0.85, 0.45)
+			elif int(c["output"]) > 0:
+				lbl.text = "%d GRAVEL READY" % int(c["output"])
+				lbl.modulate = Color(0.7, 0.95, 0.6)
+			elif int(c.get("hopper", 0)) + int(c["input"]) > 0:
+				lbl.text = "WAITING TO START\n%d stone loaded" % (int(c.get("hopper", 0)) + int(c["input"]))
+				lbl.modulate = Color(0.95, 0.9, 0.75)
+			else:
+				lbl.text = "IDLE - EMPTY"
+				lbl.modulate = Color(0.75, 0.72, 0.65)
+	if belt_mat_moving == null:
+		belt_mat_moving = (MeshKit.mat("Belt") as StandardMaterial3D).duplicate()
+	_belt_scroll = fposmod(_belt_scroll + delta * float(business.cfg.get("conveyor_rate", 0.5)) * 1.5, 1.0)
+	belt_mat_moving.uv1_offset = Vector3(0, _belt_scroll, 0)
+	for i in range(mini(conveyor_nodes.size(), business.conveyors.size())):
+		var cnode: Node3D = conveyor_nodes[i]
+		var belt: MeshInstance3D = cnode.get_meta("belt", null)
+		if belt:
+			var moving := int(business.conveyors[i]["items"]) > 0 or float(business.conveyors[i]["pull"]) > 0.0
+			belt.material_override = belt_mat_moving if moving else MeshKit.mat("Belt")
+	if any_running and not crusher_audio.playing:
+		crusher_audio.play()
+	elif not any_running and crusher_audio.playing:
+		crusher_audio.stop()

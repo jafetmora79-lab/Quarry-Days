@@ -19,7 +19,9 @@ var e: Dictionary
 var model: Node3D
 var carry_box: MeshInstance3D
 var anim := "idle"
+var anim_phase := -1.0      ## 0..1 progress of the current physical action (drives the rig)
 var anim_t := 0.0
+var duration := 1.0
 var anim_skip := 0
 
 # navigation
@@ -146,21 +148,26 @@ func _animate(delta: float) -> void:
 		return
 	var dt := delta * (4.0 if far else 1.0)
 	var carrying := business.carry_total(e) > 0
-	carry_box.visible = carrying and anim != "work"
+	carry_box.visible = carrying and anim in ["idle", "walk", "turn", "unload"]
 	if carrying:
 		carry_box.material_override = MeshKit.mat(QuarryArt.ROCK_MAT.get(e["carry"].keys()[0], "RockLimestone"))
 	if rig:
 		speed_now = Vector2(velocity.x, velocity.z).length()
-		rig.pose(dt, anim, speed_now, profession, carrying)
+		rig.pose(dt, anim, speed_now, profession, carrying, anim_phase)
 
 # ------------------------------------------------------------------ navigation
 
 func _flat(a: Vector3, b: Vector3) -> float:
 	return Vector2(a.x, a.z).distance_to(Vector2(b.x, b.z))
 
+## Horizontal velocity eases toward `target` with at most `accel` m/s^2 (no snapping starts/stops).
+func _ease_velocity(target: Vector3, accel: float, delta: float) -> void:
+	var v := Vector2(velocity.x, velocity.z).move_toward(Vector2(target.x, target.z), accel * delta)
+	velocity.x = v.x
+	velocity.z = v.y
+
 func _halt(delta: float) -> void:
-	velocity.x = move_toward(velocity.x, 0, delta * 20)
-	velocity.z = move_toward(velocity.z, 0, delta * 20)
+	_ease_velocity(Vector3.ZERO, 9.0, delta)
 	velocity.y -= 22.0 * delta
 	move_and_slide()
 
@@ -214,8 +221,10 @@ func travel(goal: Vector3, key: String, delta: float, arrive := 0.45) -> int:
 		dir += sidestep
 	dir = dir.normalized()
 	var speed := business.stat(e, "speed")
-	velocity.x = dir.x * speed
-	velocity.z = dir.z * speed
+	# Phase 5: smooth acceleration; turn toward the path before striding off at full speed.
+	var turning := absf(angle_difference(rotation.y, atan2(-dir.x, -dir.z)))
+	var want := speed * clampf(1.2 - turning / 1.6, 0.25, 1.0)
+	_ease_velocity(dir * want, 7.0, delta)
 	velocity.y -= 22.0 * delta
 	move_and_slide()
 	_face(global_position + dir)
@@ -307,6 +316,7 @@ func step(delta: float) -> void:
 	if e.is_empty():
 		return
 	anim = "idle"
+	anim_phase = -1.0
 	if not business.can_work(e):
 		_off_duty(delta)
 	else:
@@ -317,7 +327,11 @@ func step(delta: float) -> void:
 			"operator": _operator(delta)
 			"hauler": _hauler(delta)
 			"clerk": _clerk(delta)
-	rotation.y = lerp_angle(rotation.y, facing, minf(1.0, delta * 9.0))
+	# Turn at a natural rate; a large turn while standing plays a stepping-in-place turn.
+	var diff := angle_difference(rotation.y, facing)
+	rotation.y += clampf(diff, -delta * 5.5, delta * 5.5)
+	if absf(diff) > 0.35 and anim == "idle" and Vector2(velocity.x, velocity.z).length() < 0.3:
+		anim = "turn"
 	_animate(delta)
 
 func _off_duty(delta: float) -> void:
@@ -332,17 +346,34 @@ func _off_duty(delta: float) -> void:
 			e["warning"] = ""
 	var spot: Vector3 = game.break_spot(business.employees.find(e))
 	if travel(spot, "break", delta, 0.6) == ARRIVED:
-		anim = "idle"
+		_face(spot + Vector3(0, 0, -3)) # toward the bench and the yard
+		anim = "rest"
 		if str(e["warning"]).begins_with("Route blocked"):
 			e["warning"] = ""
 
-## Shared action timer: returns true once the action finishes.
-func _act(delta: float, duration: float, label: String) -> bool:
+const ACTION_ANIM := {"pickup": "pickup", "unload": "unload", "collect": "interact", "start": "interact", "strike": "work", "sell": "work"}
+
+## True once the body faces its work target (actions wait for it: nobody works facing away).
+func _aligned() -> bool:
+	return absf(angle_difference(rotation.y, facing)) < 0.3
+
+## Shared action timer: returns true once the action finishes. The rig plays the matching action with
+## its phase taken from this timer, so the visible motion completes exactly when the work happens.
+func _act(delta: float, d: float, label: String) -> bool:
 	if phase != label:
 		phase = label
-		timer = duration
+		timer = d
+		duration = maxf(0.05, d)
+	if label == "load":
+		anim = "pickup" if profession == "hauler" else "interact"
+	else:
+		anim = ACTION_ANIM.get(label, "work")
+	if not _aligned():
+		anim = "turn"
+		anim_phase = 0.0
+		return false
 	timer -= delta
-	anim = "work"
+	anim_phase = clampf(1.0 - timer / duration, 0.0, 1.0)
 	if timer <= 0.0:
 		phase = ""
 		return true
@@ -381,8 +412,7 @@ func _collect_pieces(res: String, delta: float) -> bool:
 		var dir := (target_piece.global_position - global_position)
 		dir.y = 0
 		dir = dir.normalized()
-		velocity.x = dir.x * 1.4
-		velocity.z = dir.z * 1.4
+		_ease_velocity(dir * 1.4, 7.0, delta)
 		velocity.y -= 22.0 * delta
 		move_and_slide()
 		_face(target_piece.global_position)
@@ -545,7 +575,9 @@ func _operator(delta: float) -> void:
 			business.operator_start(e, index)
 		return
 	phase = ""
+	_face(QuarryBusiness.v3(c["position"]))
 	if bool(c["running"]):
+		anim = "monitor"
 		e["task"] = "Monitoring crusher (%.0fs)" % float(c["remaining"])
 	elif int(c["output"]) > 0 and outlet < 0:
 		e["task"] = "Output waiting for collection"
@@ -566,10 +598,18 @@ func _clerk(delta: float) -> void:
 			any = true
 	if not any:
 		phase = ""
+		anim = "paperwork"
 		e["task"] = "No authorized stock to sell"
 		return
-	e["task"] = "Selling"
-	if _act(delta, business.stat(e, "sell_interval"), "sell"):
+	e["task"] = "Serving a customer"
+	var done := _act(delta, business.stat(e, "sell_interval"), "sell")
+	if not done and anim == "work":
+		# paperwork while the customer waits; the hand-over plays in the last 1.2 s, ending on the sale
+		if timer > 1.2:
+			anim = "paperwork"
+		else:
+			anim_phase = clampf(1.0 - timer / 1.2, 0.0, 1.0)
+	if done:
 		var sale := business.clerk_sell(e)
 		if int(sale["units"]) > 0:
 			e["task"] = "Sold %d %s (+$%d)" % [sale["units"], str(sale["resource"]).replace("_", " "), sale["money"]]
