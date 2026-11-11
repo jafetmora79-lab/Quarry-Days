@@ -228,6 +228,8 @@ Workers path around machines, walls, parked vehicles and each other, and step ov
 
 ## Tests
 
+Run the test files one at a time: they share the `user://` save file.
+
 ```
 godot --headless -s tests/test_quarry.gd                     # Phase 1 (22 checks)
 godot --headless --fixed-fps 60 -s tests/test_phase2.gd      # Phase 2 (100 checks, accelerated time)
@@ -235,6 +237,7 @@ godot --headless --fixed-fps 60 -s tests/test_phase3.gd      # Phase 3 (75 check
 godot --headless --fixed-fps 60 -s tests/test_phase4.gd      # Phase 4 (42 checks)
 godot --headless --fixed-fps 60 -s tests/test_access.gd      # building entrances, worker facing
 godot --headless --fixed-fps 60 -s tests/test_phase5.gd      # Phase 5 (113 checks)
+godot --headless --fixed-fps 60 -s tests/test_phase5_1.gd    # Phase 5.1 polish (97 checks)
 ```
 
 `test_phase5.gd` covers mining and rock depletion, tool progression, staff and machine extraction, processing, selling, the excavation unlock (player, staff and vehicle access), schedules (resting off shift), story, HUD layout, pacing estimated from the data, and save/load idempotence.
@@ -250,7 +253,7 @@ godot --headless --fixed-fps 60 -s tests/test_phase5.gd      # Phase 5 (113 chec
   - The east expansion still has the Phase 4 regrowing deposits.
   - Vehicles are arcade-simple.
   - Saving is manual (F5).
-  - Station menus are keyboard driven. Their columns use a proportional pixel font, so they are not perfectly aligned.
+  - Phase 5.1 visuals, tool poses and dust are tuned numerically and verified only by headless checks.
 - **Not built:** the excavator (priority D) and further depth levels; the data structure allows more pit levels.
 
 ## Credits

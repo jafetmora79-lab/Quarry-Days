@@ -37,11 +37,14 @@ func setup(main_node, p: QuarryProgression, id: String) -> void:
 	set_meta("deposit", id)
 	set_meta("resource", res)
 	set_meta("formation", true)
-	var mat: Material = MeshKit.mat(QuarryArt.ROCK_MAT.get(res, "RockLimestone"))
+	# Double-sided copy of the rock material: if a chunk is ever seen from inside or below (neighbours crumbling,
+	# the ramp, the lower level) it still renders solid instead of letting the sky show through.
+	var mat: Material = MeshKit.mat(QuarryArt.ROCK_MAT.get(res, "RockLimestone")).duplicate()
+	(mat as BaseMaterial3D).cull_mode = BaseMaterial3D.CULL_DISABLED
 	var variants := []
 	for k in range(4):
 		var s := MeshKit.Soup.new()
-		MeshKit.rock_into(s, Vector3.ZERO, Vector3(cell * 1.14, tier_h * 1.3, cell * 1.14), 700 + k * 31 + id.length(), 4, 7)
+		MeshKit.rock_into(s, Vector3.ZERO, Vector3(cell * 1.14, tier_h * 1.3, cell * 1.14), 700 + k * 31 + id.length(), 4, 7, true, Vector2(-0.10, 0.18))
 		variants.append(s.mesh())
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(id)

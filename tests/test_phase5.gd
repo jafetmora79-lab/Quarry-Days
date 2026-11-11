@@ -214,7 +214,7 @@ func scene_mining() -> void:
 	check(hits["n"] == 1 and hits["t"] > 0.3 and hits["t"] < 0.4, "5 a swing calls its impact exactly once, at the strike moment (%.2fs of 0.6s)" % hits["t"])
 	check(not tv.is_busy(), "5 the swing finishes and the tool returns to rest")
 	# aim at the stone formation and swing for real
-	aim_at(game, Vector3(-10.0, 0.05, -3.6), Vector3(-10.0, 1.0, -7.2))
+	aim_at(game, Vector3(-10.0, 0.05, -5.0), Vector3(-10.0, 1.0, -7.2))
 	await frames(2)
 	var ray: Dictionary = game._mining_ray()
 	check(not ray.is_empty() and ray["node"] == node and int(ray["column"]) >= 0, "1 the crosshair ray resolves the formation column it hits")
@@ -572,6 +572,7 @@ func scene_story_hud() -> void:
 	# HUD layout: panels inside the 960x540 canvas and not overlapping
 	game.hud.set_prompt("LMB: mine Stone  -  Stone Formation  1110 / 1110 left")
 	game.hud.set_message("Bag full! Sell at the booth or store at the crate. Extra rock drops beside the formation.")
+	root.size = Vector2i(1280, 720) # headless windows start tiny; a 16:9 window gives the 960x540 canvas
 	game.hud.refresh_panels()
 	for i in range(10):
 		await process_frame

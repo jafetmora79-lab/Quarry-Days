@@ -3,13 +3,20 @@ class_name QuarryTheme
 ## Shared cozy pixel UI style: Pixelify Sans (body) and Silkscreen (headings), both SIL OFL, rendered
 ## without antialiasing; warm muted panels with a 2 px border, small rounded corners and a soft drop shadow.
 ## Sizes are for the 960x540 base canvas (the window scales it to 1280x720 / 1920x1080).
+## Font sizes are chosen so the glyph pixel grids land on whole screen pixels at both scales (a 960 px canvas is
+## x1.333 / x2): Pixelify Sans (body) uses 15 (20 / 30 px on screen) or 30; Silkscreen (headings) uses 12 or 24
+## (16 / 24 px, 32 / 48 px). Off-grid sizes (11, 13, 14...) smear the pixel shapes, so avoid them.
+const BODY := 15
+const BODY_BIG := 30
+const HEAD := 12
+const HEAD_BIG := 24
 
-const BG := Color(0.15, 0.115, 0.085, 0.88)
-const BG_SOFT := Color(0.2, 0.155, 0.11, 0.82)
+const BG := Color(0.13, 0.1, 0.075, 0.95)
+const BG_SOFT := Color(0.17, 0.13, 0.095, 0.93)
 const BORDER := Color(0.5, 0.37, 0.23)
 const BORDER_HI := Color(0.72, 0.56, 0.34)
-const INK := Color(0.96, 0.9, 0.77)
-const DIM := Color(0.7, 0.63, 0.5)
+const INK := Color(0.99, 0.95, 0.84)
+const DIM := Color(0.8, 0.73, 0.6)
 const ACCENT := Color(0.98, 0.76, 0.34)
 const GOOD := Color(0.62, 0.86, 0.48)
 const WARN := Color(1.0, 0.5, 0.38)
@@ -71,7 +78,8 @@ static func theme() -> Theme:
 		return _theme
 	var t := Theme.new()
 	t.default_font = body()
-	t.default_font_size = 15
+	t.default_font_size = BODY
+	t.set_constant("line_spacing", "Label", 3)
 	t.set_color("font_color", "Label", INK)
 	t.set_color("font_shadow_color", "Label", Color(0, 0, 0, 0.55))
 	t.set_constant("shadow_offset_x", "Label", 1)
@@ -99,6 +107,7 @@ static func theme() -> Theme:
 
 static func label(text: String, size := 15, color := INK, heading := false) -> Label:
 	var l := Label.new()
+	l.add_theme_constant_override("line_spacing", 3)
 	l.text = text
 	l.add_theme_font_override("font", head() if heading else body())
 	l.add_theme_font_size_override("font_size", size)

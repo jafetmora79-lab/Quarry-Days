@@ -146,7 +146,9 @@ static func drum_into(s: Soup, c: Vector3, radius: float, width: float, seg := 1
 	frustum_into(s, Vector3.ZERO, radius, radius, width, seg, Transform3D(Basis(Vector3(0, 0, 1), -PI / 2), c + Vector3(-width * 0.5, 0, 0)))
 
 ## Faceted rock: a squashed low-res sphere with seeded jitter, flat shaded. Meter-UVs suit the strata textures.
-static func rock_into(s: Soup, c: Vector3, size: Vector3, seed: int, rings := 4, seg := 7, flat_base := true) -> void:
+## The flat base is capped (normal facing down) so the solid is closed: nothing can be seen through its underside.
+## `jitter` is the (min, max) radial wobble; formations pass a tighter minimum so neighbouring chunks overlap with no gaps.
+static func rock_into(s: Soup, c: Vector3, size: Vector3, seed: int, rings := 4, seg := 7, flat_base := true, jitter := Vector2(-0.22, 0.18)) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed
 	var grid := []
@@ -156,7 +158,7 @@ static func rock_into(s: Soup, c: Vector3, size: Vector3, seed: int, rings := 4,
 		var row := []
 		for k in seg:
 			var th := TAU * k / seg + (0.3 if r % 2 else 0.0)
-			var j := 1.0 + rng.randf_range(-0.22, 0.18) if r > 0 and r < rings else 1.0
+			var j := 1.0 + rng.randf_range(jitter.x, jitter.y) if r > 0 and r < rings else 1.0
 			var p := Vector3(cos(phi) * cos(th), sin(phi), cos(phi) * sin(th)) * j
 			if flat_base and r == 0:
 				p.y = 0.0
@@ -166,6 +168,9 @@ static func rock_into(s: Soup, c: Vector3, size: Vector3, seed: int, rings := 4,
 		for k in seg:
 			var k2 := (k + 1) % seg
 			s.quad(grid[r][k], grid[r + 1][k], grid[r + 1][k2], grid[r][k2])
+	if flat_base:
+		for k in seg:
+			s.tri(c, grid[0][k], grid[0][(k + 1) % seg])
 	var top: Vector3 = c + Vector3(rng.randf_range(-0.1, 0.1) * size.x, size.y * (1.0 if flat_base else 0.5), rng.randf_range(-0.1, 0.1) * size.z)
 	for k in seg:
 		s.tri(grid[rings][k], top, grid[rings][(k + 1) % seg])

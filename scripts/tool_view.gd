@@ -25,7 +25,24 @@ var bob_t := 0.0
 var moving := 0.0
 var _t := 0.0
 
-const BASE := {0: Vector3(0.34, -0.36, -0.62), 1: Vector3(0.36, -0.38, -0.66), 2: Vector3(0.36, -0.38, -0.68), 3: Vector3(0.26, -0.27, -0.5), 4: Vector3(0.18, -0.5, -0.66)}
+## Per-tool first-person pose. Camera space: -Z is forward, +X right, +Y up. Swing tools hold their handle along +Y
+## from the grip; `rest`/`wind`/`strike` are pitch angles (rad) about the grip (negative = working end forward).
+## `tip` is the working point in model space: the pick point, the hammer face, the bit or chisel end.
+## Power tools use `rest_rot` (euler) to aim their working end at the crosshair, and `model_pitch` leans the whole model.
+const TOOL := {
+	0: {"grip": Vector3(0.30, -0.50, -0.58), "rest": -0.40, "wind": 0.45, "strike": -1.05, "tip": Vector3(0, 0.36, -0.1)},
+	1: {"grip": Vector3(0.32, -0.54, -0.60), "rest": -0.40, "wind": 0.50, "strike": -1.00, "tip": Vector3(0, 0.48, -0.27)},
+	2: {"grip": Vector3(0.32, -0.54, -0.62), "rest": -0.40, "wind": 0.50, "strike": -1.00, "tip": Vector3(0, 0.52, -0.32)},
+	3: {"grip": Vector3(0.26, -0.28, -0.50), "rest_rot": Vector3(0.09, 0.10, 0.0), "tip": Vector3(0, 0.12, -0.46)},
+	4: {"grip": Vector3(0.20, -0.28, -0.32), "rest_rot": Vector3(0.0, 0.10, 0.0), "model_pitch": 1.3, "tip": Vector3(0, -0.61, 0)},
+}
+const REACH_MIN := 0.85      # the working end meets the rock this far in front of the camera, at least...
+const REACH_MAX := 1.6       # ...and at most (mining reach in main.gd is just beyond this)
+const MAX_CORRECTION := 0.55
+
+var target_dist := 1.2       # distance to the rock under the crosshair (set by the game when engaged)
+var tip_cam := Vector3.ZERO  # working end in camera space after the last update (for tests)
+var engage := 0.0            # 0..1 how much the working end is pulled onto the crosshair point
 
 func _ready() -> void:
 	pivot = Node3D.new()
@@ -85,51 +102,73 @@ func _process(delta: float) -> void:
 	var lower := sin(clampf(equip_t, 0.0, 1.0) * PI) * 0.45 # 0 -> dip -> 0
 	bob_t += delta * (2.0 + 7.0 * moving)
 	var bob := Vector3(cos(bob_t) * 0.012, absf(sin(bob_t)) * 0.016, 0) * (0.3 + moving)
-	var base: Vector3 = BASE.get(tier, Vector3(0.36, -0.36, -0.66))
-	var rot := Vector3(0.12, 0, 0)
+	var def: Dictionary = TOOL.get(tier, TOOL[0])
+	var base: Vector3 = def["grip"]
+	var rot := Vector3.ZERO
 	var off := Vector3.ZERO
-	if phase >= 0.0:
-		phase += delta / duration
-		var p := phase
-		var ang := 0.12
-		if p < 0.42:                                  # wind-up: ease out, head goes up and back
-			var a := p / 0.42
-			ang = lerpf(0.12, 1.15, 1.0 - pow(1.0 - a, 3.0))
-			off = Vector3(0.03, 0.06, 0.06) * a
-		elif p < 0.58:                                # strike: accelerate into the rock
-			var a := (p - 0.42) / 0.16
-			ang = lerpf(1.15, -0.95, a * a)
-			off = Vector3(lerpf(0.03, -0.05, a), lerpf(0.06, -0.02, a), lerpf(0.06, -0.14, a))
-		else:                                         # recover: ease back with a small settle
-			var a := clampf((p - 0.58) / 0.42, 0.0, 1.0)
-			var e := 1.0 - pow(1.0 - a, 3.0)
-			ang = lerpf(-0.95, 0.12, e) + sin(a * PI) * 0.06
-			off = Vector3(-0.05, -0.02, -0.14).lerp(Vector3.ZERO, e)
-		if p >= 0.58 and not impact_done:
-			impact_done = true
-			if on_impact.is_valid():
-				on_impact.call()
-		rot.x = ang
-		rot.z = -0.35 * sin(clampf(p, 0.0, 1.0) * PI)
-		if phase >= 1.0:
-			phase = -1.0
+	var rest: float = def.get("rest", 0.0)
+	var weight := 0.0
+	if tier < 3:
+		rot.x = rest
+		if phase >= 0.0:
+			phase += delta / duration
+			var p := phase
+			var wind: float = def["wind"]
+			var strike: float = def["strike"]
+			var ang := rest
+			if p < 0.42:                                  # wind-up: ease out, working end goes up and back
+				var a := p / 0.42
+				ang = lerpf(rest, wind, 1.0 - pow(1.0 - a, 3.0))
+				off = Vector3(0.0, 0.07, -0.10) * a
+			elif p < 0.58:                                # strike: accelerate onto the rock
+				var a := (p - 0.42) / 0.16
+				ang = lerpf(wind, strike, a * a)
+				off = Vector3(0.0, lerpf(0.07, -0.03, a), lerpf(-0.10, -0.12, a))
+				weight = a * a
+			else:                                         # recover: ease back with a small settle
+				var a := clampf((p - 0.58) / 0.42, 0.0, 1.0)
+				var e := 1.0 - pow(1.0 - a, 3.0)
+				ang = lerpf(strike, rest, e) + sin(a * PI) * 0.05
+				off = Vector3(0.0, -0.03, -0.12).lerp(Vector3.ZERO, e)
+				weight = 1.0 - clampf(a * 2.0, 0.0, 1.0)
+			if p >= 0.58 and not impact_done:
+				impact_done = true
+				if on_impact.is_valid():
+					on_impact.call()
+			rot.x = ang
+			rot.z = 0.2 * sin(clampf(p, 0.0, 1.0) * PI)
+			if phase >= 1.0:
+				phase = -1.0
+	else:
+		var rr: Vector3 = def["rest_rot"]
+		rot = rr
 	if deflect_t > 0.0:
 		deflect_t = maxf(0.0, deflect_t - delta)
 		rot.x += sin(deflect_t / 0.3 * PI) * 0.5
 		off += Vector3(0, 0.04, 0.06) * sin(deflect_t / 0.3 * PI)
-	# power tools: vibration and push while running
+	# power tools: vibration and push while running; the working end eases onto the crosshair point
 	if tier >= 3:
 		var v := op_blend
 		var amp := 0.006 if tier == 3 else 0.014
 		off += Vector3(sin(_t * 91.0) * amp, sin(_t * 113.0) * amp * (2.2 if tier == 4 else 1.0), -0.04 * v) * v
-		rot.x = 0.04 if tier == 3 else 0.1
+		weight = v * 0.85
 		if spinner:
 			if tier == 3:
 				spinner.rotate_z(delta * 40.0 * v)
 			else:
 				spinner.position.y = -0.42 - absf(sin(_t * 56.0)) * 0.035 * v
-	position = base + bob + off + Vector3(0, -lower, 0)
 	pivot.rotation = rot
+	var placed := base + bob + off + Vector3(0, -lower, 0)
+	# working end in camera space, then pull it toward the point on the crosshair ray where the rock is
+	var tip_local: Vector3 = def["tip"]
+	var tip_now := placed + pivot.transform.basis * (model.transform * tip_local) if model else placed
+	var contact := Vector3(0, 0, -clampf(target_dist, REACH_MIN, REACH_MAX))
+	var corr := (contact - tip_now)
+	if corr.length() > MAX_CORRECTION:
+		corr = corr.normalized() * MAX_CORRECTION
+	engage = weight
+	position = placed + corr * weight
+	tip_cam = tip_now + corr * weight
 
 # ------------------------------------------------------------------ models (handle along +Y from the grip)
 
@@ -152,13 +191,13 @@ func _build(t: int) -> Node3D:
 		1: # basic pickaxe
 			_box(wood, Vector3(0, 0.22, 0), Vector3(0.035, 0.56, 0.04))
 			var prof := PackedVector2Array([Vector2(-0.27, -0.02), Vector2(-0.03, 0.03), Vector2(0.03, 0.03), Vector2(0.27, -0.02), Vector2(0.2, -0.045), Vector2(0.0, -0.015), Vector2(-0.2, -0.045)])
-			MeshKit.extrude_into(steel, prof, 0.045, Transform3D(Basis(Vector3.UP, PI * 0.5), Vector3(0, 0.5, 0)))
+			MeshKit.extrude_into(steel, prof, 0.045, Transform3D(Basis.IDENTITY, Vector3(0, 0.5, 0))) # profile is in (z, y): the points run fore and aft
 		2: # reinforced pickaxe: longer, steel collars, painted head with hardened tips
 			_box(wood, Vector3(0, 0.24, 0), Vector3(0.04, 0.6, 0.045))
 			for y in [0.06, 0.38]:
 				_box(steel, Vector3(0, y, 0), Vector3(0.05, 0.035, 0.055))
 			var prof := PackedVector2Array([Vector2(-0.32, -0.03), Vector2(-0.04, 0.04), Vector2(0.04, 0.04), Vector2(0.32, -0.03), Vector2(0.24, -0.06), Vector2(0.0, -0.02), Vector2(-0.24, -0.06)])
-			MeshKit.extrude_into(paint, prof, 0.06, Transform3D(Basis(Vector3.UP, PI * 0.5), Vector3(0, 0.55, 0)))
+			MeshKit.extrude_into(paint, prof, 0.06, Transform3D(Basis.IDENTITY, Vector3(0, 0.55, 0)))
 			_box(steel, Vector3(0, 0.52, -0.31), Vector3(0.05, 0.05, 0.06))
 			_box(steel, Vector3(0, 0.52, 0.31), Vector3(0.05, 0.05, 0.06))
 			paint_key = "PaintRed"
@@ -195,7 +234,7 @@ func _build(t: int) -> Node3D:
 		_box(c, Vector3(0, -0.08, 0), Vector3(0.035, 0.22, 0.035), Vector2(0.4, 0.4))
 		MeshKit.inst(chisel, c.mesh(), MeshKit.mat("SteelPlate"))
 		n.set_meta("spinner", chisel)
-		n.rotation.x = -0.5 # lean the hammer so the chisel points at the crosshair
+		n.rotation.x = float(TOOL[4]["model_pitch"]) # lean the body forward so the chisel points down-range at the rock
 	for gi in n.find_children("*", "GeometryInstance3D", true, false):
 		gi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	return n

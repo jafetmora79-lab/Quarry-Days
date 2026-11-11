@@ -14,6 +14,7 @@ const FXScript = preload("res://scripts/fx.gd")
 const HUDScript = preload("res://scripts/hud.gd")
 const ExcavationScript = preload("res://scripts/excavation.gd")
 const RigScript = preload("res://scripts/rig.gd")
+const MINE_REACH := 2.6 # tools reach a little past the visual lunge (QuarryToolView.REACH_MAX)
 const SAVE_PATH := "user://quarry_save.json"
 const RESOURCE_ORDER := ["limestone", "coal", "iron_ore", "crushed_stone", "copper_ore", "gold_ore"]
 # Phase 5: the three small starting rocks are replaced by enormous finite formations (data/progression.json).
@@ -29,8 +30,7 @@ var world: Node3D
 var ui: Control
 var status_label: Label
 var action_label: Label
-var panel: PanelContainer
-var panel_text: Label
+var panel: PanelContainer # QuarryStationUI
 var message := "Mine the three deposits. Sell materials to buy a crusher."
 var message_timer := 9.0
 var menu := ""
@@ -78,6 +78,10 @@ var pile_nodes := {}
 var construction := false
 var relocating := {}
 var sell_confirm := ""
+var _click_ms := {}
+var _tx_anchor := Vector2.INF # where money pop-ups rise from while a menu button is being handled
+const CLICK_GUARD_MS := 150
+var mine_normal := Vector3.UP # surface normal at the last mining hit (dust direction)
 var ghost_ok_mat: StandardMaterial3D
 var ghost_bad_mat: StandardMaterial3D
 var scripted_input := false
@@ -538,8 +542,9 @@ func _bag_full_notice() -> void:
 
 ## Ray from the camera: {"node", "column", "point"} for whatever the crosshair is on.
 func _mining_ray() -> Dictionary:
+	player.tool_view.target_dist = 1.3
 	var start := player.camera.global_position
-	var end := start - player.camera.global_transform.basis.z * 4.2
+	var end := start - player.camera.global_transform.basis.z * MINE_REACH
 	var query := PhysicsRayQueryParameters3D.create(start, end)
 	query.exclude = [player.get_rid()]
 	var hit := get_world_3d().direct_space_state.intersect_ray(query)
@@ -549,7 +554,9 @@ func _mining_ray() -> Dictionary:
 	var col := -1
 	if node is QuarryFormation:
 		col = node.column_from_shape(int(hit["shape"]))
-	return {"node": node, "column": col, "point": hit["position"]}
+	mine_normal = hit["normal"]
+	player.tool_view.target_dist = player.camera.global_position.distance_to(hit["position"])
+	return {"node": node, "column": col, "point": hit["position"], "normal": hit["normal"]}
 
 func loose_count(kind: String) -> int:
 	var n := 0
@@ -581,10 +588,10 @@ func player_mine(kind: String, col: int, damage: float, point := Vector3.INF, co
 	if not continuous:
 		_play_tool_hit()
 		player.impact_feedback(0.5 + 0.25 * float(state.tool_tier))
-		fx.impact(at, res, 1.0)
+		fx.impact(at, res, 1.0, mine_normal)
 	elif power_feedback_t <= 0.0:
 		power_feedback_t = 0.12
-		fx.impact(at, res, 0.7)
+		fx.impact(at, res, 0.7, mine_normal)
 		player.impact_feedback(0.25)
 	node.hit(col)
 	if n > 0:
@@ -644,6 +651,7 @@ func _player_mining(delta: float) -> void:
 		power_audio.stop()
 	if lmb and not tv.is_busy() and mining_cooldown <= 0.0:
 		mining_cooldown = prog.tool_interval()
+		_mining_ray() # sets how far the head must lunge to meet the rock under the crosshair
 		tv.swing(prog.tool_interval(), _on_swing_impact)
 
 ## Swing tools apply damage at the visible moment of impact, against whatever is under the crosshair then.
@@ -671,22 +679,10 @@ func _setup_ui() -> void:
 	hud = HUDScript.new()
 	ui.add_child(hud)
 	hud.setup(self)
-	# Station menus (selling booth, upgrade board, storage, machines): one cozy panel, keyboard driven.
-	panel = PanelContainer.new()
-	panel.visible = false
-	panel.add_theme_stylebox_override("panel", QuarryTheme.panel_box(QuarryTheme.BG, QuarryTheme.BORDER_HI, 16, 4))
+	# Station menus (selling booth, upgrade board, storage, machines): one cozy clickable panel.
+	panel = QuarryStationUI.new()
 	ui.add_child(panel)
-	panel.set_anchor(SIDE_LEFT, 0.5)
-	panel.set_anchor(SIDE_RIGHT, 0.5)
-	panel.set_anchor(SIDE_TOP, 0.5)
-	panel.set_anchor(SIDE_BOTTOM, 0.5)
-	panel.offset_left = -250
-	panel.offset_right = 250
-	panel.offset_top = -200
-	panel.offset_bottom = 200
-	panel_text = QuarryTheme.label("", 15)
-	panel_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	panel.add_child(panel_text)
+	(panel as QuarryStationUI).setup(self)
 
 func _notify(s: String) -> void:
 	message = s
@@ -911,85 +907,148 @@ func _close_menu() -> void:
 	crusher_audio.stream_paused = false
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
+## Every menu button goes through here: rapid repeat clicks on the same button inside 150 ms are ignored (no
+## doubled transactions), the action runs once, and a money drop shows a red "-$n" at the button. Gains arrive
+## through state.money_earned (_on_income) and use the same anchor, so "+$n" also rises from the button.
+func ui_click(key: String, action: Callable, btn: Control = null) -> void:
+	var now := Time.get_ticks_msec()
+	if now - int(_click_ms.get(key, -100000)) < CLICK_GUARD_MS:
+		return
+	_click_ms[key] = now
+	_tx_anchor = _button_anchor(btn)
+	var before := state.money
+	action.call()
+	if state.money < before and hud:
+		hud.popup_spend(before - state.money, _tx_anchor)
+	_tx_anchor = Vector2.INF
+	if menu != "" and menu != "manage":
+		_draw_menu()
+	elif menu == "manage":
+		management.refresh()
+
+func _button_anchor(btn: Control) -> Vector2:
+	if btn == null or not is_instance_valid(btn) or not btn.is_inside_tree():
+		return Vector2.INF
+	var r := btn.get_global_rect()
+	return Vector2(r.position.x + r.size.x * 0.5, r.position.y)
+
 func _draw_menu() -> void:
-	var text := ""
+	if menu == "" or menu == "manage":
+		return
+	var p: QuarryStationUI = panel
+	var m := state.money
+	var idx := int(panel.get_meta("crusher_index", -1))
 	match menu:
-		"pause": text = "PAUSED\n\nF5 Save     F9 Load\nEsc Resume"
-		"sell":
-			text = "SALES BOOTH        %s\n\n" % QuarryTheme.money_text(state.money)
-			var bag_value := 0
-			for i in range(RESOURCE_ORDER.size()):
-				var key: String = RESOURCE_ORDER[i]
-				var n := int(state.inventory[key])
-				bag_value += n * int(state.config["prices"][key])
-				text += "%d  %-8s x%-3d  $%-3d each  = %-6s clerk: %s\n" % [i+1, prog.display(key), n, state.config["prices"][key], QuarryTheme.money_text(n * int(state.config["prices"][key])), "sells" if business.authorized[key] else "-"]
-			text += "\n7  SELL EVERYTHING   %s\n\nShift+1-6 toggle what the sales clerk may sell\nEsc close" % QuarryTheme.money_text(bag_value)
-		"upgrades":
-			text = "UPGRADE BOARD      %s\n\n" % QuarryTheme.money_text(state.money)
-			var nt := prog.next_tool()
-			text += "TOOL: %s\n" % str(prog.tool()["title"])
-			if nt.is_empty():
-				text += "1  (best tool owned)\n"
-			else:
-				text += "1  %s   $%d   MINING POWER +%d%%\n   %s\n" % [str(nt["title"]), int(nt["cost"]), prog.tool_gain_percent(state.tool_tier, state.tool_tier + 1), str(nt.get("desc", ""))]
-			text += "\n"
-			for i in range(UPGRADE_MENU.size()):
-				var key: String = UPGRADE_MENU[i]
-				var info: Dictionary = prog.cfg.get("player_upgrades", {}).get(key, {})
-				text += "%d  %-18s %s   %s\n" % [i + 2, str(info.get("title", key)), "OWNED" if state.upgrades[key] else "$" + str(state.config["upgrades"][key]), str(info.get("effect", ""))]
-			text += "\nEsc close"
+		"pause":
+			p.begin("PAUSED", -1, "Optional keys:  F5 save   F9 load   Esc resume")
+			p.text("The quarry waits for you. Your progress is saved with the Save button or F5.")
+			p.button_bar([["resume", "RESUME", true, func(): _close_menu()], ["save", "SAVE GAME", true, func(): _save()], ["load", "LOAD GAME", true, func(): _load()]])
+		"sell": _draw_sell(p)
+		"upgrades": _draw_upgrades(p)
 		"storage":
-			text = "STORAGE  %d/%d\n\n" % [state.total(state.storage),state.storage_capacity()]
+			p.begin("STORAGE   %d / %d" % [state.total(state.storage), state.storage_capacity()], -1, "Optional keys: 1-6 store all, Shift+1-6 take all")
 			for i in range(RESOURCE_ORDER.size()):
 				var key: String = RESOURCE_ORDER[i]
-				text += "%d  %s  bag:%d  stored:%d\n" % [i+1,key.replace("_"," "),state.inventory[key],state.storage[key]]
-			text += "\n1-6 deposit all  |  Shift+1-6 withdraw all\nEsc Close"
+				p.row([[prog.display(key), QuarryTheme.INK, 150], ["bag %d" % int(state.inventory[key]), QuarryTheme.DIM, 90], ["stored %d" % int(state.storage[key]), QuarryTheme.DIM, 110]],
+					[["store_" + key, "STORE ALL", int(state.inventory[key]) > 0, func(): menu_act("storage", i, false)], ["take_" + key, "TAKE ALL", int(state.storage[key]) > 0, func(): menu_act("storage", i, true)]], QuarryTheme.RES_COLORS.get(key, Color.WHITE))
 		"crusher":
-			var index: int = int(panel.get_meta("crusher_index"))
-			if index >= 0 and index < state.crushers.size():
-				var c: Dictionary = state.crushers[index]
-				text = "STONE CRUSHER #%d\n\nHopper (automated feed): %d\nLimestone input: %d  (bag: %d)\nCrushed output: %d\n%s\n\n1 Load all limestone\n2 Start processing\n3 Collect output\n4 Move hopper into input\nEsc Close" % [index+1,c.get("hopper",0),c["input"],state.inventory["limestone"],c["output"],"Running: %.1f sec" % c["remaining"] if c["running"] else "Idle"]
+			if idx >= 0 and idx < state.crushers.size():
+				var c: Dictionary = state.crushers[idx]
+				p.begin("STONE CRUSHER #%d" % (idx + 1), m, "Optional keys: 1 load, 2 start, 3 collect, 4 hopper")
+				p.text("Hopper (automated feed): %d      Limestone input: %d      Crushed output: %d" % [c.get("hopper", 0), c["input"], c["output"]], QuarryTheme.INK)
+				p.text("Limestone in your bag: %d      %s" % [state.inventory["limestone"], ("Running: %.1f sec left" % c["remaining"]) if c["running"] else "Idle"])
+				p.button_bar([["load", "LOAD LIMESTONE", int(state.inventory["limestone"]) > 0, func(): menu_act("crusher", 0, false)], ["start", "START", not bool(c["running"]) and int(c["input"]) > 0, func(): menu_act("crusher", 1, false)]])
+				p.button_bar([["collect", "COLLECT OUTPUT", int(c["output"]) > 0, func(): menu_act("crusher", 2, false)], ["hopper", "HOPPER > INPUT", int(c.get("hopper", 0)) > 0, func(): menu_act("crusher", 3, false)]])
 		"output":
-			var oi: int = int(panel.get_meta("crusher_index"))
-			if oi >= 0 and oi < business.outputs.size():
-				var items: Dictionary = business.outputs[oi]["items"]
-				text = "OUTPUT STORAGE #%d   %d/%d\n\n" % [oi+1,business.output_total(oi),business.output_capacity()]
+			if idx >= 0 and idx < business.outputs.size():
+				var items: Dictionary = business.outputs[idx]["items"]
+				p.begin("OUTPUT STORAGE #%d   %d / %d" % [idx + 1, business.output_total(idx), business.output_capacity()], -1, "Optional keys: 1-6 withdraw, Shift+4 deposit gravel")
 				for i in range(RESOURCE_ORDER.size()):
 					var key: String = RESOURCE_ORDER[i]
-					text += "%d  %s  stored:%d  bag:%d\n" % [i+1,key.replace("_"," "),items[key],state.inventory[key]]
-				text += "\n1-6 withdraw all into bag\nShift+4 deposit gravel (crushed stone) from bag\nEsc Close"
-		"shop":
-			text = "MACHINERY ORDERS      %s\n\n" % QuarryTheme.money_text(state.money)
-			text += _shop_line(1, "Stone crusher", int(state.config["crusher_price"]), "crusher")
-			text += _shop_line(2, "Output storage", int(business.cfg["output_storage_price"]), "output")
-			text += ("3  Conveyor section     $%d\n" % int(business.cfg["conveyor_price"])) if business.conveyors_unlocked() else "3  Conveyor section     LOCKED (crusher + operator)\n"
-			text += _shop_line(4, "Advanced crusher", int(prog.machine("advanced_crusher")["price"]), "advanced_crusher", "2x batch, 2x speed")
-			text += _shop_line(5, "Drilling rig", int(prog.machine("drill_rig")["price"]), "drill_rig", "stone/coal/iron/copper")
-			text += _shop_line(6, "Rock breaker", int(prog.machine("rock_breaker")["price"]), "rock_breaker", "any rock, gold too")
-			if prog.level_unlocked >= 2:
-				text += "7  Excavation permit    LOWER LEVEL OPEN\n"
-			else:
-				text += _shop_line(7, "Excavation permit", prog.permit_cost(), "permit", "opens the lower level")
-			text += "\nRigs work a formation from its drilling pad and fill their own\noutput bin: collect it (E), send a hauler, a belt or the loader.\nPlacement: R rotate, G grid snap, LMB place, Esc refund."
+					p.row([[prog.display(key), QuarryTheme.INK, 150], ["stored %d" % int(items[key]), QuarryTheme.DIM, 110], ["bag %d" % int(state.inventory[key]), QuarryTheme.DIM, 90]],
+						[["take_" + key, "WITHDRAW", int(items[key]) > 0, func(): menu_act("output", i, false)]], QuarryTheme.RES_COLORS.get(key, Color.WHITE))
+				p.button_bar([["deposit_gravel", "DEPOSIT GRAVEL FROM BAG", int(state.inventory["crushed_stone"]) > 0, func(): menu_act("output", 3, true)], ])
+		"shop": _draw_shop(p)
 		"rig_pick":
-			text = "INSTALL %s   %s\nChoose the formation:\n\n" % [str(prog.machine(rig_pick_type)["title"]).to_upper(), QuarryTheme.money_text(int(prog.machine(rig_pick_type)["price"]))]
+			var m_rig := prog.machine(rig_pick_type)
+			p.begin("INSTALL %s" % str(m_rig["title"]).to_upper(), m, "Choose the formation it will work.")
 			var ids := _rig_formations()
 			for i in range(ids.size()):
 				var why := prog.rig_block_reason(rig_pick_type, ids[i])
-				text += "%d  %-16s %5d left   %s\n" % [i + 1, str(prog.fdef(ids[i])["title"]), prog.units_left(ids[i]), "free pad" if why == "" else why]
-			text += "\nEsc close"
+				p.item("pick_" + ids[i], str(prog.fdef(ids[i])["title"]), "%d %s left" % [prog.units_left(ids[i]), prog.display(str(prog.fdef(ids[i])["resource"]))],
+					int(m_rig["price"]), "free pad" if why == "" else "", "INSTALL", why == "", func(): install_rig(rig_pick_type, ids[i]), why if why != "" and not why.begins_with("Need $") else "")
+			p.button_bar([["back", "BACK TO ORDERS", true, func(): menu = "shop"]])
 		"rig":
-			var ri := int(panel.get_meta("crusher_index"))
-			if ri >= 0 and ri < prog.rigs.size():
-				var r: Dictionary = prog.rigs[ri]
-				var m := prog.machine(str(r["type"]))
+			if idx >= 0 and idx < prog.rigs.size():
+				var r: Dictionary = prog.rigs[idx]
+				var mm := prog.machine(str(r["type"]))
 				var up := prog.rig_upgrade_info(r)
-				text = "%s #%d   Level %d\n%s\n\n" % [str(m["title"]).to_upper(), ri + 1, int(r["level"]) + 1, str(prog.fdef(str(r["formation"]))["title"])]
-				text += "Status: %s\nRate: %.0f %s per in-game hour\nRunning cost: $%.1f per in-game minute\nOutput bin: %d / %d\n\n" % [str(r["status"]), prog.rig_rate_per_hour(r), prog.display(str(prog.fdef(str(r["formation"]))["resource"])), float(m["cost_per_min"]), prog.rig_bin_total(r), prog.rig_bin_cap(r)]
-				text += "1  Collect the bin into your bag\n2  Switch %s\n" % ("OFF" if bool(r["on"]) else "ON")
-				text += ("3  Upgrade  $%d   %s\n" % [int(up["cost"]), str(up["effect"])]) if not up.is_empty() else "3  Fully upgraded\n"
-				text += "\nEsc close"
-	panel_text.text = text
+				p.begin("%s #%d   LEVEL %d" % [str(mm["title"]).to_upper(), idx + 1, int(r["level"]) + 1], m, "Optional keys: 1 collect, 2 on/off, 3 upgrade")
+				p.text(str(prog.fdef(str(r["formation"]))["title"]), QuarryTheme.ACCENT)
+				p.text("Status: %s      Rate: %.0f %s per in-game hour" % [str(r["status"]), prog.rig_rate_per_hour(r), prog.display(str(prog.fdef(str(r["formation"]))["resource"]))], QuarryTheme.INK)
+				p.text("Running cost: $%.1f per in-game minute      Output bin: %d / %d" % [float(mm["cost_per_min"]), prog.rig_bin_total(r), prog.rig_bin_cap(r)], QuarryTheme.INK)
+				p.button_bar([["collect", "COLLECT BIN", prog.rig_bin_total(r) > 0, func(): menu_act("rig", 0, false)], ["power", "SWITCH %s" % ("OFF" if bool(r["on"]) else "ON"), true, func(): menu_act("rig", 1, false)]])
+				if not up.is_empty():
+					p.item("upgrade", "Upgrade", str(up["effect"]), int(up["cost"]), "Level %d" % (int(r["level"]) + 1), "UPGRADE", true, func(): menu_act("rig", 2, false))
+				else:
+					p.text("Fully upgraded.", QuarryTheme.GOOD)
+
+func _draw_sell(p: QuarryStationUI) -> void:
+	var bag_value := 0
+	for key in RESOURCE_ORDER:
+		bag_value += int(state.inventory[key]) * int(state.config["prices"][key])
+	p.begin("SALES BOOTH", state.money, "Optional keys: 1-6 sell, 7 sell all, Shift+1-6 clerk on/off")
+	p.row([["MATERIAL", QuarryTheme.DIM, 130], ["QTY", QuarryTheme.DIM, 50, HORIZONTAL_ALIGNMENT_RIGHT], ["PER UNIT", QuarryTheme.DIM, 80, HORIZONTAL_ALIGNMENT_RIGHT], ["TOTAL", QuarryTheme.DIM, 90, HORIZONTAL_ALIGNMENT_RIGHT]], [])
+	for i in range(RESOURCE_ORDER.size()):
+		var key: String = RESOURCE_ORDER[i]
+		var n := int(state.inventory[key])
+		var price := int(state.config["prices"][key])
+		var ok: bool = business.authorized[key]
+		p.row([[prog.display(key), QuarryTheme.INK, 130], ["x%d" % n, QuarryTheme.INK if n > 0 else QuarryTheme.DIM, 50, HORIZONTAL_ALIGNMENT_RIGHT], ["$%d" % price, QuarryTheme.DIM, 80, HORIZONTAL_ALIGNMENT_RIGHT], [QuarryTheme.money_text(n * price), QuarryTheme.MONEY if n > 0 else QuarryTheme.DIM, 90, HORIZONTAL_ALIGNMENT_RIGHT]],
+			[["sell_" + key, "SELL", n > 0, func(): menu_act("sell", i, false), 72], ["clerk_" + key, "CLERK: " + ("ON" if ok else "OFF"), true, func(): menu_act("sell", i, true), 112]], QuarryTheme.RES_COLORS.get(key, Color.WHITE))
+	p.button_bar([["sell_all", "SELL ALL   %s" % QuarryTheme.money_text(bag_value), bag_value > 0, func(): menu_act("sell", 6, false), 240]])
+	p.text("CLERK ON/OFF chooses what the sales clerk may sell for you. It does not stop you selling by hand.")
+
+func _draw_upgrades(p: QuarryStationUI) -> void:
+	p.begin("UPGRADE BOARD", state.money, "Optional keys: 1 next tool, 2-6 upgrades")
+	var nt := prog.next_tool()
+	var tools_total := prog.tools().size()
+	if nt.is_empty():
+		p.text("TOOL: %s - the best tool is yours." % str(prog.tool()["title"]), QuarryTheme.GOOD)
+	else:
+		p.item("tool", str(nt["title"]), "%s  (MINING POWER +%d%%)" % [str(nt.get("desc", "")), prog.tool_gain_percent(state.tool_tier, state.tool_tier + 1)], int(nt["cost"]),
+			"Tool %d / %d" % [state.tool_tier + 1, tools_total], "BUY", true, func(): menu_act("upgrades", 0, false))
+	for i in range(UPGRADE_MENU.size()):
+		var key: String = UPGRADE_MENU[i]
+		var info: Dictionary = prog.cfg.get("player_upgrades", {}).get(key, {})
+		var owned: bool = state.upgrades[key]
+		p.item("up_" + key, str(info.get("title", key)), str(info.get("effect", "")), int(state.config["upgrades"][key]),
+			"OWNED" if owned else "Level 0 / 1", "OWNED" if owned else "BUY", not owned, func(): menu_act("upgrades", i + 1, false))
+
+func _draw_shop(p: QuarryStationUI) -> void:
+	p.begin("MACHINERY ORDERS", state.money, "Optional keys: 1-7 order. Placement: R rotate, G grid snap, LMB place, Esc refund.")
+	var machines_ok := prog.unlocked("crusher")
+	var stage_note := "Unlocks at the %s stage" % prog.feature_stage_title("crusher")
+	p.item("shop_crusher", "Stone crusher", "Turns limestone into gravel. Place it on clear ground.", int(state.config["crusher_price"]), "Owned: %d" % state.crushers.size(), "ORDER", machines_ok, func(): menu_act("shop", 0, false), "" if machines_ok else stage_note)
+	p.item("shop_output", "Output storage", "Holds crushed stone from a crusher chute.", int(business.cfg["output_storage_price"]), "Owned: %d" % business.outputs.size(), "ORDER", machines_ok, func(): menu_act("shop", 1, false), "" if machines_ok else stage_note)
+	var conv_ok := business.conveyors_unlocked()
+	p.item("shop_conveyor", "Conveyor section", "Carries material between machines.", int(business.cfg["conveyor_price"]), "Owned: %d" % business.conveyors.size(), "ORDER", conv_ok, func(): menu_act("shop", 2, false), "" if conv_ok else "Needs a crusher + operator")
+	var adv_ok := prog.unlocked("advanced_crusher")
+	p.item("shop_advanced", "Advanced crusher", "2x batch size and 2x speed.", int(prog.machine("advanced_crusher")["price"]), "", "ORDER", adv_ok, func(): menu_act("shop", 3, false), "" if adv_ok else "Unlocks at the %s stage" % prog.feature_stage_title("advanced_crusher"))
+	for pair in [["drill_rig", "Drilling rig", "Works stone, coal, iron and copper from a fixed pad.", 4], ["rock_breaker", "Rock breaker", "Breaks any rock, gold too.", 5]]:
+		var t: String = pair[0]
+		var owned := 0
+		for r in prog.rigs:
+			if str(r["type"]) == t:
+				owned += 1
+		var ok := prog.unlocked(t)
+		p.item("shop_" + t, str(pair[1]), str(pair[2]), int(prog.machine(t)["price"]), "Owned: %d" % owned, "ORDER", ok, func(): menu_act("shop", int(pair[3]), false), "" if ok else "Unlocks at the %s stage" % prog.feature_stage_title(t))
+	if prog.level_unlocked >= 2:
+		p.item("shop_permit", "Excavation permit", "The lower level is open.", 0, "OWNED", "OWNED", false, func(): pass)
+	else:
+		var pok := prog.unlocked("permit")
+		p.item("shop_permit", "Excavation permit", "Opens a 3.5 m lower level with copper and gold.", prog.permit_cost(), "", "BUY", pok, func(): menu_act("shop", 6, false), "" if pok else "Unlocks at the %s stage" % prog.feature_stage_title("permit"))
+	p.text("Rigs work a formation from a drilling pad and fill their own output bin: collect it (E), send a hauler, a belt or the loader.")
 
 func _menu_key(event: InputEventKey) -> void:
 	if event.keycode == KEY_F5:
@@ -1000,9 +1059,14 @@ func _menu_key(event: InputEventKey) -> void:
 	if digit < 0 or digit > 8:
 		_draw_menu()
 		return
-	match menu:
+	menu_act(menu, digit, event.shift_pressed)
+	_draw_menu()
+
+## One menu action. Buttons and the optional number keys both end up here (digit = 0-based slot).
+func menu_act(kind: String, digit: int, shift: bool) -> void:
+	match kind:
 		"sell":
-			if digit < RESOURCE_ORDER.size() and event.shift_pressed:
+			if digit < RESOURCE_ORDER.size() and shift:
 				business.authorized[RESOURCE_ORDER[digit]] = not business.authorized[RESOURCE_ORDER[digit]]
 			elif digit < RESOURCE_ORDER.size():
 				sell_from_bag([RESOURCE_ORDER[digit]])
@@ -1015,7 +1079,7 @@ func _menu_key(event: InputEventKey) -> void:
 				buy_player_upgrade(UPGRADE_MENU[digit - 1])
 		"storage":
 			if digit < RESOURCE_ORDER.size():
-				if event.shift_pressed:
+				if shift:
 					state.withdraw_item(RESOURCE_ORDER[digit],999)
 				else:
 					state.deposit_item(RESOURCE_ORDER[digit],999)
@@ -1033,7 +1097,7 @@ func _menu_key(event: InputEventKey) -> void:
 			if digit < RESOURCE_ORDER.size() and oi >= 0 and oi < business.outputs.size():
 				var key: String = RESOURCE_ORDER[digit]
 				var items: Dictionary = business.outputs[oi]["items"]
-				if event.shift_pressed:
+				if shift:
 					if key == "crushed_stone":
 						var moved := mini(int(state.inventory[key]), business.output_capacity() - business.output_total(oi))
 						state.inventory[key] -= moved
@@ -1055,14 +1119,10 @@ func _menu_key(event: InputEventKey) -> void:
 						rig_pick_type = t
 						menu = "rig_pick"
 				6: buy_permit()
-			if menu != "":
-				_draw_menu()
-			return
 		"rig_pick":
 			var ids := _rig_formations()
 			if digit < ids.size():
 				install_rig(rig_pick_type, ids[digit])
-				return
 		"rig":
 			var ri := int(panel.get_meta("crusher_index"))
 			if ri >= 0 and ri < prog.rigs.size():
@@ -1085,7 +1145,6 @@ func _menu_key(event: InputEventKey) -> void:
 							_sfx_unlock()
 						elif not up.is_empty():
 							_notify("Need $%d" % int(up["cost"]))
-	_draw_menu()
 
 func placement_valid(pos: Vector3, yaw: float) -> bool:
 	if not in_build_area(pos) or pos.distance_to(Vector3(0,0,8))<2.0 or not _on_ground(pos) or _near_vehicle(pos, 3.0):
@@ -2304,7 +2363,7 @@ func _phase5_tick(delta: float) -> void:
 
 func _on_income(amount: int, source: String) -> void:
 	if hud:
-		hud.on_income(amount, source)
+		hud.on_income(amount, source, _tx_anchor)
 
 func _refresh_stage_hud() -> void:
 	if hud:
@@ -2607,11 +2666,6 @@ func _update_machines(delta: float) -> void:
 		crusher_audio.stop()
 
 # ------------------------------------------------------------------ Phase 5: rigs and the lower level
-
-func _shop_line(n: int, title: String, price: int, feature: String, note := "") -> String:
-	if not prog.unlocked(feature):
-		return "%d  %-20s LOCKED (%s stage)\n" % [n, title, prog.feature_stage_title(feature)]
-	return "%d  %-20s %s   %s\n" % [n, title, QuarryTheme.money_text(price), note]
 
 ## Formations a rig can be sent to (active, with rock left).
 func _rig_formations() -> Array:

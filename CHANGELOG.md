@@ -1,5 +1,39 @@
 # Changelog
 
+## Quarry Days — Phase 5.1: Visual, Tool & Interface Polish
+
+- **Readable pixel UI:**
+  - Pixelify Sans is the body font and Silkscreen is for headings only. Body text is now one size (15) and headings use 12 or 24, because those sizes land on whole screen pixels at 1280x720 and 1920x1080. The old 11-14 sizes smeared the glyphs.
+  - Larger text, +3 px line spacing, more opaque panels and brighter ink.
+  - The HUD was re-laid out so nothing overlaps (the bottom bar no longer sits on the key hint). Long toasts and story letters wrap inside their panels.
+- **Rock geometry:**
+  - The faceted chunks had no underside: the flat base was an open ring, so chunks looked hollow from below. The base is now capped, so every chunk is a closed solid.
+  - Neighbouring chunks overlap with no gaps (tighter radial jitter).
+  - Formation rock is double-sided as a safety net. Textures and overall shapes are unchanged.
+- **Mining dust:**
+  - The square quad cloud is gone. A strike throws a small burst of tiny irregular specks from the actual hit point, along the surface normal.
+  - Sizes and speeds vary, drag slows them, and they shrink and fade.
+  - They take the mined rock's colour. 5-14 particles per strike.
+- **First-person tools:**
+  - Cause: pickaxe heads were extruded in the (z, y) plane and then rotated 90° about Y, so the points ran left and right. The jackhammer also leaned the wrong way.
+  - Fixed for all five tools. Each now has a grip, rest pose and working-end point.
+  - Swing tools rest with the head forward, wind up, strike and settle.
+  - Power tools aim at the crosshair.
+  - At impact (and while a power tool runs) the working end is eased onto the point on the crosshair ray, so the visible contact matches the hit.
+  - Mining reach is 2.6 m. Camera near plane is 0.03.
+- **Clickable menus:**
+  - Shop, upgrades, selling, storage, crusher, output storage, rig and pause are button panels. Item cards show name, description, price, ownership or level, and a Buy/Order/Upgrade button.
+  - Unaffordable and locked cards are visibly disabled.
+  - The sales booth is an aligned table (material, quantity, per unit, total, Sell, clerk ON/OFF) plus Sell All.
+  - The management desk was already clickable; its buttons now use the same click path.
+  - Number keys still work as optional shortcuts, shown in each footer.
+- **Money feedback:**
+  - Floating red `-$20` on purchases and gold `+$45` on earnings rise about 46 px and fade over ~1.6 s. They start at the clicked button.
+  - Amounts come from the real change in cash. Failed purchases show nothing.
+  - Rapid amounts merge into one total instead of stacking. Repeat clicks within 150 ms are ignored.
+- **Viewport:** stretch aspect is now `expand`, so any window shape fills with no black bands. 16:9 windows give exactly the 960x540 canvas; taller windows add canvas height; the 3D view is not stretched.
+- **Tests:** `tests/test_phase5_1.gd` (97 checks) covers menus, clicks, money pop-ups, duplicates, tool poses and impact alignment, rock mesh validity, dust, viewport fill and save/load.
+
 ## Quarry Days — Phase 5: The Big Progression Overhaul
 
 - **Progression:** six stages (Manual Labor → Deep Excavation) gate hiring, machinery and vehicles. They are driven by lifetime earnings and real milestones, all set in `data/progression.json`.

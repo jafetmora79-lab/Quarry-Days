@@ -36,11 +36,12 @@ func setup(main_node) -> void:
 	frame.add_child(root)
 	var top := HBoxContainer.new()
 	root.add_child(top)
-	header = _label("", ACCENT, 14)
+	header = _label("", ACCENT, 15)
 	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(header)
 	var close := Button.new()
 	close.text = "CLOSE [Esc]"
+	close.custom_minimum_size = Vector2(110, 28)
 	close.pressed.connect(func(): game._close_menu())
 	top.add_child(close)
 	var tabs := HBoxContainer.new()
@@ -62,13 +63,13 @@ func setup(main_node) -> void:
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	content.add_theme_constant_override("separation", 6)
 	scroll.add_child(content)
-	status = _label("", GOOD, 12)
+	status = _label("", GOOD, 15)
 	root.add_child(status)
 
 func _make_theme() -> Theme:
 	var t := Theme.new()
 	t.default_font = QuarryTheme.body()
-	t.default_font_size = 13
+	t.default_font_size = 15
 	var frame := QuarryTheme.panel_box(Color(0.13, 0.1, 0.075, 0.97), QuarryTheme.BORDER_HI, 12, 4)
 	t.set_stylebox("panel", "PanelContainer", frame)
 	t.set_stylebox("normal", "Button", _box(Color(0.24, 0.18, 0.12), Color(0.5, 0.37, 0.23), 2, 4))
@@ -116,7 +117,8 @@ func _button(text: String, action: Callable, enabled := true) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.disabled = not enabled
-	b.pressed.connect(action)
+	b.focus_mode = Control.FOCUS_NONE
+	b.pressed.connect(func(): game.ui_click("mgmt_" + text, action, b)) # debounced; shows the money pop-up
 	return b
 
 func _row() -> HBoxContainer:
@@ -173,9 +175,9 @@ func _staff(b: QuarryBusiness) -> void:
 		var card := _card()
 		var top := _row()
 		card.add_child(top)
-		var title := _label("%s  -  %s   Skill %d   $%.2f/h   Training %d/3" % [e["name"], b.profession(e["profession"])["title"], e["skill"], b.wage(e), e["upgrade"]], ACCENT, 12)
+		var title := _label("%s  -  %s   Skill %d   $%.2f/h   Training %d/3" % [e["name"], b.profession(e["profession"])["title"], e["skill"], b.wage(e), e["upgrade"]], ACCENT, 15)
 		top.add_child(title)
-		var task := _label(str(e["task"]), INK if b.can_work(e) else DIM, 11)
+		var task := _label(str(e["task"]), INK if b.can_work(e) else DIM, 15)
 		task.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		top.add_child(task)
 		var assign := _row()
@@ -183,15 +185,15 @@ func _staff(b: QuarryBusiness) -> void:
 		_assignment_controls(b, e, assign)
 		var line := _row()
 		card.add_child(line)
-		line.add_child(_label("Shift", DIM, 12, false))
+		line.add_child(_label("Shift", DIM, 15, false))
 		line.add_child(_button("-", func(): _say(game.ui_shift(id, int(e["shift_start"]) - 30, int(e["shift_end"])))))
-		line.add_child(_label(game.fmt_time(int(e["shift_start"])), INK, 12, false))
+		line.add_child(_label(game.fmt_time(int(e["shift_start"])), INK, 15, false))
 		line.add_child(_button("+", func(): _say(game.ui_shift(id, int(e["shift_start"]) + 30, int(e["shift_end"])))))
-		line.add_child(_label("to", DIM, 12, false))
+		line.add_child(_label("to", DIM, 15, false))
 		line.add_child(_button("-", func(): _say(game.ui_shift(id, int(e["shift_start"]), int(e["shift_end"]) - 30))))
-		line.add_child(_label(game.fmt_time(int(e["shift_end"])), INK, 12, false))
+		line.add_child(_label(game.fmt_time(int(e["shift_end"])), INK, 15, false))
 		line.add_child(_button("+", func(): _say(game.ui_shift(id, int(e["shift_start"]), int(e["shift_end"]) + 30))))
-		line.add_child(_label("(%.1f h)" % b.shift_hours(e), DIM, 11, false))
+		line.add_child(_label("(%.1f h)" % b.shift_hours(e), DIM, 15, false))
 		var spacer := Control.new()
 		spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		line.add_child(spacer)
@@ -208,7 +210,7 @@ func _staff(b: QuarryBusiness) -> void:
 			int(s["units_today"]) if today else 0, (int(s["minutes_today"]) if today else 0) / 60.0, int(s["paid_today"]) if today else 0,
 			float(e["owed"]), int(s["units_total"]), int(s["paid_total"])], DIM, 11))
 		if str(e["warning"]) != "":
-			card.add_child(_label("! " + str(e["warning"]), WARN, 12))
+			card.add_child(_label("! " + str(e["warning"]), WARN, 15))
 
 func _fire(id: int) -> void:
 	if confirm_fire != id:
@@ -223,23 +225,23 @@ func _assignment_controls(b: QuarryBusiness, e: Dictionary, row: HBoxContainer) 
 	var a: Dictionary = e["assignment"]
 	match str(e["profession"]):
 		"miner":
-			row.add_child(_label("Mine:", DIM, 12, false))
+			row.add_child(_label("Mine:", DIM, 15, false))
 			var opts := []
 			for r in QuarryBusiness.MINERALS:
 				opts.append([game.prog.display(r) + " deposits", {"resource": r}])
 			row.add_child(_option(opts, a, func(v): _say(game.ui_assign(id, v))))
-			row.add_child(_label("-> delivers to Storage crate", DIM, 11))
+			row.add_child(_label("-> delivers to Storage crate", DIM, 15))
 		"operator":
-			row.add_child(_label("Operate:", DIM, 12, false))
+			row.add_child(_label("Operate:", DIM, 15, false))
 			var opts := []
 			for i in range(game.state.crushers.size()):
 				opts.append(["Crusher #%d" % (i + 1), {"crusher": i}])
 			if opts.is_empty():
-				row.add_child(_label("No crusher placed yet - order one at the blue kiosk.", WARN, 11))
+				row.add_child(_label("No crusher placed yet - order one at the blue kiosk.", WARN, 15))
 			else:
 				row.add_child(_option(opts, a, func(v): _say(game.ui_assign(id, v))))
 				var out: int = b.crusher_outputs[int(a.get("crusher", 0))] if int(a.get("crusher", 0)) < b.crusher_outputs.size() else -1
-				row.add_child(_label("-> output %s" % ("to Output storage #%d" % (out + 1) if out >= 0 else "stays in crusher (place output storage at the chute)"), DIM, 11))
+				row.add_child(_label("-> output %s" % ("to Output storage #%d" % (out + 1) if out >= 0 else "stays in crusher (place output storage at the chute)"), DIM, 15))
 		"hauler":
 			var srcs := [["Storage crate", {"type": "storage"}]]
 			for r in QuarryBusiness.MINERALS:
@@ -255,14 +257,14 @@ func _assignment_controls(b: QuarryBusiness, e: Dictionary, row: HBoxContainer) 
 				dsts.append(["Crusher #%d hopper" % (i + 1), {"type": "crusher", "index": i}])
 			for i in range(b.outputs.size()):
 				dsts.append(["Output storage #%d" % (i + 1), {"type": "output", "index": i}])
-			row.add_child(_label("From:", DIM, 12, false))
+			row.add_child(_label("From:", DIM, 15, false))
 			row.add_child(_option(srcs, a.get("src", {}), func(v): _set_route(b, id, v, a.get("dst", {}), dsts)))
-			row.add_child(_label("To:", DIM, 12, false))
+			row.add_child(_label("To:", DIM, 15, false))
 			row.add_child(_option(dsts, a.get("dst", {}), func(v): _set_route(b, id, a.get("src", {}), v, dsts)))
 			var res := b.route_resource(a.get("src", {}), a.get("dst", {}))
-			row.add_child(_label(("carries " + res.replace("_", " ")) if res != "" else "invalid route", DIM if res != "" else WARN, 11))
+			row.add_child(_label(("carries " + res.replace("_", " ")) if res != "" else "invalid route", DIM if res != "" else WARN, 15))
 		"clerk":
-			row.add_child(_label("Works at the selling station. Choose what may be sold in PRODUCTION.", DIM, 11))
+			row.add_child(_label("Works at the selling station. Choose what may be sold in PRODUCTION.", DIM, 15))
 
 func _set_route(b: QuarryBusiness, id: int, src: Dictionary, dst: Dictionary, dsts: Array) -> void:
 	if b.route_resource(src, dst) == "":
@@ -302,7 +304,7 @@ func _hire(b: QuarryBusiness) -> void:
 		var reason := b.hire_block_reason(str(c["id"]))
 		var cid := str(c["id"])
 		row.add_child(_button("Hire" if reason == "" else reason, func(): _say(game.ui_hire(cid)), reason == ""))
-		card.add_child(_label(_describe_profession(str(c["profession"])), DIM, 11))
+		card.add_child(_label(_describe_profession(str(c["profession"])), DIM, 15))
 
 func _describe_profession(p: String) -> String:
 	match p:
@@ -339,7 +341,7 @@ func _payroll(b: QuarryBusiness) -> void:
 	for k in keys:
 		var d: Dictionary = b.daily[k]
 		var labour := int(d["wages"]) + int(d.get("hire_fees", 0)) + int(d.get("upgrades", 0))
-		hist.add_child(_label("Day %d:  labour $%d (wages $%d)   clerk revenue $%d   net $%d" % [int(k) + 1, labour, d["wages"], d["revenue"], int(d["revenue"]) - labour], INK, 11))
+		hist.add_child(_label("Day %d:  labour $%d (wages $%d)   clerk revenue $%d   net $%d" % [int(k) + 1, labour, d["wages"], d["revenue"], int(d["revenue"]) - labour], INK, 15))
 
 # ------------------------------------------------------------------ production
 
@@ -365,18 +367,18 @@ func _production(b: QuarryBusiness) -> void:
 	for res in QuarryState.RESOURCE_NAMES:
 		if int(game.state.storage[res]) > 0:
 			held.append("%s %d" % [game.prog.display(res), int(game.state.storage[res])])
-	st.add_child(_label("Storage crate: %d/%d  %s" % [game.state.total(game.state.storage), game.state.storage_capacity(), ", ".join(held)], INK, 11))
+	st.add_child(_label("Storage crate: %d/%d  %s" % [game.state.total(game.state.storage), game.state.storage_capacity(), ", ".join(held)], INK, 15))
 	for i in range(game.prog.rigs.size()):
 		var r: Dictionary = game.prog.rigs[i]
-		st.add_child(_label("%s #%d at %s: %s, %.0f/h, bin %d/%d" % [game.prog.machine(str(r["type"]))["title"], i + 1, game.prog.fdef(str(r["formation"]))["title"], r["status"], game.prog.rig_rate_per_hour(r), game.prog.rig_bin_total(r), game.prog.rig_bin_cap(r)], INK, 11))
+		st.add_child(_label("%s #%d at %s: %s, %.0f/h, bin %d/%d" % [game.prog.machine(str(r["type"]))["title"], i + 1, game.prog.fdef(str(r["formation"]))["title"], r["status"], game.prog.rig_rate_per_hour(r), game.prog.rig_bin_total(r), game.prog.rig_bin_cap(r)], INK, 15))
 	for i in range(game.state.crushers.size()):
 		var c: Dictionary = game.state.crushers[i]
-		st.add_child(_label("Crusher #%d: hopper %d, input %d, output %d, %s" % [i + 1, c.get("hopper", 0), c["input"], c["output"], ("running %.0fs" % float(c["remaining"])) if c["running"] else "idle"], INK, 11))
+		st.add_child(_label("Crusher #%d: hopper %d, input %d, output %d, %s" % [i + 1, c.get("hopper", 0), c["input"], c["output"], ("running %.0fs" % float(c["remaining"])) if c["running"] else "idle"], INK, 15))
 	for i in range(b.outputs.size()):
-		st.add_child(_label("Output storage #%d: %d/%d crushed stone" % [i + 1, b.output_total(i), b.output_capacity()], INK, 11))
+		st.add_child(_label("Output storage #%d: %d/%d crushed stone" % [i + 1, b.output_total(i), b.output_capacity()], INK, 15))
 	for i in range(b.conveyors.size()):
 		var link: Dictionary = b.links[i] if i < b.links.size() else {"src": {}, "dst": {}}
-		st.add_child(_label("Conveyor #%d: %s -> %s, carrying %d" % [i + 1, b.describe_ep(link["src"]), b.describe_ep(link["dst"]), b.conveyors[i]["items"]], INK, 11))
+		st.add_child(_label("Conveyor #%d: %s -> %s, carrying %d" % [i + 1, b.describe_ep(link["src"]), b.describe_ep(link["dst"]), b.conveyors[i]["items"]], INK, 15))
 
 # ------------------------------------------------------------------ milestones
 
@@ -387,19 +389,19 @@ func _milestones(b: QuarryBusiness) -> void:
 	for i in range(prog.stages().size()):
 		var st := prog.stage_info(i)
 		var done := i <= prog.stage
-		sc.add_child(_label("%s %d. %s  -  %s" % ["[x]" if done else "[ ]", i + 1, str(st["title"]).to_upper(), str(st["goal"])], GOOD if done else (ACCENT if i == prog.stage + 1 else DIM), 11))
+		sc.add_child(_label("%s %d. %s  -  %s" % ["[x]" if done else "[ ]", i + 1, str(st["title"]).to_upper(), str(st["goal"])], GOOD if done else (ACCENT if i == prog.stage + 1 else DIM), 15))
 		if i == prog.stage + 1:
 			for r in prog.requirement_progress(i):
-				sc.add_child(_label("      %s: %s" % [r[0], "done" if float(r[1]) >= float(r[2]) else "%d / %d" % [int(r[1] if not str(r[0]).begins_with("Clear") else float(r[1]) * 100.0), int(r[2] if not str(r[0]).begins_with("Clear") else float(r[2]) * 100.0)]], DIM, 11))
+				sc.add_child(_label("      %s: %s" % [r[0], "done" if float(r[1]) >= float(r[2]) else "%d / %d" % [int(r[1] if not str(r[0]).begins_with("Clear") else float(r[1]) * 100.0), int(r[2] if not str(r[0]).begins_with("Clear") else float(r[2]) * 100.0)]], DIM, 15))
 	var dc := _card()
 	dc.add_child(_label("DISCOVERIES", ACCENT))
 	var any := false
 	for did in prog.cfg.get("story", {}).get("discoveries", {}):
 		if prog.story["found"].get(did, false):
 			any = true
-			dc.add_child(_label("%s  %s" % [str(prog.discovery(did)["title"]), "(read)" if prog.story["read"].get(did, false) else "(waiting where the rock stood - press E on it)"], INK, 11))
+			dc.add_child(_label("%s  %s" % [str(prog.discovery(did)["title"]), "(read)" if prog.story["read"].get(did, false) else "(waiting where the rock stood - press E on it)"], INK, 15))
 	if not any:
-		dc.add_child(_label("Nothing yet. Grandpa always said the good stuff is under the rock.", DIM, 11))
+		dc.add_child(_label("Nothing yet. Grandpa always said the good stuff is under the rock.", DIM, 15))
 	var info := [
 		["first_employee", "1. FIRST EMPLOYEE", "Hire your first worker.", "Remote management with M anywhere and +5% staff productivity."],
 		["mechanized", "2. MECHANIZED QUARRY", "Own a crusher and employ a machine operator.", "Conveyor belts at the machinery kiosk and the Front Loader in EQUIPMENT."],
@@ -409,14 +411,14 @@ func _milestones(b: QuarryBusiness) -> void:
 		var card := _card()
 		var done: bool = b.milestones[m[0]]
 		card.add_child(_label(("[DONE] " if done else "[    ] ") + m[1], GOOD if done else ACCENT))
-		card.add_child(_label(m[2], INK, 11))
-		card.add_child(_label("Reward: " + m[3], DIM, 11))
+		card.add_child(_label(m[2], INK, 15))
+		card.add_child(_label("Reward: " + m[3], DIM, 15))
 		if m[0] == "automated" and not done:
 			var names := {"mined": "Miner delivers ore to storage", "fed": "Limestone fed into a crusher by hauler or conveyor", "processed": "Operator completes a crushing run", "stored": "Crushed stone reaches an output storage automatically", "sold": "Clerk sells crushed stone"}
 			for step in QuarryBusiness.CHAIN_STEPS:
-				card.add_child(_label(("  [x] " if b.chain[step] else "  [ ] ") + names[step], GOOD if b.chain[step] else DIM, 11))
+				card.add_child(_label(("  [x] " if b.chain[step] else "  [ ] ") + names[step], GOOD if b.chain[step] else DIM, 15))
 			var sold_ok := b.auto_crushed_sold >= b.sales_goal()
-			card.add_child(_label(("  [x] " if sold_ok else "  [ ] ") + "Clerk sales of crushed stone: %d / %d" % [mini(b.auto_crushed_sold, b.sales_goal()), b.sales_goal()], GOOD if sold_ok else DIM, 11))
+			card.add_child(_label(("  [x] " if sold_ok else "  [ ] ") + "Clerk sales of crushed stone: %d / %d" % [mini(b.auto_crushed_sold, b.sales_goal()), b.sales_goal()], GOOD if sold_ok else DIM, 15))
 
 # ------------------------------------------------------------------ equipment (Phase 3)
 
@@ -437,20 +439,20 @@ func _equipment() -> void:
 		var t: String = type
 		row.add_child(_button("Buy" if reason == "" else reason, func(): _say(game.ui_buy_vehicle(t)), reason == ""))
 		var desc := "Scoops rubble piles and loose rock; dumps into the storage crate, crusher hoppers, output storage or a truck." if type == "loader" else "Hauls large loads from the loader to the storage crate, crusher hoppers or output storage. Bed tips to unload."
-		card.add_child(_label(desc, DIM, 11))
+		card.add_child(_label(desc, DIM, 15))
 		for v in f.vehicles:
 			if str(v["type"]) == type:
 				var cargo := ""
 				for k in v["cargo"]:
 					cargo += " %s %d" % [str(k).replace("_", " "), v["cargo"][k]]
-				card.add_child(_label("  #%d  load %d/%d%s   top speed %.1f m/s   acceleration %.1f m/s2" % [v["id"], f.cargo_total(v), f.capacity(v), cargo, f.max_speed(v), f.accel(v)], INK, 11))
+				card.add_child(_label("  #%d  load %d/%d%s   top speed %.1f m/s   acceleration %.1f m/s2" % [v["id"], f.cargo_total(v), f.capacity(v), cargo, f.max_speed(v), f.accel(v)], INK, 15))
 	var up := _card()
 	up.add_child(_label("EQUIPMENT UPGRADES", ACCENT))
 	for key in ["bucket", "cargo", "engine"]:
 		var u: Dictionary = f.cfg["upgrades"][key]
 		var row := _row()
 		up.add_child(row)
-		row.add_child(_label("%s ($%d): %s" % [u["title"], u["cost"], u["effect"]], INK, 11))
+		row.add_child(_label("%s ($%d): %s" % [u["title"], u["cost"], u["effect"]], INK, 15))
 		var reason: String = f.upgrade_block_reason(key)
 		var k: String = key
 		row.add_child(_button("Install" if reason == "" else reason, func(): _say(game.ui_vehicle_upgrade(k)), reason == ""))
@@ -458,9 +460,9 @@ func _equipment() -> void:
 	piles.add_child(_label("RUBBLE PILES (regrow 1 unit every %d in-game minutes, max %d)" % [int(f.cfg["pile_regen_minutes"]), int(f.cfg["pile_max"])], ACCENT))
 	for id in f.piles:
 		if f.pile_active(id):
-			piles.add_child(_label("%s: %d" % [f.cfg["piles"][id]["title"], f.piles[id]["amount"]], INK, 11))
+			piles.add_child(_label("%s: %d" % [f.cfg["piles"][id]["title"], f.piles[id]["amount"]], INK, 15))
 		else:
-			piles.add_child(_label("%s: opens with the east expansion" % f.cfg["piles"][id]["title"], DIM, 11))
+			piles.add_child(_label("%s: opens with the east expansion" % f.cfg["piles"][id]["title"], DIM, 15))
 
 # ------------------------------------------------------------------ Phase 5: upgrades and statistics
 
@@ -474,7 +476,7 @@ func _upgrades() -> void:
 		var row := _row()
 		tc.add_child(row)
 		var owned := i <= st.tool_tier
-		row.add_child(_label("%s %s  -  %s" % ["[x]" if owned else "[ ]", str(t["title"]), str(t.get("desc", ""))], GOOD if i == st.tool_tier else (INK if owned else DIM), 11))
+		row.add_child(_label("%s %s  -  %s" % ["[x]" if owned else "[ ]", str(t["title"]), str(t.get("desc", ""))], GOOD if i == st.tool_tier else (INK if owned else DIM), 15))
 		if i == st.tool_tier + 1:
 			row.add_child(_button("Buy $%d  (+%d%%)" % [int(t["cost"]), prog.tool_gain_percent(st.tool_tier, i)], func(): game.buy_next_tool(); _say("Tool upgraded" if st.tool_tier >= i else "Need $%d" % int(t["cost"])), st.money >= int(t["cost"])))
 	var uc := _card()
@@ -483,19 +485,19 @@ func _upgrades() -> void:
 		var info: Dictionary = prog.cfg.get("player_upgrades", {}).get(key, {})
 		var row := _row()
 		uc.add_child(row)
-		row.add_child(_label("%s  -  %s" % [str(info.get("title", key)), str(info.get("effect", ""))], INK if not st.upgrades[key] else GOOD, 11))
+		row.add_child(_label("%s  -  %s" % [str(info.get("title", key)), str(info.get("effect", ""))], INK if not st.upgrades[key] else GOOD, 15))
 		var k: String = key
 		if not st.upgrades[key]:
 			row.add_child(_button("Buy $%d" % int(st.config["upgrades"][key]), func(): game.buy_player_upgrade(k); _say(""), st.money >= int(st.config["upgrades"][key])))
 	var rc := _card()
 	rc.add_child(_label("MINING MACHINES (order at the blue kiosk)", ACCENT))
 	if prog.rigs.is_empty():
-		rc.add_child(_label("No rigs yet. Drilling rigs unlock at the %s stage." % prog.feature_stage_title("drill_rig"), DIM, 11))
+		rc.add_child(_label("No rigs yet. Drilling rigs unlock at the %s stage." % prog.feature_stage_title("drill_rig"), DIM, 15))
 	for i in range(prog.rigs.size()):
 		var r: Dictionary = prog.rigs[i]
 		var row := _row()
 		rc.add_child(row)
-		row.add_child(_label("%s #%d  Lv %d  @ %s  -  %s" % [prog.machine(str(r["type"]))["title"], i + 1, int(r["level"]) + 1, prog.fdef(str(r["formation"]))["title"], r["status"]], INK, 11))
+		row.add_child(_label("%s #%d  Lv %d  @ %s  -  %s" % [prog.machine(str(r["type"]))["title"], i + 1, int(r["level"]) + 1, prog.fdef(str(r["formation"]))["title"], r["status"]], INK, 15))
 		var up := prog.rig_upgrade_info(r)
 		var rr := r
 		if not up.is_empty():
@@ -504,12 +506,12 @@ func _upgrades() -> void:
 	var ec := _card()
 	ec.add_child(_label("DEEP EXCAVATION", ACCENT))
 	if prog.level_unlocked >= 2:
-		ec.add_child(_label("The lower level is open: copper vein and gold seam, reached by the ramp.", GOOD, 11))
+		ec.add_child(_label("The lower level is open: copper vein and gold seam, reached by the ramp.", GOOD, 15))
 	else:
 		var why := prog.permit_block_reason()
 		var row := _row()
 		ec.add_child(row)
-		row.add_child(_label("Excavation permit: dig a 3.5 m lower level into the pit floor.", INK, 11))
+		row.add_child(_label("Excavation permit: dig a 3.5 m lower level into the pit floor.", INK, 15))
 		row.add_child(_button("Buy $%d" % prog.permit_cost() if why == "" else why, func(): game.buy_permit(); _say("The lower level is open!"), why == ""))
 
 func _stats(b: QuarryBusiness) -> void:
@@ -518,16 +520,16 @@ func _stats(b: QuarryBusiness) -> void:
 	var c := _card()
 	c.add_child(_label("BUSINESS", ACCENT))
 	var vehicles: int = game.fleet.vehicles.size()
-	c.add_child(_label("Lifetime sales %s   -   cash %s   -   day %d" % [QuarryTheme.money_text(st.earned), QuarryTheme.money_text(st.money), int(st.clock_minutes) / 1440 + 1], INK, 11))
-	c.add_child(_label("Staff %d   -   crushers %d   -   rigs %d   -   vehicles %d   -   tool: %s" % [b.employees.size(), st.crushers.size(), prog.rigs.size(), vehicles, prog.tool()["title"]], INK, 11))
+	c.add_child(_label("Lifetime sales %s   -   cash %s   -   day %d" % [QuarryTheme.money_text(st.earned), QuarryTheme.money_text(st.money), int(st.clock_minutes) / 1440 + 1], INK, 15))
+	c.add_child(_label("Staff %d   -   crushers %d   -   rigs %d   -   vehicles %d   -   tool: %s" % [b.employees.size(), st.crushers.size(), prog.rigs.size(), vehicles, prog.tool()["title"]], INK, 15))
 	var m := _card()
 	m.add_child(_label("ROCK MINED (units)", ACCENT))
-	m.add_child(_label("By hand %d   -   by staff %d   -   by rigs %d   -   chunks broken off %d" % [int(prog.stats["hand"]), int(prog.stats["crew"]), int(prog.stats["rigs"]), int(prog.stats["chunks"])], INK, 11))
+	m.add_child(_label("By hand %d   -   by staff %d   -   by rigs %d   -   chunks broken off %d" % [int(prog.stats["hand"]), int(prog.stats["crew"]), int(prog.stats["rigs"]), int(prog.stats["chunks"])], INK, 15))
 	var f := _card()
 	f.add_child(_label("FORMATIONS", ACCENT))
 	for id in prog.formation_ids():
 		if not st.deposits.has(id):
-			f.add_child(_label("%s  -  lower level (locked)" % prog.fdef(id)["title"], DIM, 11))
+			f.add_child(_label("%s  -  lower level (locked)" % prog.fdef(id)["title"], DIM, 15))
 			continue
 		var left := prog.units_left(id)
 		var total := prog.max_units(id)
@@ -535,4 +537,4 @@ func _stats(b: QuarryBusiness) -> void:
 		var bar := ""
 		for k in range(20):
 			bar += "|" if float(k) / 20.0 < frac else "."
-		f.add_child(_label("%-16s [%s] %3d%% excavated   %d / %d %s left" % [prog.fdef(id)["title"], bar, int(frac * 100.0), left, total, prog.display(str(prog.fdef(id)["resource"]))], GOOD if left <= 0 else INK, 11))
+		f.add_child(_label("%-16s [%s] %3d%% excavated   %d / %d %s left" % [prog.fdef(id)["title"], bar, int(frac * 100.0), left, total, prog.display(str(prog.fdef(id)["resource"]))], GOOD if left <= 0 else INK, 15))

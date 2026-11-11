@@ -22,6 +22,7 @@ func _ready() -> void:
 	camera.position.y = 1.58
 	camera.current = true
 	camera.fov = 72.0
+	camera.near = 0.03
 	add_child(camera)
 	tool_view = QuarryToolView.new()
 	camera.add_child(tool_view)
