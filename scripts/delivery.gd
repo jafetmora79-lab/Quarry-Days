@@ -19,6 +19,7 @@ var body: StaticBody3D
 var open_amount := 0.0
 var jobs: Array = []                        ## active deliveries: {vehicle, driver, slot, stage, wps}
 var reserved: Array = []                    ## bays promised to a delivery in progress
+var reserved_sizes := {}                    ## bay position -> the footprint of the machine on its way
 var delivered := 0                          ## completed deliveries (tests)
 var entered := 0                            ## workers who stepped out of the gate (tests)
 
@@ -148,6 +149,7 @@ func start(vehicle_id: int, slot: Vector3, fallback := false) -> bool:
 	if v == null:
 		return false
 	reserved.append(slot)
+	reserved_sizes[slot] = v.size
 	v.set_meta("delivering", true)
 	v.collision_layer = 0
 	v.collision_mask = 0
@@ -235,6 +237,7 @@ func _step_job(j: Dictionary, delta: float) -> void:
 	if not is_instance_valid(v):
 		jobs.erase(j)
 		reserved.erase(j["slot"])
+		reserved_sizes.erase(j["slot"])
 		return
 	match str(j["stage"]):
 		"queue":
@@ -308,6 +311,7 @@ func _unload_driver(j: Dictionary) -> void:
 
 func _finish(j: Dictionary) -> void:
 	reserved.erase(j["slot"])
+	reserved_sizes.erase(j["slot"])
 	jobs.erase(j)
 	delivered += 1
 

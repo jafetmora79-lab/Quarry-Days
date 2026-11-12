@@ -88,6 +88,21 @@ func hire_block_reason(candidate_id: String) -> String:
 
 const PERSONALITIES := ["friendly", "quiet", "enthusiastic", "serious", "humorous"]
 const VARIANTS := 4
+const HAIR_STYLES_F := ["ponytail", "bun", "long", "short"]
+const HAIR_STYLES_M := ["short", "short", "cropped", "short"]
+const ACCESSORIES := ["none", "hardhat", "cap", "glasses", "bandana", "earmuffs"]
+
+## A worker's look (Phase 8.3): gender, hair style and colour, skin tone, height, outfit tint and one accessory. All of it is
+## chosen once, stored with the employee and shown on the same character model, so a worker always looks the same.
+static func make_look(gender: String, rng: RandomNumberGenerator) -> Dictionary:
+	var styles: Array = HAIR_STYLES_F if gender == "f" else HAIR_STYLES_M
+	return {"gender": gender, "hair": str(styles[rng.randi() % styles.size()]), "hair_tone": rng.randi() % 6, "skin": rng.randi() % 6,
+		"height": rng.randi() % 4, "outfit": rng.randi() % 6, "accessory": str(ACCESSORIES[rng.randi() % ACCESSORIES.size()])}
+
+static func look_from_id(id: int, gender: String) -> Dictionary:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = id * 7919 + 17
+	return make_look(gender, rng)
 
 ## Older saves have no identity fields: a stable personality and look from the employee id, and no introduction to replay.
 static func ensure_identity(e: Dictionary) -> void:
@@ -97,6 +112,10 @@ static func ensure_identity(e: Dictionary) -> void:
 	e["variant"] = clampi(int(e.get("variant", id % VARIANTS)), 0, VARIANTS - 1)
 	if not e.has("intro_done"):
 		e["intro_done"] = true
+	if not (e.get("look") is Dictionary):
+		e["look"] = look_from_id(id, str(e.get("gender", "f" if id % 2 == 0 else "m")))
+		e["look"]["height"] = int(e["variant"])
+	e["gender"] = str(e["look"].get("gender", "m"))
 
 ## Custom names: trimmed, 1-20 characters, no control characters. Returns the stored name.
 func rename_employee(id: int, new_name: String) -> String:
@@ -107,6 +126,12 @@ func rename_employee(id: int, new_name: String) -> String:
 	if n != "":
 		e["name"] = n
 	return str(e["name"])
+
+var _rng_look := RandomNumberGenerator.new()
+
+func _look_rng() -> RandomNumberGenerator:
+	_rng_look.randomize()
+	return _rng_look
 
 func hire(candidate_id: String) -> Dictionary:
 	if hire_block_reason(candidate_id) != "":
@@ -122,8 +147,10 @@ func hire(candidate_id: String) -> Dictionary:
 		"owed": 0.0, "suspended": false, "carry": {}, "position": [], "yaw": 0.0,
 		"task": "Arriving", "warning": "",
 		"personality": PERSONALITIES[randi() % PERSONALITIES.size()], "variant": randi() % VARIANTS, "intro_done": false,
+		"gender": str(c.get("gender", "m")), "look": QuarryBusiness.make_look(str(c.get("gender", "m")), _look_rng()),
 		"stats": {"day": current_day(), "units_today": 0, "units_total": 0, "minutes_today": 0, "minutes_total": 0, "paid_today": 0, "paid_total": 0}
 	}
+	e["look"]["height"] = int(e["variant"])      # the old single "variant" and the new look agree on height
 	next_employee_id += 1
 	employees.append(e)
 	_add_daily("hire_fees", hire_fee(c))
@@ -801,6 +828,10 @@ func restore(data: Dictionary) -> void:
 			for k in ["day", "units_today", "units_total", "minutes_today", "minutes_total", "paid_today", "paid_total"]:
 				s[k] = int(s.get(k, 0))
 			e["stats"] = s
+			if not e.has("gender") and not (e.get("look") is Dictionary):
+				var cand := candidate(str(e.get("candidate", "")))
+				if not cand.is_empty():
+					e["gender"] = str(cand.get("gender", "m"))
 			ensure_identity(e)
 			employees.append(e)
 	next_employee_id = int(data.get("next_employee_id", 1))

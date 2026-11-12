@@ -76,21 +76,22 @@ func run() -> void:
 	game.business.milestones["mechanized"] = true
 	game.business.milestones["automated"] = true
 	var bought := []
-	for t in ["industrial_truck", "heavy_excavator", "heavy_truck", "truck", "compact_excavator", "loader", "truck"]:
+	for t in ["industrial_truck", "heavy_excavator", "heavy_truck", "truck", "compact_excavator", "loader", "compact_truck", "truck"]:
 		var msg: String = game.ui_buy_vehicle(t)
 		bought.append(msg)
 		game.delivery.finish_all()
 		await frames(2)
-	check(fleet.vehicles.size() == 4 and fleet.vehicles[0]["type"] == "industrial_truck" and fleet.vehicles[3]["type"] == "truck", "5 the four biggest machines all find a bay or apron spot (%d owned)" % fleet.vehicles.size())
+	check(fleet.vehicles.size() == 8 and fleet.vehicles[0]["type"] == "industrial_truck" and fleet.vehicles[7]["type"] == "truck", "5 all eight machines, the biggest ones included, find a place to park (%d owned)" % fleet.vehicles.size())
 	var money_now: int = game.state.money
-	check(game.ui_buy_vehicle("loader").begins_with("Equipment parking is blocked") and game.state.money == money_now, "5b when there is no room the purchase is refused and nothing is charged")
+	check(game.ui_buy_vehicle("loader").begins_with("Equipment yard full") and game.state.money == money_now, "5b a ninth is refused and nothing is charged")
+	fleet.cfg["max_vehicles"] = 10
 	# two machines of one type are two machines (data level): separate identities, nothing replaced
 	var t1 := fleet.buy("truck", Vector3(80, 0, 80))
 	var t2 := fleet.buy("truck", Vector3(90, 0, 80))
-	check(t1["id"] != t2["id"] and t1["name"] == "Dump Truck 2" and t2["name"] == "Dump Truck 3" and fleet.vehicles.size() == 6, "5c buying another truck adds one; each keeps its own id and name (%s, %s)" % [t1["name"], t2["name"]])
+	check(t1["id"] != t2["id"] and t1["name"] == "Dump Truck 3" and t2["name"] == "Dump Truck 4" and fleet.vehicles.size() == 10, "5c buying another truck adds one; each keeps its own id and name (%s, %s)" % [t1["name"], t2["name"]])
 	fleet.vehicles.erase(t1)
 	fleet.vehicles.erase(t2)
-	check(fleet.buy_block_reason("truck") == "" or fleet.vehicles.size() < int(fleet.cfg["max_vehicles"]), "5c2 the yard holds up to %d machines" % int(fleet.cfg["max_vehicles"]))
+	fleet.cfg["max_vehicles"] = 8
 	var names := {}
 	for v in fleet.vehicles:
 		names[v["name"]] = true
@@ -98,11 +99,13 @@ func run() -> void:
 	var nodes: Array = game.vehicle_nodes.values()
 	for i in range(nodes.size()):
 		for j in range(i + 1, nodes.size()):
-			var d: float = Vector2(nodes[i].global_position.x - nodes[j].global_position.x, nodes[i].global_position.z - nodes[j].global_position.z).length()
-			var need: float = (maxf(nodes[i].size.x, nodes[i].size.z) + maxf(nodes[j].size.x, nodes[j].size.z)) * 0.5 * 0.6
-			if d < need:
+			var ea: Vector2 = game._vehicle_extent(nodes[i].size, nodes[i].rotation.y)
+			var eb: Vector2 = game._vehicle_extent(nodes[j].size, nodes[j].rotation.y)
+			var dx: float = absf(nodes[i].global_position.x - nodes[j].global_position.x)
+			var dz: float = absf(nodes[i].global_position.z - nodes[j].global_position.z)
+			if dx < ea.x + eb.x and dz < ea.y + eb.y:
 				far_enough = false
-				printerr("   %s and %s overlap (%.1f m)" % [nodes[i].name, nodes[j].name, d])
+				printerr("   %s and %s overlap (dx %.1f, dz %.1f)" % [nodes[i].name, nodes[j].name, dx, dz])
 	check(far_enough, "5d no two machines are parked inside each other")
 	var model_ok := true
 	for n in nodes:
@@ -121,7 +124,7 @@ func run() -> void:
 	var snap := fleet.snapshot()
 	var before := fleet.vehicles.duplicate(true)
 	fleet.restore(snap)
-	check(fleet.vehicles.size() == 4 and fleet.vehicles[2]["name"] == before[2]["name"] and fleet.vehicles[3]["type"] == before[3]["type"], "6 restoring a save brings every machine back with its name and type")
+	check(fleet.vehicles.size() == 8 and fleet.vehicles[2]["name"] == before[2]["name"] and fleet.vehicles[3]["type"] == before[3]["type"], "6 restoring a save brings every machine back with its name and type")
 	var old_snap := snap.duplicate(true)
 	for v in old_snap["vehicles"]:
 		v.erase("name")
@@ -131,9 +134,10 @@ func run() -> void:
 	prog.cleanup["done"] = true
 	prog.init_formation("hillside_face_01")
 	prog.quarry_level = 4
-	var crec := fleet.buy("compact_excavator", Vector3(-12.9, 0.1, -10.6), PI * 0.5)
-	game._sync_vehicles()
-	var cv: QuarryVehicle = game.vehicle_nodes[crec["id"]]
+	var cv: QuarryVehicle = null
+	for n in game.vehicle_nodes.values():
+		if n.vtype == "compact_excavator":
+			cv = n
 	cv.global_position = Vector3(-12.9, 0.1, -10.6)
 	cv.rotation.y = PI * 0.5
 	await frames(4)

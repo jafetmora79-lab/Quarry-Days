@@ -40,6 +40,9 @@ var sidestep := Vector3.ZERO
 var sidestep_timer := 0.0
 var access_cache := {}
 var facing := 0.0
+var bark_t := 40.0
+var bark_n := 0
+var bark_label: Label3D
 
 # task
 var phase := ""
@@ -118,27 +121,117 @@ func _build_rig() -> void:
 	found[0].add_child(carry_box)              # follows the chest through the rig, see VeilRig.carry_center()
 	rig.carry_node = carry_box
 
-## Look variants (same model, outfit and rig): hair colour, skin tone and a small height difference. The employee record
-## stores the variant, so a worker always looks the same.
-const HAIR_TINT := [Color(1, 1, 1), Color(0.55, 0.5, 0.48), Color(1.4, 1.2, 0.8), Color(0.8, 0.86, 1.0)]
-const SKIN_TINT := [Color(1, 1, 1), Color(0.78, 0.72, 0.7), Color(1.1, 1.05, 1.0), Color(0.92, 0.88, 0.84)]
+## Looks (Phase 8.3): the same character model and rig, varied by hair colour and style, skin tone, height, outfit tint, build
+## and one accessory, all stored in the employee record (`look`) so a worker is always recognisable.
+const HAIR_TONES := [Color(0.35, 0.3, 0.28), Color(0.62, 0.5, 0.42), Color(1.45, 1.2, 0.75), Color(0.55, 0.5, 0.5), Color(1.2, 0.6, 0.4), Color(1.7, 1.7, 1.7)]
+const SKIN_TONES := [Color(1, 1, 1), Color(0.78, 0.72, 0.7), Color(1.1, 1.05, 1.0), Color(0.92, 0.88, 0.84), Color(0.66, 0.55, 0.5), Color(1.18, 1.1, 1.05)]
+const OUTFIT_TINTS := [Color(1, 1, 1), Color(1.0, 0.82, 0.78), Color(0.8, 0.92, 1.0), Color(0.82, 1.0, 0.85), Color(1.0, 0.95, 0.7), Color(0.85, 0.78, 0.98)]
 const HEIGHT_SCALE := [1.0, 0.97, 1.03, 0.99]
 
+func look() -> Dictionary:
+	return e.get("look", {}) if e.get("look") is Dictionary else {}
+
+func _tinted(src: Material, tint: Color) -> Material:
+	if src is BaseMaterial3D:
+		var m: BaseMaterial3D = src.duplicate()
+		m.albedo_color = m.albedo_color * tint
+		return m
+	return src
+
 func _apply_variant(body: Node3D) -> void:
-	var v := clampi(int(e.get("variant", employee_id % 4)), 0, 3)
+	var lk := look()
+	var fem := str(lk.get("gender", "m")) == "f"
+	var hair_t: Color = HAIR_TONES[clampi(int(lk.get("hair_tone", e.get("variant", employee_id % 4))), 0, HAIR_TONES.size() - 1)]
+	var skin_t: Color = SKIN_TONES[clampi(int(lk.get("skin", e.get("variant", employee_id % 4))), 0, SKIN_TONES.size() - 1)]
+	var outfit_t: Color = OUTFIT_TINTS[clampi(int(lk.get("outfit", 0)), 0, OUTFIT_TINTS.size() - 1)]
+	var hair_mat: Material = null
 	for mi in body.find_children("*", "MeshInstance3D", true, false):
+		var nm := str(mi.name)
 		var tint := Color.WHITE
-		if str(mi.name).ends_with("_Hair"):
-			tint = HAIR_TINT[v]
-		elif str(mi.name).ends_with("_Head"):
-			tint = SKIN_TINT[v]
+		if nm.ends_with("_Hair") or nm.ends_with("_HairExtras"):
+			tint = hair_t
+		elif nm.ends_with("_Head"):
+			tint = skin_t
+		elif nm.ends_with("_Body"):
+			tint = outfit_t
 		else:
 			continue
 		if tint != Color.WHITE and mi.mesh != null and mi.get_active_material(0) is BaseMaterial3D:
-			var m: BaseMaterial3D = mi.get_active_material(0).duplicate()
-			m.albedo_color = m.albedo_color * tint
-			mi.material_override = m
-	body.scale = Vector3.ONE * float(HEIGHT_SCALE[v])     # on the body, so the model keeps its exact -Z facing
+			mi.material_override = _tinted(mi.get_active_material(0), tint)
+		if nm.ends_with("_Hair"):
+			hair_mat = mi.material_override if mi.material_override != null else mi.get_active_material(0)
+	var h := float(HEIGHT_SCALE[clampi(int(lk.get("height", employee_id % 4)), 0, 3)])
+	# build: the feminine workers are a little slighter; same skeleton, so every animation still fits
+	body.scale = Vector3(h * (0.94 if fem else 1.0), h, h * (0.97 if fem else 1.0))
+	_dress_head(body, str(lk.get("hair", "short")), str(lk.get("accessory", "none")), hair_mat)
+
+## Hair styles and accessories are small procedural meshes on the head socket (crown of the head, facing -Z).
+func _dress_head(body: Node3D, hair_style: String, accessory: String, hair_mat: Material) -> void:
+	var skels := body.find_children("*", "Skeleton3D", true, false)
+	if skels.is_empty():
+		return
+	var sk: Skeleton3D = skels[0]
+	if sk.find_bone("Socket_Head") < 0:
+		return
+	var att := BoneAttachment3D.new()
+	att.name = "HeadGear"
+	att.bone_name = "Socket_Head"
+	sk.add_child(att)
+	var hm: Material = hair_mat if hair_mat != null else game._mat(Color(0.25, 0.2, 0.17))
+	match hair_style:
+		"ponytail":
+			for k in range(3):
+				_gear_box(att, Vector3(0, -0.10 - 0.07 * k, 0.15 + 0.03 * k), Vector3(0.075, 0.08, 0.09), hm)
+		"bun":
+			_gear_box(att, Vector3(0, 0.0, 0.13), Vector3(0.13, 0.12, 0.12), hm)
+		"long":
+			_gear_box(att, Vector3(0, -0.21, 0.135), Vector3(0.25, 0.36, 0.05), hm)
+			_gear_box(att, Vector3(0.125, -0.12, 0.02), Vector3(0.03, 0.2, 0.2), hm)
+			_gear_box(att, Vector3(-0.125, -0.12, 0.02), Vector3(0.03, 0.2, 0.2), hm)
+	var plastic := {"hardhat": Color(0.95, 0.8, 0.15), "cap": Color(0.25, 0.4, 0.6)}
+	match accessory:
+		"hardhat":
+			var col: Color = Color(0.95, 0.8, 0.15) if employee_id % 2 == 0 else Color(0.95, 0.45, 0.12)
+			var dome := MeshInstance3D.new()
+			var sm := SphereMesh.new()
+			sm.radius = 0.16
+			sm.height = 0.26
+			dome.mesh = sm
+			dome.material_override = game._mat(col)
+			dome.position = Vector3(0, -0.03, 0.0)
+			att.add_child(dome)
+			_gear_box(att, Vector3(0, -0.075, -0.07), Vector3(0.36, 0.02, 0.38), game._mat(col))
+		"cap":
+			var cm := MeshInstance3D.new()
+			var cs := SphereMesh.new()
+			cs.radius = 0.145
+			cs.height = 0.2
+			cm.mesh = cs
+			cm.material_override = game._mat(plastic["cap"])
+			cm.position = Vector3(0, -0.035, 0.0)
+			att.add_child(cm)
+			_gear_box(att, Vector3(0, -0.07, -0.17), Vector3(0.2, 0.015, 0.14), game._mat(plastic["cap"]))
+		"glasses":
+			var gm: Material = game._mat(Color(0.1, 0.1, 0.12))
+			for sx in [-0.052, 0.052]:
+				_gear_box(att, Vector3(sx, -0.165, -0.158), Vector3(0.07, 0.045, 0.012), gm)
+			_gear_box(att, Vector3(0, -0.16, -0.158), Vector3(0.03, 0.01, 0.012), gm)
+		"bandana":
+			_gear_box(att, Vector3(0, -0.07, -0.0), Vector3(0.265, 0.04, 0.285), game._mat(Color(0.75, 0.15, 0.12)))
+		"earmuffs":
+			for sx in [-0.125, 0.125]:
+				_gear_box(att, Vector3(sx, -0.17, 0.0), Vector3(0.05, 0.1, 0.1), game._mat(Color(0.2, 0.2, 0.22)))
+			_gear_box(att, Vector3(0, 0.0, 0.0), Vector3(0.26, 0.02, 0.05), game._mat(Color(0.2, 0.2, 0.22)))
+
+func _gear_box(parent: Node3D, pos: Vector3, size_v: Vector3, mat: Material) -> void:
+	var m := MeshInstance3D.new()
+	var b := BoxMesh.new()
+	b.size = size_v
+	m.mesh = b
+	m.material_override = mat
+	m.position = pos
+	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	parent.add_child(m)
 
 ## Per-tool grip configuration (VeilRig.add_tool): which hand, the point of the tool that sits in the palm, the
 ## relaxed hold (shaft direction / blade plane in rig components right, up, forward), the second grip for two-handed
@@ -368,6 +461,7 @@ func goto_workplace(ep: Dictionary, delta: float) -> int:
 # ------------------------------------------------------------------ main loop
 
 func step(delta: float) -> void:
+	_bark_tick(delta)
 	e = business.employee(employee_id)
 	if e.is_empty():
 		return
@@ -725,3 +819,32 @@ func _clerk(delta: float) -> void:
 		if int(sale["units"]) > 0:
 			e["task"] = "Sold %d %s (+$%d)" % [sale["units"], str(sale["resource"]).replace("_", " "), sale["money"]]
 			game.worker_sale_feedback(self)
+
+
+## A short remark above the head now and then, only when the player is near and the worker is not in conversation.
+func _bark_tick(delta: float) -> void:
+	if bark_label != null and bark_label.visible:
+		bark_label.modulate.a -= delta * 0.3
+		if bark_label.modulate.a <= 0.05:
+			bark_label.visible = false
+	bark_t -= delta
+	if bark_t > 0.0:
+		return
+	bark_t = randf_range(75.0, 150.0)
+	if not game.introductions_enabled or game.player == null or bool(e.get("away", false)) or not bool(e.get("intro_done", true)):
+		return
+	if _flat(global_position, game.player.global_position) > 14.0 or game.dialog_worker == self:
+		return
+	if bark_label == null:
+		bark_label = Label3D.new()
+		bark_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		bark_label.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+		bark_label.font_size = 22
+		bark_label.pixel_size = 0.006
+		bark_label.outline_size = 8
+		bark_label.position = Vector3(0, 2.25, 0)
+		add_child(bark_label)
+	bark_n += 1
+	bark_label.text = QuarryIntroDialog.bark_for(str(e.get("personality", "friendly")), employee_id + bark_n)
+	bark_label.modulate = Color(1, 1, 1, 1)
+	bark_label.visible = true

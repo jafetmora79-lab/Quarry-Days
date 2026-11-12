@@ -147,7 +147,8 @@
       "profession": "miner",
       "skill": 1,
       "wage": 3.0,
-      "hire_fee": 15
+      "hire_fee": 15,
+      "gender": "f"
     },
     {
       "id": "dmitri",
@@ -155,7 +156,8 @@
       "profession": "miner",
       "skill": 2,
       "wage": 4.0,
-      "hire_fee": 25
+      "hire_fee": 25,
+      "gender": "m"
     },
     {
       "id": "ines",
@@ -163,7 +165,8 @@
       "profession": "miner",
       "skill": 3,
       "wage": 5.5,
-      "hire_fee": 40
+      "hire_fee": 40,
+      "gender": "f"
     },
     {
       "id": "tomas",
@@ -171,7 +174,8 @@
       "profession": "operator",
       "skill": 1,
       "wage": 4.0,
-      "hire_fee": 20
+      "hire_fee": 20,
+      "gender": "m"
     },
     {
       "id": "hana",
@@ -179,7 +183,8 @@
       "profession": "operator",
       "skill": 2,
       "wage": 5.0,
-      "hire_fee": 30
+      "hire_fee": 30,
+      "gender": "f"
     },
     {
       "id": "bram",
@@ -187,7 +192,8 @@
       "profession": "hauler",
       "skill": 1,
       "wage": 3.0,
-      "hire_fee": 15
+      "hire_fee": 15,
+      "gender": "m"
     },
     {
       "id": "lucia",
@@ -195,7 +201,8 @@
       "profession": "hauler",
       "skill": 2,
       "wage": 4.0,
-      "hire_fee": 25
+      "hire_fee": 25,
+      "gender": "f"
     },
     {
       "id": "petra",
@@ -203,7 +210,8 @@
       "profession": "clerk",
       "skill": 1,
       "wage": 2.5,
-      "hire_fee": 15
+      "hire_fee": 15,
+      "gender": "f"
     },
     {
       "id": "omar",
@@ -211,7 +219,35 @@
       "profession": "clerk",
       "skill": 2,
       "wage": 3.5,
-      "hire_fee": 25
+      "hire_fee": 25,
+      "gender": "m"
+    },
+    {
+      "id": "nia",
+      "name": "Nia Adeyemi",
+      "profession": "miner",
+      "skill": 2,
+      "wage": 4.0,
+      "hire_fee": 25,
+      "gender": "f"
+    },
+    {
+      "id": "felix",
+      "name": "Felix Brandt",
+      "profession": "hauler",
+      "skill": 3,
+      "wage": 5.5,
+      "hire_fee": 40,
+      "gender": "m"
+    },
+    {
+      "id": "sofia",
+      "name": "Sofia Marin",
+      "profession": "operator",
+      "skill": 3,
+      "wage": 6.5,
+      "hire_fee": 45,
+      "gender": "f"
     }
   ],
   "wage_scale": 6.0,

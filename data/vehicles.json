@@ -1,5 +1,5 @@
 {
-  "max_vehicles": 6,
+  "max_vehicles": 8,
   "load_penalty": 0.45,
   "parking": [
     [

@@ -328,6 +328,7 @@ func _build_quarry() -> void:
 	sell.set_meta("kind","sell")
 	var shop := _solid(world,"Upgrade board",OFFICE_POS + Vector3(-2.2, 1.45, -0.4),Vector3(0.14,1.2,2.0),Color(0.15,0.26,0.27))   # the whiteboard inside the office
 	shop.set_meta("kind","upgrades")
+	_build_workbench()
 	var storage := _solid(world,"Storage crate",Vector3(10,0.65,10),Vector3(2,1.3,1.6),Color(0.33,0.23,0.13))
 	storage.set_meta("kind","storage")
 	storage.set_meta("index",0)
@@ -453,6 +454,13 @@ func _start_intro(w: Node3D) -> void:
 	dialog.finished.connect(_end_intro)
 	player.locked = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	# first person: the view turns to the new employee
+	var d := w.global_position + Vector3(0, 1.5, 0) - player.global_position
+	var yaw := atan2(-d.x, -d.z)
+	var tw := create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(player, "rotation:y", player.rotation.y + angle_difference(player.rotation.y, yaw), 0.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_property(player.camera, "rotation:x", clampf(atan2(d.y - 1.58, Vector2(d.x, d.z).length()), -0.4, 0.4), 0.5).set_trans(Tween.TRANS_SINE)
 
 func _end_intro(chosen: String, skipped: bool) -> void:
 	if dialog_worker != null and is_instance_valid(dialog_worker):
@@ -465,6 +473,8 @@ func _end_intro(chosen: String, skipped: bool) -> void:
 	if dialog:
 		dialog.queue_free()
 	dialog = null
+	var back := create_tween()
+	back.tween_property(player.camera, "rotation:x", 0.0, 0.4)
 	player.locked = false
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
@@ -1275,7 +1285,7 @@ func _physics_process(delta: float) -> void:
 				var who := business.employee(int(last_target.get_meta("employee")))
 				if not who.is_empty():
 					prompt = "%s (%s): %s" % [who["name"], business.profession(who["profession"])["title"], who["task"]]
-			"upgrades": prompt = "E: upgrades"
+			"upgrades": prompt = "E: use the workbench and tools"
 			"storage": prompt = "E: storage"
 			"vehicle":
 				var vrec := fleet.vehicle(int(last_target.get_meta("vehicle_id")))
@@ -1570,21 +1580,122 @@ func _draw_sell(p: QuarryStationUI) -> void:
 	p.button_bar([["sell_all", "SELL ALL   %s" % QuarryTheme.money_text(bag_value), bag_value > 0, func(): menu_act("sell", 6, false), 260, "primary"]])
 	p.text("'Clerk' chooses what the sales clerk may sell for you. It never stops you selling by hand.")
 
+## The workbench panel (Phase 8.3): what is in your hand, what the next tool on the pegboard would change, the price, and the
+## other upgrades. Same data and purchases as before (menu_act "upgrades"); only the presentation is new.
+func _bar(value: float, top: float, width := 18) -> String:
+	var n := clampi(int(round(value / maxf(0.01, top) * float(width))), 0, width)
+	return "[" + "#".repeat(n) + "-".repeat(width - n) + "]"
+
+func _tool_line(tier: int) -> String:
+	var t := prog.tool(tier)
+	var hard: String = ["", "Stone and coal", "Up to iron", "Up to copper", "Anything, gold too"][clampi(int(t.get("max_hardness", 1)), 0, 4)]
+	if prog.is_continuous(tier):
+		return "%s   mining power %.0f/s, held down   hardness: %s" % [str(t["title"]), prog.tool_dps(tier), hard]
+	return "%s   %.0f damage a swing, %.1f swings a second   hardness: %s" % [str(t["title"]), prog.tool_power(tier), 1.0 / prog.tool_interval(tier) * prog.speed_mult(), hard]
+
 func _draw_upgrades(p: QuarryStationUI) -> void:
-	p.begin("UPGRADE BOARD", state.money, "Optional keys: 1 next tool, 2-6 upgrades")
+	p.begin("WORKBENCH", state.money, "Click BUY on the bench. Keys 1-6 also work.")
+	var top := 0.0
+	for i in range(prog.tools().size()):
+		top = maxf(top, prog.tool_dps(i))
+	p.text("IN YOUR HAND", QuarryTheme.ACCENT)
+	p.text(_tool_line(state.tool_tier), QuarryTheme.INK)
+	p.text(_bar(prog.tool_dps(state.tool_tier), top) + "  %.0f damage a second" % prog.tool_dps(state.tool_tier), QuarryTheme.GOOD)
 	var nt := prog.next_tool()
 	var tools_total := prog.tools().size()
 	if nt.is_empty():
-		p.text("TOOL: %s - the best tool is yours." % str(prog.tool()["title"]), QuarryTheme.GOOD)
+		p.text("Every tool on the pegboard is yours. The jackhammer breaks anything.", QuarryTheme.GOOD)
 	else:
-		p.item("tool", str(nt["title"]), "%s  (MINING POWER +%d%%)" % [str(nt.get("desc", "")), prog.tool_gain_percent(state.tool_tier, state.tool_tier + 1)], int(nt["cost"]),
-			"Tool %d / %d" % [state.tool_tier + 1, tools_total], "BUY", true, func(): menu_act("upgrades", 0, false))
+		var nxt := state.tool_tier + 1
+		p.text("NEXT ON THE PEGBOARD", QuarryTheme.ACCENT)
+		p.text(_tool_line(nxt), QuarryTheme.INK)
+		p.text(_bar(prog.tool_dps(nxt), top) + "  %.0f damage a second  (+%d%%)" % [prog.tool_dps(nxt), prog.tool_gain_percent(state.tool_tier, nxt)], QuarryTheme.MONEY)
+		var newly := int(nt.get("max_hardness", 1)) > int(prog.tool().get("max_hardness", 1))
+		var short := maxi(0, int(nt["cost"]) - state.money)
+		p.item("tool", str(nt["title"]), "%s%s" % [str(nt.get("desc", "")), "  It can break harder rock than your current tool." if newly else ""], int(nt["cost"]),
+			"Tool %d of %d" % [nxt + 1, tools_total], "BUY", true, func(): menu_act("upgrades", 0, false), "" if short <= 0 else "Need %s more" % QuarryTheme.money_text(short))
+	p.text("TUNING AND GEAR", QuarryTheme.ACCENT)
 	for i in range(UPGRADE_MENU.size()):
 		var key: String = UPGRADE_MENU[i]
 		var info: Dictionary = prog.cfg.get("player_upgrades", {}).get(key, {})
 		var owned: bool = state.upgrades[key]
 		p.item("up_" + key, str(info.get("title", key)), str(info.get("effect", "")), int(state.config["upgrades"][key]),
-			"OWNED" if owned else "Level 0 / 1", "OWNED" if owned else "BUY", not owned, func(): menu_act("upgrades", i + 1, false))
+			"INSTALLED" if owned else "", "OWNED" if owned else "BUY", not owned, func(): menu_act("upgrades", i + 1, false))
+
+## Workbench in the office: the bench top, a vise, and the pegboard of tools above it (Phase 8.3). The tools you own hang
+## in full colour; the next one is lit and has a price tag; the rest are dim.
+var workbench_tools: Node3D
+var workbench_tag: Label3D
+
+func _build_workbench() -> void:
+	var o := OFFICE_POS + Vector3(1.8, 0.0, 0.3)
+	var bench := _solid(world, "Workbench", o + Vector3(0, 0.5, 0), Vector3(0.8, 1.0, 2.3), Color(0.40, 0.28, 0.16))
+	bench.set_meta("kind", "upgrades")
+	_visual_box(world, o + Vector3(0, 1.03, 0), Vector3(0.9, 0.07, 2.4), Color(0.52, 0.38, 0.22))
+	for sx in [-0.36, 0.36]:
+		for sz in [-1.1, 1.1]:
+			_visual_box(world, o + Vector3(sx, 0.5, sz), Vector3(0.08, 1.0, 0.08), Color(0.28, 0.2, 0.12))
+	_visual_box(world, o + Vector3(0.0, 0.3, 0), Vector3(0.74, 0.05, 2.1), Color(0.33, 0.23, 0.14))       # lower shelf
+	_visual_box(world, o + Vector3(-0.25, 1.14, -0.8), Vector3(0.22, 0.16, 0.3), Color(0.2, 0.22, 0.26))   # vise
+	_visual_box(world, o + Vector3(-0.25, 1.24, -0.8), Vector3(0.1, 0.06, 0.36), Color(0.6, 0.6, 0.62))
+	_visual_box(world, o + Vector3(0.1, 1.11, 0.6), Vector3(0.3, 0.08, 0.3), Color(0.7, 0.55, 0.2))       # parts box
+	# pegboard on the wall above
+	_visual_box(world, o + Vector3(0.52, 1.75, 0.0), Vector3(0.05, 1.1, 2.3), Color(0.55, 0.45, 0.3))
+	workbench_tools = Node3D.new()
+	workbench_tools.name = "WorkbenchTools"
+	world.add_child(workbench_tools)
+	workbench_tools.position = o + Vector3(0.46, 0.0, 0.0)
+	workbench_tag = Label3D.new()
+	workbench_tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	workbench_tag.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	workbench_tag.font_size = 24
+	workbench_tag.pixel_size = 0.005
+	workbench_tag.outline_size = 8
+	workbench_tag.position = o + Vector3(0.3, 2.45, 0.0)
+	workbench_tag.visibility_range_end = 14.0
+	world.add_child(workbench_tag)
+	_refresh_workbench()
+
+func _wb_box(pos: Vector3, size_v: Vector3, col: Color, t: float) -> void:
+	_visual_box(workbench_tools, pos, size_v, Color(col.r * t, col.g * t, col.b * t))
+
+func _refresh_workbench() -> void:
+	if workbench_tools == null:
+		return
+	for c in workbench_tools.get_children():
+		c.queue_free()
+	var steel := Color(0.62, 0.64, 0.68)
+	var wood := Color(0.5, 0.35, 0.2)
+	var n := prog.tools().size()
+	for i in range(n):
+		var owned := i <= state.tool_tier
+		var is_next := i == state.tool_tier + 1
+		var tint := 1.0 if owned else (0.9 if is_next else 0.35)
+		var z := -0.9 + float(i) * 0.45
+		var y := 1.75
+		match i:
+			0:   # rock hammer
+				_wb_box(Vector3(0, y, z), Vector3(0.05, 0.5, 0.05), wood, tint)
+				_wb_box(Vector3(0, y + 0.27, z), Vector3(0.1, 0.12, 0.2), steel, tint)
+			1:   # basic pickaxe
+				_wb_box(Vector3(0, y, z), Vector3(0.05, 0.7, 0.05), wood, tint)
+				_wb_box(Vector3(0, y + 0.35, z), Vector3(0.07, 0.07, 0.5), steel, tint)
+			2:   # reinforced pickaxe
+				_wb_box(Vector3(0, y, z), Vector3(0.06, 0.78, 0.06), Color(0.25, 0.25, 0.3), tint)
+				_wb_box(Vector3(0, y + 0.39, z), Vector3(0.1, 0.09, 0.58), Color(0.78, 0.5, 0.2), tint)
+			3:   # power drill
+				_wb_box(Vector3(0, y - 0.05, z), Vector3(0.14, 0.2, 0.34), Color(0.9, 0.7, 0.1), tint)
+				_wb_box(Vector3(0, y - 0.3, z), Vector3(0.04, 0.34, 0.04), steel, tint)
+				_wb_box(Vector3(0, y + 0.1, z - 0.12), Vector3(0.1, 0.18, 0.06), Color(0.2, 0.2, 0.22), tint)
+			4:   # jackhammer
+				_wb_box(Vector3(0, y + 0.1, z), Vector3(0.16, 0.5, 0.16), Color(0.85, 0.35, 0.12), tint)
+				_wb_box(Vector3(0, y - 0.28, z), Vector3(0.05, 0.4, 0.05), steel, tint)
+				_wb_box(Vector3(0, y + 0.38, z), Vector3(0.1, 0.06, 0.34), Color(0.15, 0.15, 0.17), tint)
+	var nt := prog.next_tool()
+	if nt.is_empty():
+		workbench_tag.text = "WORKBENCH\nAll tools owned"
+	else:
+		workbench_tag.text = "WORKBENCH\nNext: %s  %s" % [str(nt["title"]), QuarryTheme.money_text(int(nt["cost"]))]
 
 func _draw_shop(p: QuarryStationUI) -> void:
 	p.begin("MACHINERY ORDERS", state.money, "Optional keys: 1-7 order. Placement: R rotate, G grid snap, LMB place, Esc refund.")
@@ -2143,6 +2254,7 @@ func _load(quiet := false) -> void:
 		if not prog.story["read"].get(did, false):
 			_spawn_discovery(did, str(prog.story.get("found_at", prog.cfg.get("starting_formations", ["stone_mountain"])[0])))
 	player.tool_view.equip(state.tool_tier, true)
+	_refresh_workbench()
 	for i in range(state.crushers.size()):
 		_create_crusher(i)
 	for i in range(business.outputs.size()):
@@ -2816,37 +2928,61 @@ func _sync_vehicles(rebuild := false) -> void:
 		vehicles_root.add_child(v)
 		vehicle_nodes[id] = v
 
-## First equipment parking slot with nothing on it (vehicles, people, objects).
-func free_parking_slot() -> Variant:
-	for slot in fleet.cfg.get("parking", []):
-		var pos := Vector3(float(slot[0]), 0.05, float(slot[2]))
-		if _near_vehicle(pos, 3.5) or (delivery and delivery.reserved.has(pos)):
+## Equipment parking (Phase 8.3). Bays are not fixed any more: a machine is packed into the garage row (tail toward the door,
+## nose toward the apron), left to right, wherever its real footprint fits between the walls, people and the machines already
+## there. When the garage row is full it goes on the apron in front of the garage, in a second row.
+const PARK_X_MIN := -4.4
+const PARK_X_MAX := 14.0
+const GARAGE_TAIL_Z := 20.7       ## the back edge of a machine in the garage row
+const APRON_TAIL_Z := 14.6        ## the back edge of a machine in the apron row
+
+func _vehicle_extent(sz: Vector3, yaw: float) -> Vector2:
+	var c := absf(cos(yaw))
+	var s := absf(sin(yaw))
+	return Vector2(c * sz.x * 0.5 + s * sz.z * 0.5, s * sz.x * 0.5 + c * sz.z * 0.5)
+
+## True when a machine of this footprint fits at `pos` (garage floor, nothing on it, no other machine or promised bay overlapping).
+func parking_fits(pos: Vector3, sz: Vector3) -> bool:
+	var half := Vector2(sz.x * 0.5 + 0.45, sz.z * 0.5 + 0.45)
+	for v in vehicle_nodes.values():
+		if v.has_meta("delivering"):
 			continue
-		var shape := BoxShape3D.new()
-		shape.size = Vector3(2.6, 1.8, 4.8)
-		var q := PhysicsShapeQueryParameters3D.new()
-		q.shape = shape
-		q.transform = Transform3D(Basis(), pos + Vector3(0, 1.1, 0))
-		q.collision_mask = 1 | 4 | 8 | 16
-		if get_world_3d().direct_space_state.intersect_shape(q, 1).is_empty():
+		var e := _vehicle_extent(v.size, v.rotation.y)
+		if absf(pos.x - v.global_position.x) < half.x + e.x and absf(pos.z - v.global_position.z) < half.y + e.y:
+			return false
+	if delivery:
+		for slot in delivery.reserved:
+			var rs: Vector3 = delivery.reserved_sizes.get(slot, Vector3(2.4, 1.8, 4.8))
+			var re := _vehicle_extent(rs, 0.0)
+			if absf(pos.x - slot.x) < half.x + re.x and absf(pos.z - slot.z) < half.y + re.y:
+				return false
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(sz.x + 0.3, 1.8, sz.z + 0.3)
+	var q := PhysicsShapeQueryParameters3D.new()
+	q.shape = shape
+	q.transform = Transform3D(Basis(), pos + Vector3(0, 1.1, 0))
+	q.collision_mask = 1 | 4 | 16        # world, people and belts; machines were checked above
+	return get_world_3d().direct_space_state.intersect_shape(q, 1).is_empty()
+
+func _find_parking(type: String, apron: bool) -> Variant:
+	var sp: Array = fleet.spec(type)["size"]
+	var sz := Vector3(float(sp[0]), float(sp[1]), float(sp[2]))
+	var zc := (APRON_TAIL_Z if apron else GARAGE_TAIL_Z) - sz.z * 0.5
+	var x := PARK_X_MIN + sz.x * 0.5
+	while x <= PARK_X_MAX - sz.x * 0.5:
+		var pos := Vector3(x, 0.05, zc)
+		if parking_fits(pos, sz):
 			return pos
+		x += 0.5
 	return null
 
-## Overflow parking when every garage bay is taken: a spot on the apron road in front of the garage, with room all round.
-func free_fallback_slot() -> Variant:
-	for sx in [0.5, 5.5, 10.5, -4.0]:
-		var pos := Vector3(sx, 0.05, 13.2)
-		if _near_vehicle(pos, 3.8) or (delivery and delivery.reserved.has(pos)):
-			continue
-		var shape := BoxShape3D.new()
-		shape.size = Vector3(2.8, 1.8, 5.0)
-		var q := PhysicsShapeQueryParameters3D.new()
-		q.shape = shape
-		q.transform = Transform3D(Basis(), pos + Vector3(0, 1.1, 0))
-		q.collision_mask = 1 | 4 | 8 | 16
-		if get_world_3d().direct_space_state.intersect_shape(q, 1).is_empty():
-			return pos
-	return null
+## First place in the garage row for this machine type (null when it is full).
+func free_parking_slot(type := "loader") -> Variant:
+	return _find_parking(type, false)
+
+## Overflow: a place on the apron in front of the garage.
+func free_fallback_slot(type := "loader") -> Variant:
+	return _find_parking(type, true)
 
 func enter_vehicle(v: QuarryVehicle) -> void:
 	if driving or v == null or v.has_meta("delivering"):
@@ -3160,13 +3296,13 @@ func ui_buy_vehicle(type: String) -> String:
 	var reason := fleet.buy_block_reason(type)
 	if reason != "":
 		return reason
-	var slot = free_parking_slot()
+	var slot = free_parking_slot(type)
 	var fallback := false
 	if slot == null:
-		slot = free_fallback_slot()
+		slot = free_fallback_slot(type)
 		fallback = true
 		if slot == null:
-			return "Equipment parking is blocked - clear a parking bay south of the yard"
+			return "Equipment parking is blocked - the %s will not fit in the garage or on the apron. Drive another machine out of the way first." % fleet.spec(type)["title"]
 	var rec := fleet.buy(type, slot, 0.0)
 	_sync_vehicles()
 	nav_dirty = true
@@ -4314,6 +4450,7 @@ func buy_next_tool() -> bool:
 		_notify("The %s costs %s." % [str(nt["title"]), QuarryTheme.money_text(int(nt["cost"]))])
 		return false
 	player.tool_view.equip(state.tool_tier, menu != "")   # behind a menu nobody sees the swap animation: just show the new tool
+	_refresh_workbench()
 	hud.toast("New tool: " + str(nt["title"]), "MINING POWER +%d%%" % prog.tool_gain_percent(from, state.tool_tier), "unlock")
 	_sfx_unlock()
 	_notify(str(nt.get("desc", "")))

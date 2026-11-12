@@ -29,6 +29,14 @@ const LINES := {
 		"after": "%s! Sounds like a name that gets promoted. Let's go!"},
 }
 
+const PLAYER_LINES := ["Welcome to the quarry.", "Glad you could come. Welcome aboard.", "Good to have you here. Welcome to the quarry."]
+const JOB_LINES := {
+	"friendly": "Thanks! Where do you need me?",
+	"quiet": "...Where do you want me?",
+	"enthusiastic": "Thanks! Okay, where do you need me? I'm ready!",
+	"serious": "Understood. Where do you need me?",
+	"humorous": "Thanks, boss. Point me at a rock and I'll make friends with it."}
+
 var step := 0
 var name_edit: LineEdit
 var body: Label
@@ -76,19 +84,26 @@ func setup(suggest: String, pers: String, job_title: String) -> void:
 
 func _show_step() -> void:
 	var l: Dictionary = LINES[personality]
-	title.text = "%s  -  %s" % [suggested.to_upper(), job.to_upper()]
+	var who := suggested.to_upper()
 	match step:
 		0:
+			title.text = "%s  -  %s" % [who, job.to_upper()]
 			body.text = '"%s"' % _fmt(str(l["greet"]), suggested)
-			next_btn.text = "Good to meet you."
+			next_btn.text = "Continue"
 		1:
+			title.text = "YOU"
+			body.text = '"%s"' % PLAYER_LINES[hash(suggested) % PLAYER_LINES.size()]
+			next_btn.text = "Continue"
+		2:
+			title.text = who
 			body.text = '"%s"' % _fmt(str(l["ask"]), suggested)
 			name_edit.visible = true
 			name_edit.grab_focus()
-			next_btn.text = "Welcome aboard"
-		2:
+			next_btn.text = "That works"
+		3:
 			var chosen := name_edit.text.strip_edges() if name_edit.text.strip_edges() != "" else suggested
-			body.text = '"%s"' % _fmt(str(l["after"]), chosen)
+			title.text = chosen.to_upper()
+			body.text = '"%s  %s"' % [_fmt(str(l["after"]), chosen), str(JOB_LINES.get(personality, JOB_LINES["friendly"]))]
 			name_edit.visible = false
 			next_btn.text = "Let's get to work"
 			skip_btn.visible = false
@@ -97,8 +112,21 @@ func _fmt(line: String, who: String) -> String:
 	return line % [who, job] if line.count("%s") == 2 else line % who
 
 func _next() -> void:
-	if step >= 2:
+	if step >= 3:
 		finished.emit(name_edit.text if name_edit.text.strip_edges() != "" else suggested, false)
 		return
 	step += 1
 	_show_step()
+
+
+## Occasional one-liners a worker says while working near the player (Phase 8.3). Personality only changes the words.
+const BARKS := {
+	"friendly": ["Nice day for it!", "Need a hand with anything?", "This place is coming along."],
+	"quiet": ["...", "Hm.", "Almost there."],
+	"enthusiastic": ["I love this job!", "Look at that rock go!", "What are we building next?"],
+	"serious": ["Back to work.", "Safety first.", "On schedule."],
+	"humorous": ["I dig this job. Get it?", "Rock and roll.", "Don't tell the rocks I'm winning."]}
+
+static func bark_for(pers: String, n: int) -> String:
+	var lines: Array = BARKS.get(pers, BARKS["friendly"])
+	return str(lines[posmod(n, lines.size())])
