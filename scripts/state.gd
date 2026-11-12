@@ -20,6 +20,7 @@ var earned := 0             ## lifetime sales revenue (drives the progression st
 var lifetime := {"mined": {}, "sold": {}}   ## units collected / sold per resource, ever (discoveries and deliveries)
 var gear: Array = []                         ## ids of the extra tools bought beyond the five-tool ladder (see progression "gear")
 var equipped := ""                           ## "" = the ladder tool of tool_tier, else the id of an owned extra tool in hand
+var price_mult := 1.0                        ## buyers' pay factor of the current progression stage (see progression "price_mult")
 var carts: Array = []                        ## ids of hauling aids owned (hand_cart, wheelbarrow, ...)
 signal money_earned(amount: int, source: String)
 
@@ -66,8 +67,12 @@ func sell(key: String, amount: int) -> int:
 	var sold: int = mini(amount, int(inventory[key]))
 	inventory[key] -= sold
 	note_lifetime("sold", key, sold)
-	add_income(sold * int(config["prices"].get(key, 0)), "sale")
+	add_income(int(round(float(sold) * unit_price(key))), "sale")
 	return sold
+
+## What the buyers pay for one unit right now (the base price times the stage's pay factor).
+func unit_price(key: String) -> float:
+	return float(config["prices"].get(key, 0)) * price_mult
 
 ## Every revenue source goes through here so lifetime earnings (stage progress) stay honest.
 func add_income(amount: int, source := "sale") -> void:

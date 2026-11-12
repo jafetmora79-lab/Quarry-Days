@@ -539,6 +539,11 @@ func check_stages() -> void:
 		stage += 1
 		stage_reached.emit(stage)
 	check_levels()
+	apply_stage_effects()
+
+## The stage sets what buyers pay (a small quarry sells small lots): data "price_mult" of the stage, 1.0 from Moving Mountains on.
+func apply_stage_effects() -> void:
+	state.price_mult = float(stage_info().get("price_mult", 1.0))
 
 # ------------------------------------------------------------------ quarry levels (Phase 7.1)
 

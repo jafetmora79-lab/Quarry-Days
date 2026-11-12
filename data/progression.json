@@ -11,23 +11,23 @@
  },
  "materials": {
   "limestone": {
-   "hp": 10,
+   "hp": 30,
    "hardness": 1
   },
   "coal": {
-   "hp": 14,
+   "hp": 42,
    "hardness": 1
   },
   "iron_ore": {
-   "hp": 22,
+   "hp": 66,
    "hardness": 2
   },
   "copper_ore": {
-   "hp": 34,
+   "hp": 102,
    "hardness": 3
   },
   "gold_ore": {
-   "hp": 50,
+   "hp": 150,
    "hardness": 4
   }
  },
@@ -117,7 +117,7 @@
  },
  "loose_piece_cap": 36,
  "worker_tool": {
-  "damage": 9.0,
+  "damage": 27.0,
   "power_per_tier": 0.35
  },
  "stages": [
@@ -128,7 +128,8 @@
    "req": {},
    "unlocks": [
     "Rock Hammer"
-   ]
+   ],
+   "price_mult": 0.07
   },
   {
    "id": "better_tools",
@@ -146,7 +147,8 @@
     "Flat Chisel",
     "Hand Cart",
     "Repaired Pickaxe"
-   ]
+   ],
+   "price_mult": 0.045
   },
   {
    "id": "workshop",
@@ -164,7 +166,8 @@
     "Steel Pickaxe",
     "Reinforced Wheelbarrow",
     "Workshop upgrades"
-   ]
+   ],
+   "price_mult": 0.05
   },
   {
    "id": "breaking_ground",
@@ -185,7 +188,8 @@
     "Stone Crusher",
     "Output Storage",
     "Sorting Table"
-   ]
+   ],
+   "price_mult": 0.065
   },
   {
    "id": "first_employee",
@@ -205,7 +209,8 @@
     "Small Hopper",
     "Conveyors",
     "Employee improvements"
-   ]
+   ],
+   "price_mult": 0.12
   },
   {
    "id": "power_pressure",
@@ -224,7 +229,8 @@
     "Corded Rock Drill",
     "Pneumatic Chisel",
     "Front Loader"
-   ]
+   ],
+   "price_mult": 0.4
   },
   {
    "id": "moving_mountains",
@@ -239,7 +245,8 @@
     "Drilling Rig",
     "Dump Truck",
     "Excavator"
-   ]
+   ],
+   "price_mult": 1.0
   },
   {
    "id": "industrial_quarry",
@@ -251,7 +258,8 @@
    },
    "unlocks": [
     "Existing industrial machines"
-   ]
+   ],
+   "price_mult": 1.0
   },
   {
    "id": "deeper_ground",
@@ -265,7 +273,8 @@
     "Excavation permit",
     "Industrial truck",
     "Rock breakers"
-   ]
+   ],
+   "price_mult": 1.0
   },
   {
    "id": "mass_production",
@@ -275,7 +284,8 @@
     "earned": 250000,
     "quarry_level": 3
    },
-   "unlocks": []
+   "unlocks": [],
+   "price_mult": 1.0
   },
   {
    "id": "beneath_mountain",
@@ -285,7 +295,8 @@
     "earned": 600000,
     "quarry_level": 4
    },
-   "unlocks": []
+   "unlocks": [],
+   "price_mult": 1.0
   },
   {
    "id": "quarry_empire",
@@ -295,7 +306,8 @@
     "earned": 1500000,
     "quarry_level": 4
    },
-   "unlocks": []
+   "unlocks": [],
+   "price_mult": 1.0
   }
  ],
  "formations": {
@@ -1107,7 +1119,7 @@
    "title": "Drilling Rig",
    "price": 4200,
    "stage": 4,
-   "dps": 26.0,
+   "dps": 78.0,
    "max_hardness": 3,
    "cost_per_min": 0.8,
    "bin": 40,
@@ -1132,7 +1144,7 @@
    "kind": "drill",
    "price": 9500,
    "stage": 4,
-   "dps": 48.0,
+   "dps": 144.0,
    "max_hardness": 4,
    "cost_per_min": 1.6,
    "bin": 60,
@@ -1156,7 +1168,7 @@
    "title": "Industrial Rock Breaker",
    "price": 14000,
    "stage": 5,
-   "dps": 90.0,
+   "dps": 270.0,
    "max_hardness": 4,
    "cost_per_min": 2.0,
    "bin": 40,
@@ -1176,7 +1188,7 @@
    "kind": "breaker",
    "price": 26000,
    "stage": 5,
-   "dps": 200.0,
+   "dps": 600.0,
    "max_hardness": 4,
    "cost_per_min": 4.0,
    "bin": 90,

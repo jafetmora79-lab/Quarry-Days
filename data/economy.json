@@ -2,7 +2,7 @@
   "starting_money": 100,
   "backpack_capacity": 18,
   "storage_capacity": 40,
-  "crusher_price": 85,
+  "crusher_price": 2200,
   "crusher_seconds": 18,
   "crusher_input_limit": 12,
   "deposit_regen_minutes": 100,

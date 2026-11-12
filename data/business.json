@@ -6,7 +6,7 @@
   "milestone_productivity_bonus": 0.05,
   "output_storage_price": 60,
   "output_capacity": 30,
-  "conveyor_price": 20,
+  "conveyor_price": 450,
   "conveyor_rate": 0.5,
   "conveyor_capacity": 3,
   "crusher_hopper_capacity": 24,
@@ -250,6 +250,6 @@
       "gender": "f"
     }
   ],
-  "wage_scale": 6.0,
+  "wage_scale": 3.0,
   "hire_fee_scale": 5.0
 }

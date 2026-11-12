@@ -18,6 +18,9 @@ d['stages']=[
  S("beneath_mountain","Beneath the Mountain","Earn $600,000 and reach the lowest level. (Future content.)",{"earned":600000,"quarry_level":4},[]),
  S("quarry_empire","Quarry Empire","Earn $1,500,000. (Future content.)",{"earned":1500000,"quarry_level":4},[]),
 ]
+PRICE_MULT=[0.07,0.045,0.05,0.065,0.12,0.4,1.0,1.0,1.0,1.0,1.0,1.0]
+for i,stg in enumerate(d['stages']):
+    stg['price_mult']=PRICE_MULT[i]
 d['legacy_stage_ids']={"manual":"grandpa","tools":"better_tools","crew":"first_employee","industry":"power_pressure","large":"moving_mountains","deep":"deeper_ground"}
 d['legacy_stage_map']=[0,1,4,5,6,8]
 d['legacy_stage_map_comment']="Phase 9.1: an old six-stage save lands on the new stage that unlocks everything it already had (manual, tools, crew->first_employee, industry->power_pressure, large->moving_mountains, deep->deeper_ground). Never lower."
@@ -77,5 +80,26 @@ U.update({"pointed_chisel":{"stage":"better_tools"},"flat_chisel":{"stage":"bett
 U['drill']['owns']=["reinforced","steel_pickaxe"]
 json.dump(d,open(P,'w'),indent=1)
 e=json.load(open('data/economy.json'))
+e['crusher_price']=2200
 e['cart_capacity']={k:v['capacity'] for k,v in G.items() if v.get('kind')=='cart'}
 json.dump(e,open('data/economy.json','w'),indent=2)
+
+b=json.load(open('data/business.json'))
+b['conveyor_price']=450
+b['wage_scale']=3.0
+json.dump(b,open('data/business.json','w'),indent=2)
+
+# ---- Phase 9.3: tougher rock for hand tools. Rock hit points x3; every machine, rig, excavator and hired miner is scaled x3 too,
+# so late-game output is exactly what it was; only hand mining (and so the first hours) is slower.
+d=json.load(open(P))
+HP_SCALE=3
+for k,hp in {"limestone":30,"coal":42,"iron_ore":66,"copper_ore":102,"gold_ore":150}.items():
+    d['materials'][k]['hp']=hp
+for k,dps in {"drill_rig":78.0,"improved_rig":144.0,"rock_breaker":270.0,"heavy_breaker":600.0}.items():
+    d['machines'][k]['dps']=dps
+d['worker_tool']['damage']=27.0
+json.dump(d,open(P,'w'),indent=1)
+vv=json.load(open('data/vehicles.json'))
+vv['vehicles']['compact_excavator']['dig_dps']=60.0
+vv['vehicles']['heavy_excavator']['dig_dps']=255.0
+json.dump(vv,open('data/vehicles.json','w'),indent=2)

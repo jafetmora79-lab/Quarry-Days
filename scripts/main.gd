@@ -1643,19 +1643,21 @@ func _draw_menu() -> void:
 func _draw_sell(p: QuarryStationUI) -> void:
 	var bag_value := 0
 	for key in RESOURCE_ORDER:
-		bag_value += int(state.inventory[key]) * int(state.config["prices"][key])
+		bag_value += int(round(float(state.inventory[key]) * state.unit_price(key)))
 	p.begin("SALES BOOTH", state.money, "Optional keys: 1-6 sell, 7 sell all, Shift+1-6 clerk on/off")
 	var R := HORIZONTAL_ALIGNMENT_RIGHT
 	p.row([["MATERIAL", QuarryTheme.DIM, 120], ["IN BAG", QuarryTheme.DIM, 60, R], ["PRICE EACH", QuarryTheme.DIM, 90, R], ["SALE VALUE", QuarryTheme.DIM, 100, R]], [], Color(0, 0, 0, 0), true)
 	for i in range(RESOURCE_ORDER.size()):
 		var key: String = RESOURCE_ORDER[i]
 		var n := int(state.inventory[key])
-		var price := int(state.config["prices"][key])
+		var price_f := state.unit_price(key)
 		var ok: bool = business.authorized[key]
-		p.row([[prog.display(key), QuarryTheme.INK, 120, HORIZONTAL_ALIGNMENT_LEFT, true], [str(n), QuarryTheme.INK if n > 0 else QuarryTheme.DIM, 60, R], ["$%d" % price, QuarryTheme.DIM, 90, R], [QuarryTheme.money_text(n * price), QuarryTheme.MONEY if n > 0 else QuarryTheme.DIM, 100, R, true]],
+		p.row([[prog.display(key), QuarryTheme.INK, 120, HORIZONTAL_ALIGNMENT_LEFT, true], [str(n), QuarryTheme.INK if n > 0 else QuarryTheme.DIM, 60, R], [("$%.2f" % price_f) if state.price_mult < 0.995 else ("$%d" % int(price_f)), QuarryTheme.DIM, 90, R], [QuarryTheme.money_text(int(round(float(n) * price_f))), QuarryTheme.MONEY if n > 0 else QuarryTheme.DIM, 100, R, true]],
 			[["clerk_" + key, "Clerk: " + ("on" if ok else "off"), true, func(): menu_act("sell", i, true), 84, "toggle"], ["sell_" + key, "SELL", n > 0, func(): menu_act("sell", i, false), 80, "primary"]], QuarryTheme.RES_COLORS.get(key, Color.WHITE))
 	p.button_bar([["sell_all", "SELL ALL   %s" % QuarryTheme.money_text(bag_value), bag_value > 0, func(): menu_act("sell", 6, false), 260, "primary"]])
 	p.text("'Clerk' chooses what the sales clerk may sell for you. It never stops you selling by hand.")
+	if state.price_mult < 0.995:
+		p.text("Small lots: buyers pay %d%% of the full price. The pay rises as your quarry grows." % int(round(state.price_mult * 100.0)), QuarryTheme.DIM)
 
 ## The workbench panel (Phase 8.3): what is in your hand, what the next tool on the pegboard would change, the price, and the
 ## other upgrades. Same data and purchases as before (menu_act "upgrades"); only the presentation is new.

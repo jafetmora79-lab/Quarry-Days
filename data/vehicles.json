@@ -152,7 +152,7 @@
         2.2,
         3.4
       ],
-      "dig_dps": 20.0,
+      "dig_dps": 60.0,
       "dig_hardness": 2,
       "dig_reach": 4.5,
       "scoop_radius": 4.0,
@@ -178,7 +178,7 @@
         3.2,
         4.4
       ],
-      "dig_dps": 85.0,
+      "dig_dps": 255.0,
       "dig_hardness": 3,
       "dig_reach": 6.0,
       "scoop_radius": 5.0,
