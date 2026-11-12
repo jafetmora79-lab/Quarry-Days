@@ -97,6 +97,9 @@ func run() -> void:
 		game._reset_driving()        # (the exit spot at the ramp foot can be tight: just release the vehicle)
 		game.driving = null
 		await frames(5)
+		v.global_position = Vector3(30.0 if v == loader else 36.0, 0.1, 6.0)   # park it out of the next machine's way
+		v.speed = 0.0
+		await frames(5)
 	game.scripted_input = false
 	# ---- D: building on the lower floors respects the terrain
 	var dummy_floor := pz.to_world(Vector3(-16.0, -7.2, -58.0))
