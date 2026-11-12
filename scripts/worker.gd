@@ -23,6 +23,7 @@ var anim_phase := -1.0      ## 0..1 progress of the current physical action (dri
 var anim_t := 0.0
 var duration := 1.0
 var anim_skip := 0
+var last_action_phase := 0.0   ## animation phase at the frame an action last completed (tests: impact sync)
 
 # navigation
 var path := PackedVector3Array()
@@ -68,6 +69,10 @@ func setup(main_node, biz: QuarryBusiness, record: Dictionary) -> void:
 	shape.shape = capsule
 	shape.position.y = 0.85
 	add_child(shape)
+
+## The rig is built once the worker is in the tree: a skeleton outside the tree does not refresh its bone transforms, so
+## lowering the arms and measuring the hands there used stale numbers.
+func _ready() -> void:
 	_build_rig()
 
 # ------------------------------------------------------------------ model
@@ -99,20 +104,26 @@ func _build_rig() -> void:
 		return
 	rig = VeilRig.new()
 	rig.setup(found[0], float(employee_id) * 1.7)
-	var pose_deg: Vector3 = TOOL_POSE.get(profession, Vector3.ZERO)
-	var hold := Basis.from_euler(Vector3(deg_to_rad(pose_deg.x), deg_to_rad(pose_deg.y), deg_to_rad(pose_deg.z)))
-	match profession:
-		"miner": rig.attach(_tool_pickaxe(), "Right", hold, Vector3.ZERO)
-		"operator": rig.attach(_tool_wrench(), "Right", hold, Vector3.ZERO)
-		"clerk": rig.attach(_tool_clipboard(), "Left", hold, Vector3.ZERO)
+	for cfg in TOOL_CFG.get(profession, []):
+		var node: Node3D = call(str(cfg["builder"]))
+		node.name = str(cfg["name"])
+		rig.add_tool(node, cfg)
 	carry_box = MeshInstance3D.new()
 	carry_box.mesh = MeshKit.rock(Vector3(0.42, 0.3, 0.34), 77 + employee_id, 3, 6)
-	carry_box.position = Vector3(0, 0.88, -0.36) # in front of the -Z-facing chest
 	carry_box.visible = false
-	model.add_child(carry_box)
+	found[0].add_child(carry_box)              # follows the chest through the rig, see VeilRig.carry_center()
+	rig.carry_node = carry_box
 
-## How each tool sits in the hand at the rest pose, as euler degrees in skeleton space (see VeilRig.attach).
-static var TOOL_POSE := {"miner": Vector3(70, 0, 0), "operator": Vector3(80, 0, 0), "clerk": Vector3(0, 0, 0)}
+## Per-tool grip configuration (VeilRig.add_tool): which hand, the point of the tool that sits in the palm, the
+## relaxed hold (shaft direction / blade plane in rig components right, up, forward), the second grip for two-handed
+## tools, and where the tool is slung when it is not being used. Tools are modelled with the shaft along +Z.
+const TOOL_CFG := {
+	"miner": [{"name": "pickaxe", "builder": "_tool_pickaxe", "hand": "Right", "gp": Vector3(0, 0, 0.05), "support": Vector3(0, 0, 0.25),
+		"dir": Vector3(0, 0.25, 1.0), "up": Vector3(0, 1, 0),
+		"stow": {"pos": Vector3(-0.10, -0.34, -0.2), "dir": Vector3(0.45, 0.85, 0.0), "up": Vector3(-0.85, 0.45, 0.0)}}],
+	"operator": [{"name": "wrench", "builder": "_tool_wrench", "hand": "Right", "gp": Vector3(0, 0, 0.0), "dir": Vector3(0, 0.3, 1.0), "up": Vector3(0, 1, 0)}],
+	"clerk": [{"name": "clipboard", "builder": "_tool_clipboard", "hand": "Left", "gp": Vector3(0, 0.02, 0.05), "dir": Vector3(0, 0.15, 1.0), "up": Vector3(0, 1, 0)}],
+}
 
 ## Tools are small MeshKit models in hand space: handle along +Z (forward from the fist).
 func _tool_pickaxe() -> Node3D:
@@ -145,6 +156,8 @@ func _tool_clipboard() -> Node3D:
 	MeshKit.inst(n, p.mesh(), MeshKit.flat(Color(0.86, 0.84, 0.76)))
 	return n
 
+var _last_yaw := 0.0
+
 func _animate(delta: float) -> void:
 	# Distant workers animate at a reduced rate (and not at all when far away and off-screen).
 	var far: bool = game.player != null and global_position.distance_squared_to(game.player.global_position) > 900.0
@@ -153,12 +166,19 @@ func _animate(delta: float) -> void:
 		return
 	var dt := delta * (4.0 if far else 1.0)
 	var carrying := business.carry_total(e) > 0
-	carry_box.visible = carrying and anim in ["idle", "walk", "turn", "unload"]
+	# the load is visible exactly while the worker owns it (it vanishes when the deposit actually happens)
+	carry_box.visible = carrying
 	if carrying:
 		carry_box.material_override = MeshKit.mat(QuarryArt.ROCK_MAT.get(e["carry"].keys()[0], "RockLimestone"))
 	if rig:
 		speed_now = Vector2(velocity.x, velocity.z).length()
-		rig.pose(dt, anim, speed_now, profession, carrying, anim_phase)
+		var yr := angle_difference(_last_yaw, rotation.y) / maxf(delta, 0.0001)
+		_last_yaw = rotation.y
+		# the miner's pick is in the working grip only for mining and the walk there; it is slung while carrying
+		# rock, picking pieces up, resting or off shift
+		if profession == "miner":
+			rig.set_tool_held("pickaxe", not carrying and anim in ["idle", "walk", "turn", "work"])
+		rig.pose(dt, anim, speed_now, profession, carrying, anim_phase, yr)
 
 # ------------------------------------------------------------------ navigation
 
@@ -380,6 +400,8 @@ func _act(delta: float, d: float, label: String) -> bool:
 	timer -= delta
 	anim_phase = clampf(1.0 - timer / duration, 0.0, 1.0)
 	if timer <= 0.0:
+		anim_phase = 1.0 # the pose of this frame is the impact / hand-over pose, on the very frame the gameplay event fires
+		last_action_phase = 1.0
 		phase = ""
 		return true
 	return false

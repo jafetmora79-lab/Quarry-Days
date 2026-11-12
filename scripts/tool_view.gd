@@ -239,6 +239,46 @@ func _build(t: int) -> Node3D:
 		MeshKit.inst(chisel, c.mesh(), MeshKit.mat("SteelPlate"))
 		n.set_meta("spinner", chisel)
 		n.rotation.x = float(TOOL[4]["model_pitch"]) # lean the body forward so the chisel points down-range at the rock
+	_add_hands(n, t)
 	for gi in n.find_children("*", "GeometryInstance3D", true, false):
 		gi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	return n
+
+
+# ------------------------------------------------------------------ hands and forearms
+
+## Where the fists close on each tool (model space: handle along +Y from the grip) and which way the forearm runs to
+## the screen edge (camera space, -Z is forward). Hands and sleeves are children of the model, so they swing, bob and
+## vibrate with it and the tool is always visibly held. Single grip on the hammer; two hands on the pickaxes, the drill
+## (pistol grip + body) and the jackhammer (T-handle).
+const HAND_R_DIR := Vector3(0.40, -0.53, 0.74)
+const HAND_L_DIR := Vector3(-0.45, -0.45, 0.77)
+const HANDS := {
+	0: [["R", Vector3(0, 0.03, 0)]],
+	1: [["R", Vector3(0, 0.02, 0)], ["L", Vector3(0, 0.24, 0)]],
+	2: [["R", Vector3(0, 0.02, 0)], ["L", Vector3(0, 0.26, 0)]],
+	3: [["R", Vector3(0, 0.0, 0.05)], ["L", Vector3(-0.065, 0.12, -0.1)]],
+	4: [["R", Vector3(0.15, 0.0, 0)], ["L", Vector3(-0.15, 0.0, 0)]],
+}
+const SKIN := Color(0.80, 0.62, 0.48)
+const SLEEVE := Color(0.30, 0.36, 0.44)
+
+func _add_hands(n: Node3D, t: int) -> void:
+	var def: Dictionary = TOOL[t]
+	var pivot_b := Basis.from_euler(Vector3(float(def.get("rest", 0.0)), float(def.get("yaw", 0.0)), 0.0)) if t < 3 else Basis.from_euler(def["rest_rot"])
+	var model_b := Basis.from_euler(Vector3(float(def.get("model_pitch", 0.0)), 0.0, 0.0))
+	var inv := (pivot_b * model_b).inverse()
+	var inv_s := 1.0 / float(def.get("scale", 1.0))
+	for h in HANDS[t]:
+		var right: bool = h[0] == "R"
+		var dir_m: Vector3 = (inv * (HAND_R_DIR if right else HAND_L_DIR)).normalized()
+		var at: Vector3 = h[1]
+		var fist := MeshKit.box(Vector3(0.085, 0.085, 0.095) * inv_s)
+		MeshKit.inst(n, fist, MeshKit.flat(SKIN), at)
+		var cuff := MeshKit.box(Vector3(0.095, 0.095, 0.05) * inv_s)
+		var basis := VeilRig.basis_zy(dir_m, Vector3.UP)
+		var cf := MeshKit.inst(n, cuff, MeshKit.flat(SLEEVE), at + dir_m * 0.07 * inv_s)
+		cf.basis = basis
+		var arm := MeshKit.box(Vector3(0.085, 0.085, 0.42) * inv_s)
+		var af := MeshKit.inst(n, arm, MeshKit.flat(SLEEVE), at + dir_m * 0.30 * inv_s)
+		af.basis = basis
