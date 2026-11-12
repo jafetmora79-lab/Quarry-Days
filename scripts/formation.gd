@@ -20,6 +20,10 @@ var chunks: Array = []       # per column: Array of MeshInstance3D (bottom -> to
 var shown: Array = []        # chunks currently standing per column
 var jiggle := {}             # MeshInstance3D -> remaining shake time
 var crumbling: Array = []    # [MeshInstance3D, t]
+var mat_old: StandardMaterial3D
+var mat_new: StandardMaterial3D
+var mat_old2: StandardMaterial3D
+var mat_new2: StandardMaterial3D
 var cut := false              # style "cut" (quarry-wall blocks)
 var label: Label3D
 
@@ -45,7 +49,16 @@ func setup(main_node, p: QuarryProgression, id: String) -> void:
 	# Phase 6.1: style "cut" = quarry-wall blocks (flat faces, chamfered corners, bedded strata) instead of boulders.
 	cut = str(f.get("style", "")) == "cut"
 	if cut:
-		mat = MeshKit.mat("CliffStrata")
+		# weathered original surface vs. brighter freshly cut stone (swapped per column in refresh())
+		mat_old = (MeshKit.mat("CutLimestone") as StandardMaterial3D).duplicate()
+		mat_old.albedo_color = Color(0.74, 0.70, 0.66)
+		mat_new = (MeshKit.mat("CutLimestone") as StandardMaterial3D).duplicate()
+		mat_new.albedo_color = Color(1.0, 1.0, 0.97)
+		mat_old2 = mat_old.duplicate()
+		mat_old2.albedo_color = Color(0.66, 0.63, 0.60)    # alternate courses are a shade darker: reads as bedded strata
+		mat_new2 = mat_new.duplicate()
+		mat_new2.albedo_color = Color(0.9, 0.89, 0.85)
+		mat = mat_old
 	var variants := []
 	for k in range(5 if cut else 4):
 		var s := MeshKit.Soup.new()
@@ -138,6 +151,10 @@ func refresh(instant := false) -> void:
 		var lp := prog.column_pos(fid, i) - position
 		cs.position = Vector3(lp.x, maxf(0.2, h) * 0.5, lp.z)
 		top_y = maxf(top_y, h)
+		if cut and want > 0:
+			var fresh := prog.column_cut_exposed(fid, i)
+			for t in range(stack.size()):
+				stack[t].material_override = (mat_new if t % 2 == 0 else mat_new2) if fresh else (mat_old if t % 2 == 0 else mat_old2)
 		_update_cracks(i)
 	label.position = Vector3(0, top_y + 0.7, 0)
 	update_label()

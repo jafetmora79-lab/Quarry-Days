@@ -132,6 +132,51 @@ def strata(size, r, seed, seams=None, veins=None, drill=0):
 
 
 # ---------------------------------------------------------------------------------------------- ground
+def cut_strata(size, r, seed):
+    """Cut quarry-wall limestone: thick horizontal beds (about 0.4-0.6 m) with fine layer lines inside them, a dark
+    seam and a light lip at every bed boundary, and only a few long vertical joints, so a wall reads as sawn,
+    stratified stone instead of small bricks."""
+    rng = np.random.default_rng(seed)
+    a = canvas(size, size)
+    wear = pnoise(size, size, 4, seed + 1)
+    y = 0
+    beds = []
+    while y < size:
+        hgt = int(rng.integers(24, 42))
+        hgt = size - y if size - y - hgt < 18 else hgt
+        beds.append((y, hgt))
+        y += hgt
+    for bi, (y0, hgt) in enumerate(beds):
+        base = int(rng.integers(2, len(r) - 2))
+        x = int(rng.integers(0, 30))
+        while x < size + 60:
+            bw = int(rng.integers(56, 128))
+            lv = int(np.clip(base + rng.integers(-1, 2), 1, len(r) - 2))
+            for yy in range(y0, y0 + hgt):
+                for xx in range(x, x + bw):
+                    w = wear[yy % size, xx % size]
+                    put(a, xx, yy, r[lv - (1 if w > 0.7 else 0)])
+            for k in range(int(rng.integers(2, 5))):               # fine layer lines inside the bed
+                ly = y0 + int(rng.integers(4, hgt - 3))
+                for xx in range(x + 2, x + bw - 2):
+                    if (xx + k) % 7 != 0:
+                        put(a, xx, ly, r[max(0, lv - 1)])
+            for xx in range(x, x + bw):                            # light lip on top, dark seam below
+                put(a, xx, y0, r[min(len(r) - 1, lv + 1)])
+                put(a, xx, y0 + hgt - 1, r[0])
+                put(a, xx, y0 + hgt - 2, r[max(0, lv - 2)])
+            for yy in range(y0, y0 + hgt):                         # vertical joint
+                put(a, x, yy, r[0])
+                put(a, x + 1, yy, r[min(len(r) - 1, lv + 1)])
+            for k in range(int(rng.integers(2, 6))):               # pits and fossil specks
+                px, py = x + int(rng.integers(3, max(4, bw - 3))), y0 + int(rng.integers(3, max(4, hgt - 3)))
+                put(a, px, py, r[max(0, lv - 2)])
+                put(a, px + 1, py, r[max(0, lv - 1)])
+                put(a, px, py + 1, r[min(len(r) - 1, lv + 1)])
+            x += bw
+    return a
+
+
 def gravel(size, r, seed, base=3, dust=None):
     a = canvas(size, size)
     n = pnoise(size, size, 4, seed)
@@ -378,6 +423,7 @@ def main():
     save("T_QD_RockLimestone", strata(128, rock_lime, 11))
     save("T_QD_RockCoal", strata(128, [ink[0], tar[1], tar[2], tar[3], conc[1], conc[2]], 12, seams=(ink, 0), veins=(metal, 3, 10)))
     save("T_QD_RockIron", strata(128, [rust[0], rust[1], soil[2], rust[2], soil[3], rust[3]], 13, veins=(rust, 4, 14)))
+    save("T_QD_CutLimestone", cut_strata(128, rock_lime, 15))
     save("T_QD_CliffStrata", strata(128, [conc[1], soil[2], conc[2], soil[3], conc[3], stone[3] if len(stone) > 3 else conc[4]], 14, seams=(soil, 1), drill=4))
     save("T_QD_QuarryFloor", gravel(256, conc, 21, base=3, dust=(stone, 2)))
     save("T_QD_ExcavatedDirt", gravel(128, soil, 22, base=3, dust=(mud, 2)))

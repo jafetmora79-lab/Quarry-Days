@@ -367,6 +367,38 @@ func _carve_hillside_site() -> void:
 			body.collision_layer = 0
 			body.set_meta("nav_skip", true)
 			hillside_retired.append(str(body.name))
+	# Plain placeholder boxes of the remaining ring pieces behind the hill would show as flat dark slabs: hide their
+	# visuals (colliders stay) and give the hill a proper stratified backdrop instead.
+	var back := r.grow(5.0)
+	for body in world.get_children():
+		if body is StaticBody3D and body.collision_layer == 1 and not body.has_meta("ground") and back.has_point(Vector2(body.position.x, body.position.z)) and body.position.y > 2.5:
+			for c in body.get_children():
+				if c is MeshInstance3D and not c.has_meta("art"):
+					c.visible = false
+	_build_hillside_backdrop(r)
+
+## Taller stratified hill behind and at the north end of the cut (visual), with a collider on the north wall so it
+## cannot be walked through. Reuses MeshKit.cliff_into and the cut-limestone material.
+func _build_hillside_backdrop(r: Rect2) -> void:
+	var s := MeshKit.Soup.new()
+	var depth := 2.6
+	var west_len := r.size.y + 4.0
+	var west_c := Vector3(r.position.x - depth * 0.5, 0, r.position.y + r.size.y * 0.5 - 0.5)
+	MeshKit.cliff_into(s, west_len, 8.6, depth, 611, 4, Transform3D(Basis(Vector3.UP, -PI * 0.5), west_c))
+	var north_len := r.size.x + 4.0
+	var north_c := Vector3(r.position.x + r.size.x * 0.5 + 1.0, 0, r.position.y - depth * 0.5)
+	MeshKit.cliff_into(s, north_len, 7.0, depth, 612, 3, Transform3D(Basis(Vector3.UP, PI), north_c))
+	var mi := MeshKit.inst(world, s.mesh(), MeshKit.mat("CutLimestone"))
+	mi.name = "HillsideBackdrop"
+	var wall := StaticBody3D.new()
+	wall.name = "Hillside north wall"
+	wall.position = north_c + Vector3(0, 3.5, 0)
+	var cs := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(north_len, 7.0, depth)
+	cs.shape = box
+	wall.add_child(cs)
+	world.add_child(wall)
 
 func _deposit_info(kind: String) -> Dictionary:
 	if DEPOSIT_INFO.has(kind):

@@ -200,6 +200,18 @@ func column_exposed(id: String, i: int) -> bool:
 			return true
 	return false
 
+## True when an in-grid neighbour has been cut away: the column shows freshly exposed stone (not the original surface).
+func column_cut_exposed(id: String, i: int) -> bool:
+	var d := dims(id)
+	var x := i % d.x
+	var y := i / d.x
+	for o in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var nx: int = x + o.x
+		var ny: int = y + o.y
+		if nx >= 0 and ny >= 0 and nx < d.x and ny < d.y and column_units(id, ny * d.x + nx) <= 0:
+			return true
+	return false
+
 ## Formations flagged "strict" (the hillside) only let a column be mined while it is exposed: nothing can be
 ## taken through the solid rock in front of it. Free-standing piles keep their old behaviour.
 func column_minable(id: String, i: int) -> bool:

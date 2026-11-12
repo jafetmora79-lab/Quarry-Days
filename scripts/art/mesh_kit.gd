@@ -183,7 +183,7 @@ static func cut_block_into(s: Soup, c: Vector3, size: Vector3, seed: int) -> voi
 	rng.seed = seed
 	var hw := size.x * 0.5
 	var hd := size.z * 0.5
-	var cut := [rng.randf_range(0.05, 0.26) * size.x, rng.randf_range(0.05, 0.26) * size.x, rng.randf_range(0.05, 0.26) * size.z, rng.randf_range(0.05, 0.26) * size.z]
+	var cut := [rng.randf_range(0.08, 0.34) * size.x, rng.randf_range(0.08, 0.34) * size.x, rng.randf_range(0.08, 0.34) * size.z, rng.randf_range(0.08, 0.34) * size.z]
 	var ring := [Vector2(-hw + cut[0], -hd), Vector2(hw - cut[1], -hd), Vector2(hw, -hd + cut[1]), Vector2(hw, hd - cut[2]),
 		Vector2(hw - cut[2], hd), Vector2(-hw + cut[3], hd), Vector2(-hw, hd - cut[3]), Vector2(-hw, -hd + cut[0])]
 	var tilt_x := rng.randf_range(-0.05, 0.05)
