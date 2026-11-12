@@ -71,9 +71,16 @@ func run() -> void:
 	check(v.global_position.distance_to(slot) < 0.6 and v.global_position.y < 1.0, "C the machine stays parked (does not fall or drift)")
 	game.enter_vehicle(v)
 	check(game.driving == v, "D the player can now drive it")
-	game.exit_vehicle() if game.has_method("exit_vehicle") else null
-	# hires
+	game.exit_vehicle()
+	await frames(5)
+	# hires step out of the gate and walk in
 	game.state.money = 50000
-	game.prog.unlocked_features = game.prog.unlocked_features if "unlocked_features" in game.prog else null
+	game.state.clock_minutes = 480.0
+	game.ui_hire("rosa")
+	var w = game.worker_nodes.values()[0]
+	check(Vector2(w.global_position.x, w.global_position.z).distance_to(Vector2(d.GATE.x, d.GATE.z)) < 2.0, "E a new hire appears at the service gate")
+	game.business.set_shift(int(game.business.employees[0]["id"]), 0, 1439)
+	await frames(900, func(): return w.global_position.z < 21.5)
+	check(w.global_position.z < 21.5, "E the hire walks in through the garage door (z %.1f)" % w.global_position.z)
 	print("RESULT: %d checks, %d failures" % [checks, failures.size()])
 	quit(1 if failures.size() > 0 else 0)
