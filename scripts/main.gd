@@ -1186,6 +1186,55 @@ func _notify(s: String) -> void:
 	if hud:
 		hud.set_message(s, 3.2)
 
+## Interaction highlight (Phase 8.5): a thin warm outline on the one thing you could press E on. Only real interactables get it
+## (never terrain, rock, loose pieces or weeds), it is removed the moment you look away, open a menu, drive or build, and it is
+## never used for construction ghosts, which have their own blueprint look.
+const HIGHLIGHT_KINDS := ["door", "bed", "sell", "upgrades", "storage", "crusher", "output", "shop", "office", "rig", "vehicle", "worker", "discovery", "walter", "fossil", "egg", "conveyor", "gate"]
+var highlight_node: Node3D
+var highlight_meshes: Array = []
+var _hl_mat: StandardMaterial3D
+
+func _highlight_material() -> StandardMaterial3D:
+	if _hl_mat == null:
+		_hl_mat = StandardMaterial3D.new()
+		_hl_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_hl_mat.albedo_color = Color(1.0, 0.82, 0.38)
+		_hl_mat.cull_mode = BaseMaterial3D.CULL_FRONT
+		_hl_mat.grow = true
+		_hl_mat.grow_amount = 0.025
+		_hl_mat.no_depth_test = false
+	return _hl_mat
+
+func _clear_highlight() -> void:
+	for mi in highlight_meshes:
+		if is_instance_valid(mi):
+			(mi as MeshInstance3D).material_overlay = null
+	highlight_meshes.clear()
+	highlight_node = null
+
+func _update_highlight() -> void:
+	var t: Node3D = last_target
+	var ok := t != null and is_instance_valid(t) and not driving and menu == "" and not placement and not construction \
+		and not (hud and hud.card_open()) and HIGHLIGHT_KINDS.has(str(t.get_meta("kind", "")))
+	if ok and str(t.get_meta("kind", "")) == "walter" and walter_mode != "waiting":
+		ok = false
+	if not ok:
+		if highlight_node != null:
+			_clear_highlight()
+		return
+	if t == highlight_node:
+		return
+	_clear_highlight()
+	highlight_node = t
+	var meshes := t.find_children("*", "MeshInstance3D", true, false)
+	if t is MeshInstance3D:
+		meshes.append(t)
+	for mi in meshes:
+		var m := mi as MeshInstance3D
+		if m.visible and m.mesh != null and not (m.get_parent() is Label3D) and m.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY:
+			m.material_overlay = _highlight_material()
+			highlight_meshes.append(m)
+
 func _look_target() -> Node3D:
 	var start := player.camera.global_position
 	var end := start - player.camera.global_transform.basis.z * 4.0
@@ -1245,6 +1294,7 @@ func _physics_process(delta: float) -> void:
 		for kind in deposit_nodes:
 			_update_deposit_label(kind)
 	last_target = null if driving else _look_target()
+	_update_highlight()
 	if placement:
 		_update_ghost()
 	_player_mining(delta)
@@ -1640,17 +1690,17 @@ func _build_workbench() -> void:
 	for ch in bench.get_children():
 		if ch is MeshInstance3D:
 			ch.visible = false                                  # the collider's plain box is replaced by the parts below
-	MeshKit.inst(world, MeshKit.box(Vector3(1.56, 0.07, 0.74)), wood, b + Vector3(0, 0.965, 0))                 # bench top
-	MeshKit.inst(world, MeshKit.box(Vector3(1.44, 0.16, 0.05)), wood, b + Vector3(0, 0.84, 0.31))               # front apron
+	MeshKit.inst(bench, MeshKit.box(Vector3(1.56, 0.07, 0.74)), wood, b + Vector3(0, 0.965, 0) - bench.position)                 # bench top
+	MeshKit.inst(bench, MeshKit.box(Vector3(1.44, 0.16, 0.05)), wood, b + Vector3(0, 0.84, 0.31) - bench.position)               # front apron
 	for sx in [-0.7, 0.7]:
 		for sz in [-0.3, 0.3]:
-			MeshKit.inst(world, MeshKit.box(Vector3(0.08, 0.93, 0.08)), wood, b + Vector3(sx, 0.465, sz))     # legs
-	MeshKit.inst(world, MeshKit.box(Vector3(1.4, 0.04, 0.6)), wood, b + Vector3(0, 0.28, 0))                    # lower shelf
-	MeshKit.inst(world, MeshKit.box(Vector3(0.36, 0.2, 0.3)), steel, b + Vector3(-0.45, 0.4, 0.0))              # toolbox on the shelf
-	MeshKit.inst(world, MeshKit.box(Vector3(0.3, 0.14, 0.26)), wood, b + Vector3(0.1, 0.37, 0.0))               # crate
-	MeshKit.inst(world, MeshKit.box(Vector3(0.18, 0.1, 0.22)), steel, b + Vector3(0.55, 1.04, 0.05))            # vise base
-	MeshKit.inst(world, MeshKit.box(Vector3(0.05, 0.12, 0.2)), steel, b + Vector3(0.64, 1.13, 0.05))           # vise jaw
-	MeshKit.inst(world, MeshKit.box(Vector3(0.32, 0.04, 0.22)), MeshKit.flat(Color(0.66, 0.5, 0.2)), b + Vector3(-0.35, 1.02, 0.0))   # parts tray
+			MeshKit.inst(bench, MeshKit.box(Vector3(0.08, 0.93, 0.08)), wood, b + Vector3(sx, 0.465, sz) - bench.position)     # legs
+	MeshKit.inst(bench, MeshKit.box(Vector3(1.4, 0.04, 0.6)), wood, b + Vector3(0, 0.28, 0) - bench.position)                    # lower shelf
+	MeshKit.inst(bench, MeshKit.box(Vector3(0.36, 0.2, 0.3)), steel, b + Vector3(-0.45, 0.4, 0.0) - bench.position)              # toolbox on the shelf
+	MeshKit.inst(bench, MeshKit.box(Vector3(0.3, 0.14, 0.26)), wood, b + Vector3(0.1, 0.37, 0.0) - bench.position)               # crate
+	MeshKit.inst(bench, MeshKit.box(Vector3(0.18, 0.1, 0.22)), steel, b + Vector3(0.55, 1.04, 0.05) - bench.position)            # vise base
+	MeshKit.inst(bench, MeshKit.box(Vector3(0.05, 0.12, 0.2)), steel, b + Vector3(0.64, 1.13, 0.05) - bench.position)           # vise jaw
+	MeshKit.inst(bench, MeshKit.box(Vector3(0.32, 0.04, 0.22)), MeshKit.flat(Color(0.66, 0.5, 0.2)), b + Vector3(-0.35, 1.02, 0.0) - bench.position)   # parts tray
 	# pegboard on the wall above, clear of the door, the lamp and the whiteboard
 	MeshKit.inst(world, MeshKit.box(Vector3(1.5, 1.05, 0.04)), MeshKit.flat(Color(0.62, 0.5, 0.34)), Vector3(b.x, 1.78, OFFICE_POS.z - 2.205))
 	workbench_tools = Node3D.new()
@@ -3587,30 +3637,15 @@ func _build_truck() -> void:
 	cs.shape = sh
 	cs.position.y = 0.9
 	root.add_child(cs)
-	var body := _mat(Color(0.55, 0.18, 0.12))
-	var dark := _mat(Color(0.14, 0.14, 0.15))
-	var parts := [[Vector3(1.9, 0.7, 1.5), Vector3(0, 0.95, -1.35), body], [Vector3(1.7, 0.7, 1.0), Vector3(0, 1.6, -1.2), body],
-		[Vector3(1.9, 0.5, 2.4), Vector3(0, 0.8, 1.0), body], [Vector3(1.9, 0.5, 0.1), Vector3(0, 1.2, 2.2), body]]
-	for pr in parts:
-		var mi := MeshInstance3D.new()
-		var bm := BoxMesh.new()
-		bm.size = pr[0]
-		mi.mesh = bm
-		mi.material_override = pr[2]
-		mi.position = pr[1]
-		root.add_child(mi)
-	for wz in [-1.3, 1.4]:
-		for wx in [-0.95, 0.95]:
-			var w := MeshInstance3D.new()
-			var cm := CylinderMesh.new()
-			cm.top_radius = 0.38
-			cm.bottom_radius = 0.38
-			cm.height = 0.25
-			w.mesh = cm
-			w.material_override = dark
-			w.rotation.z = PI / 2.0
-			w.position = Vector3(wx, 0.38, wz)
-			root.add_child(w)
+	# the game's own dump-truck model, small and weathered: cab, tipping bed and six wheels, all properly joined
+	var pv := QuarryPreview.PreviewVehicle.new()
+	pv.paint_cab = "PaintRed"
+	pv.paint_bed = "PaintRed"
+	pv.model_root = Node3D.new()
+	pv.add_child(pv.model_root)
+	pv.model_root.scale = Vector3(1.9 / 2.2, 1.7 / 1.8, 4.0 / 4.6)
+	VehicleModels.truck(pv)
+	root.add_child(pv)
 	world.add_child(root)
 	truck_node = root
 
