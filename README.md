@@ -6,7 +6,7 @@ You inherit Grandpa Walt's nearly bankrupt quarry. Start with his old rock hamme
 
 ## Start
 
-Open `QuarrySimulator.exe` from the Windows ZIP and keep `QuarrySimulator.pck` beside it.
+Open `QuarryDays.exe` from the Windows ZIP and keep `QuarryDays.pck` beside it.
 
 - **New game:** starts at 08:00 with $10, the rock hammer and a short letter from Grandpa.
 - **Older saves** (`user://quarry_save.json`, Phases 1–4) load directly and keep everything already bought. See *Old saves* below.
