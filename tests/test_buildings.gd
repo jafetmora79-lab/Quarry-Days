@@ -29,6 +29,7 @@ func aim(game, pos: Vector3, yaw: float, pitch: float) -> String:
 
 func run() -> void:
 	var game = load("res://Main.tscn").instantiate()
+	game.natural_start_enabled = false      # Phase 10: these suites test the older systems on the old starting layout
 	root.add_child(game)
 	await process_frame
 	await frames(4)

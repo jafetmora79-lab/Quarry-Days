@@ -22,6 +22,7 @@ func frames(n: int) -> void:
 
 func run() -> void:
 	var game = load("res://Main.tscn").instantiate()
+	game.natural_start_enabled = false      # Phase 10: these suites test the older systems on the old starting layout
 	root.add_child(game)
 	await frames(4)
 	if game.walter_dialog:

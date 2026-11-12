@@ -37,6 +37,7 @@ func excavate(prog: QuarryProgression, id: String, fraction: float) -> void:
 
 func run() -> void:
 	var game = load("res://Main.tscn").instantiate()
+	game.natural_start_enabled = false      # Phase 10: these suites test the older systems on the old starting layout
 	game.autosave_enabled = false
 	game.curfew_enabled = false
 	root.add_child(game)

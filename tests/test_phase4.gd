@@ -76,6 +76,7 @@ func test_stock_logic() -> void:
 
 func scene_resources() -> void:
 	var game = load("res://Main.tscn").instantiate()
+	game.natural_start_enabled = false      # Phase 10: these suites test the older systems on the old starting layout
 	root.add_child(game)
 	game.prog.stage = game.prog.stage_index("large") # Phase 5 stage gates (tested in test_phase5)
 	await process_frame
@@ -155,6 +156,7 @@ func path_ok(game, a: Vector3, b: Vector3) -> bool:
 
 func scene_world() -> void:
 	var game = load("res://Main.tscn").instantiate()
+	game.natural_start_enabled = false      # Phase 10: these suites test the older systems on the old starting layout
 	root.add_child(game)
 	game.prog.stage = game.prog.stage_index("large") # Phase 5 stage gates (tested in test_phase5)
 	await process_frame

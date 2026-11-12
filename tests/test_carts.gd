@@ -112,6 +112,7 @@ func run() -> void:
 	check(fixed.cart_total("wheelbarrow") == 40 and not fixed.cart_load.has("ghost_cart") and fixed.cart_total("hand_cart") == 0, "B a damaged save cannot make a cart hold more than its capacity or carry unknown items")
 	# ---- C: in the game
 	var game = load("res://Main.tscn").instantiate()
+	game.natural_start_enabled = false      # Phase 10: these suites test the older systems on the old starting layout
 	game.autosave_enabled = false
 	game.curfew_enabled = false
 	game.introductions_enabled = false

@@ -21,12 +21,13 @@ var business # QuarryBusiness (untyped: avoids a cyclic class dependency in test
 var cfg: Dictionary
 var stage := 0
 var level_unlocked := 1                ## legacy: the small lower pit behind the $5,000 permit (1 = closed, 2 = open)
+var natural_start_enabled := true      ## false: the old starting piles (tests and legacy layouts)
 var legacy_migrated := false           ## the last restore() converted an old six-stage save
 var quarry_level := 1                  ## Phase 7.1: the deepest of the four quarry levels reached so far (1..4)
 const SCHEMA := 3                      ## save schema of the progression block: 1 = before Phase 7.1 (no field), 2 = quarry levels, 3 = Phase 9 twelve-stage ladder
 var rigs: Array = []
 var next_rig_id := 1
-var story := {"intro_seen": false, "found": {}, "read": {}, "visits": {}, "journal": [], "fossil": "", "companion": {"state": "none"}, "milestones": {}}
+var story := {"intro_seen": false, "found": {}, "read": {}, "visits": {}, "journal": [], "fossil": "", "companion": {"state": "none"}, "milestones": {}, "excavator": {"battery": false, "hose": false, "fuel": false, "started": false, "granted": false, "legacy": false, "carry": ""}}
 ## Phase 6.2 tutorial: weeds and rubble heaps still on the site. "cleared": id -> true, "units": heap id -> units
 ## left (heaps keep their remaining stone when saved), "done": the whole site is clean (hillside unlocked).
 var cleanup := {"cleared": {}, "units": {}, "done": false}
@@ -210,6 +211,8 @@ func is_formation(id: String) -> bool:
 	return cfg.get("formations", {}).has(id)
 
 func formation_active(id: String) -> bool:
+	if natural_start_enabled and natural_start() and id in cfg.get("starting_formations", []):
+		return false                      # Phase 10: the three starting piles are replaced by natural ground (outcrops, boulders, soil)
 	return is_formation(id) and int(fdef(id).get("level", 1)) <= level_unlocked
 
 func dims(id: String) -> Vector2i:
@@ -1086,6 +1089,67 @@ func read_discovery(id: String) -> int:
 
 # ------------------------------------------------------------------ the fossil (Phase 7.6)
 
+# ------------------------------------------------------------------ Grandpa's excavator (Phase 10.1)
+
+const REPAIR_PARTS := ["battery", "hose", "fuel"]
+
+func opening_cfg() -> Dictionary:
+	return cfg.get("opening", {})
+
+func excavator_state() -> Dictionary:
+	return story["excavator"]
+
+func repair_done(part: String) -> bool:
+	return bool(story["excavator"].get(part, false))
+
+func repairs_done() -> int:
+	var n := 0
+	for p in REPAIR_PARTS:
+		if repair_done(p):
+			n += 1
+	return n
+
+func repairs_complete() -> bool:
+	return repairs_done() == REPAIR_PARTS.size()
+
+## The machine can be driven: every repair is done and Grandpa has started it (or the save is from before the opening).
+func excavator_ready() -> bool:
+	return repairs_complete() and bool(story["excavator"].get("started", false))
+
+func next_repair() -> String:
+	for p in REPAIR_PARTS:
+		if not repair_done(p):
+			return p
+	return ""
+
+## The part being carried to the machine ("" = nothing).
+func carried_part() -> String:
+	return str(story["excavator"].get("carry", ""))
+
+func pick_up_part(part: String) -> bool:
+	if not part in REPAIR_PARTS or repair_done(part) or carried_part() != "":
+		return false
+	story["excavator"]["carry"] = part
+	return true
+
+func put_down_part() -> String:
+	var c := carried_part()
+	story["excavator"]["carry"] = ""
+	return c
+
+## Fits the carried part. Returns the part, or "" when nothing fits.
+func install_part() -> String:
+	var c := carried_part()
+	if c == "" or repair_done(c):
+		return ""
+	story["excavator"][c] = true
+	story["excavator"]["carry"] = ""
+	return c
+
+## True for a game that began with the opening (not a save from before Phase 10).
+func natural_start() -> bool:
+	return bool(opening_cfg().get("natural_start", false)) and not bool(story["excavator"].get("legacy", false))
+
 func fossil_cfg() -> Dictionary:
 	return cfg.get("fossil", {})
 
@@ -1358,7 +1422,17 @@ func restore(raw_data: Dictionary, vehicle_types: Array = []) -> void:
 		for k in cu.get("units", {}):
 			cleanup["units"][str(k)] = clampi(int(cu["units"][k]), 0, int(cleanup_cfg().get("heap_units", 5)))
 	var st = data.get("story", {})
-	story = {"intro_seen": bool(st.get("intro_seen", true)) if st is Dictionary else true, "found": {}, "read": {}, "visits": {}, "journal": [], "fossil": "", "companion": {"state": "none"}, "milestones": {}}
+	story = {"intro_seen": bool(st.get("intro_seen", true)) if st is Dictionary else true, "found": {}, "read": {}, "visits": {}, "journal": [], "fossil": "", "companion": {"state": "none"}, "milestones": {},
+		"excavator": {"battery": false, "hose": false, "fuel": false, "started": false, "granted": false, "legacy": false, "carry": ""}}
+	# Phase 10.1: a save without the opening's record is from before Phase 10: it is past the tutorial, so every repair counts as done
+	# and nothing is granted or repeated (the old starting piles stay where they were).
+	if st is Dictionary and st.get("excavator", null) is Dictionary:
+		var ex: Dictionary = st["excavator"]
+		for k in ["battery", "hose", "fuel", "started", "granted", "legacy"]:
+			story["excavator"][k] = bool(ex.get(k, false))
+		story["excavator"]["carry"] = str(ex.get("carry", "")) if str(ex.get("carry", "")) in REPAIR_PARTS and not bool(ex.get(str(ex.get("carry", "")), false)) else ""
+	else:
+		story["excavator"] = {"battery": true, "hose": true, "fuel": true, "started": true, "granted": true, "legacy": true, "carry": ""}
 	if st is Dictionary:
 		for k in st.get("milestones", {}):
 			story["milestones"][str(k)] = true

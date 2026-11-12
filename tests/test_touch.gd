@@ -19,6 +19,7 @@ func tap(t, p: Vector2, idx: int, down: bool) -> void:
 	t._input(e)
 func run() -> void:
 	var game = load("res://Main.tscn").instantiate()
+	game.natural_start_enabled = false      # Phase 10: these suites test the older systems on the old starting layout
 	root.add_child(game)
 	root.size = Vector2i(1280, 720)
 	for i in 5: await process_frame

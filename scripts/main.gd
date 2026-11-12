@@ -30,6 +30,9 @@ const RESOURCE_ORDER := ["limestone", "coal", "iron_ore", "crushed_stone", "copp
 # Phase 5: the three small starting rocks are replaced by enormous finite formations (data/progression.json).
 # The quarry face stays as the never-empty hand-mining fallback.
 const DEPOSIT_INFO := {"limestone_face": {"pos": Vector3(-12.6, 0, -17.6), "color": Color(0.70, 0.68, 0.58), "pieces": 2, "resource": "limestone", "infinite": true, "yaw": -0.65}}
+# Phase 10.1: two small natural ore outcrops stand where the big piles used to be (finite and slow to regrow, like the east rocks)
+const OUTCROP_INFO := {"coal_outcrop": {"pos": Vector3(2.0, 0, -14.0), "color": Color(0.17, 0.19, 0.21), "pieces": 3, "resource": "coal", "yaw": 0.5},
+	"iron_boulder": {"pos": Vector3(11.5, 0, -11.0), "color": Color(0.52, 0.29, 0.23), "pieces": 2, "resource": "iron_ore", "yaw": -0.4}}
 const UPGRADE_MENU := ["larger_backpack", "faster_mining", "hauling_harness", "efficient_crusher", "expanded_storage"]
 const LEGACY_DEPOSITS := {"limestone": "stone_mountain", "coal": "coal_mountain", "iron_ore": "iron_mountain"}
 # Phase 2 quarry expansion (east), unlocked by the Automated Business milestone. Same three minerals.
@@ -152,6 +155,7 @@ func _ready() -> void:
 	fleet = FleetScript.new(business, vcfg)
 	var pcfg = JSON.parse_string(FileAccess.get_file_as_string("res://data/progression.json"))
 	prog = ProgressionScript.new(state, business, pcfg)
+	prog.natural_start_enabled = natural_start_enabled
 	prog.protect = Callable(self, "_column_has_player")
 	business.prog = prog
 	state.money = int(pcfg.get("new_game_money", state.money))
@@ -231,6 +235,7 @@ func _ready() -> void:
 	_refresh_stage_hud()
 	if autosave_enabled and FileAccess.file_exists(SAVE_PATH):
 		_load(true)                                  # continue where you left off: a launch never starts from scratch over a save
+	_ensure_opening()
 	if not prog.story["intro_seen"]:
 		call_deferred("_show_intro")
 
@@ -339,6 +344,9 @@ func _build_quarry() -> void:
 	machine_shop.set_meta("kind","shop")
 	for kind in DEPOSIT_INFO:
 		_build_deposit(kind)
+	if natural_start_enabled:
+		for kind in OUTCROP_INFO:
+			_build_deposit(kind)
 	for id in prog.formation_ids():
 		if prog.formation_active(id):
 			_build_formation(id)
@@ -791,6 +799,8 @@ func _build_hillside_backdrop(r: Rect2) -> void:
 func _deposit_info(kind: String) -> Dictionary:
 	if DEPOSIT_INFO.has(kind):
 		return DEPOSIT_INFO[kind]
+	if OUTCROP_INFO.has(kind):
+		return OUTCROP_INFO[kind]
 	if prog and prog.is_formation(kind):
 		return {"pos": prog.formation_origin_world(kind), "resource": str(prog.fdef(kind)["resource"]), "pieces": 0, "formation": true, "color": WorkerScript.RESOURCE_COLORS.get(str(prog.fdef(kind)["resource"]), Color.GRAY)}
 	return EXPANSION_DEPOSITS.get(kind, {})
@@ -1213,7 +1223,7 @@ func _notify(s: String) -> void:
 ## Interaction highlight (Phase 8.5): a thin warm outline on the one thing you could press E on. Only real interactables get it
 ## (never terrain, rock, loose pieces or weeds), it is removed the moment you look away, open a menu, drive or build, and it is
 ## never used for construction ghosts, which have their own blueprint look.
-const HIGHLIGHT_KINDS := ["cart", "door", "bed", "sell", "upgrades", "storage", "crusher", "output", "shop", "office", "rig", "vehicle", "worker", "discovery", "walter", "fossil", "egg", "conveyor", "gate"]
+const HIGHLIGHT_KINDS := ["repair_part", "cart", "door", "bed", "sell", "upgrades", "storage", "crusher", "output", "shop", "office", "rig", "vehicle", "worker", "discovery", "walter", "fossil", "egg", "conveyor", "gate"]
 var highlight_node: Node3D
 var highlight_meshes: Array = []
 var _hl_mat: StandardMaterial3D
@@ -1372,6 +1382,9 @@ func _physics_process(delta: float) -> void:
 				var who := business.employee(int(last_target.get_meta("employee")))
 				if not who.is_empty():
 					prompt = "%s (%s): %s" % [who["name"], business.profession(who["profession"])["title"], who["task"]]
+			"repair_part":
+				var rp := str(last_target.get_meta("part"))
+				prompt = "E: pick up the %s" % str(prog.opening_cfg().get("parts", {}).get(rp, {}).get("title", rp)).to_lower()
 			"cart":
 				var cid := str(last_target.get_meta("cart"))
 				prompt = "E: %s  (%d / %d)" % [str(prog.gear_def(cid).get("title", cid)), state.cart_total(cid), state.cart_cap(cid)]
@@ -1379,7 +1392,9 @@ func _physics_process(delta: float) -> void:
 			"storage": prompt = "E: storage"
 			"vehicle":
 				var vrec := fleet.vehicle(int(last_target.get_meta("vehicle_id")))
-				if not vrec.is_empty():
+				if not vrec.is_empty() and str(vrec["type"]) == "starter_excavator" and not prog.excavator_ready():
+					prompt = ("E: fit the %s" % prog.carried_part()) if prog.carried_part() != "" else ("E: Grandpa's excavator - %d of 3 repairs done" % prog.repairs_done())
+				elif not vrec.is_empty():
 					prompt = "E: drive %s (%d/%d %s)" % [fleet.spec(vrec["type"])["title"], fleet.cargo_total(vrec), fleet.capacity(vrec), "in bucket" if fleet.kind(str(vrec["type"])) != "truck" else "in bed"]
 			"pile":
 				prompt = "%s: %d units - scoop it with a front loader" % [fleet.cfg["piles"][str(last_target.get_meta("pile"))]["title"], int(fleet.piles[str(last_target.get_meta("pile"))]["amount"])]
@@ -1539,9 +1554,13 @@ func _interact(target: Node3D) -> void:
 			_take_egg()
 		"rig":
 			_open_menu("rig", int(target.get_meta("index")))
+		"repair_part":
+			_pick_up_part(str(target.get_meta("part")))
 		"vehicle":
 			var v = vehicle_nodes.get(int(target.get_meta("vehicle_id")))
-			if v:
+			if v and v.vtype == "starter_excavator":
+				_use_starter(v)
+			elif v:
 				enter_vehicle(v)
 
 func _open_menu(kind: String, index := -1) -> void:
@@ -1956,6 +1975,7 @@ const GEAR_PROP_SPOTS := {"hand_cart": Vector3(-19.2, 0, 9.4), "wheelbarrow": Ve
 const CART_IDS := ["hand_cart", "wheelbarrow", "reinforced_wheelbarrow"]
 var gear_props := {}          ## the compressor (a fixed prop)
 var cart_nodes := {}          ## cart id -> QuarryCart
+var natural_start_enabled := true      ## Phase 10: false keeps the three old starting piles (legacy layouts and older tests)
 var held_cart: QuarryCart
 var _cart_save_t := 0.0
 
@@ -2127,6 +2147,202 @@ func _shop_offer(key: String, digit: int) -> Dictionary:
 func _shop_tag(key: String, owned: String) -> String:
 	var n := int(business.inventory.get(key, 0))
 	return ("In inventory: %d" % n) if n > 0 else owned
+
+# ------------------------------------------------------------------ Phase 10.1: the opening - Grandpa's excavator and the natural ground
+
+var opening_parts := {}          ## part id -> StaticBody3D lying near the workshop
+var natural_root: Node3D
+var repair_busy := false
+
+func _starter_vehicle() -> QuarryVehicle:
+	for v in vehicle_nodes.values():
+		if v.vtype == "starter_excavator":
+			return v
+	return null
+
+## Builds or removes everything that belongs to the opening, from the progression record (so a load, a new game and the first
+## launch all agree): the machine itself, the parts still lying around, the natural ground, Grandpa at his post.
+func _ensure_opening() -> void:
+	prog.natural_start_enabled = natural_start_enabled
+	var natural := natural_start_enabled and prog.natural_start()
+	var ex := prog.excavator_state()
+	if natural and not bool(ex["granted"]):
+		var oc: Dictionary = prog.opening_cfg().get("excavator", {})
+		var pp: Array = oc.get("pos", [-12.0, 0.0, 6.6])
+		var rec := fleet.give("starter_excavator", Vector3(float(pp[0]), float(pp[1]), float(pp[2])), float(oc.get("yaw", 0.0)))
+		if not rec.is_empty():
+			ex["granted"] = true
+			_sync_vehicles()
+	_decorate_starter()
+	_spawn_repair_parts()
+	_build_natural_ground(natural)
+	if natural and not bool(ex["started"]) and bool(prog.story["intro_seen"]) and not walter_intro_running:
+		_grandpa_to_post()
+
+func _decorate_starter() -> void:
+	var v := _starter_vehicle()
+	if v == null or v.model_root == null:
+		return
+	var old := v.model_root.get_node_or_null("OpeningParts")
+	if old:
+		old.free()
+	OpeningModels.fitted(v.model_root, prog.repair_done("battery"), prog.repair_done("hose"), prog.repair_done("fuel"))
+
+func _spawn_repair_parts() -> void:
+	var natural := natural_start_enabled and prog.natural_start()
+	for id in QuarryProgression.REPAIR_PARTS:
+		var want: bool = natural and not prog.repair_done(id) and prog.carried_part() != id
+		if want and not opening_parts.has(id):
+			var pc: Dictionary = prog.opening_cfg().get("parts", {}).get(id, {})
+			var pp: Array = pc.get("pos", [0, 0, 0])
+			var body := StaticBody3D.new()
+			body.name = "Repair_" + id
+			body.position = Vector3(float(pp[0]), float(pp[1]), float(pp[2]))
+			body.collision_layer = 32
+			body.set_meta("kind", "repair_part")
+			body.set_meta("part", id)
+			var cs := CollisionShape3D.new()
+			var box := BoxShape3D.new()
+			box.size = Vector3(0.6, 0.5, 0.6)
+			cs.shape = box
+			cs.position.y = 0.25
+			body.add_child(cs)
+			body.add_child(OpeningModels.part(id))
+			world.add_child(body)
+			opening_parts[id] = body
+		elif not want and opening_parts.has(id):
+			opening_parts[id].queue_free()
+			opening_parts.erase(id)
+
+func _build_natural_ground(natural: bool) -> void:
+	if not natural:
+		if natural_root and is_instance_valid(natural_root):
+			natural_root.queue_free()
+		natural_root = null
+		return
+	if natural_root and is_instance_valid(natural_root):
+		return
+	var ok := func(p: Vector2) -> bool:
+		var v := Vector3(p.x, 0.0, p.y)
+		return not in_pit_corridor(v, 5.0) and not in_hillside_zone(v, 4.0) and not hub_rect().grow(3.0).has_point(p) and p.distance_to(Vector2(2.0, -14.0)) > 3.0 and p.distance_to(Vector2(11.5, -11.0)) > 3.0
+	var info := OpeningModels.natural_ground(world, ok, Rect2(-23.0, -29.0, 46.0, 21.5), 1010)
+	natural_root = info["root"]
+	natural_root.set_meta("counts", {"boulders": info["boulders"], "outcrops": info["outcrops"], "patches": info["patches"], "scrub": info["scrub"], "pebbles": info["pebbles"]})
+	nav_dirty = true
+
+func _pick_up_part(id: String) -> void:
+	if prog.carried_part() != "":
+		_notify("You are already carrying the %s: fit it to the excavator first." % prog.carried_part())
+		return
+	if prog.pick_up_part(id):
+		_spawn_repair_parts()
+		pickup_audio.play()
+		hud.toast("Picked up the " + str(prog.opening_cfg().get("parts", {}).get(id, {}).get("title", id)).to_lower(), "Take it to Grandpa's excavator and press E.", "info")
+
+## E on Grandpa's machine: fit the carried part, start it once repaired, or say what is still broken.
+func _use_starter(v: QuarryVehicle) -> void:
+	if repair_busy or walter_dialog != null:
+		return
+	if prog.carried_part() != "":
+		_install_part(v)
+	elif prog.repairs_complete() and not bool(prog.excavator_state()["started"]):
+		_excavator_start_scene(v)
+	elif prog.excavator_ready():
+		enter_vehicle(v)
+	else:
+		var missing := []
+		for p in QuarryProgression.REPAIR_PARTS:
+			if not prog.repair_done(p):
+				missing.append(str(prog.opening_cfg().get("parts", {}).get(p, {}).get("title", p)).to_lower())
+		_notify("The excavator is broken: it still needs the %s. Pick the parts up near the workshop." % ", ".join(missing))
+
+## A short first-person repair: the view drops to the engine, three wrench taps with sparks, the part is fitted and the machine changes.
+func _install_part(v: QuarryVehicle) -> void:
+	var part := prog.carried_part()
+	repair_busy = true
+	player.locked = true
+	var at := v.global_position + Vector3(0, 1.3, 0)
+	_turn_view_to(at, 0.35)
+	var tw := create_tween()
+	tw.tween_property(player.camera, "rotation:x", -0.35, 0.3)
+	for k in range(3):
+		tw.tween_callback(func():
+			sfx["hit_reinforced"].play()
+			fx.impact(at + Vector3(0.0, 0.1 * float(k), 0.0), "iron_ore", 0.8, Vector3.UP))
+		tw.tween_interval(0.32)
+	tw.tween_callback(func():
+		prog.install_part()
+		_decorate_starter()
+		_spawn_repair_parts()
+		sfx["unlock"].play()
+		hud.toast(str(prog.opening_cfg().get("parts", {}).get(part, {}).get("title", part)) + " fitted", "%d of 3 repairs done" % prog.repairs_done(), "unlock")
+		create_tween().tween_property(player.camera, "rotation:x", 0.0, 0.4)
+		player.locked = false
+		repair_busy = false
+		if prog.repairs_complete():
+			_excavator_start_scene(v))
+
+## Everything is fitted: Grandpa helps start it. The engine struggles before it catches; then normal play resumes at once.
+func _excavator_start_scene(v: QuarryVehicle) -> void:
+	if walter_dialog != null or bool(prog.excavator_state()["started"]):
+		return
+	_turn_view_to(v.global_position + Vector3(0, 1.4, 0), 0.4)
+	_open_walter_dialog(prog.opening_cfg().get("start_lines", []), func(_skipped: bool): _engine_struggle(v))
+
+func _engine_struggle(v: QuarryVehicle) -> void:
+	repair_busy = true
+	player.locked = true
+	var base: Vector3 = v.model_root.position
+	var tw := create_tween()
+	for k in range(4):
+		tw.tween_callback(func():
+			sfx["hit_reinforced"].play()
+			fx.chunk_break(v.global_position + Vector3(0.4, 1.7, -0.9), "coal"))
+		tw.tween_property(v.model_root, "position", base + Vector3(0.0, 0.05, 0.0), 0.12)
+		tw.tween_property(v.model_root, "position", base, 0.12)
+		tw.tween_interval(0.28)
+	tw.tween_callback(func(): _engine_runs(v, base))
+
+func _engine_runs(v: QuarryVehicle, base: Vector3) -> void:
+	v.model_root.position = base
+	prog.excavator_state()["started"] = true
+	sfx["unlock"].play()
+	fx.chunk_break(v.global_position + Vector3(0.4, 1.9, -0.9), "coal")
+	_open_walter_dialog(prog.opening_cfg().get("running_lines", []), func(_s2: bool): _after_start(), true)
+
+func _after_start() -> void:
+	create_tween().tween_property(player.camera, "rotation:x", 0.0, 0.4)
+	player.locked = false
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	repair_busy = false
+	hud.toast("Grandpa's excavator is running", "Press E on it to climb in.", "unlock")
+	_walter_leave()
+
+## Grandpa waits by the excavator until it runs (and hints at the next repair when talked to).
+func _grandpa_to_post() -> void:
+	var gc: Array = prog.opening_cfg().get("grandpa", {}).get("pos", [-14.9, 0.0, 5.6])
+	var at := Vector3(float(gc[0]), float(gc[1]), float(gc[2]))
+	var face: Array = prog.opening_cfg().get("excavator", {}).get("pos", [-12.0, 0.0, 6.6])
+	if walter_node == null or not is_instance_valid(walter_node):
+		_spawn_walter(at, Vector3(float(face[0]), 0.0, float(face[2])))
+	else:
+		walter_node.global_position = at
+		walter_node.rotation.y = atan2(-(float(face[0]) - at.x), -(float(face[2]) - at.z))
+	walter_mode = "waiting"
+	walter_pose = "idle"
+	walter_path = PackedVector3Array()
+
+func _grandpa_hint() -> void:
+	var next := prog.next_repair()
+	var text := "Take your time."
+	if prog.carried_part() != "":
+		text = "That's the right part. Fit it to the machine: press E on her."
+	elif next != "":
+		text = str(prog.opening_cfg().get("parts", {}).get(next, {}).get("hint", text))
+	_walter_face_player()
+	_open_walter_dialog([{"speaker": "GRANDPA WALTER", "text": text}], func(_s: bool):
+		player.locked = false
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
 
 func _variant_count(variant: String) -> int:
 	var n := 0
@@ -2692,6 +2908,7 @@ func _load(quiet := false) -> void:
 	business.compute_links()
 	_sync_workers()
 	_sync_vehicles(true)
+	_ensure_opening()
 	_rebake_nav()
 	var p: Array = state.player_position
 	player.position = Vector3(float(p[0]),maxf(0.05,float(p[1])),float(p[2]))
@@ -3421,6 +3638,9 @@ func free_fallback_slot(type := "loader") -> Variant:
 
 func enter_vehicle(v: QuarryVehicle) -> void:
 	release_cart()
+	if v != null and v.vtype == "starter_excavator" and not prog.excavator_ready():
+		_use_starter(v)               # still broken: say what is missing (or fit the carried part)
+		return
 	if driving or v == null or v.has_meta("delivering"):
 		return
 	driving = v
@@ -4267,7 +4487,10 @@ func _finish_intro() -> void:
 	prog.story["intro_seen"] = true
 	player.locked = false
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	_walter_leave()           # he walks off to the road; he comes back for visits
+	if natural_start_enabled and prog.natural_start() and not bool(prog.excavator_state()["started"]):
+		_grandpa_to_post()   # Phase 10: he waits by the broken excavator and helps once it is repaired
+	else:
+		_walter_leave()           # he walks off to the road; he comes back for visits
 
 func _walter_leave() -> void:
 	if walter_node == null or not is_instance_valid(walter_node):
@@ -4310,6 +4533,9 @@ func _turn_view_to(point: Vector3, secs := 0.5) -> Tween:
 	return tw
 
 func _talk_to_walter() -> void:
+	if walter_dialog == null and walter_mode == "waiting" and walter_visit == "" and prog.natural_start() and not bool(prog.excavator_state()["started"]):
+		_grandpa_hint()
+		return
 	if walter_visit == "" or walter_dialog != null or walter_mode != "waiting":
 		return
 	var v := prog.visit_def(walter_visit)

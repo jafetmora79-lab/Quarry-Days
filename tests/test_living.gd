@@ -34,6 +34,7 @@ func box(game, pos: Vector3) -> StaticBody3D:
 
 func run() -> void:
 	var game = load("res://Main.tscn").instantiate()
+	game.natural_start_enabled = false      # Phase 10: these suites test the older systems on the old starting layout
 	game.autosave_enabled = false
 	game.curfew_enabled = false
 	game.introductions_enabled = true

@@ -176,6 +176,7 @@ func place(v, pos: Vector3, yaw: float) -> void:
 
 func scene_tests() -> void:
 	var game = load("res://Main.tscn").instantiate()
+	game.natural_start_enabled = false      # Phase 10: these suites test the older systems on the old starting layout
 	root.add_child(game)
 	game.prog.cleanup["done"] = true # Phase 6.2: these tests place machinery on a cleaned site
 	game._spawn_cleanup()

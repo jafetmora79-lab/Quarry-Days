@@ -186,6 +186,32 @@
       "accel_label": "Low",
       "best_use": "High-volume excavation, copper included",
       "paint": "PaintOrange"
+    },
+    "starter_excavator": {
+      "title": "Grandpa's Mini Excavator",
+      "kind": "excavator",
+      "price": 0,
+      "starter": true,
+      "gate": "grandpa",
+      "capacity": 3,
+      "accel": 1.2,
+      "max_speed": 1.8,
+      "reverse_speed": 1.2,
+      "turn": 1.0,
+      "brake": 8.0,
+      "size": [
+        1.6,
+        2.0,
+        2.9
+      ],
+      "dig_dps": 12.0,
+      "dig_hardness": 0,
+      "dig_reach": 3.6,
+      "scoop_radius": 3.2,
+      "speed_label": "Very slow",
+      "accel_label": "Weak",
+      "best_use": "Loose soil and gravel only. It cannot cut rock.",
+      "paint": "PaintYellow"
     }
   },
   "upgrades": {

@@ -28,7 +28,11 @@ func spec(type: String) -> Dictionary:
 
 ## Vehicle types in shop order.
 func types() -> Array:
-	return cfg["vehicles"].keys()
+	var out := []
+	for k in cfg["vehicles"].keys():
+		if not bool(cfg["vehicles"][k].get("starter", false)):      # Grandpa's machine is not for sale
+			out.append(k)
+	return out
 
 ## The family a type belongs to: "loader" (bucket), "truck" (tipping bed) or "excavator" (digs rock and fills a bucket).
 func kind(type: String) -> String:
@@ -58,6 +62,8 @@ func buy_block_reason(type: String) -> String:
 	var s := spec(type)
 	if s.is_empty():
 		return "Unknown vehicle"
+	if bool(s.get("starter", false)):
+		return "Not for sale"
 	var req := str(s.get("requires", ""))
 	if req != "" and not business.milestones.get(req, false):
 		return "Requires the %s milestone" % {"mechanized": "Mechanized Quarry", "automated": "Automated Business"}.get(req, req)
@@ -79,6 +85,21 @@ func buy(type: String, pos: Vector3, yaw := 0.0) -> Dictionary:
 	next_id += 1
 	vehicles.append(v)
 	return v
+
+## Hands over a machine for free (Grandpa's excavator): the same record a purchase makes, no money, no limit check beyond the yard size.
+func give(type: String, pos: Vector3, yaw := 0.0) -> Dictionary:
+	if spec(type).is_empty() or vehicles.size() >= int(cfg.get("max_vehicles", 4)) + 1:
+		return {}
+	var v := {"id": next_id, "type": type, "position": [pos.x, pos.y, pos.z], "yaw": yaw, "cargo": {}, "name": str(spec(type)["title"])}
+	next_id += 1
+	vehicles.append(v)
+	return v
+
+func owns_type(type: String) -> bool:
+	for v in vehicles:
+		if str(v["type"]) == type:
+			return true
+	return false
 
 func upgrade_block_reason(key: String) -> String:
 	var u: Dictionary = cfg["upgrades"].get(key, {})

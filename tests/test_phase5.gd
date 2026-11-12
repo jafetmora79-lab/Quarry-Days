@@ -213,6 +213,7 @@ func aim_at(game, pos: Vector3, look: Vector3) -> void:
 
 func scene_mining() -> void:
 	var game = load("res://Main.tscn").instantiate()
+	game.natural_start_enabled = false      # Phase 10: these suites test the older systems on the old starting layout
 	root.add_child(game)
 	await process_frame
 	await physics_frame
@@ -325,6 +326,7 @@ func scene_mining() -> void:
 
 func scene_more() -> void:
 	var game = load("res://Main.tscn").instantiate()
+	game.natural_start_enabled = false      # Phase 10: these suites test the older systems on the old starting layout
 	root.add_child(game)
 	await process_frame
 	await physics_frame
@@ -445,6 +447,7 @@ func scene_more() -> void:
 
 func scene_deep() -> void:
 	var game = load("res://Main.tscn").instantiate()
+	game.natural_start_enabled = false      # Phase 10: these suites test the older systems on the old starting layout
 	root.add_child(game)
 	await process_frame
 	await physics_frame
@@ -578,6 +581,7 @@ func scene_deep() -> void:
 
 func scene_story_hud() -> void:
 	var game = load("res://Main.tscn").instantiate()
+	game.natural_start_enabled = false      # Phase 10: these suites test the older systems on the old starting layout
 	root.add_child(game)
 	await process_frame
 	await physics_frame

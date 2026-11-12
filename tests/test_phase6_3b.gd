@@ -53,6 +53,7 @@ func exposed_count(prog: QuarryProgression, all_pit := false) -> int:
 
 func run() -> void:
 	var game = load("res://Main.tscn").instantiate()
+	game.natural_start_enabled = false      # Phase 10: these suites test the older systems on the old starting layout
 	root.add_child(game)
 	await process_frame
 	for i in range(5):

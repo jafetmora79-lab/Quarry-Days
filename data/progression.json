@@ -2561,7 +2561,8 @@
   "heavy_truck": "moving_mountains",
   "industrial_truck": "deeper_ground",
   "compact_excavator": "moving_mountains",
-  "heavy_excavator": "deeper_ground"
+  "heavy_excavator": "deeper_ground",
+  "starter_excavator": "grandpa"
  },
  "quarry_milestones": [
   {
@@ -2998,5 +2999,69 @@
    "units": 1080
   }
  },
- "legacy_formations_comment": "Phase 8.7 save migration: the old column layout of each re-laid formation (column count and total units). Saves written with that layout are converted by cleared fraction, never reset."
+ "legacy_formations_comment": "Phase 8.7 save migration: the old column layout of each re-laid formation (column count and total units). Saves written with that layout are converted by cleared fraction, never reset.",
+ "opening": {
+  "_comment": "Phase 10.1: Grandpa's broken mini excavator. Three repairs (battery, hydraulic hose, fuel), each a part lying near the workshop that is carried to the machine and fitted. Grandpa waits near the workshop and helps start it.",
+  "natural_start": true,
+  "excavator": {
+   "pos": [
+    -12.0,
+    0.0,
+    6.6
+   ],
+   "yaw": 0.0
+  },
+  "grandpa": {
+   "pos": [
+    -14.9,
+    0.0,
+    5.6
+   ]
+  },
+  "parts": {
+   "battery": {
+    "title": "Battery",
+    "pos": [
+     -13.6,
+     0.0,
+     8.7
+    ],
+    "hint": "The battery is flat and corroded... there is a fresh one on the ground by the workshop door."
+   },
+   "hose": {
+    "title": "Hydraulic hose",
+    "pos": [
+     -10.2,
+     0.0,
+     5.3
+    ],
+    "hint": "The boom hose split years ago. I kept a spare coiled beside the old truck."
+   },
+   "fuel": {
+    "title": "Fuel can",
+    "pos": [
+     -9.9,
+     0.0,
+     8.0
+    ],
+    "hint": "She's bone dry. There is a can of diesel by the fence."
+   }
+  },
+  "start_lines": [
+   {
+    "speaker": "GRANDPA WALTER",
+    "text": "Good, that's all of it. Stand clear, I'll turn her over."
+   }
+  ],
+  "running_lines": [
+   {
+    "speaker": "GRANDPA WALTER",
+    "text": "Well, I'll be damned. She still runs."
+   },
+   {
+    "speaker": "GRANDPA WALTER",
+    "text": "She only moves loose soil and gravel. Rock is another matter, but it is a start. She is yours."
+   }
+  ]
+ }
 }

@@ -23,6 +23,7 @@ func frames(n: int) -> void:
 
 func boot(autosave: bool):
 	var game = load("res://Main.tscn").instantiate()
+	game.natural_start_enabled = false      # Phase 10: these suites test the older systems on the old starting layout
 	game.autosave_enabled = autosave
 	root.add_child(game)
 	await process_frame

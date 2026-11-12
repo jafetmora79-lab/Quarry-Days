@@ -89,6 +89,7 @@ func run() -> void:
 	check(cfg["materials"]["limestone"]["hp"] == 30 and cfg["gear"].size() == 13, "A Phase 9 rock hit points and the extra tools are present")
 	# ---- B: a new game
 	var game = load("res://Main.tscn").instantiate()
+	game.natural_start_enabled = false      # Phase 10: these suites test the older systems on the old starting layout
 	game.autosave_enabled = false
 	game.curfew_enabled = false
 	game.introductions_enabled = false

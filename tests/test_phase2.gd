@@ -433,6 +433,7 @@ func scene_tests() -> void:
 ## Acceptance: Miner -> Storage -> Hauler -> Crusher -> Output storage -> Sales clerk with no player input.
 func chain_test() -> void:
 	var game = load("res://Main.tscn").instantiate()
+	game.natural_start_enabled = false      # Phase 10: these suites test the older systems on the old starting layout
 	root.add_child(game)
 	game.prog.stage = game.prog.stage_index("large") # Phase 5 stage gates (tested in test_phase5)
 	await process_frame
