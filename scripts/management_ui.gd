@@ -377,7 +377,7 @@ func _production(b: QuarryBusiness) -> void:
 		var c: Dictionary = game.state.crushers[i]
 		st.add_child(_label("Crusher #%d: hopper %d, input %d, output %d, %s" % [i + 1, c.get("hopper", 0), c["input"], c["output"], ("running %.0fs" % float(c["remaining"])) if c["running"] else "idle"], INK, QuarryTheme.BODY))
 	for i in range(b.outputs.size()):
-		st.add_child(_label("Output storage #%d: %d/%d crushed stone" % [i + 1, b.output_total(i), b.output_capacity()], INK, QuarryTheme.BODY))
+		st.add_child(_label("%s #%d: %d/%d%s" % [{"output": "Output storage", "hopper": "Small hopper", "sorter": "Sorting table"}[b.variant_of(i)], i + 1, b.output_total(i), b.output_capacity_of(i), " crushed stone" if b.variant_of(i) == "output" else " units"], INK, QuarryTheme.BODY))
 	for i in range(b.conveyors.size()):
 		var link: Dictionary = b.links[i] if i < b.links.size() else {"src": {}, "dst": {}}
 		st.add_child(_label("Conveyor #%d: %s -> %s, carrying %d" % [i + 1, b.describe_ep(link["src"]), b.describe_ep(link["dst"]), b.conveyors[i]["items"]], INK, QuarryTheme.BODY))

@@ -24,7 +24,7 @@ for i,stg in enumerate(d['stages']):
 d['legacy_stage_ids']={"manual":"grandpa","tools":"better_tools","crew":"first_employee","industry":"power_pressure","large":"moving_mountains","deep":"deeper_ground"}
 d['legacy_stage_map']=[0,1,4,5,6,8]
 d['legacy_stage_map_comment']="Phase 9.1: an old six-stage save lands on the new stage that unlocks everything it already had (manual, tools, crew->first_employee, industry->power_pressure, large->moving_mountains, deep->deeper_ground). Never lower."
-d['feature_gates']={"hire":"first_employee","crusher":"breaking_ground","output":"breaking_ground","loader":"power_pressure","truck":"moving_mountains","permit":"deeper_ground"}
+d['feature_gates']={"hire":"first_employee","crusher":"breaking_ground","output":"breaking_ground","loader":"power_pressure","truck":"moving_mountains","permit":"deeper_ground","hopper":"first_employee","sorter":"breaking_ground"}
 d['vehicle_gates']={"loader":"power_pressure","compact_truck":"power_pressure","truck":"moving_mountains","heavy_truck":"moving_mountains","industrial_truck":"deeper_ground","compact_excavator":"moving_mountains","heavy_excavator":"deeper_ground"}
 # machines carried a numeric old stage index: re-base on the new ids
 rebase={4:"moving_mountains",5:"deeper_ground"}
@@ -87,6 +87,7 @@ json.dump(e,open('data/economy.json','w'),indent=2)
 b=json.load(open('data/business.json'))
 b['conveyor_price']=450
 b['wage_scale']=3.0
+b.update({"hopper_price":1000,"hopper_capacity":60,"sorter_price":200,"sorter_capacity":36,"sort_batch":10,"sort_seconds":6.0,"sort_bonus":1.3})
 json.dump(b,open('data/business.json','w'),indent=2)
 
 # ---- Phase 9.3: tougher rock for hand tools. Rock hit points x3; every machine, rig, excavator and hired miner is scaled x3 too,

@@ -2048,7 +2048,9 @@
   "output": "breaking_ground",
   "loader": "power_pressure",
   "truck": "moving_mountains",
-  "permit": "deeper_ground"
+  "permit": "deeper_ground",
+  "hopper": "first_employee",
+  "sorter": "breaking_ground"
  },
  "unlocks": {
   "pickaxe": {
