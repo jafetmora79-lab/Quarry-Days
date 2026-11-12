@@ -1,5 +1,12 @@
 # Changelog
 
+### Service gate and deliveries
+- The garage has a big roll-up door in its back wall, opening onto a tunnel-mouth service gate in the south ring. The door rolls up by itself when anyone comes near.
+- New machinery is driven in through the gate by a delivery driver, who parks it in its bay, steps out and walks away. The machine cannot be entered until it is parked.
+- Newly hired workers step out of the service gate and walk in.
+- New test: `tests/test_delivery.gd`.
+
+
 ## Quarry Days — world polish (home, sleep, intro, hangar view, walls, ground)
 
 - **Walls that looked like flat grey slabs were never dressed:** the engine renames duplicate nodes, so the cliff-dressing code only matched the first piece of each name. Every ring cliff and low rim is now recognised by its box and gets the rough natural cliff mesh.

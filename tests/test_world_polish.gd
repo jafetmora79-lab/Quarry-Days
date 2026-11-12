@@ -93,7 +93,7 @@ func run() -> void:
 	game.ui_buy_vehicle("loader")
 	game.delivery.finish_all()
 	var v = game.vehicle_nodes.values()[0]
-	v.global_position = Vector3(3.0, 0.1, 19.5)
+	v.global_position = Vector3(8.0, 0.1, 19.5)
 	v.rotation.y = 0.0
 	v.speed = 0.0
 	await frames(3)
