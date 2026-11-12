@@ -39,6 +39,7 @@ func run_tests() -> void:
 	check(restored.restore(s2.snapshot()) and restored.crushers.size()==1 and restored.inventory["crushed_stone"]==2,"state round-trip restores crusher without duplication")
 	var packed := load("res://Main.tscn")
 	var game = packed.instantiate()
+	game.natural_start_enabled = false      # Phase 10: older systems, old starting layout
 	root.add_child(game)
 	await process_frame
 	check(game.player != null and game.deposit_nodes.size()==12,"project boots with player, eleven formations (three piles, the hillside, the basin bench, six level benches) and the hand-mining quarry face")

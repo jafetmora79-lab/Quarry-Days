@@ -274,6 +274,7 @@ func frames(game, n: int, until: Callable = Callable()) -> int:
 func scene_tests() -> void:
 	var packed := load("res://Main.tscn")
 	var game = packed.instantiate()
+	game.natural_start_enabled = false      # Phase 10: older systems, old starting layout
 	root.add_child(game)
 	game.prog.stage = game.prog.stage_index("large") # Phase 5 stage gates (tested in test_phase5)
 	await process_frame
