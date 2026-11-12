@@ -115,7 +115,7 @@ func _clouds() -> void:
 		meshes.append(m)
 	var rng2 := RandomNumberGenerator.new()
 	rng2.seed = 4242
-	for i in range(20):
+	for i in range(16):
 		var a := rng2.randf() * TAU
 		var r := rng2.randf_range(140.0, 440.0)
 		var mi := MeshInstance3D.new()

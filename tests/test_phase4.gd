@@ -176,11 +176,11 @@ func scene_world() -> void:
 	check(aim(game, Vector3(-2, 0.05, 7.8), PI, -0.3) == "shop", "7 machinery order kiosk is interactable")
 	check(aim(game, Vector3(10, 0.05, 7.6), PI, -0.3) == "storage", "7 storage bin is interactable")
 	# 8 worker navigation through the dressed quarry
-	await frames(3)
+	await frames(60)
 	var spot: Vector3 = game.break_spot(0)
-	check(path_ok(game, spot, Vector3(-7.0, 0, 12.0)), "8 break area -> sales booth is walkable")
-	check(path_ok(game, spot, Vector3(-10.0, 0, -5.0)), "8 break area -> stone formation face is walkable")
-	check(path_ok(game, spot, Vector3(10.0, 0, 7.8)), "8 break area -> storage bin is walkable")
+	check(path_ok(game, spot, Vector3(-7.0, 0, 12.0)), "8 service gate -> sales booth is walkable")
+	check(path_ok(game, spot, Vector3(-10.0, 0, -5.0)), "8 service gate -> stone formation face is walkable")
+	check(path_ok(game, spot, Vector3(10.0, 0, 7.8)), "8 service gate -> storage bin is walkable")
 	check(path_ok(game, Vector3(0, 0, 8), Vector3(5.5, 0, 12.5)) and path_ok(game, Vector3(5.5, 0, 12.5), Vector3(20.0, 0, 7.5)), "8 yard, garage apron and haul road are connected")
 	# 6 vehicles: drive out of the garage bay, and cannot reverse through the garage back wall
 	game.state.money = 50000

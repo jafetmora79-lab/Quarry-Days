@@ -91,13 +91,6 @@ func _build_gate() -> void:
 	stripe.position = Vector3(DOOR_X, 4.4, z - 0.92)
 	stripe.material_override = MeshKit.mat("Hazard")
 	game.world.add_child(stripe)
-	var road := MeshInstance3D.new()
-	var rm := BoxMesh.new()
-	rm.size = Vector3(6.4, 0.14, 7.0)
-	road.mesh = rm
-	road.position = Vector3(DOOR_X, 0.06, 25.6)
-	road.material_override = MeshKit.mat("GroundRoad")
-	game.world.add_child(road)
 	# keep the portal solid except for the opening (so nobody walks around it onto the embankment)
 	for sx in [-1.0, 1.0]:
 		var wall := StaticBody3D.new()

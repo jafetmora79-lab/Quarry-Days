@@ -96,24 +96,29 @@ func _body(label: String, pos: Vector3, size: Vector3) -> StaticBody3D:
 	game.world.add_child(body)
 	return body
 
+func _fh(gx: int, gz: int) -> float:
+	return -depth + 0.012 + 0.02 * sin(gx * 1.3 + gz * 0.7)
+
 func _build_visuals(rx0: float, rx1: float, rz_top: float, rz_bot: float, ang: float, length: float) -> void:
 	visuals = Node3D.new()
 	visuals.name = "ExcavationVisuals"
 	add_child(visuals)
 	var floor_s := MeshKit.Soup.new()
+	# one continuous surface: every grid corner has a single height shared by the four quads around it, so there are no
+	# cracks between tiles for the background to show through (the old tiles each had their own height)
 	for gx in range(int(x0), int(x1)):
 		for gz in range(int(z0), int(z1)):
-			var h := -depth + 0.012 + 0.02 * sin(gx * 1.3 + gz * 0.7)
-			floor_s.quad(Vector3(gx, h, gz), Vector3(gx, h, gz + 1), Vector3(gx + 1, h, gz + 1), Vector3(gx + 1, h, gz))
+			floor_s.quad(Vector3(gx, _fh(gx, gz), gz), Vector3(gx, _fh(gx, gz + 1), gz + 1), Vector3(gx + 1, _fh(gx + 1, gz + 1), gz + 1), Vector3(gx + 1, _fh(gx + 1, gz), gz))
 	MeshKit.inst(visuals, floor_s.mesh(), MeshKit.mat("ExcavatedDirt"))
 	# deep-rock walls: stratified faces looking into the pit, with a bench line
 	var walls := MeshKit.Soup.new()
 	var w := x1 - x0
 	var d := z1 - z0
-	MeshKit.cliff_into(walls, w, depth, 0.8, 501, 3, Transform3D(Basis(Vector3.UP, PI), Vector3((x0 + x1) * 0.5, -depth, z0 - 0.4)))       # north, faces +Z
-	MeshKit.cliff_into(walls, d, depth, 0.8, 502, 3, Transform3D(Basis(Vector3.UP, -PI * 0.5), Vector3(x0 - 0.4, -depth, (z0 + z1) * 0.5))) # west, faces +X
-	MeshKit.cliff_into(walls, d, depth, 0.8, 503, 3, Transform3D(Basis(Vector3.UP, PI * 0.5), Vector3(x1 + 0.4, -depth, (z0 + z1) * 0.5)))  # east, faces -X
-	MeshKit.cliff_into(walls, x1 - rx1, depth, 0.8, 504, 3, Transform3D(Basis(), Vector3((rx1 + x1) * 0.5, -depth, z1 + 0.4)))            # south, faces -Z
+	# each wall runs 0.9 m past both ends, so the four faces overlap in the corners and leave no gap
+	MeshKit.cliff_into(walls, w + 1.8, depth, 0.8, 501, 3, Transform3D(Basis(Vector3.UP, PI), Vector3((x0 + x1) * 0.5, -depth, z0 - 0.4)))       # north, faces +Z
+	MeshKit.cliff_into(walls, d + 1.8, depth, 0.8, 502, 3, Transform3D(Basis(Vector3.UP, -PI * 0.5), Vector3(x0 - 0.4, -depth, (z0 + z1) * 0.5))) # west, faces +X
+	MeshKit.cliff_into(walls, d + 1.8, depth, 0.8, 503, 3, Transform3D(Basis(Vector3.UP, PI * 0.5), Vector3(x1 + 0.4, -depth, (z0 + z1) * 0.5)))  # east, faces -X
+	MeshKit.cliff_into(walls, x1 - rx1 + 0.9, depth, 0.8, 504, 3, Transform3D(Basis(), Vector3((rx1 + x1) * 0.5 + 0.45, -depth, z1 + 0.4)))      # south, faces -Z
 	MeshKit.inst(visuals, walls.mesh(), MeshKit.mat("RockDeep"))
 	# ramp surface (dirt road), curb on the open side
 	var rs := MeshKit.Soup.new()

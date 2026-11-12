@@ -215,11 +215,8 @@ func _ground() -> void:
 				dirt.quad(q[0], q[1], q[2], q[3])
 	pit_cap = MeshKit.inst(root, cap.mesh(), _material("ExcavatedDirt"))
 	# Haul roads (dirt), yard (gravel) and pads (concrete).
-	quad_flat("GroundRoad", Vector3(0, 0, 4.5), Vector2(7.0, 10.0), 0.0, 0.03)            # pit entrance ramp
-	quad_flat("GroundRoad", Vector3(19.5, 0, 7.5), Vector2(21.0, 4.0), 0.0, 0.035)         # road to the expansion
-	quad_flat("GroundRoad", Vector3(34.0, 0, 4.0), Vector2(10.0, 4.0), -0.35, 0.04)
-	quad_flat("GroundRoad", Vector3(5.5, 0, 13.0), Vector2(4.0, 6.0), 0.0, 0.045)         # garage apron road
-	quad_flat("GroundYard", Vector3(2.0, 0, 9.0), Vector2(26.0, 5.0), 0.0, 0.02)            # processing yard
+	# The roads and the yard used to be separate overlay patches; their edges showed as faint rectangles all over the
+	# floor, so the whole site now shares the one continuous ground (only the concrete pads and bay lines sit on it).
 	quad_flat(M_CONCRETE, Vector3(5.0, 0, 18.7), Vector2(19.6, 7.6), 0.0, 0.075)         # garage slab
 	quad_flat(M_CONCRETE, game.OFFICE_POS, Vector2(6.4, 6.4), 0.0, 0.075)        # office pad
 	quad_flat(M_CONCRETE, game.SHED_POS, Vector2(6.0, 6.0), 0.0, 0.075)         # shed pad
