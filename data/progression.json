@@ -1,1891 +1,2313 @@
 {
-  "_comment": "Phase 5 progression. Mining damage: a material yields 1 unit per `hp` damage. Tools deal `power` per swing every `interval` seconds, or `dps` while held (power tools). A tool (or machine) can only work material whose hardness <= its `max_hardness`.",
-  "new_game_money": 10,
-  "display_names": {
-    "limestone": "Stone",
-    "coal": "Coal",
-    "iron_ore": "Iron",
-    "crushed_stone": "Gravel",
-    "copper_ore": "Copper",
-    "gold_ore": "Gold"
+ "_comment": "Phase 5 progression. Mining damage: a material yields 1 unit per `hp` damage. Tools deal `power` per swing every `interval` seconds, or `dps` while held (power tools). A tool (or machine) can only work material whose hardness <= its `max_hardness`.",
+ "new_game_money": 10,
+ "display_names": {
+  "limestone": "Stone",
+  "coal": "Coal",
+  "iron_ore": "Iron",
+  "crushed_stone": "Gravel",
+  "copper_ore": "Copper",
+  "gold_ore": "Gold"
+ },
+ "materials": {
+  "limestone": {
+   "hp": 10,
+   "hardness": 1
   },
-  "materials": {
-    "limestone": {
-      "hp": 10,
-      "hardness": 1
-    },
-    "coal": {
-      "hp": 14,
-      "hardness": 1
-    },
-    "iron_ore": {
-      "hp": 22,
-      "hardness": 2
-    },
-    "copper_ore": {
-      "hp": 34,
-      "hardness": 3
-    },
-    "gold_ore": {
-      "hp": 50,
-      "hardness": 4
-    }
+  "coal": {
+   "hp": 14,
+   "hardness": 1
   },
-  "tools": [
-    {
-      "id": "hand",
-      "title": "Rock Hammer",
-      "cost": 0,
-      "power": 4,
-      "interval": 0.62,
-      "max_hardness": 1,
-      "sound": "hit_hammer",
-      "pitch": 1.0,
-      "desc": "Grandpa's old hammer. Stone and coal only."
-    },
-    {
-      "id": "pickaxe",
-      "title": "Basic Pickaxe",
-      "cost": 90,
-      "power": 9,
-      "interval": 0.56,
-      "max_hardness": 2,
-      "sound": "hit_pick",
-      "pitch": 1.0,
-      "desc": "Bites into stone and can crack iron."
-    },
-    {
-      "id": "reinforced",
-      "title": "Reinforced Pickaxe",
-      "cost": 320,
-      "power": 14,
-      "interval": 0.5,
-      "max_hardness": 2,
-      "sound": "hit_reinforced",
-      "pitch": 1.0,
-      "desc": "Steel-tipped. Every swing takes a real chunk."
-    },
-    {
-      "id": "drill",
-      "title": "Power Drill",
-      "cost": 1600,
-      "dps": 36,
-      "max_hardness": 3,
-      "sound": "drill_loop",
-      "continuous": true,
-      "desc": "Hold to drill. Cuts copper veins."
-    },
-    {
-      "id": "jackhammer",
-      "title": "Heavy Jackhammer",
-      "cost": 4500,
-      "dps": 70,
-      "max_hardness": 4,
-      "sound": "jackhammer_loop",
-      "continuous": true,
-      "desc": "Shatters anything, including gold-bearing rock."
-    }
-  ],
-  "player_upgrades": {
-    "faster_mining": {
-      "title": "Mining Technique",
-      "cost": 90,
-      "effect": "MINING SPEED +25%"
-    },
-    "larger_backpack": {
-      "title": "Larger Backpack",
-      "cost": 55,
-      "effect": "BAG +16"
-    },
-    "hauling_harness": {
-      "title": "Hauling Harness",
-      "cost": 700,
-      "effect": "BAG +30"
-    },
-    "efficient_crusher": {
-      "title": "Crusher Tuning",
-      "cost": 150,
-      "effect": "CRUSHING 45% FASTER"
-    },
-    "expanded_storage": {
-      "title": "Expanded Storage",
-      "cost": 120,
-      "effect": "STORAGE +40"
-    }
+  "iron_ore": {
+   "hp": 22,
+   "hardness": 2
   },
-  "loose_piece_cap": 36,
-  "worker_tool": {
-    "damage": 9.0,
-    "power_per_tier": 0.35
+  "copper_ore": {
+   "hp": 34,
+   "hardness": 3
   },
-  "stages": [
-    {
-      "id": "manual",
-      "title": "Manual Labor",
-      "goal": "Clear Grandpa's overgrown site: cut the weeds, break the rubble heaps and sell the stone.",
-      "req": {}
-    },
-    {
-      "id": "tools",
-      "title": "Better Tools",
-      "goal": "Buy a pickaxe at the upgrade board.",
-      "req": {
-        "earned": 30
-      }
-    },
-    {
-      "id": "crew",
-      "title": "First Employee",
-      "goal": "Hire your first helper at the office desk.",
-      "req": {
-        "earned": 400,
-        "tool": 1
-      }
-    },
-    {
-      "id": "industry",
-      "title": "Early Industrialization",
-      "goal": "Order a crusher, output storage and a front loader, and cut into the quarry face.",
-      "req": {
-        "earned": 2500,
-        "employees": 1,
-        "excavated": {
-          "level": 1,
-          "fraction": 0.04
-        }
-      }
-    },
-    {
-      "id": "large",
-      "title": "Large-Scale Mining",
-      "goal": "Install a drilling rig, buy the dump truck and open up the first bench of the quarry.",
-      "req": {
-        "earned": 18000,
-        "crushers": 1,
-        "quarry_level": 2
-      }
-    },
-    {
-      "id": "deep",
-      "title": "Deep Excavation",
-      "goal": "Buy the excavation permit, open the lower level and carve out the surface quarry.",
-      "req": {
-        "earned": 60000,
-        "cleared": 0.55,
-        "quarry_level": 3
-      }
-    }
-  ],
-  "formations": {
-    "stone_mountain": {
-      "title": "Stone Formation",
-      "resource": "limestone",
-      "center": [
-        -10.0,
-        0,
-        -9.0
-      ],
-      "cell": 1.9,
-      "tier_h": 1.2,
-      "chunk_units": 30,
-      "level": 1,
-      "tiers": [
-        [
-          2,
-          3,
-          3,
-          2
-        ],
-        [
-          3,
-          5,
-          5,
-          3
-        ],
-        [
-          2,
-          3,
-          4,
-          2
-        ]
-      ],
-      "pads": [
-        [
-          -10.0,
-          0,
-          -3.6,
-          0.0
-        ],
-        [
-          -10.0,
-          0,
-          -14.4,
-          3.1416
-        ]
-      ]
-    },
-    "coal_mountain": {
-      "title": "Coal Seam",
-      "resource": "coal",
-      "center": [
-        0.0,
-        0,
-        -20.6
-      ],
-      "cell": 1.9,
-      "tier_h": 1.1,
-      "chunk_units": 25,
-      "level": 1,
-      "tiers": [
-        [
-          2,
-          3,
-          3,
-          2
-        ],
-        [
-          2,
-          4,
-          3,
-          2
-        ]
-      ],
-      "pads": [
-        [
-          -6.35,
-          0,
-          -20.6,
-          -1.5708
-        ],
-        [
-          6.35,
-          0,
-          -20.6,
-          1.5708
-        ]
-      ]
-    },
-    "iron_mountain": {
-      "title": "Iron Ridge",
-      "resource": "iron_ore",
-      "center": [
-        11.0,
-        0,
-        -9.0
-      ],
-      "cell": 1.8,
-      "tier_h": 1.15,
-      "chunk_units": 20,
-      "level": 1,
-      "tiers": [
-        [
-          2,
-          3,
-          2
-        ],
-        [
-          3,
-          4,
-          3
-        ],
-        [
-          2,
-          3,
-          2
-        ]
-      ],
-      "pads": [
-        [
-          11.0,
-          0,
-          -3.75,
-          0.0
-        ],
-        [
-          11.0,
-          0,
-          -14.25,
-          3.1416
-        ]
-      ]
-    },
-    "copper_vein": {
-      "title": "Copper Vein",
-      "resource": "copper_ore",
-      "center": [
-        5.4,
-        -3.5,
-        -14.4
-      ],
-      "cell": 1.6,
-      "tier_h": 1.0,
-      "chunk_units": 25,
-      "level": 2,
-      "tiers": [
-        [
-          3,
-          3
-        ],
-        [
-          2,
-          3
-        ]
-      ],
-      "pads": [
-        [
-          1.25,
-          -3.5,
-          -14.4,
-          -1.5708
-        ]
-      ]
-    },
-    "gold_seam": {
-      "title": "Gold Seam",
-      "resource": "gold_ore",
-      "center": [
-        5.4,
-        -3.5,
-        -9.0
-      ],
-      "cell": 1.5,
-      "tier_h": 0.95,
-      "chunk_units": 15,
-      "level": 2,
-      "tiers": [
-        [
-          2,
-          3
-        ],
-        [
-          3,
-          2
-        ]
-      ],
-      "pads": [
-        [
-          1.35,
-          -3.5,
-          -9.0,
-          -1.5708
-        ]
-      ]
-    },
-    "hillside_face_01": {
-      "title": "Hillside Face",
-      "resource": "limestone",
-      "center": [
-        -22.3,
-        0,
-        -10.6
-      ],
-      "cell": 1.9,
-      "tier_h": 1.2,
-      "chunk_units": 30,
-      "level": 1,
-      "style": "cut",
-      "closed": [
-        "W",
-        "N",
-        "S"
-      ],
-      "strict": true,
-      "_comment": "Phase 6.1: first excavatable hillside, cut into the west rim. 6 columns deep (x, back wall at the west) by 12 wide (z). Only the east face is open; the other sides are solid hill, so rock is mined from the front and the cut deepens. Never resize an existing formation: saves store columns by count.",
-      "tiers": [
-        [
-          3,
-          3,
-          3,
-          2,
-          2,
-          1
-        ],
-        [
-          4,
-          4,
-          4,
-          3,
-          2,
-          1
-        ],
-        [
-          4,
-          4,
-          4,
-          3,
-          3,
-          2
-        ],
-        [
-          4,
-          4,
-          4,
-          3,
-          3,
-          2
-        ],
-        [
-          4,
-          4,
-          4,
-          3,
-          3,
-          2
-        ],
-        [
-          4,
-          4,
-          4,
-          3,
-          3,
-          2
-        ],
-        [
-          4,
-          4,
-          4,
-          3,
-          3,
-          2
-        ],
-        [
-          4,
-          4,
-          4,
-          3,
-          3,
-          2
-        ],
-        [
-          4,
-          4,
-          4,
-          3,
-          3,
-          2
-        ],
-        [
-          4,
-          4,
-          4,
-          3,
-          3,
-          2
-        ],
-        [
-          4,
-          4,
-          4,
-          3,
-          2,
-          1
-        ],
-        [
-          3,
-          3,
-          3,
-          2,
-          2,
-          1
-        ]
-      ],
-      "pads": [
-        [
-          -14.4,
-          0,
-          -4.0,
-          1.5708
-        ],
-        [
-          -14.4,
-          0,
-          -1.0,
-          1.5708
-        ]
-      ],
-      "requires_cleanup": true
-    },
-    "pit_band_01": {
-      "title": "Basin Bench",
-      "resource": "limestone",
-      "frame": "pit",
-      "layout": "arc",
-      "center": [
-        0.0,
-        -3.6,
-        -75.0
-      ],
-      "r_inner": 6.0,
-      "arc_deg": [
-        -170.0,
-        -10.0
-      ],
-      "cell": 1.9,
-      "tier_h": 1.2,
-      "chunk_units": 30,
-      "level": 1,
-      "style": "cut",
-      "closed": [
-        "W",
-        "E",
-        "S"
-      ],
-      "strict": true,
-      "requires_cleanup": true,
-      "_comment": "Phase 6.3b: a curved bench band inside the starting basin: 16 angular slices x 6 rings x 3 tiers (tops flush with the plateau). Only the inner ring is open; mining it pushes the face outward toward the basin wall. Angles are in the pit frame (0 deg = +x, -90 deg = toward the far wall).",
-      "tiers": [
-        [
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3
-        ],
-        [
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3
-        ],
-        [
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3
-        ],
-        [
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3
-        ],
-        [
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3
-        ],
-        [
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3
-        ]
-      ]
-    },
-    "bench_l2_coal": {
-      "pads": [
-        [
-          -7.0,
-          -3.6,
-          -61.0,
-          1.5708
-        ],
-        [
-          -7.0,
-          -3.6,
-          -64.0,
-          1.5708
-        ]
-      ],
-      "title": "Coal Bench",
-      "resource": "coal",
-      "frame": "pit",
-      "layout": "grid",
-      "center": [
-        -16.0,
-        -7.2,
-        -62.0
-      ],
-      "cell": 2.0,
-      "tier_h": 1.2,
-      "chunk_units": 70,
-      "level": 1,
-      "quarry_level": 2,
-      "style": "cut",
-      "strict": true,
-      "requires_cleanup": true,
-      "tiers": [
-        [
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3
-        ],
-        [
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3
-        ],
-        [
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3
-        ],
-        [
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3
-        ],
-        [
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3
-        ]
-      ]
-    },
-    "bench_l2_iron": {
-      "pads": [
-        [
-          -7.0,
-          -3.6,
-          -52.0,
-          1.5708
-        ],
-        [
-          -7.0,
-          -3.6,
-          -55.0,
-          1.5708
-        ]
-      ],
-      "title": "Iron Bench",
-      "resource": "iron_ore",
-      "frame": "pit",
-      "layout": "grid",
-      "center": [
-        -16.0,
-        -7.2,
-        -53.0
-      ],
-      "cell": 2.0,
-      "tier_h": 1.2,
-      "chunk_units": 70,
-      "level": 1,
-      "quarry_level": 2,
-      "style": "cut",
-      "strict": true,
-      "requires_cleanup": true,
-      "tiers": [
-        [
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3
-        ],
-        [
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3
-        ],
-        [
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3
-        ],
-        [
-          3,
-          3,
-          3,
-          3,
-          3,
-          3,
-          3
-        ]
-      ]
-    },
-    "bench_l3_iron": {
-      "title": "Deep Iron Bench",
-      "resource": "iron_ore",
-      "frame": "pit",
-      "layout": "grid",
-      "center": [
-        -14.0,
-        -10.8,
-        -61.0
-      ],
-      "cell": 2.0,
-      "tier_h": 1.2,
-      "chunk_units": 70,
-      "level": 1,
-      "quarry_level": 3,
-      "style": "cut",
-      "strict": true,
-      "requires_cleanup": true,
-      "tiers": [
-        [
-          3,
-          3,
-          3
-        ],
-        [
-          3,
-          3,
-          3
-        ],
-        [
-          3,
-          3,
-          3
-        ],
-        [
-          3,
-          3,
-          3
-        ]
-      ],
-      "cover": [
-        "bench_l2_coal",
-        "bench_l2_iron"
-      ]
-    },
-    "bench_l3_copper": {
-      "title": "Copper Bench",
-      "resource": "copper_ore",
-      "frame": "pit",
-      "layout": "grid",
-      "center": [
-        -14.0,
-        -10.8,
-        -54.0
-      ],
-      "cell": 2.0,
-      "tier_h": 1.2,
-      "chunk_units": 70,
-      "level": 1,
-      "quarry_level": 3,
-      "style": "cut",
-      "strict": true,
-      "requires_cleanup": true,
-      "tiers": [
-        [
-          3,
-          3,
-          3
-        ],
-        [
-          3,
-          3,
-          3
-        ],
-        [
-          3,
-          3,
-          3
-        ]
-      ],
-      "cover": [
-        "bench_l2_coal",
-        "bench_l2_iron"
-      ]
-    },
-    "bench_l4_copper": {
-      "title": "Deep Copper Bench",
-      "resource": "copper_ore",
-      "frame": "pit",
-      "layout": "grid",
-      "center": [
-        -12.5,
-        -14.4,
-        -60.0
-      ],
-      "cell": 1.5,
-      "tier_h": 1.2,
-      "chunk_units": 60,
-      "level": 1,
-      "quarry_level": 4,
-      "style": "cut",
-      "strict": true,
-      "requires_cleanup": true,
-      "tiers": [
-        [
-          3,
-          3
-        ],
-        [
-          3,
-          3
-        ],
-        [
-          3,
-          3
-        ],
-        [
-          3,
-          3
-        ]
-      ],
-      "cover": [
-        "bench_l3_iron",
-        "bench_l3_copper"
-      ]
-    },
-    "bench_l4_gold": {
-      "title": "Gold Bench",
-      "resource": "gold_ore",
-      "frame": "pit",
-      "layout": "grid",
-      "center": [
-        -12.5,
-        -14.4,
-        -54.75
-      ],
-      "cell": 1.5,
-      "tier_h": 1.2,
-      "chunk_units": 60,
-      "level": 1,
-      "quarry_level": 4,
-      "style": "cut",
-      "strict": true,
-      "requires_cleanup": true,
-      "tiers": [
-        [
-          3,
-          3
-        ],
-        [
-          3,
-          3
-        ],
-        [
-          3,
-          3
-        ]
-      ],
-      "cover": [
-        "bench_l3_iron",
-        "bench_l3_copper"
-      ]
-    }
+  "gold_ore": {
+   "hp": 50,
+   "hardness": 4
+  }
+ },
+ "tools": [
+  {
+   "id": "hand",
+   "title": "Rock Hammer",
+   "cost": 0,
+   "power": 4,
+   "interval": 0.62,
+   "max_hardness": 1,
+   "sound": "hit_hammer",
+   "pitch": 1.0,
+   "desc": "Grandpa's old hammer. Stone and coal only."
   },
-  "starting_formations": [
-    "stone_mountain",
-    "coal_mountain",
-    "iron_mountain"
-  ],
-  "excavation": {
-    "permit_cost": 12000,
-    "depth": 3.5,
-    "pit": [
-      -5.0,
-      -17.0,
-      7.0,
-      -7.0
-    ],
-    "ramp": [
-      -5.0,
-      -2.0,
-      -7.0,
-      -15.5
+  {
+   "id": "pickaxe",
+   "title": "Worn Pickaxe",
+   "cost": 90,
+   "power": 9,
+   "interval": 0.56,
+   "max_hardness": 2,
+   "sound": "hit_pick",
+   "pitch": 1.0,
+   "desc": "Worn but sound. Bites into stone and can crack iron."
+  },
+  {
+   "id": "reinforced",
+   "title": "Reinforced Pickaxe",
+   "cost": 350,
+   "power": 14,
+   "interval": 0.5,
+   "max_hardness": 2,
+   "sound": "hit_reinforced",
+   "pitch": 1.0,
+   "desc": "Steel-tipped. Every swing takes a real chunk."
+  },
+  {
+   "id": "drill",
+   "title": "Corded Rock Drill",
+   "cost": 4500,
+   "dps": 100,
+   "max_hardness": 3,
+   "sound": "drill_loop",
+   "continuous": true,
+   "desc": "Hold to drill. Needs a corded supply. Cuts copper veins.",
+   "powered": true
+  },
+  {
+   "id": "jackhammer",
+   "title": "Heavy Jackhammer",
+   "cost": 14000,
+   "dps": 180,
+   "max_hardness": 4,
+   "sound": "jackhammer_loop",
+   "continuous": true,
+   "desc": "Shatters anything, including gold-bearing rock.",
+   "powered": true
+  }
+ ],
+ "player_upgrades": {
+  "faster_mining": {
+   "title": "Mining Technique",
+   "cost": 90,
+   "effect": "MINING SPEED +25%"
+  },
+  "larger_backpack": {
+   "title": "Larger Backpack",
+   "cost": 55,
+   "effect": "BAG +16"
+  },
+  "hauling_harness": {
+   "title": "Hauling Harness",
+   "cost": 700,
+   "effect": "BAG +30"
+  },
+  "efficient_crusher": {
+   "title": "Crusher Tuning",
+   "cost": 150,
+   "effect": "CRUSHING 45% FASTER"
+  },
+  "expanded_storage": {
+   "title": "Expanded Storage",
+   "cost": 120,
+   "effect": "STORAGE +40"
+  }
+ },
+ "loose_piece_cap": 36,
+ "worker_tool": {
+  "damage": 9.0,
+  "power_per_tier": 0.35
+ },
+ "stages": [
+  {
+   "id": "grandpa",
+   "title": "Grandpa's Legacy",
+   "goal": "Break stone with Grandpa's hammer, clear the overgrown site and sell what you cut.",
+   "req": {},
+   "unlocks": [
+    "Rock Hammer"
+   ]
+  },
+  {
+   "id": "better_tools",
+   "title": "Better Tools",
+   "goal": "Earn $150 and clear the site. Then buy better hand tools at the workbench.",
+   "req": {
+    "earned": 150,
+    "milestones": [
+     "cleanup_done"
     ]
+   },
+   "unlocks": [
+    "Pointed Chisel",
+    "Worn Pickaxe",
+    "Flat Chisel",
+    "Hand Cart",
+    "Repaired Pickaxe"
+   ]
   },
-  "machines": {
-    "drill_rig": {
-      "title": "Drilling Rig",
-      "price": 4200,
-      "stage": 4,
-      "dps": 26.0,
-      "max_hardness": 3,
-      "cost_per_min": 0.8,
-      "bin": 40,
-      "reach": 7.0,
-      "upgrades": [
-        {
-          "cost": 2600,
-          "mult": 1.5,
-          "effect": "RIG OUTPUT +50%"
-        },
-        {
-          "cost": 5800,
-          "mult": 1.5,
-          "effect": "RIG OUTPUT +50%"
-        }
-      ],
-      "kind": "drill"
-    },
-    "improved_rig": {
-      "title": "Improved Drilling Rig",
-      "kind": "drill",
-      "price": 9500,
-      "stage": 4,
-      "dps": 48.0,
-      "max_hardness": 4,
-      "cost_per_min": 1.6,
-      "bin": 60,
-      "reach": 8.0,
-      "paint": "PaintOrange",
-      "upgrades": [
-        {
-          "cost": 4200,
-          "mult": 1.4,
-          "effect": "RIG OUTPUT +40%"
-        },
-        {
-          "cost": 8800,
-          "mult": 1.4,
-          "effect": "RIG OUTPUT +40%"
-        }
-      ]
-    },
-    "rock_breaker": {
-      "title": "Industrial Rock Breaker",
-      "price": 14000,
-      "stage": 5,
-      "dps": 90.0,
-      "max_hardness": 4,
-      "cost_per_min": 2.0,
-      "bin": 40,
-      "reach": 7.0,
-      "upgrades": [
-        {
-          "cost": 7500,
-          "mult": 1.4,
-          "effect": "BREAKER OUTPUT +40%"
-        }
-      ],
-      "kind": "breaker"
-    },
-    "heavy_breaker": {
-      "title": "Heavy-Duty Rock Breaker",
-      "kind": "breaker",
-      "price": 26000,
-      "stage": 5,
-      "dps": 200.0,
-      "max_hardness": 4,
-      "cost_per_min": 4.0,
-      "bin": 90,
-      "reach": 8.0,
-      "paint": "PaintOrange",
-      "upgrades": [
-        {
-          "cost": 9000,
-          "mult": 1.35,
-          "effect": "BREAKER OUTPUT +35%"
-        }
-      ]
-    },
-    "advanced_crusher": {
-      "title": "Advanced Crusher",
-      "price": 3600,
-      "stage": 4,
-      "speed_mult": 0.45,
-      "capacity_mult": 2
+  {
+   "id": "workshop",
+   "title": "The Workshop",
+   "goal": "Earn $600 and own a pickaxe. The workshop sells heavier, more specialised tools.",
+   "req": {
+    "earned": 600,
+    "owns": [
+     "pickaxe"
+    ]
+   },
+   "unlocks": [
+    "Reinforced Pickaxe",
+    "Sledgehammer",
+    "Steel Pickaxe",
+    "Reinforced Wheelbarrow",
+    "Workshop upgrades"
+   ]
+  },
+  {
+   "id": "breaking_ground",
+   "title": "Breaking Ground",
+   "goal": "Earn $1,800 and make a workbench upgrade. Start processing stone.",
+   "req": {
+    "earned": 1800,
+    "owns": [
+     "reinforced"
+    ],
+    "milestones": [
+     "workshop_upgrade"
+    ]
+   },
+   "unlocks": [
+    "Hardened Pickaxe",
+    "Hand Rock Splitter",
+    "Stone Crusher",
+    "Output Storage",
+    "Sorting Table"
+   ]
+  },
+  {
+   "id": "first_employee",
+   "title": "First Employee",
+   "goal": "Earn $4,000, find iron and run a crusher. Then you can hire help.",
+   "req": {
+    "earned": 4000,
+    "discover": [
+     "iron_ore"
+    ],
+    "milestones": [
+     "crusher_built"
+    ]
+   },
+   "unlocks": [
+    "Hire workers",
+    "Small Hopper",
+    "Conveyors",
+    "Employee improvements"
+   ]
+  },
+  {
+   "id": "power_pressure",
+   "title": "Power and Pressure",
+   "goal": "Earn $9,000, hire a worker and sell crushed stone. Powered tools come next.",
+   "req": {
+    "earned": 9000,
+    "employees": 1,
+    "delivered": {
+     "crushed_stone": 30
     }
+   },
+   "unlocks": [
+    "Powered Hammer",
+    "Air Compressor",
+    "Corded Rock Drill",
+    "Pneumatic Chisel",
+    "Front Loader"
+   ]
   },
-  "fossil": {
-    "_comment": "Phase 7.6: a fossil is buried in the gold bench of the lowest level. It is exposed only when the listed columns have really been mined out. The choice between the two buyers is final.",
-    "formation": "bench_l4_gold",
-    "columns": [
-      2,
-      3
-    ],
-    "found_title": "SOMETHING IN THE ROCK",
-    "found_text": "The last of the stone falls away and there it is: a spine as long as a truck, ribs curving out of the rock like the hull of an old boat, and a skull with teeth the size of your hand. It is not stone. It is a skeleton, and it is enormous.\n\nNobody has stood here and seen this for millions of years.",
-    "toast": [
-      "Something in the rock...",
-      "The lowest level has uncovered a huge fossil. Go and look (E)."
-    ],
-    "buyers": {
-      "collector": {
-        "title": "Sell to the collector",
-        "who": "Mr. Aldric Vane",
-        "price": 75000,
-        "pitch": "A private collector, Mr. Vane, has heard rumours and offers $75,000 for the whole skeleton, crated and gone by the end of the week. It will hang in his private gallery.",
-        "journal": "fossil_collector"
-      },
-      "scientist": {
-        "title": "Give it to the scientist",
-        "who": "Dr. Evelyn Marsh",
-        "price": 2000,
-        "pitch": "Dr. Evelyn Marsh of the university can pay only $2,000 towards the cost of the dig. But she will study it, put it on display for everyone, and her name for you will be 'the discoverer'.",
-        "journal": "fossil_scientist"
-      }
-    },
-    "confirm": "This cannot be undone. Once you choose, the other buyer is gone for good.",
-    "results": {
-      "collector": "Mr. Vane's crew crates the bones and a truck takes them away. $75,000 lands in your account.",
-      "scientist": "Dr. Marsh's team arrives the next morning, delighted. They cry a little. $2,000 and a promise: the university will keep in touch."
-    }
+  {
+   "id": "moving_mountains",
+   "title": "Moving Mountains",
+   "goal": "Earn $20,000, own a crusher and open the first bench of the quarry.",
+   "req": {
+    "earned": 20000,
+    "crushers": 1,
+    "quarry_level": 2
+   },
+   "unlocks": [
+    "Drilling Rig",
+    "Dump Truck",
+    "Excavator"
+   ]
   },
-  "walter": {
-    "_comment": "Phase 7.5: Walter is alive and retiring, not dead. Intro scene, timed visits and journal. Conditions: stage (id), quarry_level, cleaned (site cleanup done). Visits show once, in the morning/afternoon, when the player talks to him.",
-    "pos": [
-      -3.2,
-      0,
-      7.4
-    ],
-    "journal": {
-      "lockbox": {
-        "title": "The lockbox",
-        "text": "Under the first rock I cleared there was Walter's old lockbox: a photo of the 1971 crew, notes about copper and gold below the north bench, and a savings bond."
-      },
-      "handover": {
-        "title": "The handover",
-        "text": "Walter handed me the quarry and his old hammer. He is retiring, but he lives down the road and says he will look in on the place."
-      },
-      "first_crew": {
-        "title": "A helping hand",
-        "text": "Walter says a quarry is a team sport: a good crew works while you rest. Pay them fairly and they will stay."
-      },
-      "machines": {
-        "title": "Machines",
-        "text": "Walter admits he never owned a proper crusher or loader. 'Muscle gets you started. Machines get you finished.'"
-      },
-      "first_bench": {
-        "title": "The first bench",
-        "text": "The surface is opening up. Walter remembers the old crew standing on a floor much lower than this, and he says the stone down there looks different."
-      },
-      "deep_dig": {
-        "title": "Going deep",
-        "text": "Walter keeps looking at the lower levels. 'My father said the oldest things lie at the bottom. I never got far enough to see.'"
-      },
-      "big_dig": {
-        "title": "A real quarry",
-        "text": "Walter walked the rim for a long while. 'It's what I always wanted it to be.'"
-      },
-      "fossil_found": {
-        "title": "The thing in the rock",
-        "text": "Something huge lay in the gold bench of the lowest level: a skeleton, ribs and spine and a skull full of teeth. Walter says his father always said so."
-      },
-      "fossil_collector": {
-        "title": "Sold to the collector",
-        "text": "I sold the skeleton to Mr. Vane for $75,000. It is hanging in a private gallery now, where nobody will see it."
-      },
-      "fossil_scientist": {
-        "title": "Given to the scientist",
-        "text": "Dr. Marsh and her team took the skeleton for the university. I got $2,000 and the feeling of having done something right."
-      },
-      "companion_egg": {
-        "title": "The egg",
-        "text": "Dr. Marsh left an egg on the porch. It is warm and it moves a little. It should hatch in a couple of days."
-      },
-      "companion_born": {
-        "title": "A new family member",
-        "text": "The egg hatched. I have a dinosaur. Walter says he has never seen anything like it."
-      },
-      "companion_adult": {
-        "title": "All grown up",
-        "text": "My dinosaur is fully grown. It can break rock with its tail."
-      },
-      "level1_records": {
-        "title": "Old photographs and records",
-        "text": "Behind a rusty cabinet in the office: photographs of the 1971 crew, and ledgers in Walter's handwriting. The last good year is circled."
-      },
-      "level2_geology": {
-        "title": "Geological notes",
-        "text": "Walter's notes on the first bench: 'Strange banding in the rock below. The layers do not match the survey. Ask Evelyn.'"
-      },
-      "level3_sketch": {
-        "title": "A strange sketch",
-        "text": "A pencil sketch tucked into a notebook: a long spine, curved ribs, a heavy club of a tail. Under it, in Walter's hand: 'Dad was not making it up.'"
-      }
-    },
-    "visits": [
-      {
-        "id": "marsh_egg",
-        "npc": "marsh",
-        "npc_name": "Dr. Marsh",
-        "when": {
-          "marsh": true
-        },
-        "title": "DR. MARSH",
-        "journal": "",
-        "lines": [
-          {
-            "speaker": "DR. EVELYN MARSH",
-            "text": "Hello again. I promised I would come back."
-          },
-          {
-            "speaker": "DR. EVELYN MARSH",
-            "text": "We found something odd inside the rock your fossil came from: an egg, still sealed. It should not be viable. It is."
-          },
-          {
-            "speaker": "DR. EVELYN MARSH",
-            "text": "Keep it warm and dry. It will hatch in a couple of days. Please look after it."
-          }
-        ]
-      },
-      {
-        "id": "first_crew",
-        "when": {
-          "stage": "crew"
-        },
-        "title": "WALTER DROPS BY",
-        "journal": "first_crew",
-        "lines": [
-          "Heard you're thinking about hiring. Good. One pair of hands only goes so far.",
-          "Treat them well, learn what they're good at, and let them get on with it. A crew that is respected works twice as hard."
-        ]
-      },
-      {
-        "id": "machines",
-        "when": {
-          "stage": "industry"
-        },
-        "title": "WALTER DROPS BY",
-        "journal": "machines",
-        "lines": [
-          "A crusher and a loader! In my day we had a mule and a bad attitude.",
-          "Cut into the hillside from the front and work down, one bench at a time. And keep your crew fed with something to haul - idle machines eat money."
-        ]
-      },
-      {
-        "id": "first_bench",
-        "when": {
-          "quarry_level": 2
-        },
-        "title": "WALTER DROPS BY",
-        "journal": "first_bench",
-        "lines": [
-          "You opened the first bench. I stood about there, forty years ago, and thought I'd never get any lower.",
-          "Go on down the ramp if you like. The coal and iron are better the deeper you go. And rock down there is older than anything in town."
-        ]
-      },
-      {
-        "id": "deep_dig",
-        "when": {
-          "quarry_level": 3
-        },
-        "title": "WALTER DROPS BY",
-        "journal": "deep_dig",
-        "lines": [
-          "Copper and iron on level three. Now you are cutting where I only ever dreamed.",
-          "My father used to say the oldest things in this hill lie right at the bottom. Mind the walls, and take your time."
-        ]
-      },
-      {
-        "id": "big_dig",
-        "when": {
-          "stage": "deep"
-        },
-        "title": "WALTER DROPS BY",
-        "journal": "big_dig",
-        "lines": [
-          "Look at this. Look at all of it.",
-          "I thought I'd be too old to see it. I'm glad I wasn't. This is a real quarry now, kiddo."
-        ]
-      },
-      {
-        "id": "fossil_found",
-        "when": {
-          "fossil": "found"
-        },
-        "title": "WALTER DROPS BY",
-        "journal": "fossil_found",
-        "lines": [
-          {
-            "speaker": "PLAYER",
-            "text": "Walter, come look at this."
-          },
-          {
-            "speaker": "GRANDPA WALTER",
-            "text": "Well, I'll be damned."
-          },
-          {
-            "speaker": "GRANDPA WALTER",
-            "text": "I thought I'd never see one of those again."
-          },
-          {
-            "speaker": "PLAYER",
-            "text": "You've seen one before?"
-          },
-          {
-            "speaker": "GRANDPA WALTER",
-            "text": "Let's just say there's a reason I never sold this mountain."
-          },
-          {
-            "speaker": "GRANDPA WALTER",
-            "text": "Whoever you sell it to, kiddo, it's yours to decide. I'll back you either way."
-          }
-        ]
-      },
-      {
-        "id": "fossil_after_collector",
-        "when": {
-          "fossil": "collector"
-        },
-        "title": "WALTER DROPS BY",
-        "journal": "",
-        "lines": [
-          "Seventy-five thousand. Well. That is a lot of money for some old bones.",
-          "I won't say I'd have done the same. I won't say I wouldn't have. It is your quarry now."
-        ]
-      },
-      {
-        "id": "fossil_after_scientist",
-        "when": {
-          "fossil": "scientist"
-        },
-        "title": "WALTER DROPS BY",
-        "journal": "",
-        "lines": [
-          "Two thousand dollars and a whole university at your door. I like that.",
-          "You did right by it, kiddo. Whatever happens next, that skeleton is where it belongs."
-        ]
-      },
-      {
-        "id": "companion_egg",
-        "when": {
-          "companion": [
-            "egg"
-          ]
-        },
-        "title": "WALTER DROPS BY",
-        "journal": "",
-        "lines": [
-          "Is that an egg on the porch? Dr. Marsh left it for you?",
-          "Well, I never. Keep it warm and dry. I raised chickens once, how hard can it be?"
-        ]
-      },
-      {
-        "id": "companion_born",
-        "when": {
-          "companion": [
-            "hatchling",
-            "juvenile",
-            "adult"
-          ]
-        },
-        "title": "WALTER DROPS BY",
-        "journal": "companion_born",
-        "lines": [
-          "It hatched! Look at that little face.",
-          "You are going to have to feed it. Or at least be nice to it. It will follow you around the quarry like a puppy."
-        ]
-      },
-      {
-        "id": "companion_adult",
-        "when": {
-          "companion": [
-            "adult"
-          ]
-        },
-        "title": "WALTER DROPS BY",
-        "journal": "companion_adult",
-        "lines": [
-          "Would you look at the size of it. And it can break rock with its tail!",
-          "In fifty years of working this quarry I never had a helper like that. Look after it, kiddo."
-        ]
-      }
-    ],
-    "truck": {
-      "pos": [
-        -8.6,
-        0,
-        4.8
-      ],
-      "yaw": 1.5708
-    },
-    "cinematic": [
-      {
-        "who": "WALTER",
-        "text": "Well, look who finally decided to show up.",
-        "dur": 5.4,
-        "act": "talk"
-      },
-      {
-        "who": "PLAYER",
-        "text": "You said it was important.",
-        "dur": 4.5,
-        "act": "idle"
-      },
-      {
-        "who": "WALTER",
-        "text": "It is. I'm retiring.",
-        "dur": 4.5,
-        "act": "talk"
-      },
-      {
-        "who": "PLAYER",
-        "text": "You're what?",
-        "dur": 3.6,
-        "act": "idle"
-      },
-      {
-        "who": "WALTER",
-        "text": "Don't sound so surprised. I've only been working since dinosaurs were walking around.",
-        "dur": 8.2,
-        "act": "talk"
-      },
-      {
-        "who": "WALTER",
-        "text": "Here. The keys. All of them.",
-        "dur": 6.0,
-        "act": "keys"
-      },
-      {
-        "who": "WALTER",
-        "text": "Bank wants the place. I told them my grandkid would have it running again in no time.",
-        "dur": 9.0,
-        "act": "talk"
-      },
-      {
-        "who": "PLAYER",
-        "text": "You told them WHAT?",
-        "dur": 4.5,
-        "act": "idle"
-      },
-      {
-        "who": "WALTER",
-        "text": "Relax. You've got my hammer. That's how I started.",
-        "dur": 7.2,
-        "act": "talk"
-      },
-      {
-        "who": "WALTER",
-        "text": "There's more in that hill than anyone thinks. Just gotta keep digging.",
-        "dur": 8.2,
-        "act": "point"
-      }
-    ],
-    "cinematic_look": [
-      -22.3,
-      1.4,
-      -10.6
-    ],
-    "level_journal": {
-      "cleaned": "level1_records",
-      "2": "level2_geology",
-      "3": "level3_sketch"
-    }
+  {
+   "id": "industrial_quarry",
+   "title": "Industrial Quarry",
+   "goal": "Earn $45,000 and keep the first bench open. (Further industrial equipment arrives in a later update.)",
+   "req": {
+    "earned": 45000,
+    "quarry_level": 2
+   },
+   "unlocks": [
+    "Existing industrial machines"
+   ]
   },
-  "story": {
-    "intro_title": "GRANDPA WALTER",
-    "intro": "(the handover - see \"walter\" scenes)",
-    "discoveries": {
-      "first_clear": {
-        "title": "GRANDPA'S LOCKBOX",
-        "trigger": "first_formation_cleared",
-        "text": "Under the last of the rock sits a rusted lockbox. Inside:\n\n- A faded photo of the crew in 1971, standing on this same floor.\n- Mining records: 'Core sample, 3.5 m below the north bench: copper staining, trace gold.'\n- A note: 'Didn't have the machines to go deeper. Maybe you will.'\n\nThere's also an old savings bond. It's still good.",
-        "reward": 400
-      }
-    },
-    "intro2_title": "YOUR FIRST DAY",
-    "intro2": "1. Left click swings your hammer. Cut the weeds and break the rubble heaps. The HUD counts the cleanup.\n\n2. Carry the stone to the SALES booth and press E to sell it.\n\n3. Spend your first money at the UPGRADE board outside the office: a pickaxe comes first.\n\n4. When it gets dark (after 17:00) walk to the house by the garage and press E on the bed to sleep. Sleeping saves the game and starts a new morning.\n\n5. Clean the whole site and Walt sends money, opens the hillside and the north gate."
+  {
+   "id": "deeper_ground",
+   "title": "Deeper Ground",
+   "goal": "Earn $100,000 and open the third level.",
+   "req": {
+    "earned": 100000,
+    "quarry_level": 3
+   },
+   "unlocks": [
+    "Excavation permit",
+    "Industrial truck",
+    "Rock breakers"
+   ]
   },
-  "cleanup": {
-    "_comment": "Phase 6.2 tutorial: clear Grandpa's overgrown site (weeds and rubble heaps). Positions are fixed so saves can store what is left. Clearing everything unlocks the hillside and brings Walt's letter with the gift.",
-    "gift": 600,
-    "weed_hp": 6,
-    "heap_units": 5,
-    "heap_unit_hp": 10,
-    "weeds": [
-      [
-        -5,
-        5.5
-      ],
-      [
-        8.5,
-        13.5
-      ],
-      [
-        5.5,
-        4
-      ],
-      [
-        18,
-        7.5
-      ],
-      [
-        21,
-        3.5
-      ],
-      [
-        -15,
-        5
-      ],
-      [
-        5,
-        0
-      ],
-      [
-        -14.0,
-        17.5
-      ],
-      [
-        8,
-        7
-      ],
-      [
-        -3,
-        -3.5
-      ],
-      [
-        -5,
-        1
-      ],
-      [
-        -7.5,
-        13
-      ],
-      [
-        11,
-        5
-      ],
-      [
-        -12.5,
-        3.5
-      ],
-      [
-        20.5,
-        6.5
-      ],
-      [
-        -10,
-        7
-      ],
-      [
-        -7,
-        -16
-      ],
-      [
-        6.5,
-        9.5
-      ]
+  {
+   "id": "mass_production",
+   "title": "Mass Production",
+   "goal": "Earn $250,000. (Future content.)",
+   "req": {
+    "earned": 250000,
+    "quarry_level": 3
+   },
+   "unlocks": []
+  },
+  {
+   "id": "beneath_mountain",
+   "title": "Beneath the Mountain",
+   "goal": "Earn $600,000 and reach the lowest level. (Future content.)",
+   "req": {
+    "earned": 600000,
+    "quarry_level": 4
+   },
+   "unlocks": []
+  },
+  {
+   "id": "quarry_empire",
+   "title": "Quarry Empire",
+   "goal": "Earn $1,500,000. (Future content.)",
+   "req": {
+    "earned": 1500000,
+    "quarry_level": 4
+   },
+   "unlocks": []
+  }
+ ],
+ "formations": {
+  "stone_mountain": {
+   "title": "Stone Formation",
+   "resource": "limestone",
+   "center": [
+    -10.0,
+    0,
+    -9.0
+   ],
+   "cell": 1.9,
+   "tier_h": 1.2,
+   "chunk_units": 30,
+   "level": 1,
+   "tiers": [
+    [
+     2,
+     3,
+     3,
+     2
     ],
-    "heaps": [
-      [
-        2.5,
-        -4
-      ],
-      [
-        5.5,
-        16
-      ],
-      [
-        -0.5,
-        -2.5
-      ],
-      [
-        4.5,
-        11.5
-      ],
-      [
-        8.5,
-        3
-      ],
-      [
-        6.5,
-        -5
-      ],
-      [
-        12,
-        -17.5
-      ],
-      [
-        13,
-        -1
-      ]
+    [
+     3,
+     5,
+     5,
+     3
     ],
-    "gift_title": "A LETTER FROM GRANDPA WALT",
-    "gift_text": "Kiddo,\n\nI heard you cleaned the old place up. I knew you would.\n\nNow the real rock is open to you: the hillside behind the yard. Cut it from the front, one section at a time, and it will give up good stone.\n\nI'm sending what I had put away. Spend it on a drill when you are ready. Machines are how we cut the big blocks.\n\n- Grandpa Walt"
+    [
+     2,
+     3,
+     4,
+     2
+    ]
+   ],
+   "pads": [
+    [
+     -10.0,
+     0,
+     -3.6,
+     0.0
+    ],
+    [
+     -10.0,
+     0,
+     -14.4,
+     3.1416
+    ]
+   ]
   },
-  "pit_zone": {
-    "_comment": "Phase 6.3a: the pit area north-east of the yard, entered through a gate in the cliff ring. Local frame: origin at the gate, -Z points out of the quarry. The yard keeps its coordinates.",
-    "angle_deg": 306,
-    "gate_radius": 28.0,
-    "corridor_length": 30.0,
-    "corridor_width": 8.0,
-    "plateau_width": 90.0,
-    "plateau_depth": 90.0,
-    "basin_width": 56.0,
-    "basin_depth": 56.0,
-    "basin_floor": -3.6,
-    "ramp_width": 8.0,
-    "ramp_run": 20.0,
-    "wall_height": 8.0,
-    "build_margin": 3.0
+  "coal_mountain": {
+   "title": "Coal Seam",
+   "resource": "coal",
+   "center": [
+    0.0,
+    0,
+    -20.6
+   ],
+   "cell": 1.9,
+   "tier_h": 1.1,
+   "chunk_units": 25,
+   "level": 1,
+   "tiers": [
+    [
+     2,
+     3,
+     3,
+     2
+    ],
+    [
+     2,
+     4,
+     3,
+     2
+    ]
+   ],
+   "pads": [
+    [
+     -6.35,
+     0,
+     -20.6,
+     -1.5708
+    ],
+    [
+     6.35,
+     0,
+     -20.6,
+     1.5708
+    ]
+   ]
   },
-  "world": {
-    "_comment": "Phase 7.1. The industrial hub is the yard inside the cliff ring (x -23.5..23.5, z -6..23.5, plus the east expansion); it is the permanent business area and is never excavated. The main quarry is the pit zone reached through the north-east gate (see pit_zone), where all four levels are cut.",
-    "hub": {
-      "x": [
-        -23.5,
-        23.5
-      ],
-      "z": [
-        -6.0,
-        23.5
-      ]
-    },
-    "quarry": {
-      "frame": "pit",
-      "gate_angle_deg": 306.0
-    }
+  "iron_mountain": {
+   "title": "Iron Ridge",
+   "resource": "iron_ore",
+   "center": [
+    11.0,
+    0,
+    -9.0
+   ],
+   "cell": 1.8,
+   "tier_h": 1.15,
+   "chunk_units": 20,
+   "level": 1,
+   "tiers": [
+    [
+     2,
+     3,
+     2
+    ],
+    [
+     3,
+     4,
+     3
+    ],
+    [
+     2,
+     3,
+     2
+    ]
+   ],
+   "pads": [
+    [
+     11.0,
+     0,
+     -3.75,
+     0.0
+    ],
+    [
+     11.0,
+     0,
+     -14.25,
+     3.1416
+    ]
+   ]
   },
-  "quarry_levels": [
-    {
-      "_comment": "Four levels of ONE continuous quarry (Phase 7.2). 'formations' are cut in that level; 'unlock' is the share of the PREVIOUS level that must be excavated before the level's rock can be mined (the shell, ramp and walls are always there, under the flush columns). 'pit' (pit frame): rect = [x0, z0, x1, z1] of the whole pit including its ramp strip on the west side; ramp_w = width of that strip; the ramp runs along z from the south end (z1, previous floor) down to the north end (z0, this floor); the columns fill the rest of the rectangle.",
-      "id": "surface",
-      "title": "Surface Operations",
-      "floor_y": -3.6,
-      "materials": [
-        "limestone"
-      ],
-      "formations": [
-        "hillside_face_01",
-        "pit_band_01"
-      ],
-      "built": true,
-      "unlock": 0.0
-    },
-    {
-      "id": "bench",
-      "title": "First Excavation Bench",
-      "floor_y": -7.2,
-      "materials": [
-        "coal",
-        "iron_ore"
-      ],
-      "formations": [
-        "bench_l2_coal",
-        "bench_l2_iron"
-      ],
-      "built": true,
-      "unlock": 0.6,
-      "pit": {
-        "rect": [
-          -27.0,
-          -67.0,
-          -9.0,
-          -49.0
-        ],
-        "ramp_w": 4.0,
-        "y_top": -3.6
-      }
-    },
-    {
-      "id": "deep",
-      "title": "Deep Quarry",
-      "floor_y": -10.8,
-      "materials": [
-        "iron_ore",
-        "copper_ore"
-      ],
-      "formations": [
-        "bench_l3_iron",
-        "bench_l3_copper"
-      ],
-      "built": true,
-      "unlock": 0.6,
-      "pit": {
-        "rect": [
-          -21.0,
-          -65.0,
-          -11.0,
-          -51.0
-        ],
-        "ramp_w": 4.0,
-        "y_top": -7.2
-      }
-    },
-    {
-      "id": "lower",
-      "title": "Lower Quarry",
-      "floor_y": -14.4,
-      "materials": [
-        "copper_ore",
-        "gold_ore"
-      ],
-      "formations": [
-        "bench_l4_copper",
-        "bench_l4_gold"
-      ],
-      "built": true,
-      "unlock": 0.6,
-      "pit": {
-        "rect": [
-          -17.0,
-          -63.0,
-          -11.0,
-          -52.5
-        ],
-        "ramp_w": 3.0,
-        "y_top": -10.8,
-        "ramp_top": "north"
-      }
-    }
+  "copper_vein": {
+   "title": "Copper Vein",
+   "resource": "copper_ore",
+   "center": [
+    5.4,
+    -3.5,
+    -14.4
+   ],
+   "cell": 1.6,
+   "tier_h": 1.0,
+   "chunk_units": 25,
+   "level": 2,
+   "tiers": [
+    [
+     3,
+     3
+    ],
+    [
+     2,
+     3
+    ]
+   ],
+   "pads": [
+    [
+     1.25,
+     -3.5,
+     -14.4,
+     -1.5708
+    ]
+   ]
+  },
+  "gold_seam": {
+   "title": "Gold Seam",
+   "resource": "gold_ore",
+   "center": [
+    5.4,
+    -3.5,
+    -9.0
+   ],
+   "cell": 1.5,
+   "tier_h": 0.95,
+   "chunk_units": 15,
+   "level": 2,
+   "tiers": [
+    [
+     2,
+     3
+    ],
+    [
+     3,
+     2
+    ]
+   ],
+   "pads": [
+    [
+     1.35,
+     -3.5,
+     -9.0,
+     -1.5708
+    ]
+   ]
+  },
+  "hillside_face_01": {
+   "title": "Hillside Face",
+   "resource": "limestone",
+   "center": [
+    -22.3,
+    0,
+    -10.6
+   ],
+   "cell": 1.9,
+   "tier_h": 1.2,
+   "chunk_units": 30,
+   "level": 1,
+   "style": "cut",
+   "closed": [
+    "W",
+    "N",
+    "S"
+   ],
+   "strict": true,
+   "_comment": "Phase 6.1: first excavatable hillside, cut into the west rim. 6 columns deep (x, back wall at the west) by 12 wide (z). Only the east face is open; the other sides are solid hill, so rock is mined from the front and the cut deepens. Never resize an existing formation: saves store columns by count.",
+   "tiers": [
+    [
+     3,
+     3,
+     3,
+     2,
+     2,
+     1
+    ],
+    [
+     4,
+     4,
+     4,
+     3,
+     2,
+     1
+    ],
+    [
+     4,
+     4,
+     4,
+     3,
+     3,
+     2
+    ],
+    [
+     4,
+     4,
+     4,
+     3,
+     3,
+     2
+    ],
+    [
+     4,
+     4,
+     4,
+     3,
+     3,
+     2
+    ],
+    [
+     4,
+     4,
+     4,
+     3,
+     3,
+     2
+    ],
+    [
+     4,
+     4,
+     4,
+     3,
+     3,
+     2
+    ],
+    [
+     4,
+     4,
+     4,
+     3,
+     3,
+     2
+    ],
+    [
+     4,
+     4,
+     4,
+     3,
+     3,
+     2
+    ],
+    [
+     4,
+     4,
+     4,
+     3,
+     3,
+     2
+    ],
+    [
+     4,
+     4,
+     4,
+     3,
+     2,
+     1
+    ],
+    [
+     3,
+     3,
+     3,
+     2,
+     2,
+     1
+    ]
+   ],
+   "pads": [
+    [
+     -14.4,
+     0,
+     -4.0,
+     1.5708
+    ],
+    [
+     -14.4,
+     0,
+     -1.0,
+     1.5708
+    ]
+   ],
+   "requires_cleanup": true
+  },
+  "pit_band_01": {
+   "title": "Basin Bench",
+   "resource": "limestone",
+   "frame": "pit",
+   "layout": "arc",
+   "center": [
+    0.0,
+    -3.6,
+    -75.0
+   ],
+   "r_inner": 6.0,
+   "arc_deg": [
+    -170.0,
+    -10.0
+   ],
+   "cell": 1.9,
+   "tier_h": 1.2,
+   "chunk_units": 30,
+   "level": 1,
+   "style": "cut",
+   "closed": [
+    "W",
+    "E",
+    "S"
+   ],
+   "strict": true,
+   "requires_cleanup": true,
+   "_comment": "Phase 6.3b: a curved bench band inside the starting basin: 16 angular slices x 6 rings x 3 tiers (tops flush with the plateau). Only the inner ring is open; mining it pushes the face outward toward the basin wall. Angles are in the pit frame (0 deg = +x, -90 deg = toward the far wall).",
+   "tiers": [
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ]
+   ]
+  },
+  "bench_l2_coal": {
+   "pads": [
+    [
+     -7.0,
+     -3.6,
+     -61.0,
+     1.5708
+    ],
+    [
+     -7.0,
+     -3.6,
+     -64.0,
+     1.5708
+    ]
+   ],
+   "title": "Coal Bench",
+   "resource": "coal",
+   "frame": "pit",
+   "layout": "grid",
+   "center": [
+    -16.0,
+    -7.2,
+    -62.0
+   ],
+   "cell": 2.0,
+   "tier_h": 1.2,
+   "chunk_units": 70,
+   "level": 1,
+   "quarry_level": 2,
+   "style": "cut",
+   "strict": true,
+   "requires_cleanup": true,
+   "tiers": [
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ]
+   ]
+  },
+  "bench_l2_iron": {
+   "pads": [
+    [
+     -7.0,
+     -3.6,
+     -52.0,
+     1.5708
+    ],
+    [
+     -7.0,
+     -3.6,
+     -55.0,
+     1.5708
+    ]
+   ],
+   "title": "Iron Bench",
+   "resource": "iron_ore",
+   "frame": "pit",
+   "layout": "grid",
+   "center": [
+    -16.0,
+    -7.2,
+    -53.0
+   ],
+   "cell": 2.0,
+   "tier_h": 1.2,
+   "chunk_units": 70,
+   "level": 1,
+   "quarry_level": 2,
+   "style": "cut",
+   "strict": true,
+   "requires_cleanup": true,
+   "tiers": [
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ]
+   ]
+  },
+  "bench_l3_iron": {
+   "title": "Deep Iron Bench",
+   "resource": "iron_ore",
+   "frame": "pit",
+   "layout": "grid",
+   "center": [
+    -14.0,
+    -10.8,
+    -61.0
+   ],
+   "cell": 2.0,
+   "tier_h": 1.2,
+   "chunk_units": 70,
+   "level": 1,
+   "quarry_level": 3,
+   "style": "cut",
+   "strict": true,
+   "requires_cleanup": true,
+   "tiers": [
+    [
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3
+    ]
+   ],
+   "cover": [
+    "bench_l2_coal",
+    "bench_l2_iron"
+   ]
+  },
+  "bench_l3_copper": {
+   "title": "Copper Bench",
+   "resource": "copper_ore",
+   "frame": "pit",
+   "layout": "grid",
+   "center": [
+    -14.0,
+    -10.8,
+    -54.0
+   ],
+   "cell": 2.0,
+   "tier_h": 1.2,
+   "chunk_units": 70,
+   "level": 1,
+   "quarry_level": 3,
+   "style": "cut",
+   "strict": true,
+   "requires_cleanup": true,
+   "tiers": [
+    [
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3
+    ]
+   ],
+   "cover": [
+    "bench_l2_coal",
+    "bench_l2_iron"
+   ]
+  },
+  "bench_l4_copper": {
+   "title": "Deep Copper Bench",
+   "resource": "copper_ore",
+   "frame": "pit",
+   "layout": "grid",
+   "center": [
+    -12.5,
+    -14.4,
+    -60.0
+   ],
+   "cell": 1.5,
+   "tier_h": 1.2,
+   "chunk_units": 60,
+   "level": 1,
+   "quarry_level": 4,
+   "style": "cut",
+   "strict": true,
+   "requires_cleanup": true,
+   "tiers": [
+    [
+     3,
+     3
+    ],
+    [
+     3,
+     3
+    ],
+    [
+     3,
+     3
+    ],
+    [
+     3,
+     3
+    ]
+   ],
+   "cover": [
+    "bench_l3_iron",
+    "bench_l3_copper"
+   ]
+  },
+  "bench_l4_gold": {
+   "title": "Gold Bench",
+   "resource": "gold_ore",
+   "frame": "pit",
+   "layout": "grid",
+   "center": [
+    -12.5,
+    -14.4,
+    -54.75
+   ],
+   "cell": 1.5,
+   "tier_h": 1.2,
+   "chunk_units": 60,
+   "level": 1,
+   "quarry_level": 4,
+   "style": "cut",
+   "strict": true,
+   "requires_cleanup": true,
+   "tiers": [
+    [
+     3,
+     3
+    ],
+    [
+     3,
+     3
+    ],
+    [
+     3,
+     3
+    ]
+   ],
+   "cover": [
+    "bench_l3_iron",
+    "bench_l3_copper"
+   ]
+  }
+ },
+ "starting_formations": [
+  "stone_mountain",
+  "coal_mountain",
+  "iron_mountain"
+ ],
+ "excavation": {
+  "permit_cost": 12000,
+  "depth": 3.5,
+  "pit": [
+   -5.0,
+   -17.0,
+   7.0,
+   -7.0
   ],
-  "home": {
-    "sleep_from_hour": 17.0,
-    "curfew_hour": 22.0,
-    "wake_hour": 7.0
-  },
-  "companion": {
-    "_comment": "Phase 7.7: Dr. Marsh's team leaves the egg (scientist route only). Days are in-game days. Stages: egg -> hatchling -> juvenile -> adult. Tail smash: damage per hit and the hardest rock the companion can break (the same hardness rule as the player's tools).",
-    "egg_pos": [
-      -1.0,
-      0,
-      9.5
-    ],
-    "default_names": [
-      "Pebble",
-      "Rocky",
-      "Dusty",
-      "Flint"
-    ],
-    "egg_days": 2,
-    "hatchling_days": 3,
-    "juvenile_days": 4,
-    "stages": {
-      "hatchling": {
-        "scale": 0.35,
-        "speed": 3.2,
-        "smash": false,
-        "damage": 0.0,
-        "max_hardness": 0
-      },
-      "juvenile": {
-        "scale": 0.75,
-        "speed": 4.2,
-        "smash": true,
-        "damage": 14.0,
-        "max_hardness": 2
-      },
-      "adult": {
-        "scale": 1.25,
-        "speed": 4.8,
-        "smash": true,
-        "damage": 34.0,
-        "max_hardness": 3
-      }
-    },
-    "smash_hits": 6,
-    "smash_interval": 1.1,
-    "reach": 14.0,
-    "arrival_text": "Dr. Marsh sets the egg in a straw nest by the yard. It is the size of a watermelon and warm to the touch. 'Keep it warm and dry,' she says. 'It should hatch in a couple of days.'",
-    "hatch_text": "The egg cracks, wobbles, and a small, wet, very serious head pokes out. It looks at you and decides you are its family.",
-    "adult_text": "%s has grown into a full-size dinosaur. It can smash open hard rock with its tail now.",
-    "juvenile_text": "%s is growing fast. It is big enough to smash soft rock with its tail now (press T while looking at rock).",
-    "walter_mining_lines": [
-      {
-        "speaker": "GRANDPA WALTER",
-        "text": "Fifty years buying machinery."
-      },
-      {
-        "speaker": "GRANDPA WALTER",
-        "text": "All I needed was a dinosaur."
-      }
-    ],
-    "rest_pos": [
-      -13.8,
-      0,
-      20.0
-    ],
-    "marsh": {
-      "name": "Dr. Evelyn Marsh",
-      "lines": [
-        {
-          "speaker": "DR. EVELYN MARSH",
-          "text": "Hello again. I promised I would come back."
-        },
-        {
-          "speaker": "DR. EVELYN MARSH",
-          "text": "We found something odd inside the rock your fossil came from: an egg, still sealed. It should not be viable. It is."
-        },
-        {
-          "speaker": "DR. EVELYN MARSH",
-          "text": "Keep it warm and dry. It will hatch in a couple of days. Please look after it."
-        }
-      ]
-    }
-  },
-  "vehicle_gates": {
-    "loader": "industry",
-    "compact_truck": "industry",
-    "truck": "large",
-    "heavy_truck": "large",
-    "industrial_truck": "deep",
-    "compact_excavator": "large",
-    "heavy_excavator": "deep"
-  },
-  "quarry_milestones": [
-    {
-      "id": "l1_quarter",
-      "title": "A quarter of the surface",
-      "text": "A quarter of the surface quarry is cut away.",
-      "reward": 500,
-      "when": {
-        "cleared": {
-          "level": 1,
-          "fraction": 0.25
-        }
-      }
-    },
-    {
-      "id": "l1_half",
-      "title": "Half the surface",
-      "text": "Half of the surface quarry is gone.",
-      "reward": 1200,
-      "when": {
-        "cleared": {
-          "level": 1,
-          "fraction": 0.5
-        }
-      }
-    },
-    {
-      "id": "level2_open",
-      "title": "The first bench",
-      "text": "Quarry level 2 is open: coal and iron.",
-      "reward": 2500,
-      "when": {
-        "quarry_level": 2
-      }
-    },
-    {
-      "id": "l2_half",
-      "title": "Bench half cut",
-      "text": "Half of the first bench is excavated.",
-      "reward": 3500,
-      "when": {
-        "cleared": {
-          "level": 2,
-          "fraction": 0.5
-        }
-      }
-    },
-    {
-      "id": "level3_open",
-      "title": "The deep quarry",
-      "text": "Quarry level 3 is open: richer iron and copper.",
-      "reward": 6000,
-      "when": {
-        "quarry_level": 3
-      }
-    },
-    {
-      "id": "l3_half",
-      "title": "Deep bench half cut",
-      "text": "Half of the deep quarry is excavated.",
-      "reward": 9000,
-      "when": {
-        "cleared": {
-          "level": 3,
-          "fraction": 0.5
-        }
-      }
-    },
-    {
-      "id": "level4_open",
-      "title": "The lower quarry",
-      "text": "Quarry level 4 is open: copper and gold.",
-      "reward": 14000,
-      "when": {
-        "quarry_level": 4
-      }
-    },
-    {
-      "id": "first_gold",
-      "title": "Gold!",
-      "text": "The first gold-bearing rock is out of the ground.",
-      "reward": 5000,
-      "when": {
-        "mined": {
-          "formation": "bench_l4_gold"
-        }
-      }
-    }
+  "ramp": [
+   -5.0,
+   -2.0,
+   -7.0,
+   -15.5
   ]
+ },
+ "machines": {
+  "drill_rig": {
+   "title": "Drilling Rig",
+   "price": 4200,
+   "stage": 4,
+   "dps": 26.0,
+   "max_hardness": 3,
+   "cost_per_min": 0.8,
+   "bin": 40,
+   "reach": 7.0,
+   "upgrades": [
+    {
+     "cost": 2600,
+     "mult": 1.5,
+     "effect": "RIG OUTPUT +50%"
+    },
+    {
+     "cost": 5800,
+     "mult": 1.5,
+     "effect": "RIG OUTPUT +50%"
+    }
+   ],
+   "kind": "drill",
+   "stage_id": "moving_mountains"
+  },
+  "improved_rig": {
+   "title": "Improved Drilling Rig",
+   "kind": "drill",
+   "price": 9500,
+   "stage": 4,
+   "dps": 48.0,
+   "max_hardness": 4,
+   "cost_per_min": 1.6,
+   "bin": 60,
+   "reach": 8.0,
+   "paint": "PaintOrange",
+   "upgrades": [
+    {
+     "cost": 4200,
+     "mult": 1.4,
+     "effect": "RIG OUTPUT +40%"
+    },
+    {
+     "cost": 8800,
+     "mult": 1.4,
+     "effect": "RIG OUTPUT +40%"
+    }
+   ],
+   "stage_id": "moving_mountains"
+  },
+  "rock_breaker": {
+   "title": "Industrial Rock Breaker",
+   "price": 14000,
+   "stage": 5,
+   "dps": 90.0,
+   "max_hardness": 4,
+   "cost_per_min": 2.0,
+   "bin": 40,
+   "reach": 7.0,
+   "upgrades": [
+    {
+     "cost": 7500,
+     "mult": 1.4,
+     "effect": "BREAKER OUTPUT +40%"
+    }
+   ],
+   "kind": "breaker",
+   "stage_id": "deeper_ground"
+  },
+  "heavy_breaker": {
+   "title": "Heavy-Duty Rock Breaker",
+   "kind": "breaker",
+   "price": 26000,
+   "stage": 5,
+   "dps": 200.0,
+   "max_hardness": 4,
+   "cost_per_min": 4.0,
+   "bin": 90,
+   "reach": 8.0,
+   "paint": "PaintOrange",
+   "upgrades": [
+    {
+     "cost": 9000,
+     "mult": 1.35,
+     "effect": "BREAKER OUTPUT +35%"
+    }
+   ],
+   "stage_id": "deeper_ground"
+  },
+  "advanced_crusher": {
+   "title": "Advanced Crusher",
+   "price": 3600,
+   "stage": 4,
+   "speed_mult": 0.45,
+   "capacity_mult": 2,
+   "stage_id": "moving_mountains"
+  }
+ },
+ "fossil": {
+  "_comment": "Phase 7.6: a fossil is buried in the gold bench of the lowest level. It is exposed only when the listed columns have really been mined out. The choice between the two buyers is final.",
+  "formation": "bench_l4_gold",
+  "columns": [
+   2,
+   3
+  ],
+  "found_title": "SOMETHING IN THE ROCK",
+  "found_text": "The last of the stone falls away and there it is: a spine as long as a truck, ribs curving out of the rock like the hull of an old boat, and a skull with teeth the size of your hand. It is not stone. It is a skeleton, and it is enormous.\n\nNobody has stood here and seen this for millions of years.",
+  "toast": [
+   "Something in the rock...",
+   "The lowest level has uncovered a huge fossil. Go and look (E)."
+  ],
+  "buyers": {
+   "collector": {
+    "title": "Sell to the collector",
+    "who": "Mr. Aldric Vane",
+    "price": 75000,
+    "pitch": "A private collector, Mr. Vane, has heard rumours and offers $75,000 for the whole skeleton, crated and gone by the end of the week. It will hang in his private gallery.",
+    "journal": "fossil_collector"
+   },
+   "scientist": {
+    "title": "Give it to the scientist",
+    "who": "Dr. Evelyn Marsh",
+    "price": 2000,
+    "pitch": "Dr. Evelyn Marsh of the university can pay only $2,000 towards the cost of the dig. But she will study it, put it on display for everyone, and her name for you will be 'the discoverer'.",
+    "journal": "fossil_scientist"
+   }
+  },
+  "confirm": "This cannot be undone. Once you choose, the other buyer is gone for good.",
+  "results": {
+   "collector": "Mr. Vane's crew crates the bones and a truck takes them away. $75,000 lands in your account.",
+   "scientist": "Dr. Marsh's team arrives the next morning, delighted. They cry a little. $2,000 and a promise: the university will keep in touch."
+  }
+ },
+ "walter": {
+  "_comment": "Phase 7.5: Walter is alive and retiring, not dead. Intro scene, timed visits and journal. Conditions: stage (id), quarry_level, cleaned (site cleanup done). Visits show once, in the morning/afternoon, when the player talks to him.",
+  "pos": [
+   -3.2,
+   0,
+   7.4
+  ],
+  "journal": {
+   "lockbox": {
+    "title": "The lockbox",
+    "text": "Under the first rock I cleared there was Walter's old lockbox: a photo of the 1971 crew, notes about copper and gold below the north bench, and a savings bond."
+   },
+   "handover": {
+    "title": "The handover",
+    "text": "Walter handed me the quarry and his old hammer. He is retiring, but he lives down the road and says he will look in on the place."
+   },
+   "first_crew": {
+    "title": "A helping hand",
+    "text": "Walter says a quarry is a team sport: a good crew works while you rest. Pay them fairly and they will stay."
+   },
+   "machines": {
+    "title": "Machines",
+    "text": "Walter admits he never owned a proper crusher or loader. 'Muscle gets you started. Machines get you finished.'"
+   },
+   "first_bench": {
+    "title": "The first bench",
+    "text": "The surface is opening up. Walter remembers the old crew standing on a floor much lower than this, and he says the stone down there looks different."
+   },
+   "deep_dig": {
+    "title": "Going deep",
+    "text": "Walter keeps looking at the lower levels. 'My father said the oldest things lie at the bottom. I never got far enough to see.'"
+   },
+   "big_dig": {
+    "title": "A real quarry",
+    "text": "Walter walked the rim for a long while. 'It's what I always wanted it to be.'"
+   },
+   "fossil_found": {
+    "title": "The thing in the rock",
+    "text": "Something huge lay in the gold bench of the lowest level: a skeleton, ribs and spine and a skull full of teeth. Walter says his father always said so."
+   },
+   "fossil_collector": {
+    "title": "Sold to the collector",
+    "text": "I sold the skeleton to Mr. Vane for $75,000. It is hanging in a private gallery now, where nobody will see it."
+   },
+   "fossil_scientist": {
+    "title": "Given to the scientist",
+    "text": "Dr. Marsh and her team took the skeleton for the university. I got $2,000 and the feeling of having done something right."
+   },
+   "companion_egg": {
+    "title": "The egg",
+    "text": "Dr. Marsh left an egg on the porch. It is warm and it moves a little. It should hatch in a couple of days."
+   },
+   "companion_born": {
+    "title": "A new family member",
+    "text": "The egg hatched. I have a dinosaur. Walter says he has never seen anything like it."
+   },
+   "companion_adult": {
+    "title": "All grown up",
+    "text": "My dinosaur is fully grown. It can break rock with its tail."
+   },
+   "level1_records": {
+    "title": "Old photographs and records",
+    "text": "Behind a rusty cabinet in the office: photographs of the 1971 crew, and ledgers in Walter's handwriting. The last good year is circled."
+   },
+   "level2_geology": {
+    "title": "Geological notes",
+    "text": "Walter's notes on the first bench: 'Strange banding in the rock below. The layers do not match the survey. Ask Evelyn.'"
+   },
+   "level3_sketch": {
+    "title": "A strange sketch",
+    "text": "A pencil sketch tucked into a notebook: a long spine, curved ribs, a heavy club of a tail. Under it, in Walter's hand: 'Dad was not making it up.'"
+   }
+  },
+  "visits": [
+   {
+    "id": "marsh_egg",
+    "npc": "marsh",
+    "npc_name": "Dr. Marsh",
+    "when": {
+     "marsh": true
+    },
+    "title": "DR. MARSH",
+    "journal": "",
+    "lines": [
+     {
+      "speaker": "DR. EVELYN MARSH",
+      "text": "Hello again. I promised I would come back."
+     },
+     {
+      "speaker": "DR. EVELYN MARSH",
+      "text": "We found something odd inside the rock your fossil came from: an egg, still sealed. It should not be viable. It is."
+     },
+     {
+      "speaker": "DR. EVELYN MARSH",
+      "text": "Keep it warm and dry. It will hatch in a couple of days. Please look after it."
+     }
+    ]
+   },
+   {
+    "id": "first_crew",
+    "when": {
+     "stage": "crew"
+    },
+    "title": "WALTER DROPS BY",
+    "journal": "first_crew",
+    "lines": [
+     "Heard you're thinking about hiring. Good. One pair of hands only goes so far.",
+     "Treat them well, learn what they're good at, and let them get on with it. A crew that is respected works twice as hard."
+    ]
+   },
+   {
+    "id": "machines",
+    "when": {
+     "stage": "industry"
+    },
+    "title": "WALTER DROPS BY",
+    "journal": "machines",
+    "lines": [
+     "A crusher and a loader! In my day we had a mule and a bad attitude.",
+     "Cut into the hillside from the front and work down, one bench at a time. And keep your crew fed with something to haul - idle machines eat money."
+    ]
+   },
+   {
+    "id": "first_bench",
+    "when": {
+     "quarry_level": 2
+    },
+    "title": "WALTER DROPS BY",
+    "journal": "first_bench",
+    "lines": [
+     "You opened the first bench. I stood about there, forty years ago, and thought I'd never get any lower.",
+     "Go on down the ramp if you like. The coal and iron are better the deeper you go. And rock down there is older than anything in town."
+    ]
+   },
+   {
+    "id": "deep_dig",
+    "when": {
+     "quarry_level": 3
+    },
+    "title": "WALTER DROPS BY",
+    "journal": "deep_dig",
+    "lines": [
+     "Copper and iron on level three. Now you are cutting where I only ever dreamed.",
+     "My father used to say the oldest things in this hill lie right at the bottom. Mind the walls, and take your time."
+    ]
+   },
+   {
+    "id": "big_dig",
+    "when": {
+     "stage": "deep"
+    },
+    "title": "WALTER DROPS BY",
+    "journal": "big_dig",
+    "lines": [
+     "Look at this. Look at all of it.",
+     "I thought I'd be too old to see it. I'm glad I wasn't. This is a real quarry now, kiddo."
+    ]
+   },
+   {
+    "id": "fossil_found",
+    "when": {
+     "fossil": "found"
+    },
+    "title": "WALTER DROPS BY",
+    "journal": "fossil_found",
+    "lines": [
+     {
+      "speaker": "PLAYER",
+      "text": "Walter, come look at this."
+     },
+     {
+      "speaker": "GRANDPA WALTER",
+      "text": "Well, I'll be damned."
+     },
+     {
+      "speaker": "GRANDPA WALTER",
+      "text": "I thought I'd never see one of those again."
+     },
+     {
+      "speaker": "PLAYER",
+      "text": "You've seen one before?"
+     },
+     {
+      "speaker": "GRANDPA WALTER",
+      "text": "Let's just say there's a reason I never sold this mountain."
+     },
+     {
+      "speaker": "GRANDPA WALTER",
+      "text": "Whoever you sell it to, kiddo, it's yours to decide. I'll back you either way."
+     }
+    ]
+   },
+   {
+    "id": "fossil_after_collector",
+    "when": {
+     "fossil": "collector"
+    },
+    "title": "WALTER DROPS BY",
+    "journal": "",
+    "lines": [
+     "Seventy-five thousand. Well. That is a lot of money for some old bones.",
+     "I won't say I'd have done the same. I won't say I wouldn't have. It is your quarry now."
+    ]
+   },
+   {
+    "id": "fossil_after_scientist",
+    "when": {
+     "fossil": "scientist"
+    },
+    "title": "WALTER DROPS BY",
+    "journal": "",
+    "lines": [
+     "Two thousand dollars and a whole university at your door. I like that.",
+     "You did right by it, kiddo. Whatever happens next, that skeleton is where it belongs."
+    ]
+   },
+   {
+    "id": "companion_egg",
+    "when": {
+     "companion": [
+      "egg"
+     ]
+    },
+    "title": "WALTER DROPS BY",
+    "journal": "",
+    "lines": [
+     "Is that an egg on the porch? Dr. Marsh left it for you?",
+     "Well, I never. Keep it warm and dry. I raised chickens once, how hard can it be?"
+    ]
+   },
+   {
+    "id": "companion_born",
+    "when": {
+     "companion": [
+      "hatchling",
+      "juvenile",
+      "adult"
+     ]
+    },
+    "title": "WALTER DROPS BY",
+    "journal": "companion_born",
+    "lines": [
+     "It hatched! Look at that little face.",
+     "You are going to have to feed it. Or at least be nice to it. It will follow you around the quarry like a puppy."
+    ]
+   },
+   {
+    "id": "companion_adult",
+    "when": {
+     "companion": [
+      "adult"
+     ]
+    },
+    "title": "WALTER DROPS BY",
+    "journal": "companion_adult",
+    "lines": [
+     "Would you look at the size of it. And it can break rock with its tail!",
+     "In fifty years of working this quarry I never had a helper like that. Look after it, kiddo."
+    ]
+   }
+  ],
+  "truck": {
+   "pos": [
+    -8.6,
+    0,
+    4.8
+   ],
+   "yaw": 1.5708
+  },
+  "cinematic": [
+   {
+    "who": "WALTER",
+    "text": "Well, look who finally decided to show up.",
+    "dur": 5.4,
+    "act": "talk"
+   },
+   {
+    "who": "PLAYER",
+    "text": "You said it was important.",
+    "dur": 4.5,
+    "act": "idle"
+   },
+   {
+    "who": "WALTER",
+    "text": "It is. I'm retiring.",
+    "dur": 4.5,
+    "act": "talk"
+   },
+   {
+    "who": "PLAYER",
+    "text": "You're what?",
+    "dur": 3.6,
+    "act": "idle"
+   },
+   {
+    "who": "WALTER",
+    "text": "Don't sound so surprised. I've only been working since dinosaurs were walking around.",
+    "dur": 8.2,
+    "act": "talk"
+   },
+   {
+    "who": "WALTER",
+    "text": "Here. The keys. All of them.",
+    "dur": 6.0,
+    "act": "keys"
+   },
+   {
+    "who": "WALTER",
+    "text": "Bank wants the place. I told them my grandkid would have it running again in no time.",
+    "dur": 9.0,
+    "act": "talk"
+   },
+   {
+    "who": "PLAYER",
+    "text": "You told them WHAT?",
+    "dur": 4.5,
+    "act": "idle"
+   },
+   {
+    "who": "WALTER",
+    "text": "Relax. You've got my hammer. That's how I started.",
+    "dur": 7.2,
+    "act": "talk"
+   },
+   {
+    "who": "WALTER",
+    "text": "There's more in that hill than anyone thinks. Just gotta keep digging.",
+    "dur": 8.2,
+    "act": "point"
+   }
+  ],
+  "cinematic_look": [
+   -22.3,
+   1.4,
+   -10.6
+  ],
+  "level_journal": {
+   "cleaned": "level1_records",
+   "2": "level2_geology",
+   "3": "level3_sketch"
+  }
+ },
+ "story": {
+  "intro_title": "GRANDPA WALTER",
+  "intro": "(the handover - see \"walter\" scenes)",
+  "discoveries": {
+   "first_clear": {
+    "title": "GRANDPA'S LOCKBOX",
+    "trigger": "first_formation_cleared",
+    "text": "Under the last of the rock sits a rusted lockbox. Inside:\n\n- A faded photo of the crew in 1971, standing on this same floor.\n- Mining records: 'Core sample, 3.5 m below the north bench: copper staining, trace gold.'\n- A note: 'Didn't have the machines to go deeper. Maybe you will.'\n\nThere's also an old savings bond. It's still good.",
+    "reward": 400
+   }
+  },
+  "intro2_title": "YOUR FIRST DAY",
+  "intro2": "1. Left click swings your hammer. Cut the weeds and break the rubble heaps. The HUD counts the cleanup.\n\n2. Carry the stone to the SALES booth and press E to sell it.\n\n3. Spend your first money at the UPGRADE board outside the office: a pickaxe comes first.\n\n4. When it gets dark (after 17:00) walk to the house by the garage and press E on the bed to sleep. Sleeping saves the game and starts a new morning.\n\n5. Clean the whole site and Walt sends money, opens the hillside and the north gate."
+ },
+ "cleanup": {
+  "_comment": "Phase 6.2 tutorial: clear Grandpa's overgrown site (weeds and rubble heaps). Positions are fixed so saves can store what is left. Clearing everything unlocks the hillside and brings Walt's letter with the gift.",
+  "gift": 600,
+  "weed_hp": 6,
+  "heap_units": 5,
+  "heap_unit_hp": 10,
+  "weeds": [
+   [
+    -5,
+    5.5
+   ],
+   [
+    8.5,
+    13.5
+   ],
+   [
+    5.5,
+    4
+   ],
+   [
+    18,
+    7.5
+   ],
+   [
+    21,
+    3.5
+   ],
+   [
+    -15,
+    5
+   ],
+   [
+    5,
+    0
+   ],
+   [
+    -14.0,
+    17.5
+   ],
+   [
+    8,
+    7
+   ],
+   [
+    -3,
+    -3.5
+   ],
+   [
+    -5,
+    1
+   ],
+   [
+    -7.5,
+    13
+   ],
+   [
+    11,
+    5
+   ],
+   [
+    -12.5,
+    3.5
+   ],
+   [
+    20.5,
+    6.5
+   ],
+   [
+    -10,
+    7
+   ],
+   [
+    -7,
+    -16
+   ],
+   [
+    6.5,
+    9.5
+   ]
+  ],
+  "heaps": [
+   [
+    2.5,
+    -4
+   ],
+   [
+    5.5,
+    16
+   ],
+   [
+    -0.5,
+    -2.5
+   ],
+   [
+    4.5,
+    11.5
+   ],
+   [
+    8.5,
+    3
+   ],
+   [
+    6.5,
+    -5
+   ],
+   [
+    12,
+    -17.5
+   ],
+   [
+    13,
+    -1
+   ]
+  ],
+  "gift_title": "A LETTER FROM GRANDPA WALT",
+  "gift_text": "Kiddo,\n\nI heard you cleaned the old place up. I knew you would.\n\nNow the real rock is open to you: the hillside behind the yard. Cut it from the front, one section at a time, and it will give up good stone.\n\nI'm sending what I had put away. Spend it on a drill when you are ready. Machines are how we cut the big blocks.\n\n- Grandpa Walt"
+ },
+ "pit_zone": {
+  "_comment": "Phase 6.3a: the pit area north-east of the yard, entered through a gate in the cliff ring. Local frame: origin at the gate, -Z points out of the quarry. The yard keeps its coordinates.",
+  "angle_deg": 306,
+  "gate_radius": 28.0,
+  "corridor_length": 30.0,
+  "corridor_width": 8.0,
+  "plateau_width": 90.0,
+  "plateau_depth": 90.0,
+  "basin_width": 56.0,
+  "basin_depth": 56.0,
+  "basin_floor": -3.6,
+  "ramp_width": 8.0,
+  "ramp_run": 20.0,
+  "wall_height": 8.0,
+  "build_margin": 3.0
+ },
+ "world": {
+  "_comment": "Phase 7.1. The industrial hub is the yard inside the cliff ring (x -23.5..23.5, z -6..23.5, plus the east expansion); it is the permanent business area and is never excavated. The main quarry is the pit zone reached through the north-east gate (see pit_zone), where all four levels are cut.",
+  "hub": {
+   "x": [
+    -23.5,
+    23.5
+   ],
+   "z": [
+    -6.0,
+    23.5
+   ]
+  },
+  "quarry": {
+   "frame": "pit",
+   "gate_angle_deg": 306.0
+  }
+ },
+ "quarry_levels": [
+  {
+   "_comment": "Four levels of ONE continuous quarry (Phase 7.2). 'formations' are cut in that level; 'unlock' is the share of the PREVIOUS level that must be excavated before the level's rock can be mined (the shell, ramp and walls are always there, under the flush columns). 'pit' (pit frame): rect = [x0, z0, x1, z1] of the whole pit including its ramp strip on the west side; ramp_w = width of that strip; the ramp runs along z from the south end (z1, previous floor) down to the north end (z0, this floor); the columns fill the rest of the rectangle.",
+   "id": "surface",
+   "title": "Surface Operations",
+   "floor_y": -3.6,
+   "materials": [
+    "limestone"
+   ],
+   "formations": [
+    "hillside_face_01",
+    "pit_band_01"
+   ],
+   "built": true,
+   "unlock": 0.0
+  },
+  {
+   "id": "bench",
+   "title": "First Excavation Bench",
+   "floor_y": -7.2,
+   "materials": [
+    "coal",
+    "iron_ore"
+   ],
+   "formations": [
+    "bench_l2_coal",
+    "bench_l2_iron"
+   ],
+   "built": true,
+   "unlock": 0.6,
+   "pit": {
+    "rect": [
+     -27.0,
+     -67.0,
+     -9.0,
+     -49.0
+    ],
+    "ramp_w": 4.0,
+    "y_top": -3.6
+   }
+  },
+  {
+   "id": "deep",
+   "title": "Deep Quarry",
+   "floor_y": -10.8,
+   "materials": [
+    "iron_ore",
+    "copper_ore"
+   ],
+   "formations": [
+    "bench_l3_iron",
+    "bench_l3_copper"
+   ],
+   "built": true,
+   "unlock": 0.6,
+   "pit": {
+    "rect": [
+     -21.0,
+     -65.0,
+     -11.0,
+     -51.0
+    ],
+    "ramp_w": 4.0,
+    "y_top": -7.2
+   }
+  },
+  {
+   "id": "lower",
+   "title": "Lower Quarry",
+   "floor_y": -14.4,
+   "materials": [
+    "copper_ore",
+    "gold_ore"
+   ],
+   "formations": [
+    "bench_l4_copper",
+    "bench_l4_gold"
+   ],
+   "built": true,
+   "unlock": 0.6,
+   "pit": {
+    "rect": [
+     -17.0,
+     -63.0,
+     -11.0,
+     -52.5
+    ],
+    "ramp_w": 3.0,
+    "y_top": -10.8,
+    "ramp_top": "north"
+   }
+  }
+ ],
+ "home": {
+  "sleep_from_hour": 17.0,
+  "curfew_hour": 22.0,
+  "wake_hour": 7.0
+ },
+ "companion": {
+  "_comment": "Phase 7.7: Dr. Marsh's team leaves the egg (scientist route only). Days are in-game days. Stages: egg -> hatchling -> juvenile -> adult. Tail smash: damage per hit and the hardest rock the companion can break (the same hardness rule as the player's tools).",
+  "egg_pos": [
+   -1.0,
+   0,
+   9.5
+  ],
+  "default_names": [
+   "Pebble",
+   "Rocky",
+   "Dusty",
+   "Flint"
+  ],
+  "egg_days": 2,
+  "hatchling_days": 3,
+  "juvenile_days": 4,
+  "stages": {
+   "hatchling": {
+    "scale": 0.35,
+    "speed": 3.2,
+    "smash": false,
+    "damage": 0.0,
+    "max_hardness": 0
+   },
+   "juvenile": {
+    "scale": 0.75,
+    "speed": 4.2,
+    "smash": true,
+    "damage": 14.0,
+    "max_hardness": 2
+   },
+   "adult": {
+    "scale": 1.25,
+    "speed": 4.8,
+    "smash": true,
+    "damage": 34.0,
+    "max_hardness": 3
+   }
+  },
+  "smash_hits": 6,
+  "smash_interval": 1.1,
+  "reach": 14.0,
+  "arrival_text": "Dr. Marsh sets the egg in a straw nest by the yard. It is the size of a watermelon and warm to the touch. 'Keep it warm and dry,' she says. 'It should hatch in a couple of days.'",
+  "hatch_text": "The egg cracks, wobbles, and a small, wet, very serious head pokes out. It looks at you and decides you are its family.",
+  "adult_text": "%s has grown into a full-size dinosaur. It can smash open hard rock with its tail now.",
+  "juvenile_text": "%s is growing fast. It is big enough to smash soft rock with its tail now (press T while looking at rock).",
+  "walter_mining_lines": [
+   {
+    "speaker": "GRANDPA WALTER",
+    "text": "Fifty years buying machinery."
+   },
+   {
+    "speaker": "GRANDPA WALTER",
+    "text": "All I needed was a dinosaur."
+   }
+  ],
+  "rest_pos": [
+   -13.8,
+   0,
+   20.0
+  ],
+  "marsh": {
+   "name": "Dr. Evelyn Marsh",
+   "lines": [
+    {
+     "speaker": "DR. EVELYN MARSH",
+     "text": "Hello again. I promised I would come back."
+    },
+    {
+     "speaker": "DR. EVELYN MARSH",
+     "text": "We found something odd inside the rock your fossil came from: an egg, still sealed. It should not be viable. It is."
+    },
+    {
+     "speaker": "DR. EVELYN MARSH",
+     "text": "Keep it warm and dry. It will hatch in a couple of days. Please look after it."
+    }
+   ]
+  }
+ },
+ "vehicle_gates": {
+  "loader": "power_pressure",
+  "compact_truck": "power_pressure",
+  "truck": "moving_mountains",
+  "heavy_truck": "moving_mountains",
+  "industrial_truck": "deeper_ground",
+  "compact_excavator": "moving_mountains",
+  "heavy_excavator": "deeper_ground"
+ },
+ "quarry_milestones": [
+  {
+   "id": "l1_quarter",
+   "title": "A quarter of the surface",
+   "text": "A quarter of the surface quarry is cut away.",
+   "reward": 500,
+   "when": {
+    "cleared": {
+     "level": 1,
+     "fraction": 0.25
+    }
+   }
+  },
+  {
+   "id": "l1_half",
+   "title": "Half the surface",
+   "text": "Half of the surface quarry is gone.",
+   "reward": 1200,
+   "when": {
+    "cleared": {
+     "level": 1,
+     "fraction": 0.5
+    }
+   }
+  },
+  {
+   "id": "level2_open",
+   "title": "The first bench",
+   "text": "Quarry level 2 is open: coal and iron.",
+   "reward": 2500,
+   "when": {
+    "quarry_level": 2
+   }
+  },
+  {
+   "id": "l2_half",
+   "title": "Bench half cut",
+   "text": "Half of the first bench is excavated.",
+   "reward": 3500,
+   "when": {
+    "cleared": {
+     "level": 2,
+     "fraction": 0.5
+    }
+   }
+  },
+  {
+   "id": "level3_open",
+   "title": "The deep quarry",
+   "text": "Quarry level 3 is open: richer iron and copper.",
+   "reward": 6000,
+   "when": {
+    "quarry_level": 3
+   }
+  },
+  {
+   "id": "l3_half",
+   "title": "Deep bench half cut",
+   "text": "Half of the deep quarry is excavated.",
+   "reward": 9000,
+   "when": {
+    "cleared": {
+     "level": 3,
+     "fraction": 0.5
+    }
+   }
+  },
+  {
+   "id": "level4_open",
+   "title": "The lower quarry",
+   "text": "Quarry level 4 is open: copper and gold.",
+   "reward": 14000,
+   "when": {
+    "quarry_level": 4
+   }
+  },
+  {
+   "id": "first_gold",
+   "title": "Gold!",
+   "text": "The first gold-bearing rock is out of the ground.",
+   "reward": 5000,
+   "when": {
+    "mined": {
+     "formation": "bench_l4_gold"
+    }
+   }
+  }
+ ],
+ "legacy_stage_ids": {
+  "manual": "grandpa",
+  "tools": "better_tools",
+  "crew": "first_employee",
+  "industry": "power_pressure",
+  "large": "moving_mountains",
+  "deep": "deeper_ground"
+ },
+ "legacy_stage_map": [
+  0,
+  1,
+  4,
+  5,
+  6,
+  8
+ ],
+ "legacy_stage_map_comment": "Phase 9.1: an old six-stage save lands on the new stage that unlocks everything it already had (manual, tools, crew->first_employee, industry->power_pressure, large->moving_mountains, deep->deeper_ground). Never lower.",
+ "feature_gates": {
+  "hire": "first_employee",
+  "crusher": "breaking_ground",
+  "output": "breaking_ground",
+  "loader": "power_pressure",
+  "truck": "moving_mountains",
+  "permit": "deeper_ground"
+ },
+ "unlocks": {
+  "pickaxe": {
+   "stage": "better_tools"
+  },
+  "reinforced": {
+   "stage": "workshop"
+  },
+  "drill": {
+   "stage": "power_pressure",
+   "owns": [
+    "reinforced",
+    "steel_pickaxe"
+   ],
+   "discover": [
+    "iron_ore"
+   ],
+   "delivered": {
+    "iron_ore": 10
+   }
+  },
+  "jackhammer": {
+   "stage": "industrial_quarry",
+   "owns": [
+    "drill"
+   ]
+  },
+  "pointed_chisel": {
+   "stage": "better_tools"
+  },
+  "flat_chisel": {
+   "stage": "better_tools",
+   "owns": [
+    "pointed_chisel"
+   ]
+  },
+  "repaired_pickaxe": {
+   "stage": "better_tools",
+   "owns": [
+    "pickaxe"
+   ]
+  },
+  "hand_cart": {
+   "stage": "better_tools"
+  },
+  "sledgehammer": {
+   "stage": "workshop",
+   "owns": [
+    "pickaxe"
+   ]
+  },
+  "steel_pickaxe": {
+   "stage": "workshop",
+   "owns": [
+    "reinforced"
+   ]
+  },
+  "wheelbarrow": {
+   "stage": "workshop",
+   "owns": [
+    "hand_cart"
+   ]
+  },
+  "reinforced_wheelbarrow": {
+   "stage": "workshop",
+   "owns": [
+    "wheelbarrow"
+   ]
+  },
+  "hardened_pickaxe": {
+   "stage": "breaking_ground",
+   "owns": [
+    "steel_pickaxe"
+   ]
+  },
+  "hand_splitter": {
+   "stage": "breaking_ground",
+   "owns": [
+    "sledgehammer"
+   ]
+  },
+  "powered_hammer": {
+   "stage": "power_pressure",
+   "owns": [
+    "hand_splitter"
+   ]
+  },
+  "air_compressor": {
+   "stage": "power_pressure",
+   "owns": [
+    "hardened_pickaxe"
+   ]
+  },
+  "pneumatic_chisel": {
+   "stage": "power_pressure",
+   "owns": [
+    "air_compressor",
+    "drill"
+   ]
+  }
+ },
+ "unlocks_comment": "Phase 9.1 hybrid unlocks: every entry lists what must be true BEFORE the item can be bought (money is the item's price). stage = a stage id; owns = tools/equipment already owned; discover = minerals found; delivered = minerals sold; milestones = built-in or story milestones; earned; quarry_level; story = story flags.",
+ "milestone_titles": {
+  "cleanup_done": "Clear Grandpa's overgrown site",
+  "workshop_upgrade": "Buy a workbench upgrade",
+  "crusher_built": "Build a crusher"
+ },
+ "gear": {
+  "pointed_chisel": {
+   "title": "Pointed Chisel",
+   "cost": 35,
+   "class": "precision",
+   "model": 0,
+   "desc": "Fast, light taps. Cuts soft stone and coal far quicker than the hammer, but cannot touch iron.",
+   "power": 2.6,
+   "interval": 0.2,
+   "max_hardness": 1,
+   "affinity": {
+    "limestone": 1.5,
+    "coal": 1.5
+   },
+   "sound": "hit_hammer",
+   "pitch": 1.4
+  },
+  "flat_chisel": {
+   "title": "Flat Chisel",
+   "cost": 110,
+   "class": "precision",
+   "model": 0,
+   "desc": "Wide, clean cuts through stone and coal: the best tool for soft rock until you can afford power.",
+   "power": 3.6,
+   "interval": 0.2,
+   "max_hardness": 1,
+   "affinity": {
+    "limestone": 1.7,
+    "coal": 1.7
+   },
+   "sound": "hit_hammer",
+   "pitch": 1.25
+  },
+  "repaired_pickaxe": {
+   "title": "Repaired Pickaxe",
+   "cost": 180,
+   "class": "general",
+   "model": 1,
+   "desc": "A properly re-handled pickaxe. Solid on stone, coal and iron.",
+   "power": 11.0,
+   "interval": 0.54,
+   "max_hardness": 2,
+   "sound": "hit_pick"
+  },
+  "sledgehammer": {
+   "title": "Sledgehammer",
+   "cost": 450,
+   "class": "impact",
+   "model": 0,
+   "desc": "Heavy and slow. Each blow also hits two neighbouring exposed blocks at half strength.",
+   "power": 20.0,
+   "interval": 0.95,
+   "max_hardness": 2,
+   "aoe": 2,
+   "aoe_frac": 0.5,
+   "sound": "hit_reinforced",
+   "pitch": 0.8
+  },
+  "steel_pickaxe": {
+   "title": "Steel Pickaxe",
+   "cost": 700,
+   "class": "general",
+   "model": 2,
+   "desc": "Steel head, steady swing. Gets into copper-hard rock.",
+   "power": 20.0,
+   "interval": 0.5,
+   "max_hardness": 3,
+   "sound": "hit_reinforced"
+  },
+  "hardened_pickaxe": {
+   "title": "Hardened Pickaxe",
+   "cost": 1200,
+   "class": "general",
+   "model": 2,
+   "desc": "Hardened steel: the best hand pick you can buy.",
+   "power": 28.0,
+   "interval": 0.48,
+   "max_hardness": 3,
+   "sound": "hit_reinforced",
+   "pitch": 1.1
+  },
+  "hand_splitter": {
+   "title": "Hand Rock Splitter",
+   "cost": 1600,
+   "class": "impact",
+   "model": 0,
+   "desc": "Wedges and drives a seam: each blow also splits up to three neighbouring exposed blocks at 60%.",
+   "power": 34.0,
+   "interval": 1.0,
+   "max_hardness": 3,
+   "aoe": 3,
+   "aoe_frac": 0.6,
+   "sound": "hit_reinforced",
+   "pitch": 0.7
+  },
+  "powered_hammer": {
+   "title": "Powered Hammer",
+   "cost": 2500,
+   "class": "impact",
+   "model": 3,
+   "desc": "A motor-driven hammer: quick heavy blows that also hit two neighbours.",
+   "power": 30.0,
+   "interval": 0.42,
+   "max_hardness": 3,
+   "aoe": 2,
+   "aoe_frac": 0.5,
+   "powered": true,
+   "sound": "hit_reinforced",
+   "pitch": 0.9
+  },
+  "pneumatic_chisel": {
+   "title": "Pneumatic Chisel",
+   "cost": 6500,
+   "class": "precision",
+   "model": 4,
+   "desc": "Hold to chisel at speed. Superb on stone and coal. Needs the compressor.",
+   "dps": 90,
+   "continuous": true,
+   "max_hardness": 3,
+   "affinity": {
+    "limestone": 1.6,
+    "coal": 1.6
+   },
+   "powered": true,
+   "sound": "jackhammer_loop"
+  },
+  "air_compressor": {
+   "title": "Air Compressor",
+   "cost": 3500,
+   "class": "equipment",
+   "model": 3,
+   "desc": "Powers the pneumatic tools: every powered tool you hold works 15% faster.",
+   "kind": "equipment",
+   "power_mult": 1.15
+  },
+  "hand_cart": {
+   "title": "Hand Cart",
+   "cost": 120,
+   "class": "cart",
+   "model": 0,
+   "desc": "Wheel your load: the bag holds 20 more.",
+   "kind": "cart",
+   "capacity": 20
+  },
+  "wheelbarrow": {
+   "title": "Wheelbarrow",
+   "cost": 280,
+   "class": "cart",
+   "model": 0,
+   "desc": "A proper barrow: the bag holds 40 more.",
+   "kind": "cart",
+   "capacity": 40
+  },
+  "reinforced_wheelbarrow": {
+   "title": "Reinforced Wheelbarrow",
+   "cost": 750,
+   "class": "cart",
+   "model": 0,
+   "desc": "Steel tray, pneumatic tyre: the bag holds 70 more.",
+   "kind": "cart",
+   "capacity": 70
+  }
+ },
+ "gear_comment": "Phase 9.2: extra tools and hauling aids beyond the five-tool ladder (saves keep their tier). class: precision / general / impact / equipment / cart. affinity = damage multiplier per mineral; aoe = neighbouring exposed blocks hit at aoe_frac; powered = gets the compressor bonus; model = the ladder tool whose existing 3D model is shown (no unique models yet)."
 }

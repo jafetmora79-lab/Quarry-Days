@@ -110,8 +110,14 @@ func test_tools() -> void:
 	s.money = pick - 1
 	check(not p.buy_next_tool() and s.tool_tier == 0 and s.money == pick - 1, "2 cannot buy the pickaxe without $%d; nothing charged" % pick)
 	s.money = pick
+	p.stage = p.stage_index("tools")              # Phase 9: the pickaxe opens with the Better Tools stage
 	check(p.buy_next_tool() and s.tool_tier == 1 and s.money == 0 and p.can_mine("iron_ore"), "2 pickaxe bought for $%d and cracks iron" % pick)
 	s.money = 100000
+	check(not p.buy_next_tool() and s.tool_tier == 1, "2 Phase 9: the reinforced pickaxe waits for the Workshop stage")
+	p.stage = p.stage_index("deep")
+	s.gear.append("steel_pickaxe")                # the drill's hybrid unlock: equipment owned, iron found and delivered
+	s.lifetime["mined"]["iron_ore"] = 12
+	s.lifetime["sold"]["iron_ore"] = 12
 	while p.buy_next_tool():
 		pass
 	check(s.tool_tier == 4 and p.is_continuous() and p.can_mine("gold_ore") and p.next_tool().is_empty(), "2 tool line ends at the jackhammer, which works gold")
@@ -138,7 +144,7 @@ func test_balance() -> void:
 		steps.append(float(p.tools()[t + 1]["cost"]) / float(per_s.call(t)))
 	var ok := true
 	for v in steps:
-		ok = ok and v < 900.0
+		ok = ok and v < 2400.0       # Phase 9: later tools are deliberately a longer saving goal
 	check(ok, "12 each later tool is a few minutes of mining with the previous one (%s s)" % str(steps.map(func(v): return int(v))))
 	var stone := float(p.max_units("stone_mountain"))
 	var manual := stone / (p.tool_dps(1) / hp) / 60.0
@@ -158,33 +164,37 @@ func test_balance() -> void:
 
 func test_stages() -> void:
 	var p := fresh()
-	check(p.stage == 0 and not p.unlocked("hire") and not p.unlocked("crusher"), "12 a new quarry starts at Manual Labor: no staff, no machinery")
-	p.state.add_income(30, "sale")
+	check(p.stage == 0 and not p.unlocked("hire") and not p.unlocked("crusher"), "12 a new quarry starts at Grandpa's Legacy: no staff, no machinery")
+	p.state.add_income(150, "sale")
 	p.check_stages()
-	check(p.stage == 1, "12 first sales open the Better Tools stage")
-	p.state.add_income(400, "sale")
+	check(p.stage == 0, "12 $150 alone does not open Better Tools: the site must be cleared too")
+	p.cleanup["done"] = true
 	p.check_stages()
-	check(p.stage == 1, "12 the first employee needs a pickaxe as well as $350 earned")
+	check(p.stage == 1, "12 money and a cleared site open the Better Tools stage")
+	p.state.add_income(450, "sale")
+	p.check_stages()
+	check(p.stage == 1, "12 The Workshop needs a pickaxe as well as $600 earned")
 	p.state.tool_tier = 1
 	p.check_stages()
-	check(p.stage == 2 and p.unlocked("hire") and not p.unlocked("crusher"), "12 First Employee stage unlocks hiring only")
+	check(p.stage == 2 and not p.unlocked("crusher") and not p.unlocked("hire"), "12 The Workshop stage unlocks neither machinery nor hiring")
+	p.state.add_income(1200, "sale")
+	p.state.tool_tier = 2
+	p.state.upgrades["larger_backpack"] = true
+	p.check_stages()
+	check(p.stage == 3 and p.unlocked("crusher") and p.unlocked("output") and not p.unlocked("hire"), "12 Breaking Ground unlocks the crusher and storage, still no staff")
+	p.state.add_income(2200, "sale")
+	p.state.crushers.append({})
+	p.state.inventory["iron_ore"] = 1
+	p.check_stages()
+	check(p.stage == 4 and p.unlocked("hire") and not p.unlocked("loader"), "12 First Employee: earnings, iron found and a crusher unlock hiring")
 	p.state.money = 1000
 	p.business.hire("rosa")
-	p.state.add_income(2500, "sale")
+	p.state.add_income(5000, "sale")
 	p.check_stages()
-	check(p.stage == 2, "12 money and a crew alone no longer open Early Industrialization: the quarry face has to be cut too")
-	p.init_formation("hillside_face_01")
-	var hcols: Array = p.state.deposits["hillside_face_01"]["columns"]
-	var want := int(float(p.max_units("hillside_face_01") + p.max_units("pit_band_01")) * 0.05)
-	for ci in range(hcols.size()):
-		if want <= 0:
-			break
-		var tk := mini(int(hcols[ci]), want)
-		hcols[ci] = int(hcols[ci]) - tk
-		want -= tk
-	p._sync_stock(p.state.deposits["hillside_face_01"])
+	check(p.stage == 4, "12 money and a crew alone do not open Power and Pressure: crushed stone must be sold")
+	p.state.note_lifetime("sold", "crushed_stone", 30)
 	p.check_stages()
-	check(p.stage == 3 and p.unlocked("crusher") and p.unlocked("loader") and not p.unlocked("drill_rig"), "12 Early Industrialization unlocks crusher, storage and loader")
+	check(p.stage == 5 and p.unlocked("loader") and not p.unlocked("drill_rig"), "12 Power and Pressure unlocks the loader but no rigs yet")
 	check(p.business.hire_fee(p.business.candidate("rosa")) == 75 and is_equal_approx(p.business.wage(p.business.employees[0]), 18.0), "12 staff costs scale with the quarry (fee $75, wage $18/h)")
 	var old := fresh()
 	old.business.milestones["first_employee"] = true
@@ -286,6 +296,7 @@ func scene_mining() -> void:
 	check(int(round(game.hud.shown_money)) == game.state.money, "9 the money counter counts up to the real balance")
 	# tool purchase through the upgrade board
 	game.state.tool_tier = 0
+	game.prog.stage = game.prog.stage_index("tools")
 	game.state.money = int(game.prog.tools()[1]["cost"])
 	check(game.buy_next_tool() and game.state.tool_tier == 1 and game.state.money == 0, "2 the upgrade board sells the pickaxe")
 	check(str(game.hud.toast_queue.back()[1]).begins_with("MINING POWER +"), "9 the upgrade shows its improvement (MINING POWER +%%)")

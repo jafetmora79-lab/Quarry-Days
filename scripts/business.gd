@@ -576,6 +576,7 @@ func clerk_sell(e: Dictionary) -> Dictionary:
 		var units := want - left
 		var earned := int(floor(units * int(state.config["prices"][res]) * stat(e, "price_mult") + 0.0001))
 		state.add_income(earned, "clerk")
+		state.note_lifetime("sold", res, units)
 		_add_daily("revenue", earned)
 		_add_daily("sold", units)
 		record_units(e, units)

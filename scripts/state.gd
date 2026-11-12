@@ -16,6 +16,11 @@ var crushers := []
 # Phase 5
 var tool_tier := 0          ## index into progression tools (0 hand hammer .. 4 jackhammer)
 var earned := 0             ## lifetime sales revenue (drives the progression stages)
+# Phase 9
+var lifetime := {"mined": {}, "sold": {}}   ## units collected / sold per resource, ever (discoveries and deliveries)
+var gear: Array = []                         ## ids of the extra tools bought beyond the five-tool ladder (see progression "gear")
+var equipped := ""                           ## "" = the ladder tool of tool_tier, else the id of an owned extra tool in hand
+var carts: Array = []                        ## ids of hauling aids owned (hand_cart, wheelbarrow, ...)
 signal money_earned(amount: int, source: String)
 
 func _init(settings: Dictionary = {}) -> void:
@@ -25,7 +30,18 @@ func _init(settings: Dictionary = {}) -> void:
 		upgrades[key] = false
 
 func capacity() -> int:
-	return int(config.get("backpack_capacity", 18)) + (16 if upgrades["larger_backpack"] else 0) + (30 if upgrades.get("hauling_harness", false) else 0)
+	return int(config.get("backpack_capacity", 18)) + (16 if upgrades["larger_backpack"] else 0) + (30 if upgrades.get("hauling_harness", false) else 0) + cart_capacity()
+
+## Extra carrying capacity of the hauling aids owned (only the best cart counts: you push one at a time).
+func cart_capacity() -> int:
+	var best := 0
+	for id in carts:
+		best = maxi(best, int(config.get("cart_capacity", {}).get(str(id), 0)))
+	return best
+
+func note_lifetime(kind: String, key: String, amount: int) -> void:
+	if amount > 0:
+		lifetime[kind][key] = int(lifetime[kind].get(key, 0)) + amount
 
 func storage_capacity() -> int:
 	return int(config.get("storage_capacity", 40)) + (40 if upgrades["expanded_storage"] else 0)
@@ -41,6 +57,7 @@ func add_item(key: String, amount: int) -> int:
 		return 0
 	var taken: int = mini(amount, capacity() - total(inventory))
 	inventory[key] += taken
+	note_lifetime("mined", key, taken)
 	return taken
 
 func sell(key: String, amount: int) -> int:
@@ -48,6 +65,7 @@ func sell(key: String, amount: int) -> int:
 		return 0
 	var sold: int = mini(amount, int(inventory[key]))
 	inventory[key] -= sold
+	note_lifetime("sold", key, sold)
 	add_income(sold * int(config["prices"].get(key, 0)), "sale")
 	return sold
 
@@ -241,7 +259,7 @@ func regrow_eta(kind: String) -> float:
 	return maxf(0.0, float(d["regrow_at"]) - clock_minutes)
 
 func snapshot() -> Dictionary:
-	return {"version": 2, "tool_tier": tool_tier, "earned": earned, "money": money, "inventory": inventory.duplicate(true), "storage": storage.duplicate(true), "upgrades": upgrades.duplicate(true), "clock_minutes": clock_minutes, "player_position": player_position.duplicate(), "player_yaw": player_yaw, "deposits": deposits.duplicate(true), "crushers": crushers.duplicate(true)}
+	return {"version": 2, "tool_tier": tool_tier, "earned": earned, "money": money, "inventory": inventory.duplicate(true), "storage": storage.duplicate(true), "upgrades": upgrades.duplicate(true), "clock_minutes": clock_minutes, "player_position": player_position.duplicate(), "player_yaw": player_yaw, "deposits": deposits.duplicate(true), "crushers": crushers.duplicate(true), "lifetime": lifetime.duplicate(true), "gear": gear.duplicate(), "equipped": equipped, "carts": carts.duplicate()}
 
 func restore(data: Dictionary) -> bool:
 	# Version 1 = Phase 1 saves; version 2 adds Phase 2 business data stored beside this snapshot.
@@ -264,6 +282,23 @@ func restore(data: Dictionary) -> bool:
 	else:
 		tool_tier = 2 if upgrades["reinforced_pickaxe"] else 1
 	earned = maxi(0, int(data.get("earned", 0)))
+	lifetime = {"mined": {}, "sold": {}}
+	var lt = data.get("lifetime", {})
+	if lt is Dictionary:
+		for kind in ["mined", "sold"]:
+			var src = lt.get(kind, {})
+			if src is Dictionary:
+				for k in src:
+					lifetime[kind][str(k)] = maxi(0, int(src[k]))
+	gear = []
+	for g in data.get("gear", []):
+		if not str(g) in gear:
+			gear.append(str(g))
+	carts = []
+	for g in data.get("carts", []):
+		if not str(g) in carts:
+			carts.append(str(g))
+	equipped = str(data.get("equipped", ""))
 	clock_minutes = maxf(0.0, float(data["clock_minutes"]))
 	player_position = data["player_position"].duplicate()
 	player_yaw = float(data["player_yaw"])

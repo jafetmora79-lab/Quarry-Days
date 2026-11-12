@@ -21,8 +21,9 @@ var business # QuarryBusiness (untyped: avoids a cyclic class dependency in test
 var cfg: Dictionary
 var stage := 0
 var level_unlocked := 1                ## legacy: the small lower pit behind the $5,000 permit (1 = closed, 2 = open)
+var legacy_migrated := false           ## the last restore() converted an old six-stage save
 var quarry_level := 1                  ## Phase 7.1: the deepest of the four quarry levels reached so far (1..4)
-const SCHEMA := 2                      ## save schema of the progression block: 1 = before Phase 7.1 (no field), 2 = quarry levels
+const SCHEMA := 3                      ## save schema of the progression block: 1 = before Phase 7.1 (no field), 2 = quarry levels, 3 = Phase 9 twelve-stage ladder
 var rigs: Array = []
 var next_rig_id := 1
 var story := {"intro_seen": false, "found": {}, "read": {}, "visits": {}, "journal": [], "fossil": "", "companion": {"state": "none"}, "milestones": {}}
@@ -48,8 +49,87 @@ func tools() -> Array:
 	return cfg.get("tools", [])
 
 func tool(tier := -1) -> Dictionary:
+	if tier < 0 and state.equipped != "" and state.equipped in state.gear:
+		var g := gear_def(state.equipped)
+		if not g.is_empty() and str(g.get("kind", "tool")) == "tool":
+			return g
 	var t := state.tool_tier if tier < 0 else tier
 	return tools()[clampi(t, 0, tools().size() - 1)]
+
+# ------------------------------------------------------------------ extra tools and hauling aids (Phase 9.2)
+
+## An extra tool or hauling aid, shaped like a ladder tool (id, title, cost, power / dps, interval, max_hardness, sound ...).
+func gear_def(id: String) -> Dictionary:
+	var g: Dictionary = cfg.get("gear", {}).get(id, {})
+	if g.is_empty():
+		return {}
+	var out := g.duplicate(true)
+	out["id"] = id
+	return out
+
+func gear_ids() -> Array:
+	return cfg.get("gear", {}).keys()
+
+## Ids of the tools you can hold right now: the ladder tool of tool_tier ("" stands for it) and every extra tool you own.
+func held_options() -> Array:
+	var out := [""]
+	for id in gear_ids():
+		if id in state.gear and str(cfg["gear"][id].get("kind", "tool")) == "tool":
+			out.append(id)
+	return out
+
+func cycle_tool() -> String:
+	var opts := held_options()
+	var i := opts.find(state.equipped)
+	state.equipped = str(opts[(i + 1) % opts.size()])
+	return state.equipped
+
+## Which of the five existing 3D tool models is shown for the tool in hand (extra tools reuse one; see the gear "model").
+func model_tier() -> int:
+	var t := tool()
+	if t.has("model"):
+		return clampi(int(t["model"]), 0, 4)
+	return state.tool_tier
+
+## Damage multiplier of the tool in hand against a mineral (chisels are soft-rock specialists; powered tools use the compressor).
+func tool_modifier(res: String) -> float:
+	var t := tool()
+	var m := float(t.get("affinity", {}).get(res, 1.0))
+	if bool(t.get("powered", false)) and "air_compressor" in state.gear:
+		m *= float(cfg.get("gear", {}).get("air_compressor", {}).get("power_mult", 1.0))
+	return m
+
+## Extra blocks hit by one blow of the tool in hand: [count, fraction of the damage].
+func tool_aoe() -> Vector2:
+	var t := tool()
+	return Vector2(float(t.get("aoe", 0)), float(t.get("aoe_frac", 0.0)))
+
+func gear_block_reason(id: String) -> String:
+	var g := gear_def(id)
+	if g.is_empty():
+		return "Unknown item"
+	if owns(id):
+		return "Already owned"
+	if not unlocked(id):
+		return unlock_missing_text(id)
+	if state.money < int(g["cost"]):
+		return "Need $%d" % int(g["cost"])
+	return ""
+
+## Buys an extra tool or hauling aid. New tools go straight into your hand.
+func buy_gear(id: String) -> bool:
+	if gear_block_reason(id) != "":
+		return false
+	var g := gear_def(id)
+	state.money -= int(g["cost"])
+	if str(g.get("kind", "tool")) == "cart":
+		state.carts.append(id)
+	else:
+		state.gear.append(id)
+		if str(g.get("kind", "tool")) == "tool":
+			state.equipped = id
+	check_stages()
+	return true
 
 func next_tool() -> Dictionary:
 	return tools()[state.tool_tier + 1] if state.tool_tier + 1 < tools().size() else {}
@@ -86,10 +166,11 @@ func tool_for(res: String) -> Dictionary:
 
 func buy_next_tool() -> bool:
 	var t := next_tool()
-	if t.is_empty() or state.money < int(t["cost"]):
+	if t.is_empty() or state.money < int(t["cost"]) or not unlocked(str(t["id"])):
 		return false
 	state.money -= int(t["cost"])
 	state.tool_tier += 1
+	state.equipped = ""
 	stats["best_tool"] = maxi(int(stats["best_tool"]), state.tool_tier)
 	check_stages()
 	return true
@@ -430,6 +511,18 @@ func requirement_progress(i: int) -> Array:
 			"crushers": out.append(["Own %d crusher" % int(target), float(state.crushers.size()), float(target)])
 			"cleared": out.append(["Clear %d%% of the first deposits" % int(float(target) * 100.0), cleared_fraction(), float(target)])
 			"quarry_level": out.append(["Open quarry level %d" % int(target), float(quarry_level), float(target)])
+			"milestones":
+				for m in target:
+					out.append([milestone_title(str(m)), 1.0 if milestone_done(str(m)) else 0.0, 1.0])
+			"owns":
+				for o in target:
+					out.append(["Own the %s" % item_title(str(o)), 1.0 if owns(str(o)) else 0.0, 1.0])
+			"discover":
+				for r in target:
+					out.append(["Discover %s" % display(str(r)).to_lower(), 1.0 if discovered(str(r)) else 0.0, 1.0])
+			"delivered":
+				for r in target:
+					out.append(["Sell %d %s" % [int(target[r]), display(str(r)).to_lower()], float(delivered(str(r))), float(target[r])])
 			"excavated":
 				var lv := int(target.get("level", 1))
 				out.append(["Clear %d%% of quarry level %d" % [int(float(target.get("fraction", 0.5)) * 100.0), lv], level_cleared_fraction(lv), float(target.get("fraction", 0.5))])
@@ -495,60 +588,161 @@ static func migrate(data: Dictionary) -> Dictionary:
 	if v < 2:
 		d["quarry_level"] = clampi(int(d.get("quarry_level", 1)), 1, 4)
 		v = 2
-	d["schema"] = v
+	d["schema"] = maxi(v, 2)      # restore() converts the stage ladder (schema 3) because it needs the game data
 	return d
 
 ## Lowest stage consistent with what an older save already owns (nothing is ever taken away).
 func implied_stage(vehicle_types: Array = []) -> int:
 	var s := 0
 	if state.tool_tier >= 1:
-		s = 1
+		s = stage_index("tools")
 	if business and (business.employees.size() > 0 or business.milestones.get("first_employee", false)):
-		s = maxi(s, 2)
+		s = maxi(s, stage_index("crew"))
 	if state.crushers.size() > 0 or (business and (business.outputs.size() > 0 or business.conveyors.size() > 0)) or vehicle_types.size() > 0:
-		s = maxi(s, 3)
+		s = maxi(s, stage_index("industry"))
 	if "truck" in vehicle_types or (business and business.milestones.get("automated", false)) or rigs.size() > 0:
-		s = maxi(s, 4)
+		s = maxi(s, stage_index("large"))
 	for vt in vehicle_types:                     # Phase 8.2: owning a machine implies the stage that unlocks it
 		if cfg.get("vehicle_gates", {}).has(str(vt)):
 			s = maxi(s, stage_index(str(cfg["vehicle_gates"][str(vt)])))
 	if level_unlocked >= 2:
-		s = maxi(s, 5)
+		s = maxi(s, stage_index("deep"))
 	return s
 
 func stage_id() -> String:
 	return str(stage_info()["id"])
 
 func stage_index(id: String) -> int:
+	var real: String = str(cfg.get("legacy_stage_ids", {}).get(id, id))     # the six old stage ids still work
 	for i in range(stages().size()):
-		if str(stages()[i]["id"]) == id:
+		if str(stages()[i]["id"]) == real:
 			return i
 	return 0
 
-## Equipment / feature gates by stage id.
-func unlocked(feature: String) -> bool:
-	match feature:
-		"hire": return stage >= stage_index("crew")
-		"crusher", "output", "loader": return stage >= stage_index("industry")
-		"truck": return stage >= stage_index("large")
-		"permit": return stage >= stage_index("deep")
+## Stage a feature, vehicle or machine opens at ("" = not stage-gated).
+func gate_stage(feature: String) -> String:
+	if cfg.get("feature_gates", {}).has(feature):
+		return str(cfg["feature_gates"][feature])
 	if cfg.get("vehicle_gates", {}).has(feature):
-		return stage >= stage_index(str(cfg["vehicle_gates"][feature]))
-	if cfg.get("machines", {}).has(feature):
-		return stage >= int(cfg["machines"][feature].get("stage", 0))
-	return true
+		return str(cfg["vehicle_gates"][feature])
+	var m: Dictionary = cfg.get("machines", {}).get(feature, {})
+	if not m.is_empty():
+		return str(m.get("stage_id", ""))
+	var u: Dictionary = cfg.get("unlocks", {}).get(feature, {})
+	return str(u.get("stage", ""))
+
+## Equipment / feature gates: the stage, plus the discoveries, milestones and equipment of the item's "unlocks" entry.
+func unlocked(feature: String) -> bool:
+	var g := gate_stage(feature)
+	if g != "" and stage < stage_index(g) and not owns(feature):
+		return false
+	return unlock_met(feature)
 
 func feature_stage_title(feature: String) -> String:
-	match feature:
-		"hire": return str(stage_info(stage_index("crew"))["title"])
-		"crusher", "output", "loader": return str(stage_info(stage_index("industry"))["title"])
-		"truck": return str(stage_info(stage_index("large"))["title"])
-		"permit": return str(stage_info(stage_index("deep"))["title"])
-	if cfg.get("vehicle_gates", {}).has(feature):
-		return str(stage_info(stage_index(str(cfg["vehicle_gates"][feature])))["title"])
-	if cfg.get("machines", {}).has(feature):
-		return str(stage_info(int(cfg["machines"][feature].get("stage", 0)))["title"])
-	return ""
+	var g := gate_stage(feature)
+	return str(stage_info(stage_index(g))["title"]) if g != "" else ""
+
+# ------------------------------------------------------------------ hybrid unlocks (Phase 9.1)
+## cfg["unlocks"][id] = {"stage", "owns": [ids], "discover": [minerals], "delivered": {mineral: n}, "milestones": [ids],
+## "earned": n, "quarry_level": n, "story": [flags]}. Money is the item's own price. One evaluator serves every item.
+
+## Is this equipment owned? Ladder tools by their id (everything up to tool_tier), extra tools, hauling aids, rig types, crushers.
+func owns(id: String) -> bool:
+	for i in range(tools().size()):
+		if str(tools()[i]["id"]) == id:
+			return i <= state.tool_tier
+	if id in state.gear or id in state.carts:
+		return true
+	if id == "crusher":
+		return state.crushers.size() > 0
+	for r in rigs:
+		if str(r.get("type", "")) == id:
+			return true
+	return false
+
+func discovered(res: String) -> bool:
+	if int(state.lifetime["mined"].get(res, 0)) > 0 or int(state.inventory.get(res, 0)) > 0 or int(state.storage.get(res, 0)) > 0:
+		return true
+	for k in state.deposits:                                   # old saves have no lifetime record: their dug-out rock is the evidence
+		var d: Dictionary = state.deposits[k]
+		if str(d.get("resource", "")) == res and (int(d.get("mined", 0)) > 0 or int(d.get("hits", 0)) > 0 or int(d.get("generation", 0)) > 0):
+			return true
+	return false
+
+func delivered(res: String) -> int:
+	return int(state.lifetime["sold"].get(res, 0))
+
+func milestone_done(id: String) -> bool:
+	match id:
+		"cleanup_done": return bool(cleanup.get("done", false))
+		"workshop_upgrade":
+			for k in state.upgrades:
+				if state.upgrades[k]:
+					return true
+			return state.gear.size() > 0 or state.tool_tier >= 3
+		"crusher_built": return state.crushers.size() > 0
+	if bool(story.get("milestones", {}).get(id, false)):
+		return true
+	return business != null and bool(business.milestones.get(id, false))
+
+func milestone_title(id: String) -> String:
+	return str(cfg.get("milestone_titles", {}).get(id, id.replace("_", " ")))
+
+func item_title(id: String) -> String:
+	for t in tools():
+		if str(t["id"]) == id:
+			return str(t["title"])
+	var g: Dictionary = cfg.get("gear", {}).get(id, {})
+	return str(g.get("title", id.replace("_", " ").capitalize()))
+
+## [[label, met], ...] for every requirement of an item except its price.
+func unlock_reqs(id: String) -> Array:
+	var u: Dictionary = cfg.get("unlocks", {}).get(id, {})
+	var out := []
+	var g := gate_stage(id)
+	if g != "":
+		var si := stage_index(g)
+		out.append(["Stage %d: %s" % [si + 1, str(stage_info(si)["title"])], stage >= si])
+	if u.is_empty():
+		return out
+	for o in u.get("owns", []):
+		out.append(["Own the %s" % item_title(str(o)), owns(str(o))])
+	for r in u.get("discover", []):
+		out.append(["Discover %s" % display(str(r)).to_lower(), discovered(str(r))])
+	var dl: Dictionary = u.get("delivered", {})
+	for r in dl:
+		out.append(["Sell %d %s (%d so far)" % [int(dl[r]), display(str(r)).to_lower(), mini(delivered(str(r)), int(dl[r]))], delivered(str(r)) >= int(dl[r])])
+	for m in u.get("milestones", []):
+		out.append([milestone_title(str(m)), milestone_done(str(m))])
+	if u.has("earned"):
+		out.append(["Earn $%d in total" % int(u["earned"]), state.earned >= int(u["earned"])])
+	if u.has("quarry_level"):
+		out.append(["Open quarry level %d" % int(u["quarry_level"]), quarry_level >= int(u["quarry_level"])])
+	for f in u.get("story", []):
+		out.append(["Story: %s" % str(f).replace("_", " "), bool(story.get(str(f), false)) or bool(story.get("milestones", {}).get(str(f), false))])
+	return out
+
+## Everything except the price is satisfied. Owned equipment is never locked.
+func unlock_met(id: String) -> bool:
+	if owns(id):
+		return true
+	var u: Dictionary = cfg.get("unlocks", {}).get(id, {})
+	if u.is_empty():
+		return true
+	for r in unlock_reqs(id):
+		if not bool(r[1]):
+			return false
+	return true
+
+## "Needs Stage 6: Power and Pressure; discover iron ore; ..." for the shop's lock line ("" when nothing is missing).
+func unlock_missing_text(id: String) -> String:
+	if owns(id):
+		return ""
+	var parts := []
+	for r in unlock_reqs(id):
+		if not bool(r[1]):
+			parts.append(str(r[0]))
+	return "" if parts.is_empty() else "Needs " + "; ".join(parts)
 
 # ------------------------------------------------------------------ deep excavation
 
@@ -1113,7 +1307,14 @@ func restore(raw_data: Dictionary, vehicle_types: Array = []) -> void:
 	var s = data.get("stats", {})
 	for k in stats:
 		stats[k] = maxi(0, int(s.get(k, 0))) if s is Dictionary else 0
-	stage = maxi(clampi(int(data.get("stage", 0)), 0, stages().size() - 1), implied_stage(vehicle_types))
+	if int(raw_data.get("schema", 1)) < SCHEMA:
+		# Phase 9.1: an old six-stage save lands on the new stage that opens everything it already had (never lower)
+		var old_stage := clampi(int(data.get("stage", 0)), 0, 5)
+		var map: Array = cfg.get("legacy_stage_map", [0, 1, 4, 5, 6, 8])
+		stage = maxi(clampi(int(map[old_stage]), 0, stages().size() - 1), implied_stage(vehicle_types))
+		legacy_migrated = true
+	else:
+		stage = clampi(int(data.get("stage", 0)), 0, stages().size() - 1)
 	check_stages()
 	if not (st is Dictionary and st.has("milestones")):
 		# a save from before Phase 8.2: what it has already dug counts as reached, with no windfall

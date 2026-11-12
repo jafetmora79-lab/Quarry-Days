@@ -75,22 +75,22 @@ func run() -> void:
 	# ---- C: money alone no longer advances the business
 	for k in ["hillside_face_01", "pit_band_01"]:
 		prog.state.deposits.erase(k)
-	prog.stage = 2
+	prog.stage = 4
 	game.state.earned = 1000000
 	game.state.tool_tier = 1
 	game.state.money = 50000
 	game.ui_hire("rosa")
 	prog.check_stages()
-	check(prog.stage == 2, "C with money and a crew but no excavation the business stays at stage 3 (index %d)" % prog.stage)
-	var req: Array = prog.requirement_progress(3)
-	var has_exc := false
+	check(prog.stage == 4, "C with money and a crew but no crushed stone sold the business stays at First Employee (index %d)" % prog.stage)
+	var req: Array = prog.requirement_progress(5)
+	var has_req := false
 	for r in req:
-		has_exc = has_exc or str(r[0]).contains("quarry level 1")
-	check(has_exc, "C the stage lists the excavation requirement")
-	excavate(prog, "hillside_face_01", 0.12)
+		has_req = has_req or str(r[0]).to_lower().contains("gravel")
+	check(has_req, "C the stage lists the delivery requirement")
+	game.state.note_lifetime("sold", "crushed_stone", 30)
 	prog.check_stages()
-	check(prog.stage >= 3, "C cutting into the quarry face finishes it (stage index %d)" % prog.stage)
-	check(prog.stage < 5, "C and the later stages still ask for more excavation (stage index %d)" % prog.stage)
+	check(prog.stage >= 5, "C selling crushed stone finishes it (stage index %d)" % prog.stage)
+	check(prog.stage < 7, "C and the later stages still ask for more (stage index %d)" % prog.stage)
 	# ---- D: level unlocking
 	check(prog.quarry_level == 1, "D level 2 stays closed while level 1 is mostly uncut")
 	excavate(prog, "hillside_face_01", 1.0)
@@ -103,16 +103,16 @@ func run() -> void:
 	check(prog.quarry_level == 2, "D and only one level opens at a time (level 3 needs level 2 cut)")
 	# ---- E: schema and migration
 	var snap: Dictionary = prog.snapshot()
-	check(int(snap["schema"]) == 2 and int(snap["quarry_level"]) == 2, "E the progression save carries a schema and the quarry level")
+	check(int(snap["schema"]) == 3 and int(snap["quarry_level"]) == 2, "E the progression save carries a schema and the quarry level")
 	var old := snap.duplicate(true)
 	old.erase("schema")
 	old.erase("quarry_level")
 	old["stage"] = 5
 	old["level_unlocked"] = 2
 	prog.restore(old, ["loader", "truck"])
-	check(prog.stage == 5 and prog.level_unlocked == 2, "E an old save at the last stage keeps its stage and its permit")
+	check(prog.stage == prog.stage_index("deep") and prog.level_unlocked == 2, "E an old save at the last stage lands on the matching new stage and keeps its permit (%d)" % prog.stage)
 	check(prog.quarry_level == 1 or prog.quarry_level == 2, "E and gets a valid quarry level (%d)" % prog.quarry_level)
-	check(QuarryProgression.migrate(old)["schema"] == 2 and QuarryProgression.migrate(snap)["schema"] == 2, "E migration brings both formats to the current schema")
+	check(QuarryProgression.migrate(old)["schema"] == 2 and QuarryProgression.migrate(snap)["schema"] == 3, "E migration brings both formats to the current schema")
 	var m1 := QuarryProgression.migrate(old)
 	check(int(m1.get("stage", -1)) == 5 and m1["rigs"] == old["rigs"], "E migration never changes what the old save recorded")
 	# ---- F: the HUD shows the quarry once the business stages are done

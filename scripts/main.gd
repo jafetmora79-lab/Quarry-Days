@@ -219,7 +219,7 @@ func _ready() -> void:
 		var ls: AudioStreamWAV = load("res://audio/%s.wav" % key)
 		ls.loop_mode = AudioStreamWAV.LOOP_FORWARD
 		ls.loop_end = ls.data.size() / 2
-	player.tool_view.equip(state.tool_tier, true)
+	player.tool_view.equip(prog.model_tier(), true)
 	hit_audio = _audio("res://audio/pick_hit.wav", -12)
 	pickup_audio = _audio("res://audio/pickup.wav", -15)
 	sell_audio = _audio("res://audio/sell.wav", -13)
@@ -1036,7 +1036,7 @@ func loose_count(kind: String) -> int:
 
 ## Applies player mining damage to a formation column. Units go to the bag, overflow drops as loose
 ## pieces (up to a cap); with no room at all nothing is extracted. Returns units mined.
-func player_mine(kind: String, col: int, damage: float, point := Vector3.INF, continuous := false) -> int:
+func player_mine(kind: String, col: int, damage: float, point := Vector3.INF, continuous := false, in_aoe := false) -> int:
 	if not formation_nodes.has(kind):
 		return 0
 	if prog.formation_locked(kind) != "":
@@ -1068,10 +1068,14 @@ func player_mine(kind: String, col: int, damage: float, point := Vector3.INF, co
 		return 0
 	var bag_room := state.capacity() - state.total(state.inventory)
 	var drop_room := maxi(0, int(prog.cfg.get("loose_piece_cap", 36)) - loose_count(kind))
+	if not in_aoe:
+		damage *= prog.tool_modifier(res)
 	var ex := prog.extract(kind, col, damage, bag_room + drop_room, "hand")
 	var n := int(ex["units"])
 	var at := node.column_top(col) if point == Vector3.INF else point
-	if not continuous:
+	if in_aoe:
+		fx.impact(at, res, 0.6, mine_normal)
+	elif not continuous:
 		_play_tool_hit()
 		player.impact_feedback(0.5 + 0.25 * float(state.tool_tier))
 		fx.impact(at, res, 1.0, mine_normal)
@@ -1096,6 +1100,23 @@ func player_mine(kind: String, col: int, damage: float, point := Vector3.INF, co
 		node.update_label()
 	var left := prog.column_units(kind, col)
 	hud.show_mining("%s  %d LEFT" % [prog.display(res).to_upper(), prog.units_left(kind)], 1.0 - prog.top_chunk_damage(kind, col) if left > 0 else 0.0)
+	if not in_aoe and not continuous:
+		var aoe := prog.tool_aoe()
+		if aoe.x > 0.0:
+			# impact tools: the neighbouring exposed blocks take part of the blow (normal mining rules: only minable columns)
+			var d := prog.dims(kind)
+			var cands := []
+			for oy in range(-1, 2):
+				for ox in range(-1, 2):
+					var nx: int = col % d.x + ox
+					var ny: int = col / d.x + oy
+					if (ox != 0 or oy != 0) and nx >= 0 and ny >= 0 and nx < d.x and ny < d.y:
+						var nc := ny * d.x + nx
+						if prog.column_minable(kind, nc) and not _column_has_player(kind, nc):
+							cands.append([absf(float(ox)) + absf(float(oy)), nc])
+			cands.sort_custom(func(a, b): return a[0] < b[0] or (a[0] == b[0] and a[1] < b[1]))
+			for k in range(mini(int(aoe.x), cands.size())):
+				n += player_mine(kind, int(cands[k][1]), damage * aoe.y, Vector3.INF, false, true)
 	return n
 
 ## Loose piece beside a formation column (deterministic spot, so saved pieces reload in place).
@@ -1106,7 +1127,7 @@ func _spawn_formation_piece(kind: String, col: int, i: int) -> void:
 
 func _player_mining(delta: float) -> void:
 	var tv: QuarryToolView = player.tool_view
-	tv.equip(state.tool_tier)
+	tv.equip(prog.model_tier())
 	power_feedback_t = maxf(0.0, power_feedback_t - delta)
 	too_hard_t = maxf(0.0, too_hard_t - delta)
 	bag_full_t = maxf(0.0, bag_full_t - delta)
@@ -1440,6 +1461,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			elif event.button_index == MOUSE_BUTTON_LEFT:
 				_place_ghost()
 		return
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_Q and not placement and not driving and menu == "" and name_dialog == null:
+		cycle_tool()
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_U and not placement and not driving and menu == "":
 		safety.rescue("asked to be lifted out")
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_T and not placement and name_dialog == null:
@@ -1516,7 +1539,7 @@ func _open_menu(kind: String, index := -1) -> void:
 func _close_menu() -> void:
 	menu = ""
 	_confirm_new = false
-	player.tool_view.equip(state.tool_tier, true)   # always back in hand with the tool you own
+	player.tool_view.equip(prog.model_tier(), true)   # always back in hand with the tool you own
 	panel.visible = false
 	panel.pane.pause()                              # the preview stops rendering while no shop is open
 	management.visible = false
@@ -1667,8 +1690,22 @@ func _draw_upgrades(p: QuarryStationUI) -> void:
 		p.text(_bar(prog.tool_dps(nxt), top) + "  %.0f damage a second  (+%d%%)" % [prog.tool_dps(nxt), prog.tool_gain_percent(state.tool_tier, nxt)], QuarryTheme.MONEY)
 		var newly := int(nt.get("max_hardness", 1)) > int(prog.tool().get("max_hardness", 1))
 		var short := maxi(0, int(nt["cost"]) - state.money)
+		var lock_txt := prog.unlock_missing_text(str(nt["id"]))
 		p.offer_item("tool", str(nt["title"]), "%s%s" % [str(nt.get("desc", "")), "  It can break harder rock than your current tool." if newly else ""], int(nt["cost"]),
-			"Tool %d of %d" % [nxt + 1, tools_total], PurchaseOffers.tool_next(self, func(): menu_act("upgrades", 0, false)), "" if short <= 0 else "Need %s more" % QuarryTheme.money_text(short))
+			"Tool %d of %d" % [nxt + 1, tools_total], PurchaseOffers.tool_next(self, func(): menu_act("upgrades", 0, false)), lock_txt if lock_txt != "" else ("" if short <= 0 else "Need %s more" % QuarryTheme.money_text(short)))
+	# Phase 9.2: the rest of the pegboard - specialist tools (Q swaps the tool in your hand) and hauling aids
+	var cats := [["TOOLS FOR THE JOB", ["pointed_chisel", "flat_chisel", "repaired_pickaxe", "sledgehammer", "steel_pickaxe", "hardened_pickaxe", "hand_splitter", "powered_hammer", "pneumatic_chisel", "air_compressor"]], ["HAULING", ["hand_cart", "wheelbarrow", "reinforced_wheelbarrow"]]]
+	for cat in cats:
+		p.text(str(cat[0]), QuarryTheme.ACCENT)
+		for gid in cat[1]:
+			var gd := prog.gear_def(str(gid))
+			var have := prog.owns(str(gid))
+			var note := ""
+			if not have:
+				note = prog.unlock_missing_text(str(gid))
+			var gcopy := str(gid)
+			p.offer_item("gear_" + gcopy, str(gd["title"]), str(gd.get("desc", "")), int(gd["cost"]), "OWNED" if have else str(gd.get("class", "")).capitalize(),
+				PurchaseOffers.gear(self, gcopy, func(): buy_gear(gcopy)), note)
 	p.text("TUNING AND GEAR", QuarryTheme.ACCENT)
 	for i in range(UPGRADE_MENU.size()):
 		var key: String = UPGRADE_MENU[i]
@@ -2330,7 +2367,7 @@ func _load(quiet := false) -> void:
 	for did in prog.story["found"]:
 		if not prog.story["read"].get(did, false):
 			_spawn_discovery(did, str(prog.story.get("found_at", prog.cfg.get("starting_formations", ["stone_mountain"])[0])))
-	player.tool_view.equip(state.tool_tier, true)
+	player.tool_view.equip(prog.model_tier(), true)
 	_refresh_workbench()
 	for i in range(state.crushers.size()):
 		_create_crusher(i)
@@ -4597,12 +4634,41 @@ func buy_next_tool() -> bool:
 	if not prog.buy_next_tool():
 		_notify("The %s costs %s." % [str(nt["title"]), QuarryTheme.money_text(int(nt["cost"]))])
 		return false
-	player.tool_view.equip(state.tool_tier, menu != "")   # behind a menu nobody sees the swap animation: just show the new tool
+	player.tool_view.equip(prog.model_tier(), menu != "")   # behind a menu nobody sees the swap animation: just show the new tool
 	_refresh_workbench()
 	hud.toast("New tool: " + str(nt["title"]), "MINING POWER +%d%%" % prog.tool_gain_percent(from, state.tool_tier), "unlock")
 	_sfx_unlock()
 	_notify(str(nt.get("desc", "")))
 	return true
+
+func buy_gear(id: String) -> bool:
+	var g := prog.gear_def(id)
+	var why := prog.gear_block_reason(id)
+	if why != "":
+		_notify(why)
+		return false
+	prog.buy_gear(id)
+	player.tool_view.equip(prog.model_tier(), menu != "")
+	_refresh_workbench()
+	if str(g.get("kind", "tool")) == "cart":
+		hud.toast(str(g["title"]), "BAG NOW HOLDS %d" % state.capacity(), "unlock")
+	elif str(g.get("kind", "tool")) == "equipment":
+		hud.toast(str(g["title"]), "POWERED TOOLS +%d%%" % int(round((float(g.get("power_mult", 1.0)) - 1.0) * 100.0)), "unlock")
+	else:
+		hud.toast("New tool: " + str(g["title"]), str(g.get("class", "")).to_upper(), "unlock")
+	_sfx_unlock()
+	_notify(str(g.get("desc", "")))
+	return true
+
+## Q: take the next tool you own into your hand.
+func cycle_tool() -> void:
+	if prog.held_options().size() < 2:
+		_notify("You only have one tool. Buy more at the workbench.")
+		return
+	prog.cycle_tool()
+	player.tool_view.equip(prog.model_tier(), false)
+	var t := prog.tool()
+	hud.toast(str(t["title"]), "%s - %s" % [str(t.get("class", "general")).to_upper(), ("%.0f damage a second" % prog.tool_dps()) if prog.is_continuous() else ("%.0f damage, %.1f swings a second" % [prog.tool_power(), 1.0 / prog.tool_interval() * prog.speed_mult()])], "info")
 
 func buy_player_upgrade(key: String) -> bool:
 	var info: Dictionary = prog.cfg.get("player_upgrades", {}).get(key, {})

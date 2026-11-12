@@ -37,5 +37,10 @@
     "pieces": 2
   },
   "advanced_speed_mult": 0.45,
-  "advanced_capacity_mult": 2
+  "advanced_capacity_mult": 2,
+  "cart_capacity": {
+    "hand_cart": 20,
+    "wheelbarrow": 40,
+    "reinforced_wheelbarrow": 70
+  }
 }
