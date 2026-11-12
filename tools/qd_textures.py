@@ -177,6 +177,79 @@ def cut_strata(size, r, seed):
     return a
 
 
+def natural_strata(size, r, seed, seams=None, veins=None, drill=0, cracks=4):
+    """Natural bedded rock without any block outlines: wavy horizontal beds of different thickness whose boundaries
+    wander with periodic noise, fine layer lines inside each bed, soft low-frequency tone clusters, a few hairline
+    cracks and small pits. Tiles seamlessly, so a surface mapped in world space reads as one continuous rock mass."""
+    rng = np.random.default_rng(seed)
+    a = canvas(size, size)
+    n_lo = pnoise(size, size, 3, seed + 1)
+    n_mid = pnoise(size, size, 8, seed + 2)
+    n_hi = pnoise(size, size, 16, seed + 3)
+    # bed thicknesses that add up to exactly `size` (so the texture tiles vertically)
+    th = []
+    left = size
+    while left > 0:
+        t = int(rng.integers(10, 26))
+        if left - t < 8:
+            t = left
+        th.append(t)
+        left -= t
+    edges = np.cumsum([0] + th)
+    bed_of = np.zeros(size, int)
+    for bi in range(len(th)):
+        bed_of[edges[bi]:edges[bi + 1]] = bi
+    lv_bed = [int(np.clip(rng.integers(2, len(r) - 1), 1, len(r) - 2)) for _ in th]
+    wobble = (n_lo - 0.5) * 12.0 + (n_mid - 0.5) * 4.0
+    for y in range(size):
+        for x in range(size):
+            yy = int(round(y + wobble[y, x])) % size       # wavy bed boundaries
+            bi = bed_of[yy]
+            lv = lv_bed[bi]
+            v = n_mid[y, x] * 0.6 + n_hi[y, x] * 0.4
+            if v > 0.72:
+                lv += 1
+            elif v < 0.28:
+                lv -= 1
+            pos_in_bed = yy - edges[bi]
+            if pos_in_bed == 0:
+                lv += 1                                         # light lip where a bed starts
+            elif pos_in_bed >= th[bi] - 1:
+                lv -= 2                                         # thin dark seam where it ends
+            elif (pos_in_bed * 7 + bi * 3 + (x // 23)) % 9 == 0 and n_hi[y, x] > 0.35:
+                lv -= 1                                         # fine layer lines inside the bed
+            a[y, x] = r[int(np.clip(lv, 0, len(r) - 1))]
+    if seams:
+        sr, slv = seams
+        for bi in range(0, len(th), 2):
+            for x in range(size):
+                if n_hi[edges[bi] % size, x] > 0.3:
+                    put(a, x, edges[bi], sr[slv])
+    for k in range(cracks):                                    # hairline cracks (random walks, mostly vertical)
+        x, y = int(rng.integers(0, size)), int(rng.integers(0, size))
+        for t in range(int(rng.integers(14, 40))):
+            put(a, x, y, r[0])
+            y += 1
+            x += int(rng.integers(-1, 2)) if rng.random() < 0.5 else 0
+    for k in range(size // 3):                                  # pits
+        px, py = int(rng.integers(0, size)), int(rng.integers(0, size))
+        put(a, px, py, r[1])
+    if veins:
+        vr, vlv, nv = veins
+        for k in range(nv):
+            x, y = int(rng.integers(0, size)), int(rng.integers(0, size))
+            for t in range(int(rng.integers(10, 26))):
+                put(a, x, y, vr[vlv + (1 if t % 5 == 0 else 0)])
+                x += int(rng.integers(0, 2))
+                y += int(rng.integers(-1, 2))
+    for k in range(drill):                                       # drill-hole traces
+        x = int((k + 0.5) * size / drill)
+        for yy in range(size):
+            put(a, x, yy, r[1])
+            put(a, x + 1, yy, r[min(len(r) - 1, 4)])
+    return a
+
+
 def gravel(size, r, seed, base=3, dust=None):
     a = canvas(size, size)
     n = pnoise(size, size, 4, seed)
@@ -393,8 +466,8 @@ texture_filter = 4
 def phase5(stone, conc, soil, ink, tar, metal, rust):
     """Phase 5 deep-layer rock: copper-stained greenstone, gold-bearing quartz, crushed gravel, deep wall."""
     moss, lichen, ochre, yel = ramp("moss"), ramp("lichen"), ramp("motif_ochre"), ramp("road_yellow")
-    save("T_QD_RockCopper", strata(128, [ink[0], tar[1], moss[0], tar[2], moss[1], lichen[1]], 15, seams=(ink, 0), veins=(lichen, 2, 18)))
-    save("T_QD_RockGold", strata(128, [ink[1], conc[1], tar[2], conc[2], conc[3], conc[4]], 16, seams=(ink, 0), veins=(yel, len(yel) - 2, 16)))
+    save("T_QD_RockCopper", natural_strata(128, [ink[0], tar[1], moss[0], tar[2], moss[1], lichen[1]], 15, seams=(ink, 0), veins=(lichen, 2, 18)))
+    save("T_QD_RockGold", natural_strata(128, [ink[1], conc[1], tar[2], conc[2], conc[3], conc[4]], 16, seams=(ink, 0), veins=(yel, len(yel) - 2, 16)))
     save("T_QD_RockGravel", gravel(64, conc, 17, base=4, dust=(stone, 3)))
     ink_c = ink[0]
     for stage, (count, length) in enumerate([(3, 14), (6, 22), (10, 30)], start=1):
@@ -411,7 +484,7 @@ def phase5(stone, conc, soil, ink, tar, metal, rust):
                 if a[hy, hx, 3] == 0:
                     a[hy, hx] = (*conc[5], 150)
         save("T_QD_Crack%d" % stage, a, tiling=False)
-    save("T_QD_RockDeep", strata(128, [ink[1], tar[1], soil[1], tar[2], soil[2], conc[2]], 18, seams=(ink, 0), drill=4))
+    save("T_QD_RockDeep", natural_strata(128, [ink[1], tar[1], soil[1], tar[2], soil[2], conc[2]], 18, seams=(ink, 0)))
 
 
 def main():
@@ -420,11 +493,11 @@ def main():
     mustard, red, orange, yel = ramp("paint_mustard"), ramp("paint_red"), ramp("paint_orange"), ramp("sign_yellow")
     back, white, navy, green = ramp("sign_backing"), ramp("paint_white"), ramp("paint_navy"), ramp("paint_green")
     rock_lime = [conc[2], conc[3], conc[4], stone[3] if len(stone) > 3 else conc[5], conc[5], conc[6]]
-    save("T_QD_RockLimestone", strata(128, rock_lime, 11))
-    save("T_QD_RockCoal", strata(128, [ink[0], tar[1], tar[2], tar[3], conc[1], conc[2]], 12, seams=(ink, 0), veins=(metal, 3, 10)))
-    save("T_QD_RockIron", strata(128, [rust[0], rust[1], soil[2], rust[2], soil[3], rust[3]], 13, veins=(rust, 4, 14)))
-    save("T_QD_CutLimestone", cut_strata(128, rock_lime, 15))
-    save("T_QD_CliffStrata", strata(128, [conc[1], soil[2], conc[2], soil[3], conc[3], stone[3] if len(stone) > 3 else conc[4]], 14, seams=(soil, 1), drill=4))
+    save("T_QD_RockLimestone", natural_strata(128, rock_lime, 11))
+    save("T_QD_RockCoal", natural_strata(128, [ink[0], tar[1], tar[2], tar[3], conc[1], conc[2]], 12, seams=(ink, 0), veins=(metal, 3, 10)))
+    save("T_QD_RockIron", natural_strata(128, [rust[0], rust[1], soil[2], rust[2], soil[3], rust[3]], 13, veins=(rust, 4, 14)))
+    save("T_QD_CutLimestone", natural_strata(128, rock_lime, 15, cracks=5))
+    save("T_QD_CliffStrata", natural_strata(128, [conc[2], stone[2], conc[3], stone[3], conc[4], stone[4]], 14, cracks=6))
     save("T_QD_QuarryFloor", gravel(256, conc, 21, base=3, dust=(stone, 2)))
     save("T_QD_ExcavatedDirt", gravel(128, soil, 22, base=3, dust=(mud, 2)))
     save("T_QD_Corrugated", corrugated(64, metal, rust, 31), rough=0.6, metal_spec=0.5)

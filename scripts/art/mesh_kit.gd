@@ -183,18 +183,18 @@ static func cut_block_into(s: Soup, c: Vector3, size: Vector3, seed: int) -> voi
 	rng.seed = seed
 	var hw := size.x * 0.5
 	var hd := size.z * 0.5
-	var cut := [rng.randf_range(0.08, 0.34) * size.x, rng.randf_range(0.08, 0.34) * size.x, rng.randf_range(0.08, 0.34) * size.z, rng.randf_range(0.08, 0.34) * size.z]
+	var cut := [rng.randf_range(0.03, 0.09) * size.x, rng.randf_range(0.03, 0.09) * size.x, rng.randf_range(0.03, 0.09) * size.z, rng.randf_range(0.03, 0.09) * size.z]
 	var ring := [Vector2(-hw + cut[0], -hd), Vector2(hw - cut[1], -hd), Vector2(hw, -hd + cut[1]), Vector2(hw, hd - cut[2]),
 		Vector2(hw - cut[2], hd), Vector2(-hw + cut[3], hd), Vector2(-hw, hd - cut[3]), Vector2(-hw, -hd + cut[0])]
-	var tilt_x := rng.randf_range(-0.05, 0.05)
-	var tilt_z := rng.randf_range(-0.05, 0.05)
+	var tilt_x := rng.randf_range(-0.008, 0.008)  # nearly flat: neighbouring blocks must read as one continuous face
+	var tilt_z := rng.randf_range(-0.008, 0.008)
 	var bottom := []
 	var top := []
 	for p in ring:
-		var j: Vector2 = Vector2(rng.randf_range(-0.03, 0.03) * size.x, rng.randf_range(-0.03, 0.03) * size.z)
+		var j: Vector2 = Vector2(rng.randf_range(-0.008, 0.008) * size.x, rng.randf_range(-0.008, 0.008) * size.z)
 		bottom.append(c + Vector3(p.x + j.x, 0.0, p.y + j.y))
-		var ti: Vector2 = Vector2(p.x * 0.96 + j.x * 0.5, p.y * 0.96 + j.y * 0.5)
-		var ty: float = size.y * (1.0 + tilt_x * p.x / hw + tilt_z * p.y / hd + rng.randf_range(-0.025, 0.025))
+		var ti: Vector2 = Vector2(p.x * 0.995 + j.x * 0.5, p.y * 0.995 + j.y * 0.5)
+		var ty: float = size.y * (1.0 + tilt_x * p.x / hw + tilt_z * p.y / hd + rng.randf_range(-0.006, 0.006))
 		top.append(c + Vector3(ti.x, ty, ti.y))
 	var cb := c
 	var ct := c + Vector3(0, size.y * (1.0 + rng.randf_range(-0.02, 0.02)), 0)

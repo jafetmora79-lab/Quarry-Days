@@ -22,8 +22,8 @@ var crack_pool: Array = []        # MeshInstance3D overlays
 var crack_col: Array = []         # column each overlay currently marks (-1 free)
 var _crack_next := 0
 const ZERO_XF := Transform3D(Basis(Vector3.RIGHT * 0.0001, Vector3.UP * 0.0001, Vector3.BACK * 0.0001), Vector3(0, -50, 0))
-const TONE_OLD := [Color(0.74, 0.70, 0.66), Color(0.66, 0.63, 0.60)]
-const TONE_NEW := [Color(1.0, 1.0, 0.97), Color(0.9, 0.89, 0.85)]
+const TONE_OLD := [Color(0.88, 0.86, 0.82), Color(0.88, 0.86, 0.82)]   # same tone every course: no stripes between blocks
+const TONE_NEW := [Color(1.0, 1.0, 0.98), Color(1.0, 1.0, 0.98)]
 
 func _key(ref: Vector2i) -> String:
 	return "%d:%d" % [ref.x, ref.y]
@@ -43,9 +43,8 @@ func setup(main_node, p: QuarryProgression, id: String) -> void:
 	set_meta("deposit", id)
 	set_meta("resource", res)
 	set_meta("formation", true)
-	var base_mat := (MeshKit.mat("CutLimestone") as StandardMaterial3D).duplicate() as StandardMaterial3D
+	var base_mat := QuarryFormation.rock_material(Color.WHITE).duplicate() as StandardMaterial3D   # world-space triplanar rock
 	base_mat.vertex_color_use_as_albedo = true
-	base_mat.albedo_color = Color.WHITE
 	for k in range(5):
 		var s := MeshKit.Soup.new()
 		MeshKit.cut_block_into(s, Vector3.ZERO, Vector3(cell * 1.02, tier_h * 1.01, cell * 1.02), 900 + k * 17 + id.length())
@@ -96,7 +95,7 @@ func setup(main_node, p: QuarryProgression, id: String) -> void:
 		var stack2: Array = chunks[i]
 		for t in range(stack2.size()):
 			var flip := PI if rng.randf() < 0.5 else 0.0
-			var basis := Basis(Vector3.UP, yaw + flip + rng.randf_range(-0.02, 0.02)) * Basis.from_scale(Vector3(rng.randf_range(0.99, 1.02), rng.randf_range(0.99, 1.02), sz.y / cell * rng.randf_range(0.99, 1.02)))
+			var basis := Basis(Vector3.UP, yaw + flip) * Basis.from_scale(Vector3(1.0, 1.0, sz.y / cell))
 			base_xf[_key(stack2[t])] = Transform3D(basis, lp + Vector3(0, float(t) * tier_h, 0))
 			inst_state[_key(stack2[t])] = 0
 		shown.append(stack2.size())

@@ -9,6 +9,21 @@ class_name QuarryFormation
 const CRACKS := ["res://assets/textures/T_QD_Crack1.png", "res://assets/textures/T_QD_Crack2.png", "res://assets/textures/T_QD_Crack3.png"]
 static var _crack_mats := []
 
+## Shared cut-rock material: world-space triplanar texture (continuous across blocks), tinted per use.
+static var _rock_mats := {}
+static func rock_material(tint: Color) -> StandardMaterial3D:
+	var key := tint.to_html()
+	if _rock_mats.has(key):
+		return _rock_mats[key]
+	var m := (MeshKit.mat("CutLimestone") as StandardMaterial3D).duplicate() as StandardMaterial3D
+	m.uv1_triplanar = true
+	m.uv1_world_triplanar = true
+	m.uv1_scale = Vector3(0.5, 0.5, 0.5)
+	m.uv1_triplanar_sharpness = 6.0
+	m.albedo_color = tint
+	_rock_mats[key] = m
+	return m
+
 var game
 var prog: QuarryProgression
 var fid := ""
@@ -49,15 +64,12 @@ func setup(main_node, p: QuarryProgression, id: String) -> void:
 	# Phase 6.1: style "cut" = quarry-wall blocks (flat faces, chamfered corners, bedded strata) instead of boulders.
 	cut = str(f.get("style", "")) == "cut"
 	if cut:
-		# weathered original surface vs. brighter freshly cut stone (swapped per column in refresh())
-		mat_old = (MeshKit.mat("CutLimestone") as StandardMaterial3D).duplicate()
-		mat_old.albedo_color = Color(0.74, 0.70, 0.66)
-		mat_new = (MeshKit.mat("CutLimestone") as StandardMaterial3D).duplicate()
-		mat_new.albedo_color = Color(1.0, 1.0, 0.97)
-		mat_old2 = mat_old.duplicate()
-		mat_old2.albedo_color = Color(0.66, 0.63, 0.60)    # alternate courses are a shade darker: reads as bedded strata
-		mat_new2 = mat_new.duplicate()
-		mat_new2.albedo_color = Color(0.9, 0.89, 0.85)
+		# One continuous rock surface: world-space triplanar mapping, so the strata run unbroken across block seams.
+		# The original surface is only slightly darker than freshly cut stone (swapped per column in refresh()).
+		mat_old = QuarryFormation.rock_material(Color(0.88, 0.86, 0.82))
+		mat_new = QuarryFormation.rock_material(Color(1.0, 1.0, 0.98))
+		mat_old2 = mat_old
+		mat_new2 = mat_new
 		mat = mat_old
 	var variants := []
 	for k in range(5 if cut else 4):
@@ -82,11 +94,9 @@ func setup(main_node, p: QuarryProgression, id: String) -> void:
 		for t in range(prog.column_tiers(id, i)):
 			var mi := MeshKit.inst(self, variants[rng.randi() % variants.size()], mat)
 			if cut:
-				# flush courses: blocks sit exactly on the one below, squared up with only a slight wobble
-				mi.position = local + Vector3(rng.randf_range(-0.03, 0.03), t * tier_h, rng.randf_range(-0.03, 0.03))
-				mi.rotation.y = float(rng.randi() % 4) * PI * 0.5 + rng.randf_range(-0.04, 0.04)
-				var cs_ := rng.randf_range(0.99, 1.02)
-				mi.scale = Vector3(cs_, rng.randf_range(0.99, 1.02), cs_)
+				# flush courses: blocks sit exactly on the one below with no wobble, so faces stay coplanar
+				mi.position = local + Vector3(0, t * tier_h, 0)
+				mi.rotation.y = float(rng.randi() % 4) * PI * 0.5
 			else:
 				mi.position = local + Vector3(rng.randf_range(-0.12, 0.12), t * tier_h - 0.08, rng.randf_range(-0.12, 0.12))
 				mi.rotation.y = rng.randf_range(0, TAU)
