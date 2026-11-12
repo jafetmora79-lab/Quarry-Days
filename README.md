@@ -240,6 +240,7 @@ godot --headless --fixed-fps 60 -s tests/test_phase5.gd      # Phase 5 (113 chec
 godot --headless --fixed-fps 60 -s tests/test_phase5_1.gd    # Phase 5.1 polish (101 checks)
 godot --headless --fixed-fps 60 -s tests/test_phase6_1.gd    # Phase 6.1 hillside (45 checks)
 godot --headless --fixed-fps 60 -s tests/test_phase6_2.gd    # Phase 6.2 cleanup tutorial (25 checks)
+godot --headless --fixed-fps 60 -s tests/test_phase6_3a.gd   # Phase 6.3a pit zone and north gate
 godot --headless --fixed-fps 60 -s tests/test_ui_readability.gd  # fonts, sizes, sales table, viewport (24 checks)
 ```
 

@@ -236,6 +236,8 @@ func _ground() -> void:
 		var rings := [[29.0, 0.0], [33.0, 4.5], [40.0, 7.5], [52.0, 9.0]]
 		for r in range(rings.size() - 1):
 			var p := [_ring(a0, rings[r]), _ring(a1, rings[r]), _ring(a1, rings[r + 1]), _ring(a0, rings[r + 1])]
+			if game.in_pit_corridor((p[0] + p[1] + p[2] + p[3]) * 0.25, 5.0):
+				continue # the access corridor to the pit cuts through the embankment
 			e.quad(p[0], p[1], p[2], p[3])
 
 func _g(x: float, z: float) -> Vector3:
@@ -291,7 +293,8 @@ func _cliffs() -> void:
 		solid("Cliff filler", p, Vector3(8.0, 6.4, 3.4), yaw)
 		var mesh := MeshKit.Soup.new()
 		MeshKit.cliff_into(mesh, 9.5, 7.0, 4.2, 100 + i, 4, Transform3D(Basis(Vector3.UP, yaw + PI), p - Vector3(0, 3.2, 0)))
-		MeshKit.inst(root, mesh.mesh(), _material("CliffStrata"))
+		var fm := MeshKit.inst(root, mesh.mesh(), _material("CliffStrata"))
+		fm.set_meta("filler_xz", Vector2(p.x, p.z)) # lets the world builder hide the one at the north-east gate
 	# rockfall barrier closing the east expansion (removed with its body when the milestone opens it)
 	for body in game.expansion_gate:
 		if str(body.name).begins_with("Rockfall barrier"):

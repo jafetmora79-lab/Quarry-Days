@@ -697,5 +697,21 @@
     ],
     "gift_title": "A LETTER FROM GRANDPA WALT",
     "gift_text": "Kiddo,\n\nI heard you cleaned the old place up. I knew you would.\n\nNow the real rock is open to you: the hillside behind the yard. Cut it from the front, one section at a time, and it will give up good stone.\n\nI'm sending what I had put away. Spend it on a drill when you are ready. Machines are how we cut the big blocks.\n\n- Grandpa Walt"
+  },
+  "pit_zone": {
+    "_comment": "Phase 6.3a: the pit area north-east of the yard, entered through a gate in the cliff ring. Local frame: origin at the gate, -Z points out of the quarry. The yard keeps its coordinates.",
+    "angle_deg": 306,
+    "gate_radius": 28.0,
+    "corridor_length": 30.0,
+    "corridor_width": 8.0,
+    "plateau_width": 90.0,
+    "plateau_depth": 90.0,
+    "basin_width": 36.0,
+    "basin_depth": 36.0,
+    "basin_floor": -3.6,
+    "ramp_width": 8.0,
+    "ramp_run": 20.0,
+    "wall_height": 8.0,
+    "build_margin": 3.0
   }
 }

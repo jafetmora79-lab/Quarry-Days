@@ -12,6 +12,7 @@ const ProgressionScript = preload("res://scripts/progression.gd")
 const FormationScript = preload("res://scripts/formation.gd")
 const FXScript = preload("res://scripts/fx.gd")
 const HUDScript = preload("res://scripts/hud.gd")
+const PitZoneScript = preload("res://scripts/pit_zone.gd")
 const TouchScript = preload("res://scripts/touch_controls.gd")
 const ExcavationScript = preload("res://scripts/excavation.gd")
 const RigScript = preload("res://scripts/rig.gd")
@@ -80,6 +81,8 @@ var pile_nodes := {}
 var construction := false
 var relocating := {}
 var sell_confirm := ""
+var pit_zone: QuarryPitZone     # Phase 6.3a: the new pit area behind the north-east gate
+var pit_retired: Array = []     # ring pieces retired to make the gate (for tests)
 var cleanup_nodes := {}      # Phase 6.2: weed clumps and rubble heaps still on the site (id -> body)
 var debris_dmg := {}         # id -> damage dealt so far
 var _weed_mesh: ArrayMesh
@@ -140,6 +143,7 @@ func _ready() -> void:
 	art = ArtScript.new()
 	art.build_environment(self)
 	_carve_hillside_site()
+	_build_pit_zone()
 	_spawn_cleanup()
 	art.dress_storage(storage_body)
 	for kind in deposit_nodes:
@@ -367,6 +371,7 @@ func _spawn_cleanup() -> void:
 		if is_instance_valid(n):
 			n.queue_free()
 	cleanup_nodes.clear()
+	_sync_pit_gate()
 	if not prog.cleanup_active():
 		return
 	_debris_meshes()
@@ -462,13 +467,64 @@ func _on_site_cleared() -> void:
 	state.money += gift
 	if hud:
 		hud.popup_money(gift)
-		hud.toast("Site cleared!", "The hillside is open. Walt sent $%d." % gift, "milestone")
+		hud.toast("Site cleared!", "The hillside and the north gate are open. Walt sent $%d." % gift, "milestone")
 		player.locked = true
 		hud.show_card(str(cu.get("gift_title", "A LETTER")), str(cu.get("gift_text", "")), func(): player.locked = false)
 	_sfx_unlock()
 	if formation_nodes.has(HILLSIDE_ID):
 		formation_nodes[HILLSIDE_ID].update_label()
-	_notify("Walt's gift: $%d. The hillside is open." % gift)
+	_sync_pit_gate()
+	_notify("Walt's gift: $%d. The hillside and the north gate are open." % gift)
+
+# ------------------------------------------------------------------ Phase 6.3a: the pit area behind the north-east gate
+
+func pit_gate_xf() -> Transform3D:
+	return PitZoneScript.gate_transform(prog.cfg.get("pit_zone", {}))
+
+## True near the access corridor (world builders use it to keep scenery out of the way).
+func in_pit_corridor(p: Vector3, margin := 0.0) -> bool:
+	var c: Dictionary = prog.cfg.get("pit_zone", {})
+	if c.is_empty():
+		return false
+	var l := pit_gate_xf().affine_inverse() * p
+	return absf(l.x) <= float(c.get("corridor_width", 8.0)) * 0.5 + margin and l.z <= 12.0 and l.z >= -(float(c.get("corridor_length", 30.0)) + 3.0)
+
+## Retires the ring pieces in the gate's mouth (low rim walls, the cliff filler) and builds the zone behind it.
+func _build_pit_zone() -> void:
+	if prog.cfg.get("pit_zone", {}).is_empty():
+		return
+	var inv := pit_gate_xf().affine_inverse()
+	for body in world.get_children():
+		if not body is StaticBody3D or body.has_meta("ground") or body.collision_layer != 1:
+			continue
+		var l: Vector3 = inv * body.global_position
+		if absf(l.x) > 7.0 or l.z > 9.0 or l.z < -3.0 or body.position.y < 0.9:
+			continue
+		var h := 0.0
+		for c in body.get_children():
+			if c is CollisionShape3D and c.shape is BoxShape3D:
+				h = maxf(h, (c.shape as BoxShape3D).size.y)
+		if absf(h - 2.2) < 0.05 or absf(h - 6.0) < 0.05 or absf(h - 6.4) < 0.05:
+			body.visible = false
+			body.collision_layer = 0
+			body.set_meta("nav_skip", true)
+			pit_retired.append(str(body.name))
+	if art:
+		for m in art.root.get_children():
+			if m.has_meta("filler_xz"):
+				var fp: Vector2 = m.get_meta("filler_xz")
+				var fl: Vector3 = inv * Vector3(fp.x, 0, fp.y)
+				if absf(fl.x) <= 7.0 and fl.z <= 9.0 and fl.z >= -3.0:
+					m.visible = false
+	pit_zone = PitZoneScript.new()
+	if not pit_zone.setup(self):
+		pit_zone.free()
+		pit_zone = null
+
+## The gate opens with the cleanup tutorial (saves from before it are already open).
+func _sync_pit_gate() -> void:
+	if pit_zone:
+		pit_zone.set_open(not prog.cleanup_active())
 
 ## Footprint of the Phase 6.1 hillside (world xz), from its formation data. Empty rect when the data has none.
 func hillside_rect() -> Rect2:
@@ -1419,6 +1475,8 @@ func placement_valid(pos: Vector3, yaw: float) -> bool:
 ## Buildable ground: the original quarry floor, plus the east expansion once it is open.
 func in_build_area(pos: Vector3, margin := 0.0) -> bool:
 	if excavation and excavation.lower_build_ok(pos):
+		return true
+	if pit_zone and pit_zone.build_ok(pos, margin):
 		return true
 	if pos.y < -0.5:
 		return false
