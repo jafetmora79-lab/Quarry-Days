@@ -186,8 +186,7 @@
     "Hardened Pickaxe",
     "Hand Rock Splitter",
     "Stone Crusher",
-    "Output Storage",
-    "Sorting Table"
+    "Output Storage"
    ],
    "price_mult": 0.065
   },
@@ -206,7 +205,6 @@
    },
    "unlocks": [
     "Hire workers",
-    "Small Hopper",
     "Conveyors",
     "Employee improvements"
    ],
