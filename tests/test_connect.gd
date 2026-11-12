@@ -31,6 +31,9 @@ func run() -> void:
 	game.hud.close_card()
 	await process_frame
 	game.prog.stage = game.prog.stage_index("large")
+	for b in game.world.get_children():
+		if str(b.name).begins_with("Debris_"):
+			b.free()   # tutorial weeds would block the build spots
 	game.state.money = 90000
 	game.business.milestones["mechanized"] = true
 	# a crusher, with a loose output spot near its chute
