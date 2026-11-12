@@ -203,15 +203,22 @@ func formation_origin_world(id: String) -> Vector3:
 	var c: Array = fdef(id)["center"]
 	return formation_frame(id) * Vector3(float(c[0]), float(c[1]), float(c[2]))
 
-## Creates or migrates a formation record. Saves that already hold its columns keep them exactly.
+## Creates or migrates a formation record. Saves that already hold its columns keep them exactly. Phase 8.7: a save
+## written with the OLD column layout of a re-laid formation (see "legacy_formations") is converted by cleared fraction:
+## the same share of rock stays excavated, cut from the face outward, so no progress is lost or duplicated.
 func init_formation(id: String) -> Dictionary:
 	var d: Dictionary = state.deposits.get(id, {})
 	var n := column_count(id)
 	var cols: Array = d.get("columns", [])
 	if cols.size() != n:
-		cols = []
-		for i in range(n):
-			cols.append(column_max(id, i))
+		var legacy: Dictionary = cfg.get("legacy_formations", {}).get(id, {})
+		if not legacy.is_empty() and cols.size() == int(legacy.get("columns", -1)) and not cols.is_empty():
+			cols = _migrate_columns(id, cols, legacy)
+			d["migrated"] = int(d.get("migrated", 0)) + 1
+		else:
+			cols = []
+			for i in range(n):
+				cols.append(column_max(id, i))
 	for i in range(n):
 		cols[i] = clampi(int(cols[i]), 0, column_max(id, i))
 	d["columns"] = cols
@@ -226,6 +233,34 @@ func init_formation(id: String) -> Dictionary:
 	d["cleared"] = bool(d.get("cleared", false)) or int(d["stock"]) <= 0
 	state.deposits[id] = d
 	return d
+
+## Old column layout -> new one. The share of units already taken out is kept (rounded down, never more than was mined);
+## it is removed from the new grid column by column, starting at the haul-road end and working along the grid.
+func _migrate_columns(id: String, old_cols: Array, legacy: Dictionary) -> Array:
+	var old_total := maxi(1, int(legacy.get("units", 1)))
+	var left_old := 0
+	for v in old_cols:
+		left_old += maxi(0, int(v))
+	var mined_frac := clampf(1.0 - float(left_old) / float(old_total), 0.0, 1.0)
+	var out := []
+	var total := 0
+	for i in range(column_count(id)):
+		out.append(column_max(id, i))
+		total += column_max(id, i)
+	var to_cut := int(floor(mined_frac * float(total)))
+	var order := range(column_count(id))
+	var d := dims(id)
+	order.sort_custom(func(a, b):
+		var ka: float = float(a / d.x) * 100.0 + absf(float(a % d.x) - float(d.x - 1) * 0.5)
+		var kb: float = float(b / d.x) * 100.0 + absf(float(b % d.x) - float(d.x - 1) * 0.5)
+		return ka < kb or (ka == kb and a < b))
+	for i in order:
+		if to_cut <= 0:
+			break
+		var take := mini(int(out[i]), to_cut)
+		out[i] = int(out[i]) - take
+		to_cut -= take
+	return out
 
 func _sync_stock(d: Dictionary) -> void:
 	var s := 0
@@ -485,7 +520,36 @@ func level_unlock_met(n: int) -> bool:
 func check_levels() -> void:
 	while quarry_level < levels().size() and level_unlock_met(quarry_level + 1):
 		quarry_level += 1
+		open_roads(quarry_level)
 		quarry_level_reached.emit(quarry_level)
+
+## Phase 8.7: the haul road of an opened level. Its "roads" rects (pit frame) are cut out of that level's own rock the
+## moment the level opens, so the way down to the next ramp is never blocked and never needs mining by hand. Rock cut
+## this way is simply gone (no resources are paid for it); calling it again does nothing. Returns the columns removed.
+func open_roads(n: int) -> int:
+	var removed := 0
+	var inv: Transform3D = PitZoneScript.gate_transform(cfg.get("pit_zone", {})).affine_inverse()
+	for r in level_def(n).get("roads", []):
+		var rc: Array = r
+		for id in level_formations(n):
+			if not state.deposits.has(id):
+				init_formation(id)
+			for i in range(column_count(id)):
+				if column_units(id, i) <= 0:
+					continue
+				var p: Vector3 = inv * column_pos(id, i)
+				if p.x > float(rc[0]) and p.x < float(rc[2]) and p.z > float(rc[1]) and p.z < float(rc[3]):
+					state.deposits[id]["columns"][i] = 0
+					removed += 1
+			_sync_stock(state.deposits[id])
+	return removed
+
+## Every level already reached has its haul road open (saves, and levels reached through a cleared fraction).
+func open_all_roads() -> int:
+	var n := 0
+	for lv in range(2, quarry_level + 1):
+		n += open_roads(lv)
+	return n
 
 ## Brings a progression save block up to the current schema. Each step only adds what the older format lacked; nothing
 ## in the old data is changed or dropped, so mined rock, stages, machines and rigs carry over untouched.
@@ -1115,6 +1179,7 @@ func restore(raw_data: Dictionary, vehicle_types: Array = []) -> void:
 		stats[k] = maxi(0, int(s.get(k, 0))) if s is Dictionary else 0
 	stage = maxi(clampi(int(data.get("stage", 0)), 0, stages().size() - 1), implied_stage(vehicle_types))
 	check_stages()
+	open_all_roads()
 	if not (st is Dictionary and st.has("milestones")):
 		# a save from before Phase 8.2: what it has already dug counts as reached, with no windfall
 		for m in milestone_defs():

@@ -4486,6 +4486,11 @@ func hud_badges() -> Array:
 	return lines
 
 func _on_quarry_level(n: int) -> void:
+	# Phase 8.7: the level's haul road was cut out of its rock (progression.open_roads): show it, and let the crews find the way
+	for fid in prog.level_formations(n):
+		_refresh_deposit(fid)
+	if pit_zone:
+		pit_zone.request_bake()
 	if hud:
 		hud.toast("Quarry level %d reached" % n, str(prog.level_def(n).get("title", "")), "milestone")
 		_sfx_unlock()
