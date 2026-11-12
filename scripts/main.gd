@@ -24,6 +24,8 @@ const HOME_POS := Vector3(-8.6, 0, 18.9)
 const OFFICE_POS := Vector3(-15.5, 0, 12)
 const SHED_POS := Vector3(15.5, 0, 12)
 const SAVE_PATH := "user://quarry_save.json"
+const SAVE_BACKUP := "user://quarry_save.bak"
+const AUTOSAVE_SECONDS := 60.0
 const RESOURCE_ORDER := ["limestone", "coal", "iron_ore", "crushed_stone", "copper_ore", "gold_ore"]
 # Phase 5: the three small starting rocks are replaced by enormous finite formations (data/progression.json).
 # The quarry face stays as the never-empty hand-mining fallback.
@@ -90,6 +92,9 @@ var sleeping := false
 var sleep_timer := 0.0
 var _late_day := -1             # day on which the "go home to sleep" hint was shown
 var landscape: QuarryLandscape  # sky, clouds, distant mountains and forest (no collision)
+var autosave_enabled := DisplayServer.get_name() != "headless"   ## tests run headless and never touch the player's save
+var autosave_t := 0.0
+var _confirm_new := false
 var doors: Array = []            # QuarryDoor: the office and home doors (E to open / close)
 var delivery: QuarryDelivery    # service gate, garage door, delivery drivers and walk-in hires
 var pit_zone: QuarryPitZone     # Phase 6.3a: the new pit area behind the north-east gate
@@ -209,6 +214,8 @@ func _ready() -> void:
 	loop_stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
 	_update_light()
 	_refresh_stage_hud()
+	if autosave_enabled and FileAccess.file_exists(SAVE_PATH):
+		_load(true)                                  # continue where you left off: a launch never starts from scratch over a save
 	if not prog.story["intro_seen"]:
 		call_deferred("_show_intro")
 
@@ -1095,6 +1102,11 @@ func _physics_process(delta: float) -> void:
 		# the chase camera would sit inside the roof: take the roof off while a vehicle is driven under it
 		var inside := driving != null and driving.global_position.x > -6.5 and driving.global_position.x < 16.0 and driving.global_position.z > 12.5 and driving.global_position.z < 24.0
 		art.garage_roof.visible = not inside
+	if autosave_enabled:
+		autosave_t += delta
+		if autosave_t >= AUTOSAVE_SECONDS and not sleeping and not placement:
+			autosave_t = 0.0
+			_save(true)
 	state.tick(delta)
 	business.tick(delta)
 	fleet.tick()
@@ -1213,6 +1225,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_close_menu()
 		else:
 			_open_menu("pause")
+			if autosave_enabled:
+				_save(true)                          # opening the pause menu is a natural checkpoint
 		get_viewport().set_input_as_handled()
 		return
 	if menu == "manage":
@@ -1313,6 +1327,7 @@ func _open_menu(kind: String, index := -1) -> void:
 
 func _close_menu() -> void:
 	menu = ""
+	_confirm_new = false
 	player.tool_view.equip(state.tool_tier, true)   # always back in hand with the tool you own
 	panel.visible = false
 	management.visible = false
@@ -1355,8 +1370,14 @@ func _draw_menu() -> void:
 	match menu:
 		"pause":
 			p.begin("PAUSED", -1, "Optional keys:  F5 save   F9 load   Esc resume")
-			p.text("The quarry waits for you. Save with the button or F5.", QuarryTheme.DIM, true)
-			p.button_bar([["resume", "RESUME", true, func(): _close_menu()], ["save", "SAVE GAME", true, func(): _save()], ["load", "LOAD GAME", true, func(): _load()]])
+			p.text("The game saves itself every minute and when you close it. Save now with the button or F5." if not _confirm_new else "Erase your save and start a brand new game? Click NEW GAME again to confirm.", QuarryTheme.DIM if not _confirm_new else QuarryTheme.WARN, true)
+			p.button_bar([["resume", "RESUME", true, func(): _confirm_new = false; _close_menu()], ["save", "SAVE GAME", true, func(): _save()], ["load", "LOAD GAME", true, func(): _load()],
+				["new", "NEW GAME" if not _confirm_new else "ERASE & RESTART", true, func():
+					if _confirm_new:
+						new_game()
+					else:
+						_confirm_new = true
+						_draw_menu()]])
 		"sell": _draw_sell(p)
 		"upgrades": _draw_upgrades(p)
 		"storage":
@@ -1760,8 +1781,9 @@ func _create_crusher(index: int) -> void:
 	body.set_meta("last_output", int(data["output"]))
 	crusher_nodes.append(body)
 
-func _save() -> void:
-	if placement:
+func _save(quiet := false) -> void:
+	var placing := placement
+	if placement and not quiet:
 		_cancel_placement()
 	state.player_position = [player.position.x,player.position.y,player.position.z]
 	state.player_yaw = player.rotation.y
@@ -1775,7 +1797,7 @@ func _save() -> void:
 			e["yaw"] = w.rotation.y
 	for v in vehicle_nodes.values():
 		var rec := fleet.vehicle(v.vehicle_id)
-		if not rec.is_empty():
+		if not rec.is_empty() and not v.has_meta("delivering"):   # a machine still being delivered is saved on its bay
 			v.save_into(rec)
 	fleet.driving_id = driving.vehicle_id if driving else -1
 	var data := state.snapshot()
@@ -1783,21 +1805,59 @@ func _save() -> void:
 	data["phase2"] = business.snapshot()
 	data["phase3"] = fleet.snapshot()
 	data["phase5"] = prog.snapshot()
-	var f := FileAccess.open(SAVE_PATH,FileAccess.WRITE)
-	if f:
-		f.store_string(JSON.stringify(data))
-		f.close()
-		_notify("Saved quarry progress")
-	else:
-		_notify("Save failed")
-
-func _load() -> void:
-	if not FileAccess.file_exists(SAVE_PATH):
-		_notify("No save yet")
+	# write to a temporary file first, keep the previous good save as a backup, then swap: a crash or a closed window
+	# in the middle of a save can no longer leave a broken or empty save behind
+	var tmp := SAVE_PATH + ".tmp"
+	var f := FileAccess.open(tmp, FileAccess.WRITE)
+	if f == null:
+		if not quiet:
+			_notify("Save failed")
 		return
-	var data = JSON.parse_string(FileAccess.get_file_as_string(SAVE_PATH))
-	if not data is Dictionary or not data.has("pieces") or not state.restore(data):
-		_notify("Save could not be read")
+	f.store_string(JSON.stringify(data))
+	f.close()
+	if FileAccess.file_exists(SAVE_PATH):
+		DirAccess.copy_absolute(SAVE_PATH, SAVE_BACKUP)
+	if DirAccess.rename_absolute(tmp, SAVE_PATH) != OK:
+		DirAccess.remove_absolute(SAVE_PATH)
+		if DirAccess.rename_absolute(tmp, SAVE_PATH) != OK:
+			if not quiet:
+				_notify("Save failed")
+			return
+	if not quiet:
+		_notify("Saved quarry progress")
+	elif placing:
+		pass
+
+## The newest readable save: the main file, or the backup of the one before it.
+func _read_save() -> Variant:
+	for path in [SAVE_PATH, SAVE_BACKUP]:
+		if FileAccess.file_exists(path):
+			var d = JSON.parse_string(FileAccess.get_file_as_string(path))
+			if d is Dictionary and d.has("pieces"):
+				return d
+	return null
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST and autosave_enabled and player != null:
+		_save(true)                                  # closing the window keeps your progress
+
+## Erases the save and starts over (asked twice in the pause menu).
+func new_game() -> void:
+	autosave_enabled = false
+	for path in [SAVE_PATH, SAVE_BACKUP, SAVE_PATH + ".tmp"]:
+		if FileAccess.file_exists(path):
+			DirAccess.remove_absolute(path)
+	get_tree().reload_current_scene()
+
+func _load(quiet := false) -> void:
+	var data = _read_save()
+	if data == null:
+		if not quiet:
+			_notify("No save yet" if not FileAccess.file_exists(SAVE_PATH) else "Save could not be read")
+		return
+	if not state.restore(data):
+		if not quiet:
+			_notify("Save could not be read")
 		return
 	var phase2 = data.get("phase2", {})
 	business.restore(phase2 if phase2 is Dictionary else {})
