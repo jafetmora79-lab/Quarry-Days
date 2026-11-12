@@ -205,6 +205,7 @@ func _ready() -> void:
 	management = ManagementScript.new()
 	management.setup(self)
 	ui.add_child(management)
+	_build_truck()                                   # before the first bake, so routes go around it
 	_rebake_nav()
 	for key in ["hit_hammer", "hit_pick", "hit_reinforced", "rock_break", "ui_pop", "coin", "unlock", "breaker_hit"]:
 		sfx[key] = _audio("res://audio/%s.wav" % key, -9.0)
@@ -224,7 +225,6 @@ func _ready() -> void:
 	_refresh_stage_hud()
 	if autosave_enabled and FileAccess.file_exists(SAVE_PATH):
 		_load(true)                                  # continue where you left off: a launch never starts from scratch over a save
-	_build_truck()
 	if not prog.story["intro_seen"]:
 		call_deferred("_show_intro")
 
@@ -3361,7 +3361,6 @@ func _build_truck() -> void:
 			root.add_child(w)
 	world.add_child(root)
 	truck_node = root
-	nav_dirty = true
 
 ## Walter: the miner model with white hair. Anyone can talk to him with E while he waits.
 func _spawn_walter(at := Vector3.INF, face_to := Vector3.ZERO, npc := "walter") -> void:
@@ -3371,6 +3370,7 @@ func _spawn_walter(at := Vector3.INF, face_to := Vector3.ZERO, npc := "walter") 
 	root.name = "Walter"
 	root.position = walter_pos() if at == Vector3.INF else at
 	root.set_meta("kind", "walter")
+	root.collision_layer = 32            # seen by the look-at ray, never an obstacle for people or vehicles
 	var cs := CollisionShape3D.new()
 	var cap := CapsuleShape3D.new()
 	cap.radius = 0.35
@@ -3412,7 +3412,6 @@ func _remove_walter() -> void:
 ## Walter walks to `goal` along the navigation mesh (a straight line while it is not ready).
 func _walter_goto(goal: Vector3) -> void:
 	walter_goal = goal
-	walter_node.collision_layer = 0            # walking people do not block the player
 	var from := walter_node.global_position
 	walter_path = NavigationServer3D.map_get_path(nav_map, from, goal, true) if nav_ready() else PackedVector3Array()
 	if walter_path.size() < 2:
@@ -3442,7 +3441,6 @@ func _walter_tick(delta: float) -> void:
 		if not walking:
 			if walter_mode == "arriving":
 				walter_mode = "waiting"
-				walter_node.collision_layer = 1
 				_walter_face_player()
 				if hud:
 					var who := str(prog.visit_def(walter_visit).get("npc_name", "Grandpa Walt"))
@@ -3705,6 +3703,7 @@ func _spawn_fossil() -> void:
 	root.name = "Fossil"
 	root.position = Vector3(p.x, p.y, p.z)
 	root.set_meta("kind", "fossil")
+	root.collision_layer = 32
 	var cs := CollisionShape3D.new()
 	var sh := BoxShape3D.new()
 	sh.size = Vector3(2.4, 0.9, 1.2)
@@ -3838,6 +3837,7 @@ func _spawn_egg() -> void:
 	root.name = "DinoEgg"
 	root.position = Vector3(float(p[0]), float(p[1]), float(p[2]))
 	root.set_meta("kind", "egg")
+	root.collision_layer = 32
 	var cs := CollisionShape3D.new()
 	var sh := SphereShape3D.new()
 	sh.radius = 0.4

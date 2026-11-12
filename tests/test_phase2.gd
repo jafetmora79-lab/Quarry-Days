@@ -280,6 +280,11 @@ func scene_tests() -> void:
 	await physics_frame
 	await physics_frame
 	game.tutorial_visible = false
+	if game.walter_dialog:
+		game.walter_dialog.skip()
+		game.hud.close_card()
+		game._remove_walter()
+		game.player.global_position = Vector3(0, 0.2, 8)
 	check(game.nav_region.navigation_mesh.get_polygon_count() > 10, "6 runtime navigation mesh baked from quarry geometry")
 	check(game.nav_ready(), "6 navigation map ready")
 	game.state.money = 2000
