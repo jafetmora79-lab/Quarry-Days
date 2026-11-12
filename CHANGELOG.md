@@ -1,5 +1,23 @@
 # Changelog
 
+## Quarry Days — Phase 6.3a: the pit zone behind the north-east gate
+
+- **The gate:** at 306 degrees on the cliff ring, the cliff filler and two low rim walls in its mouth are retired. A rockfall barrier closes it until the site cleanup tutorial is done (old saves are already open). The ring has no gaps while it is closed, and the gate is the only opening once it is open (both tested).
+- **New area** (`scripts/pit_zone.gd`, data in `progression.json` → `pit_zone`; the yard keeps its coordinates):
+  - an 8 m wide, 30 m long corridor with walls;
+  - a 90 x 90 m plateau with walls;
+  - a 36 x 36 m starting basin 3.6 m down, with a 20 m, 10-degree ramp (solid fill under it, curbs, rim barriers and railings);
+  - pale limestone basin walls and brown strata outer walls;
+  - the yard's soil embankment is cut where the corridor passes through.
+- **Navigation:**
+  - The yard keeps its own region.
+  - The pit zone has a separate region baked in the background, with at most one bake per second of game time. Collecting its sources takes under 1 ms on the main thread.
+  - A `NavigationLink3D` joins the two regions across the gate while it is open, so staff can reach the plateau and the basin floor.
+  - Anything that is not the pit region is untouched.
+- **Build zones:** `in_build_area` also allows the plateau and the basin floor once the gate is open (not the rim, ramp, corridor or wall margins). Yard and east-expansion rules are unchanged.
+- **Vehicles:** a loader drives out of the yard through the gate, up the corridor onto the plateau, and down the basin ramp (tested).
+- **Tests:** `tests/test_phase6_3a.gd` (22 checks). No mining or benches yet: those are 6.3b onward.
+
 ## Quarry Days — Phase 6.2: clean up Grandpa's site (tutorial)
 
 - **New first step:** the old quarry is overgrown. 18 weed clumps and 8 rubble heaps are scattered over the open ground (`data/progression.json` → `cleanup`; positions are fixed, chosen so none touches a building, formation, the pit or the hillside).

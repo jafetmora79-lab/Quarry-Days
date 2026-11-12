@@ -19,7 +19,7 @@ var bake_count := 0
 var bake_ms := 0.0            # main-thread time spent collecting the last bake's source geometry
 var _bake_dirty := false
 var _baking := false
-var _last_bake_msec := -100000
+var _since_bake := 100.0       # game seconds since the last bake finished (rate limit)
 
 var corr_len := 30.0
 var corr_w := 8.0
@@ -125,6 +125,14 @@ func _build_ground() -> void:
 	var thick := 0.4
 	var ramp := _body("Basin ramp", Vector3(0, -depth * 0.5 - thick * 0.5 / cos(ang) - 0.01, zs - ramp_run * 0.5), Vector3(ramp_w, thick, length), true, Vector3(-ang, 0, 0))
 	ramp.set_meta("ramp", true)
+	# solid fill under the ramp (stepped boxes just below the slab), so nobody can crawl or see under it
+	for i in range(4):
+		var seg := ramp_run / 4.0
+		var top := -depth * float(i + 1) / 4.0 - 0.5
+		var hgt := top + depth + 0.25
+		if hgt > 0.05:
+			var fill := _body("Ramp fill", Vector3(0, -depth - 0.25 + hgt * 0.5, zs - seg * (float(i) + 0.5)), Vector3(ramp_w, hgt, seg), false)
+			fill.set_meta("nav_skip", true)
 	for side in [-1.0, 1.0]:
 		var curb := _body("Ramp curb", Vector3(side * (ramp_w * 0.5 + 0.15), -depth * 0.5 + 0.5, zs - ramp_run * 0.5), Vector3(0.25, 1.0, length - 0.6), false, Vector3(-ang, 0, 0))
 		curb.set_meta("curb", true)
@@ -211,6 +219,17 @@ func _build_art() -> void:
 	var hl := length * 0.5 + 0.1
 	rs.quad(rxf * Vector3(-hw, 0, -hl), rxf * Vector3(-hw, 0, hl), rxf * Vector3(hw, 0, hl), rxf * Vector3(hw, 0, -hl))
 	MeshKit.inst(vis, rs.mesh(), MeshKit.mat(QuarryArt.M_DIRT_ROAD))
+	var wedge := MeshKit.Soup.new()   # side faces of the ramp's solid fill (right triangles)
+	for side in [-1.0, 1.0]:
+		var xw: float = side * hw
+		var a := Vector3(xw, 0.0, zs)
+		var b := Vector3(xw, -depth, zs)
+		var c := Vector3(xw, -depth, zs - ramp_run)
+		if side > 0.0:
+			wedge.tri(a, b, c)
+		else:
+			wedge.tri(a, c, b)
+	MeshKit.inst(vis, wedge.mesh(), MeshKit.mat("CutLimestone"))
 	for side in [-1.0, 1.0]:
 		var curb := MeshKit.Soup.new()
 		MeshKit.box_into(curb, Vector3.ZERO, Vector3(0.25, 0.35, length - 0.6), Vector2.ONE, Transform3D(Basis(Vector3.RIGHT, -ang), Vector3(side * (hw + 0.15), -depth * 0.5 + 0.17, zs - ramp_run * 0.5)))
@@ -259,6 +278,7 @@ func set_open(open: bool) -> void:
 	barrier.set_meta("nav_skip", open)
 	if nav_link:
 		nav_link.enabled = open
+		NavigationServer3D.link_set_map(nav_link.get_rid(), game.nav_map)
 	request_bake()
 
 ## True when a machine may be placed at world position p (plateau and basin floor, once the gate is open).
@@ -293,15 +313,20 @@ func _build_nav() -> void:
 	nav_link.name = "PitGateLink"
 	nav_link.bidirectional = true
 	nav_link.start_position = to_world(Vector3(0, 0, 8.0))
-	nav_link.end_position = to_world(Vector3(0, 0, -6.0))
+	nav_link.end_position = to_world(Vector3(0, 0, -14.0)) # beyond the yard floor, so it lands on the pit region only
 	nav_link.enabled = false
 	game.world.add_child(nav_link)
+	NavigationServer3D.link_set_map(nav_link.get_rid(), game.nav_map) # created during _ready: make sure it is on the game's map
+
+func is_baking() -> bool:
+	return _baking or _bake_dirty
 
 func request_bake() -> void:
 	_bake_dirty = true
 
-func _process(_delta: float) -> void:
-	if _bake_dirty and not _baking and Time.get_ticks_msec() - _last_bake_msec >= 1000 and is_inside_tree():
+func _process(delta: float) -> void:
+	_since_bake += delta
+	if _bake_dirty and not _baking and _since_bake >= 1.0 and is_inside_tree():
 		_start_bake()
 
 func _collect_sources() -> NavigationMeshSourceGeometryData3D:
@@ -341,4 +366,4 @@ func _on_baked(mesh: NavigationMesh) -> void:
 	bake_count += 1
 	nav_ready = true
 	_baking = false
-	_last_bake_msec = Time.get_ticks_msec()
+	_since_bake = 0.0
