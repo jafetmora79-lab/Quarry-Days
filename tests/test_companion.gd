@@ -37,11 +37,15 @@ func run() -> void:
 	prog.fossil_choose("collector")
 	await frames(40)
 	check(prog.companion().get("state", "none") == "none" and game.egg_node == null, "2 the collector route brings no egg")
+	game._remove_walter()
+	game.walter_visit = ""
+	prog.complete_visit("fossil_after_collector")
 	prog.story["fossil"] = "found"
 	prog.story["companion"] = {"state": "none"}
 	var day0: int = game._sim_day()
 	prog.current_day = day0
 	prog.fossil_choose("scientist")
+	prog.complete_visit("fossil_after_scientist")
 	check(prog.companion().get("state") == "pending" and not prog.companion_egg_waiting(day0), "3 the scientist route promises an egg for tomorrow, not today")
 	game.hud.close_card()
 	game.player.locked = false
@@ -49,7 +53,19 @@ func run() -> void:
 	check(game.egg_node == null, "4 the egg is not there on the same day")
 	game.state.clock_minutes += 1440.0
 	await frames(70)
-	check(game.egg_node != null and prog.companion_egg_waiting(prog.current_day), "5 the next day the egg waits by the yard")
+	check(game.egg_node == null and prog.marsh_due(), "5 the next day Dr. Marsh has to come by in person first")
+	check(prog.visit_def("marsh_egg")["npc"] == "marsh" and prog.visit_def("marsh_egg")["lines"].size() >= 3, "5b her visit has her own lines")
+	game.state.clock_minutes = (floorf(game.state.clock_minutes / 1440.0)) * 1440.0 + 10.0 * 60.0
+	game.walter_speed = 60.0
+	await frames(60)
+	check(game.walter_visit == "marsh_egg" and game.walter_node != null, "5c Dr. Marsh walks in from the road")
+	await frames(120)
+	game.player.global_position = game.walter_pos() + Vector3(1.5, 0.2, 0)
+	game._talk_to_walter()
+	check(game.walter_dialog != null and game.walter_dialog.lines[0]["speaker"] == "DR. EVELYN MARSH", "5d she hands over the egg and explains")
+	game.walter_dialog.skip()
+	await frames(10)
+	check(game.egg_node != null and prog.companion_egg_waiting(prog.current_day), "5e the egg is then in its nest by the yard")
 	# ---- take the egg
 	game._take_egg()
 	check(prog.companion().get("state") == "egg" and "companion_egg" in prog.story["journal"], "6 taking the egg starts incubation and is journaled")
@@ -103,6 +119,7 @@ func run() -> void:
 	check(msg == "" and game.companion_node.busy(), "23 an adult accepts the smash command")
 	game.companion_node.global_position = game.formation_nodes[kind].column_top(col) + Vector3(2.0, 0, 0)
 	await frames(240)
+	check(prog.story.get("dino_mining_seen", false), "23b Walter reacts the first time it breaks rock")
 	check(prog.column_units(kind, col) < u0 and int(prog.stats.get("companion", 0)) > 0, "24 the tail smashes the rock down (%d -> %d units)" % [u0, prog.column_units(kind, col)])
 	check(not game.companion_node.busy() or game.companion_node.smash_left < int(prog.companion_cfg()["smash_hits"]), "25 the command is spent hit by hit")
 	game.companion_node.cancel_smash()
@@ -122,6 +139,25 @@ func run() -> void:
 	var g0: int = prog.units_left(gold)
 	game.companion_strike(gold, 0, 5000.0, game.companion_node)
 	check(prog.units_left(gold) == g0, "27 even the adult cannot break gold-bearing rock")
+	# ---- rest area and debris
+	game.state.clock_minutes = (floorf(game.state.clock_minutes / 1440.0)) * 1440.0 + 5.5 * 60.0
+	game.sleeping = false
+	game.player.locked = false
+	game.companion_node.global_position = Vector3(0, 0, 8)
+	await frames(600)
+	var rp: Array = prog.companion_cfg()["rest_pos"]
+	check(game.companion_node.resting and game.companion_node.global_position.distance_to(Vector3(float(rp[0]), 0, float(rp[2]))) < 1.2, "27b at night it lies down on its bed by the home")
+	game.state.clock_minutes = (floorf(game.state.clock_minutes / 1440.0)) * 1440.0 + 1440.0 + 10.0 * 60.0
+	game.sleeping = false
+	var weeds: Array = game.world.find_children("Debris_w*", "StaticBody3D", true, false)
+	var weed: Node3D = weeds[0] if not weeds.is_empty() else null
+	check(weed != null, "27a there are weeds to clear")
+	var wid := str(weed.get_meta("debris_id", "")) if weed != null else ""
+	if weed != null:
+		check(game.companion_node.command_debris(weed) == "", "27c it can be sent to clear weeds")
+		game.companion_node.global_position = weed.global_position + Vector3(2, 0, 0)
+		await frames(300)
+		check(prog.cleanup["cleared"].get(wid, false), "27d and clears them with its tail")
 	# ---- Walter
 	check(prog.visit_condition_met(prog.visit_def("companion_adult")) and prog.visit_condition_met(prog.visit_def("companion_born")), "28 Walter has things to say about the dinosaur")
 	# ---- saves

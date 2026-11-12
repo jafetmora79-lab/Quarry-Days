@@ -874,7 +874,21 @@ func companion_stage(day: int) -> String:
 ## The egg is on the porch waiting to be picked up.
 func companion_egg_waiting(day: int) -> bool:
 	var c: Dictionary = story["companion"]
-	return str(c.get("state", "")) == "pending" and day >= int(c.get("ready_day", 0))
+	return str(c.get("state", "")) == "pending" and day >= int(c.get("ready_day", 0)) and bool(c.get("marsh_done", false))
+
+## Dr. Marsh has to come by in person before the egg is handed over.
+func marsh_due() -> bool:
+	var c: Dictionary = story["companion"]
+	return str(c.get("state", "")) == "pending" and current_day >= int(c.get("ready_day", 0)) and not bool(c.get("marsh_done", false))
+
+## Journal pages that appear as the quarry is cleared and dug (Part 12): level 1 records, level 2 notes, level 3 sketch.
+func check_level_journal() -> Array:
+	var out := []
+	for key in walter_cfg().get("level_journal", {}):
+		var met := (bool(cleanup.get("done", false)) if str(key) == "cleaned" else quarry_level >= int(key))
+		if met and journal_add(str(walter_cfg()["level_journal"][key])):
+			out.append(str(walter_cfg()["level_journal"][key]))
+	return out
 
 func companion_take_egg(day: int) -> bool:
 	if not companion_egg_waiting(day):
@@ -945,6 +959,8 @@ func visit_condition_met(v: Dictionary) -> bool:
 		return false
 	if w.has("companion") and not (companion_stage(current_day) in w["companion"]):
 		return false
+	if bool(w.get("marsh", false)) and not marsh_due():
+		return false
 	return true
 
 ## The first visit whose condition is met and which Walter has not made yet ("" when none).
@@ -962,6 +978,8 @@ func complete_visit(id: String) -> void:
 		return
 	story["visits"][id] = true
 	journal_add(str(visit_def(id).get("journal", "")))
+	if id == "marsh_egg" and str(story["companion"].get("state", "")) == "pending":
+		story["companion"]["marsh_done"] = true
 
 # ------------------------------------------------------------------ save / load
 
@@ -1016,6 +1034,10 @@ func restore(raw_data: Dictionary, vehicle_types: Array = []) -> void:
 		var cs = st.get("companion", {})
 		if cs is Dictionary and str(cs.get("state", "none")) in ["pending", "egg", "alive"]:
 			story["companion"] = {"state": str(cs["state"])}
+			if bool(cs.get("marsh_done", false)):
+				story["companion"]["marsh_done"] = true
+			if bool(st.get("dino_mining_seen", false)):
+				story["dino_mining_seen"] = true
 			for k in ["ready_day", "egg_day", "born_day"]:
 				if cs.has(k):
 					story["companion"][k] = int(cs[k])

@@ -224,6 +224,7 @@ func _ready() -> void:
 	_refresh_stage_hud()
 	if autosave_enabled and FileAccess.file_exists(SAVE_PATH):
 		_load(true)                                  # continue where you left off: a launch never starts from scratch over a save
+	_build_truck()
 	if not prog.story["intro_seen"]:
 		call_deferred("_show_intro")
 
@@ -1180,7 +1181,7 @@ func _physics_process(delta: float) -> void:
 		art.garage_roof.visible = not inside
 	_check_introductions()
 	_check_walter_visit()
-	_walter_idle(delta)
+	_walter_tick(delta)
 	_fossil_tick(delta)
 	_companion_tick(delta)
 	if autosave_enabled:
@@ -2098,6 +2099,7 @@ func _load(quiet := false) -> void:
 			elif LEGACY_DEPOSITS.has(kind):
 				legacy_pieces[kind] = int(legacy_pieces.get(kind, 0)) + 1
 	_restore_legacy_pieces(legacy_pieces)
+	_cine_stop()
 	_remove_walter()
 	_remove_fossil()
 	_remove_companion()
@@ -3302,18 +3304,71 @@ var walter_node: Node3D
 var walter_dialog: QuarryWalterDialog
 var walter_visit := ""        ## visit id Walter has come for ("" while he is not around)
 var walter_intro_running := false
+var walter_mode := ""         ## "", "arriving", "waiting", "leaving"
+var walter_pose := "idle"
+var walter_path: PackedVector3Array = PackedVector3Array()
+var walter_path_i := 0
+var walter_goal := Vector3.ZERO
+var walter_speed := 1.7
+var truck_node: Node3D
+var cine_tweens: Array = []
+var cine_keys: Node3D
 
 func walter_pos() -> Vector3:
-	var p: Array = prog.walter_cfg().get("pos", [-3.0, 0, 6.0])
+	var p: Array = prog.walter_cfg().get("pos", [-4.2, 0, 5.2])
 	return Vector3(float(p[0]), float(p[1]), float(p[2]))
 
-## Walter: the miner model with white hair, standing in the yard. Anyone can talk to him with E.
-func _spawn_walter(face_to := Vector3.ZERO) -> void:
+## Walter's old truck, parked at the edge of the yard for good.
+func _build_truck() -> void:
+	if truck_node != null:
+		return
+	_build_dino_bed()
+	var t: Dictionary = prog.walter_cfg().get("truck", {})
+	var p: Array = t.get("pos", [-8.6, 0, 4.8])
+	var root := StaticBody3D.new()
+	root.name = "WaltersTruck"
+	root.position = Vector3(float(p[0]), float(p[1]), float(p[2]))
+	root.rotation.y = float(t.get("yaw", 1.5708))
+	var cs := CollisionShape3D.new()
+	var sh := BoxShape3D.new()
+	sh.size = Vector3(2.0, 1.6, 4.4)
+	cs.shape = sh
+	cs.position.y = 0.9
+	root.add_child(cs)
+	var body := _mat(Color(0.55, 0.18, 0.12))
+	var dark := _mat(Color(0.14, 0.14, 0.15))
+	var parts := [[Vector3(1.9, 0.7, 1.5), Vector3(0, 0.95, -1.35), body], [Vector3(1.7, 0.7, 1.0), Vector3(0, 1.6, -1.2), body],
+		[Vector3(1.9, 0.5, 2.4), Vector3(0, 0.8, 1.0), body], [Vector3(1.9, 0.5, 0.1), Vector3(0, 1.2, 2.2), body]]
+	for pr in parts:
+		var mi := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = pr[0]
+		mi.mesh = bm
+		mi.material_override = pr[2]
+		mi.position = pr[1]
+		root.add_child(mi)
+	for wz in [-1.3, 1.4]:
+		for wx in [-0.95, 0.95]:
+			var w := MeshInstance3D.new()
+			var cm := CylinderMesh.new()
+			cm.top_radius = 0.38
+			cm.bottom_radius = 0.38
+			cm.height = 0.25
+			w.mesh = cm
+			w.material_override = dark
+			w.rotation.z = PI / 2.0
+			w.position = Vector3(wx, 0.38, wz)
+			root.add_child(w)
+	world.add_child(root)
+	truck_node = root
+
+## Walter: the miner model with white hair. Anyone can talk to him with E while he waits.
+func _spawn_walter(at := Vector3.INF, face_to := Vector3.ZERO, npc := "walter") -> void:
 	if walter_node != null and is_instance_valid(walter_node):
 		return
 	var root := StaticBody3D.new()
 	root.name = "Walter"
-	root.position = walter_pos()
+	root.position = walter_pos() if at == Vector3.INF else at
 	root.set_meta("kind", "walter")
 	var cs := CollisionShape3D.new()
 	var cap := CapsuleShape3D.new()
@@ -3325,17 +3380,16 @@ func _spawn_walter(face_to := Vector3.ZERO) -> void:
 	var model := Node3D.new()
 	model.name = "Model"
 	root.add_child(model)
-	var path := "res://assets/characters/CHR_QD_Miner.glb"
-	var body: Node3D = (load(path) as PackedScene).instantiate()
+	var body: Node3D = (load("res://assets/characters/CHR_QD_Clerk.glb" if npc == "marsh" else "res://assets/characters/CHR_QD_Miner.glb") as PackedScene).instantiate()
 	model.add_child(body)
 	for gi in body.find_children("*", "GeometryInstance3D", true, false):
 		gi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	for mi in body.find_children("*_Hair", "MeshInstance3D", true, false):
 		if mi.mesh != null and mi.get_active_material(0) is BaseMaterial3D:
 			var m: BaseMaterial3D = mi.get_active_material(0).duplicate()
-			m.albedo_color = Color(0.92, 0.92, 0.9)
+			m.albedo_color = Color(0.92, 0.92, 0.9) if npc == "walter" else Color(0.62, 0.32, 0.18)
 			mi.material_override = m
-	body.scale = Vector3.ONE * 0.96
+	body.scale = Vector3.ONE * (0.96 if npc == "walter" else 0.98)
 	var found := body.find_children("*", "Skeleton3D", true, false)
 	if not found.is_empty():
 		var r := VeilRig.new()
@@ -3343,6 +3397,7 @@ func _spawn_walter(face_to := Vector3.ZERO) -> void:
 		root.set_meta("rig", r)
 	world.add_child(root)
 	walter_node = root
+	walter_pose = "idle"
 	if face_to != Vector3.ZERO:
 		root.rotation.y = atan2(-(face_to.x - root.position.x), -(face_to.z - root.position.z))
 
@@ -3350,10 +3405,56 @@ func _remove_walter() -> void:
 	if walter_node != null and is_instance_valid(walter_node):
 		walter_node.queue_free()
 	walter_node = null
+	walter_mode = ""
+	walter_path = PackedVector3Array()
 
-func _walter_idle(delta: float) -> void:
-	if walter_node != null and is_instance_valid(walter_node) and walter_node.has_meta("rig"):
-		walter_node.get_meta("rig").pose(delta, "idle", 0.0, "miner", false)
+## Walter walks to `goal` along the navigation mesh (a straight line while it is not ready).
+func _walter_goto(goal: Vector3) -> void:
+	walter_goal = goal
+	var from := walter_node.global_position
+	walter_path = NavigationServer3D.map_get_path(nav_map, from, goal, true) if nav_ready() else PackedVector3Array()
+	if walter_path.size() < 2:
+		walter_path = PackedVector3Array([from, goal])
+	walter_path_i = 0
+
+## Returns true while he is still walking.
+func _walter_walk(delta: float) -> bool:
+	while walter_path_i < walter_path.size():
+		var wp := walter_path[walter_path_i]
+		var d := Vector3(wp.x - walter_node.global_position.x, 0, wp.z - walter_node.global_position.z)
+		if d.length() < 0.25:
+			walter_path_i += 1
+			continue
+		var step := d.normalized() * minf(walter_speed * delta, d.length())
+		walter_node.global_position += step
+		walter_node.rotation.y = lerp_angle(walter_node.rotation.y, atan2(-d.x, -d.z), clampf(delta * 8.0, 0.0, 1.0))
+		return true
+	return false
+
+func _walter_tick(delta: float) -> void:
+	if walter_node == null or not is_instance_valid(walter_node):
+		return
+	var walking := false
+	if walter_mode == "arriving" or walter_mode == "leaving":
+		walking = _walter_walk(delta)
+		if not walking:
+			if walter_mode == "arriving":
+				walter_mode = "waiting"
+				_walter_face_player()
+				if hud:
+					var who := str(prog.visit_def(walter_visit).get("npc_name", "Grandpa Walt"))
+					hud.toast("%s is here" % who, "%s is waiting in the yard. Go and say hello (E)." % who, "milestone")
+			else:
+				_remove_walter()
+				return
+	if walter_node.has_meta("rig"):
+		var st := "walk" if walking else walter_pose
+		walter_node.get_meta("rig").pose(delta, st, walter_speed if walking else 0.0, "miner", false)
+
+func _walter_face_player() -> void:
+	if walter_node and player:
+		var d := player.global_position - walter_node.global_position
+		walter_node.rotation.y = atan2(-d.x, -d.z)
 
 func _face_player_at(point: Vector3) -> void:
 	var d := point - player.global_position
@@ -3361,21 +3462,131 @@ func _face_player_at(point: Vector3) -> void:
 	player.pitch = 0.0
 	player.camera.rotation.x = 0.0
 
-## The opening scene of a new game: Walter hands over the quarry. Skippable; never plays again once seen.
+func _cine_tween() -> Tween:
+	var tw := create_tween()
+	cine_tweens.append(tw)
+	return tw
+
+func _cine_stop() -> void:
+	for tw in cine_tweens:
+		if tw and tw.is_valid():
+			tw.kill()
+	cine_tweens.clear()
+	if cine_keys and is_instance_valid(cine_keys):
+		cine_keys.queue_free()
+	cine_keys = null
+
+## The opening scene of a new game (Part 10): the player walks up to Walter at his old truck. He retires, hands over the
+## keys, and points at the hill. First person, skippable, never plays again once seen.
 func _show_intro() -> void:
 	if not hud or prog.story["intro_seen"]:
 		return
 	player.locked = true
 	walter_intro_running = true
-	_spawn_walter(player.global_position)
-	_face_player_at(walter_pos() + Vector3(0, 1.5, 0))
-	_open_walter_dialog(prog.walter_cfg().get("intro", []), _end_walter_intro)
+	_build_truck()
+	_spawn_walter(Vector3.INF, player.global_position)
+	walter_mode = "waiting"
+	var start := Vector3(2.5, 0.2, 9.5)
+	player.global_position = start
+	var cam_look := truck_node.global_position + Vector3(0, 1.2, 0)
+	_face_player_at(cam_look)
+	hud.fade_to(1.0, 0.0)
+	hud.fade_to(0.0, 1.6)
+	# walk up to Walter while the view swings from the truck to him
+	var meet := walter_pos() + Vector3(2.4, 0.2, 1.4)
+	var yaw_to_walter := atan2(-(walter_pos().x - meet.x), -(walter_pos().z - meet.z))
+	var tw := _cine_tween()
+	tw.set_parallel(true)
+	tw.tween_property(player, "global_position", meet, 3.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_property(player, "rotation:y", player.rotation.y + angle_difference(player.rotation.y, yaw_to_walter), 3.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_walter_face_player_to(meet)
+	var lines := []
+	for l in prog.walter_cfg().get("cinematic", []):
+		var e: Dictionary = l.duplicate()
+		e["speaker"] = "YOU" if str(l["who"]) == "PLAYER" else "GRANDPA WALTER"
+		lines.append(e)
+	if not lines.is_empty():
+		lines[0]["dur"] = float(lines[0]["dur"]) + 2.4        # the walk up happens under the first line
+	_open_walter_dialog(lines, _end_walter_intro, true)
+	if walter_dialog:
+		walter_dialog.line_changed.connect(_cine_line)
+		_cine_line(0)
 
-func _open_walter_dialog(lines: Array, on_done: Callable) -> void:
+func _walter_face_player_to(p: Vector3) -> void:
+	if walter_node:
+		var d := p - walter_node.global_position
+		walter_node.rotation.y = atan2(-d.x, -d.z)
+
+## Gestures for the line that has just started.
+func _cine_line(i: int) -> void:
+	var cine: Array = prog.walter_cfg().get("cinematic", [])
+	if i < 0 or i >= cine.size() or walter_node == null or not is_instance_valid(walter_node):
+		return
+	var l: Dictionary = cine[i]
+	var act := str(l.get("act", "talk"))
+	var who := str(l.get("who", "WALTER"))
+	walter_pose = "talk" if who == "WALTER" else "idle"
+	match act:
+		"keys":
+			walter_pose = "offer"
+			_cine_keys()
+		"point":
+			walter_pose = "point"
+			var lk: Array = prog.walter_cfg().get("cinematic_look", [-22.3, 1.4, -10.6])
+			var look := Vector3(float(lk[0]), float(lk[1]), float(lk[2]))
+			var wd := look - walter_node.global_position
+			var w_yaw: float = atan2(-wd.x, -wd.z)
+			var pd := look - player.global_position
+			var p_yaw: float = atan2(-pd.x, -pd.z)
+			var tw := _cine_tween()
+			tw.set_parallel(true)
+			tw.tween_property(walter_node, "rotation:y", walter_node.rotation.y + angle_difference(walter_node.rotation.y, w_yaw), 0.9).set_trans(Tween.TRANS_SINE)
+			tw.tween_property(player, "rotation:y", player.rotation.y + angle_difference(player.rotation.y, p_yaw), 1.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+			tw.tween_property(player.camera, "rotation:x", 0.14, 1.6).set_trans(Tween.TRANS_SINE)
+
+## The keys travel from Walter's hand to the camera while the view dips to meet them.
+func _cine_keys() -> void:
+	if cine_keys and is_instance_valid(cine_keys):
+		return
+	var k := Node3D.new()
+	k.name = "Keys"
+	var ring := MeshInstance3D.new()
+	var tm := TorusMesh.new()
+	tm.inner_radius = 0.05
+	tm.outer_radius = 0.09
+	ring.mesh = tm
+	ring.material_override = _mat(Color(0.85, 0.75, 0.3))
+	ring.rotation.x = PI / 2.0
+	k.add_child(ring)
+	var tag := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(0.05, 0.16, 0.02)
+	tag.mesh = bm
+	tag.material_override = _mat(Color(0.7, 0.62, 0.28))
+	tag.position = Vector3(0, -0.14, 0)
+	k.add_child(tag)
+	world.add_child(k)
+	var fwd: Vector3 = -walter_node.global_transform.basis.z
+	k.global_position = walter_node.global_position + Vector3(0, 1.15, 0) + fwd * 0.55
+	cine_keys = k
+	var target := player.camera.global_position + (-player.camera.global_transform.basis.z) * 0.45 + Vector3(0, -0.25, 0)
+	var tw := _cine_tween()
+	tw.set_parallel(true)
+	tw.tween_property(k, "global_position", target, 1.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_property(player.camera, "rotation:x", -0.22, 1.2).set_trans(Tween.TRANS_SINE)
+	tw.chain().tween_callback(func():
+		if cine_keys and is_instance_valid(cine_keys):
+			cine_keys.queue_free()
+		cine_keys = null
+		if hud:
+			hud.toast("Keys received", "Walter handed over the quarry.", "unlock"))
+	tw.tween_property(player.camera, "rotation:x", 0.0, 0.9)
+
+func _open_walter_dialog(lines: Array, on_done: Callable, timed := false) -> void:
 	if walter_dialog != null or lines.is_empty():
 		return
 	walter_dialog = QuarryWalterDialog.new()
-	walter_dialog.setup(lines)
+	walter_dialog.setup(lines, timed)
 	ui.add_child(walter_dialog)
 	walter_dialog.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE)
 	walter_dialog.offset_bottom = -150.0
@@ -3390,8 +3601,13 @@ func _open_walter_dialog(lines: Array, on_done: Callable) -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 func _end_walter_intro(_skipped: bool) -> void:
+	_cine_stop()
 	walter_intro_running = false
+	walter_pose = "idle"
 	prog.journal_add("handover")
+	# the camera comes back to the player smoothly
+	var tw := create_tween()
+	tw.tween_property(player.camera, "rotation:x", 0.0, 0.6)
 	var st: Dictionary = prog.cfg.get("story", {})
 	if str(st.get("intro2", "")) != "":
 		hud.show_card(str(st.get("intro2_title", "YOUR FIRST DAY")), str(st.get("intro2", "")), func(): _finish_intro())
@@ -3400,19 +3616,28 @@ func _end_walter_intro(_skipped: bool) -> void:
 
 func _finish_intro() -> void:
 	prog.story["intro_seen"] = true
-	_remove_walter()           # he heads home; he comes back for visits
 	player.locked = false
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	_walter_leave()           # he walks off to the road; he comes back for visits
 
-## Walter comes by in the day when something new has happened at the quarry.
+func _walter_leave() -> void:
+	if walter_node == null or not is_instance_valid(walter_node):
+		return
+	walter_mode = "leaving"
+	walter_pose = "idle"
+	_walter_goto(Vector3(0.5, 0.0, 25.4))
+
+## Walter comes by in the day when something new has happened at the quarry. He walks in from the road, waits to be
+## talked to, and walks away again. Never forced on the player: only a toast.
 func _check_walter_visit() -> void:
 	if walter_intro_running or walter_dialog != null:
 		return
 	var h := _hour()
 	if walter_visit != "":
-		if h >= 18.0 or h < 8.0:                 # he has gone home for the night
+		if walter_mode == "waiting" and (h >= 18.0 or h < 8.0):
+			_walter_leave()
+		elif walter_node == null:
 			walter_visit = ""
-			_remove_walter()
 		return
 	if h < 8.0 or h >= 17.0 or not player_free_for_intro():
 		return
@@ -3420,26 +3645,33 @@ func _check_walter_visit() -> void:
 	if due == "":
 		return
 	walter_visit = due
-	_spawn_walter()
-	if hud:
-		hud.toast("Walter is here", "Grandpa Walt dropped by the yard. Go and say hello (E).", "milestone")
+	_spawn_walter(Vector3(0.5, 0.0, 25.4), Vector3.ZERO, str(prog.visit_def(due).get("npc", "walter")))
+	walter_mode = "arriving"
+	_walter_goto(walter_pos())
 
 func _talk_to_walter() -> void:
-	if walter_visit == "" or walter_dialog != null:
+	if walter_visit == "" or walter_dialog != null or walter_mode != "waiting":
 		return
 	var v := prog.visit_def(walter_visit)
 	var lines := []
 	for t in v.get("lines", []):
-		lines.append({"speaker": "GRANDPA WALTER", "text": str(t)})
+		if t is Dictionary:
+			lines.append(t)
+		else:
+			lines.append({"speaker": "GRANDPA WALTER", "text": str(t)})
 	var id := walter_visit
-	_face_player_at(walter_node.global_position + Vector3(0, 1.5, 0))
+	_walter_face_player()
+	walter_pose = "talk"
 	_open_walter_dialog(lines, func(_skipped: bool):
 		prog.complete_visit(id)
 		walter_visit = ""
-		_remove_walter()
+		walter_pose = "idle"
 		player.locked = false
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-		if hud:
+		_walter_leave()
+		if id == "marsh_egg":
+			_spawn_egg()
+		elif hud:
 			hud.toast("Journal updated", "Walter's journal has a new entry (press M, Milestones).", "unlock"))
 
 ## First formation fully cleared: grandpa's lockbox appears where the rock stood.
@@ -3580,6 +3812,21 @@ var _companion_timer := 0.0
 func _sim_day() -> int:
 	return int(floorf(state.clock_minutes / 1440.0))
 
+## A straw bed by the home where the companion sleeps at night.
+func _build_dino_bed() -> void:
+	var rp: Array = prog.companion_cfg().get("rest_pos", [-13.8, 0, 20.0])
+	var bed := Node3D.new()
+	bed.name = "DinoBed"
+	bed.position = Vector3(float(rp[0]), 0.0, float(rp[2]))
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(2.2, 0.12, 2.2)
+	mi.mesh = bm
+	mi.material_override = _mat(Color(0.72, 0.6, 0.3))
+	mi.position.y = 0.06
+	bed.add_child(mi)
+	world.add_child(bed)
+
 func _spawn_egg() -> void:
 	if egg_node != null and is_instance_valid(egg_node):
 		return
@@ -3611,6 +3858,16 @@ func _remove_egg() -> void:
 		egg_node.queue_free()
 	egg_node = null
 
+## The first time the dinosaur breaks rock Walter, watching from the road, has something to say.
+func _walter_cheer() -> void:
+	var lines: Array = prog.companion_cfg().get("walter_mining_lines", [])
+	if not hud:
+		return
+	for i in range(lines.size()):
+		var txt := str(lines[i]["text"])
+		var delay := 0.1 + float(i) * 3.4
+		get_tree().create_timer(delay).timeout.connect(func(): hud.toast("Grandpa Walt", txt, "milestone"))
+
 func _remove_companion() -> void:
 	if companion_node != null and is_instance_valid(companion_node):
 		companion_node.queue_free()
@@ -3637,10 +3894,11 @@ func _companion_tick(delta: float) -> void:
 	_companion_timer -= delta
 	if _companion_timer <= 0.0:
 		_companion_timer = 0.5
+		for jid in prog.check_level_journal():
+			if hud:
+				hud.toast("Walter's journal", str(prog.journal_entry(jid).get("title", "")), "unlock")
 		if prog.companion_egg_waiting(prog.current_day) and egg_node == null and not sleeping:
 			_spawn_egg()
-			if hud:
-				hud.toast("A crate on the porch", "Dr. Marsh left something for you by the yard (E).", "milestone")
 		elif st == "egg":
 			if egg_node == null:
 				_spawn_egg()
@@ -3657,8 +3915,13 @@ func _companion_tick(delta: float) -> void:
 					hud.toast("%s grew up" % str(c.get("name", "Your dinosaur")), str(prog.companion_cfg().get(key, "")) % str(c.get("name", "Your dinosaur")), "milestone")
 				if now_stage == "adult":
 					prog.journal_add("companion_adult")
-	if companion_node != null and is_instance_valid(companion_node) and not sleeping:
-		companion_node.step(delta, player.global_position)
+	if companion_node != null and is_instance_valid(companion_node):
+		var h := _hour()
+		var rest := Vector3.INF
+		if sleeping or h >= 22.0 or h < 6.0:
+			var rp: Array = prog.companion_cfg().get("rest_pos", [-13.8, 0, 20.0])
+			rest = Vector3(float(rp[0]), float(rp[1]), float(rp[2]))
+		companion_node.step(delta, player.global_position, rest)
 
 func _hatch_egg() -> void:
 	prog.companion_hatch(prog.current_day, "")
@@ -3723,8 +3986,12 @@ func _companion_command() -> void:
 		_notify("%s stops." % nm)
 		return
 	var hit := _mining_ray()
+	if not hit.is_empty() and str(hit["node"].get_meta("kind", "")) == "debris":
+		var dm := companion_node.command_debris(hit["node"])
+		_notify(dm if dm != "" else "%s goes to clear it." % nm)
+		return
 	if hit.is_empty() or str(hit["node"].get_meta("kind", "")) != "deposit":
-		_notify("Look at exposed rock and press T to send %s to smash it." % nm)
+		_notify("Look at exposed rock or rubble and press T to send %s to it." % nm)
 		return
 	var kind := str(hit["node"].get_meta("deposit"))
 	if not formation_nodes.has(kind) or prog.formation_locked(kind) != "":
@@ -3761,6 +4028,9 @@ func companion_strike(kind: String, col: int, damage: float, who: Node3D) -> voi
 		node.refresh()
 	else:
 		node.update_label()
+	if not bool(prog.story.get("dino_mining_seen", false)) and int(ex["units"]) > 0:
+		prog.story["dino_mining_seen"] = true
+		_walter_cheer()
 	var at := node.column_top(col)
 	if player and player.global_position.distance_to(at) < 24.0:
 		fx.impact(at, res, 1.2)

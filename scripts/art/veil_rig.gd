@@ -222,6 +222,33 @@ func _target(state: String, kind: String, p: float, t: float) -> Dictionary:
 			g["ro"] = -8.0
 			g["lean"] = 5.0
 			g["head"] = 16.0
+		"talk":
+			# Phase 7.5: Walter talking, one hand moving a little
+			g["w"] = 1.0
+			g["ru"] = 10.0 + sin(t * 1.3) * 5.0
+			g["rf"] = 34.0 + sin(t * 2.1) * 16.0
+			g["ro"] = 8.0
+			g["lu"] = 6.0
+			g["lf"] = 10.0 + sin(t * 1.7 + 1.0) * 6.0
+			g["head"] = sin(t * 0.9) * 6.0
+		"offer":
+			# holding something out with the right hand
+			g["w"] = 1.0
+			g["ru"] = 8.0
+			g["rf"] = 78.0
+			g["ro"] = -10.0
+			g["lu"] = 4.0
+			g["lf"] = 8.0
+			g["lean"] = 4.0
+		"point":
+			# right arm straight out, pointing; the head follows it
+			g["w"] = 1.0
+			g["ru"] = 6.0
+			g["rf"] = 100.0
+			g["lu"] = 4.0
+			g["lf"] = 10.0
+			g["head"] = -4.0
+			g["lean"] = -2.0
 		"rest":
 			g["w"] = 1.0
 			g["lu"] = 30.0

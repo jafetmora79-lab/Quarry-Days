@@ -1066,35 +1066,9 @@
   "walter": {
     "_comment": "Phase 7.5: Walter is alive and retiring, not dead. Intro scene, timed visits and journal. Conditions: stage (id), quarry_level, cleaned (site cleanup done). Visits show once, in the morning/afternoon, when the player talks to him.",
     "pos": [
-      -3.0,
+      -4.2,
       0,
-      6.0
-    ],
-    "intro": [
-      {
-        "speaker": "GRANDPA WALTER",
-        "text": "There you are, kiddo. Come on over - I won't bite, I haven't got the teeth for it."
-      },
-      {
-        "speaker": "GRANDPA WALTER",
-        "text": "Fifty years I've worked this quarry. My knees say that is forty-nine too many. The bank says the place is worth nothing, and the town says it never made a cent."
-      },
-      {
-        "speaker": "GRANDPA WALTER",
-        "text": "They're wrong. There's good rock in these hills, and better rock under them. I just never had the machines - or the back - to dig it out."
-      },
-      {
-        "speaker": "GRANDPA WALTER",
-        "text": "So I'm retiring, and I'm handing you the keys. The yard is overgrown and buried in rubble. Start small: take my old hammer, cut the weeds, break the heaps and sell the stone."
-      },
-      {
-        "speaker": "GRANDPA WALTER",
-        "text": "The little house by the garage is yours too. Sleep there when the day is done - a rested miner is a careful miner."
-      },
-      {
-        "speaker": "GRANDPA WALTER",
-        "text": "I'm only down the road. I'll come by now and then to see how the old place is doing. Don't let me catch you making a mess of it, hm?"
-      }
+      5.2
     ],
     "journal": {
       "lockbox": {
@@ -1148,9 +1122,45 @@
       "companion_adult": {
         "title": "All grown up",
         "text": "My dinosaur is fully grown. It can break rock with its tail."
+      },
+      "level1_records": {
+        "title": "Old photographs and records",
+        "text": "Behind a rusty cabinet in the office: photographs of the 1971 crew, and ledgers in Walter's handwriting. The last good year is circled."
+      },
+      "level2_geology": {
+        "title": "Geological notes",
+        "text": "Walter's notes on the first bench: 'Strange banding in the rock below. The layers do not match the survey. Ask Evelyn.'"
+      },
+      "level3_sketch": {
+        "title": "A strange sketch",
+        "text": "A pencil sketch tucked into a notebook: a long spine, curved ribs, a heavy club of a tail. Under it, in Walter's hand: 'Dad was not making it up.'"
       }
     },
     "visits": [
+      {
+        "id": "marsh_egg",
+        "npc": "marsh",
+        "npc_name": "Dr. Marsh",
+        "when": {
+          "marsh": true
+        },
+        "title": "DR. MARSH",
+        "journal": "",
+        "lines": [
+          {
+            "speaker": "DR. EVELYN MARSH",
+            "text": "Hello again. I promised I would come back."
+          },
+          {
+            "speaker": "DR. EVELYN MARSH",
+            "text": "We found something odd inside the rock your fossil came from: an egg, still sealed. It should not be viable. It is."
+          },
+          {
+            "speaker": "DR. EVELYN MARSH",
+            "text": "Keep it warm and dry. It will hatch in a couple of days. Please look after it."
+          }
+        ]
+      },
       {
         "id": "first_crew",
         "when": {
@@ -1219,9 +1229,30 @@
         "title": "WALTER DROPS BY",
         "journal": "fossil_found",
         "lines": [
-          "I heard. Is it true? Something is down in the rock at the bottom?",
-          "My father swore the oldest things in this hill lay at the very bottom. I laughed at him. Don't tell him.",
-          "Whoever you sell it to, kiddo, it's yours to decide. I'll back you either way. But think about what you want it to be."
+          {
+            "speaker": "PLAYER",
+            "text": "Walter, come look at this."
+          },
+          {
+            "speaker": "GRANDPA WALTER",
+            "text": "Well, I'll be damned."
+          },
+          {
+            "speaker": "GRANDPA WALTER",
+            "text": "I thought I'd never see one of those again."
+          },
+          {
+            "speaker": "PLAYER",
+            "text": "You've seen one before?"
+          },
+          {
+            "speaker": "GRANDPA WALTER",
+            "text": "Let's just say there's a reason I never sold this mountain."
+          },
+          {
+            "speaker": "GRANDPA WALTER",
+            "text": "Whoever you sell it to, kiddo, it's yours to decide. I'll back you either way."
+          }
         ]
       },
       {
@@ -1292,7 +1323,87 @@
           "In fifty years of working this quarry I never had a helper like that. Look after it, kiddo."
         ]
       }
-    ]
+    ],
+    "truck": {
+      "pos": [
+        -8.6,
+        0,
+        4.8
+      ],
+      "yaw": 1.5708
+    },
+    "cinematic": [
+      {
+        "who": "WALTER",
+        "text": "Well, look who finally decided to show up.",
+        "dur": 5.4,
+        "act": "talk"
+      },
+      {
+        "who": "PLAYER",
+        "text": "You said it was important.",
+        "dur": 4.5,
+        "act": "idle"
+      },
+      {
+        "who": "WALTER",
+        "text": "It is. I'm retiring.",
+        "dur": 4.5,
+        "act": "talk"
+      },
+      {
+        "who": "PLAYER",
+        "text": "You're what?",
+        "dur": 3.6,
+        "act": "idle"
+      },
+      {
+        "who": "WALTER",
+        "text": "Don't sound so surprised. I've only been working since dinosaurs were walking around.",
+        "dur": 8.2,
+        "act": "talk"
+      },
+      {
+        "who": "WALTER",
+        "text": "Here. The keys. All of them.",
+        "dur": 6.0,
+        "act": "keys"
+      },
+      {
+        "who": "WALTER",
+        "text": "Bank wants the place. I told them my grandkid would have it running again in no time.",
+        "dur": 9.0,
+        "act": "talk"
+      },
+      {
+        "who": "PLAYER",
+        "text": "You told them WHAT?",
+        "dur": 4.5,
+        "act": "idle"
+      },
+      {
+        "who": "WALTER",
+        "text": "Relax. You've got my hammer. That's how I started.",
+        "dur": 7.2,
+        "act": "talk"
+      },
+      {
+        "who": "WALTER",
+        "text": "There's more in that hill than anyone thinks. Just gotta keep digging.",
+        "dur": 8.2,
+        "act": "point"
+      }
+    ],
+    "cinematic_look": [
+      -22.3,
+      1.4,
+      -10.6
+    ],
+    "level_journal": {
+      "cleaned": "level1_records",
+      "2": "level2_geology",
+      "3": "level3_sketch"
+    }
   },
   "story": {
     "intro_title": "GRANDPA WALTER",
@@ -1597,9 +1708,41 @@
     "smash_hits": 6,
     "smash_interval": 1.1,
     "reach": 14.0,
-    "arrival_text": "A crate sits on the porch with a note: 'Keep it warm and dry. It should hatch in a couple of days. Please look after it. - Dr. Evelyn Marsh'. Inside is an egg the size of a watermelon, warm to the touch.",
+    "arrival_text": "Dr. Marsh sets the egg in a straw nest by the yard. It is the size of a watermelon and warm to the touch. 'Keep it warm and dry,' she says. 'It should hatch in a couple of days.'",
     "hatch_text": "The egg cracks, wobbles, and a small, wet, very serious head pokes out. It looks at you and decides you are its family.",
     "adult_text": "%s has grown into a full-size dinosaur. It can smash open hard rock with its tail now.",
-    "juvenile_text": "%s is growing fast. It is big enough to smash soft rock with its tail now (press T while looking at rock)."
+    "juvenile_text": "%s is growing fast. It is big enough to smash soft rock with its tail now (press T while looking at rock).",
+    "walter_mining_lines": [
+      {
+        "speaker": "GRANDPA WALTER",
+        "text": "Fifty years buying machinery."
+      },
+      {
+        "speaker": "GRANDPA WALTER",
+        "text": "All I needed was a dinosaur."
+      }
+    ],
+    "rest_pos": [
+      -13.8,
+      0,
+      20.0
+    ],
+    "marsh": {
+      "name": "Dr. Evelyn Marsh",
+      "lines": [
+        {
+          "speaker": "DR. EVELYN MARSH",
+          "text": "Hello again. I promised I would come back."
+        },
+        {
+          "speaker": "DR. EVELYN MARSH",
+          "text": "We found something odd inside the rock your fossil came from: an egg, still sealed. It should not be viable. It is."
+        },
+        {
+          "speaker": "DR. EVELYN MARSH",
+          "text": "Keep it warm and dry. It will hatch in a couple of days. Please look after it."
+        }
+      ]
+    }
   }
 }

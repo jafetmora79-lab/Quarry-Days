@@ -20,6 +20,7 @@ var smash_kind := ""
 var smash_col := -1
 var smash_left := 0
 var smash_timer := 0.0
+var debris: Node3D          ## weeds or a rubble heap it was sent to clear
 var swing := 0.0              ## 0..1 progress of the current tail swing
 
 func setup(g, stage_name: String) -> void:
@@ -43,36 +44,46 @@ func _box(parent: Node3D, size: Vector3, pos: Vector3, color: Color) -> MeshInst
 	return m
 
 func _build() -> void:
+	# Ankylosaurus-inspired: a low, wide, armoured body, a small head with two horns, four short legs and a heavy tail club.
 	model = Node3D.new()
 	model.name = "Model"
 	add_child(model)
-	var green := Color(0.34, 0.52, 0.30)
-	var belly := Color(0.74, 0.70, 0.46)
-	_box(model, Vector3(0.7, 0.6, 1.2), Vector3(0, 0.85, 0), green)
-	_box(model, Vector3(0.6, 0.18, 1.0), Vector3(0, 0.62, 0), belly)
-	var neck := _box(model, Vector3(0.32, 0.5, 0.32), Vector3(0, 1.25, -0.55), green)
-	neck.rotation.x = -0.35
+	var hide := Color(0.46, 0.40, 0.30)
+	var plate := Color(0.33, 0.29, 0.22)
+	var belly := Color(0.72, 0.66, 0.48)
+	_box(model, Vector3(1.05, 0.55, 1.6), Vector3(0, 0.62, 0), hide)
+	_box(model, Vector3(0.9, 0.16, 1.4), Vector3(0, 0.38, 0), belly)
+	for row in range(4):                              # armoured plates along the back in two columns
+		for sx in [-0.28, 0.28]:
+			_box(model, Vector3(0.36, 0.14, 0.3), Vector3(sx, 0.95, -0.55 + float(row) * 0.38), plate)
+	for row in range(3):                              # spikes along the flanks
+		for sx in [-0.56, 0.56]:
+			var sp := _box(model, Vector3(0.1, 0.14, 0.14), Vector3(sx, 0.78, -0.4 + float(row) * 0.42), plate)
+			sp.rotation.z = -signf(sx) * 0.5
 	head = Node3D.new()
-	head.position = Vector3(0, 1.55, -0.8)
+	head.position = Vector3(0, 0.62, -0.95)
 	model.add_child(head)
-	_box(head, Vector3(0.42, 0.34, 0.6), Vector3(0, 0, -0.1), green)
-	_box(head, Vector3(0.1, 0.1, 0.08), Vector3(0.16, 0.12, -0.38), Color(0.1, 0.1, 0.08))
-	_box(head, Vector3(0.1, 0.1, 0.08), Vector3(-0.16, 0.12, -0.38), Color(0.1, 0.1, 0.08))
+	_box(head, Vector3(0.5, 0.32, 0.5), Vector3(0, 0, -0.18), hide)
+	_box(head, Vector3(0.12, 0.12, 0.18), Vector3(0.23, 0.22, -0.2), plate)
+	_box(head, Vector3(0.12, 0.12, 0.18), Vector3(-0.23, 0.22, -0.2), plate)
+	_box(head, Vector3(0.08, 0.08, 0.06), Vector3(0.14, 0.08, -0.44), Color(0.08, 0.08, 0.06))
+	_box(head, Vector3(0.08, 0.08, 0.06), Vector3(-0.14, 0.08, -0.44), Color(0.08, 0.08, 0.06))
 	tail = Node3D.new()
-	tail.position = Vector3(0, 0.9, 0.55)
+	tail.position = Vector3(0, 0.62, 0.78)
 	model.add_child(tail)
-	_box(tail, Vector3(0.45, 0.4, 0.8), Vector3(0, 0, 0.4), green)
+	_box(tail, Vector3(0.6, 0.34, 0.7), Vector3(0, 0, 0.3), hide)
 	var tip := Node3D.new()
-	tip.position = Vector3(0, 0, 0.8)
+	tip.position = Vector3(0, 0, 0.65)
 	tail.add_child(tip)
-	_box(tip, Vector3(0.3, 0.28, 0.8), Vector3(0, 0, 0.4), green)
-	_box(tip, Vector3(0.34, 0.34, 0.3), Vector3(0, 0, 0.9), Color(0.55, 0.5, 0.42))   # the club
-	for sx in [-0.28, 0.28]:
-		var leg := Node3D.new()
-		leg.position = Vector3(sx, 0.62, 0.1)
-		model.add_child(leg)
-		_box(leg, Vector3(0.22, 0.62, 0.26), Vector3(0, -0.31, 0), green)
-		legs.append(leg)
+	_box(tip, Vector3(0.38, 0.26, 0.7), Vector3(0, 0, 0.35), hide)
+	_box(tip, Vector3(0.62, 0.42, 0.42), Vector3(0, 0, 0.85), Color(0.52, 0.48, 0.4))        # the club
+	for lz in [-0.55, 0.55]:
+		for sx in [-0.42, 0.42]:
+			var leg := Node3D.new()
+			leg.position = Vector3(sx, 0.4, lz)
+			model.add_child(leg)
+			_box(leg, Vector3(0.24, 0.42, 0.28), Vector3(0, -0.2, 0), hide)
+			legs.append(leg)
 
 func set_stage(s: String) -> void:
 	stage = s
@@ -105,7 +116,16 @@ func _walk_to(goal: Vector3, delta: float, stop: float) -> bool:
 
 ## True while a smash command is running.
 func busy() -> bool:
-	return smash_left > 0
+	return smash_left > 0 or (debris != null and is_instance_valid(debris))
+
+## Sends the companion to clear a weed patch or rubble heap (Part 14: designated debris).
+func command_debris(node: Node3D) -> String:
+	if not game.prog.companion_stage_def(game.prog.current_day).get("smash", false):
+		return "%s is still too small to clear rubble." % str(game.prog.companion().get("name", "Your dinosaur"))
+	cancel_smash()
+	debris = node
+	smash_timer = 0.0
+	return ""
 
 func command_smash(kind: String, col: int) -> String:
 	if not game.prog.companion_stage_def(game.prog.current_day).get("smash", false):
@@ -121,13 +141,28 @@ func command_smash(kind: String, col: int) -> String:
 	return ""
 
 func cancel_smash() -> void:
+	debris = null
 	smash_left = 0
 	smash_col = -1
 	smash_kind = ""
 
-func step(delta: float, player_pos: Vector3) -> void:
+func step(delta: float, player_pos: Vector3, rest_goal := Vector3.INF) -> void:
 	var moving := false
-	if busy():
+	if debris != null:
+		if not is_instance_valid(debris) or game.prog.cleanup["cleared"].get(str(debris.get_meta("debris_id", "")), false):
+			debris = null
+		else:
+			var arrived_d := _walk_to(debris.global_position, delta, 2.2)
+			moving = not arrived_d
+			if arrived_d:
+				_face(debris.global_position - global_position, delta)
+				smash_timer -= delta
+				if smash_timer <= 0.0:
+					smash_timer = float(game.prog.companion_cfg().get("smash_interval", 1.1))
+					swing = 1.0
+					var dmg: float = float(game.prog.companion_stage_def(game.prog.current_day).get("damage", 0.0))
+					game.hit_debris(debris, dmg, debris.global_position + Vector3(0, 0.3, 0), true)
+	elif busy():
 		if smash_col < 0 or game.prog.column_units(smash_kind, smash_col) <= 0:
 			smash_col = game.prog.nearest_column(smash_kind, global_position, true, float(game.prog.companion_cfg().get("reach", 14.0)))
 			if smash_col < 0:
@@ -143,6 +178,13 @@ func step(delta: float, player_pos: Vector3) -> void:
 					smash_timer = float(game.prog.companion_cfg().get("smash_interval", 1.1))
 					swing = 1.0
 					_smash_hit()
+	elif rest_goal != Vector3.INF:
+		# night or the player asleep: it goes to its bed and lies down
+		var there := _walk_to(rest_goal, delta, 0.5)
+		moving = not there
+		resting = there
+		if there:
+			rotation.y = lerp_angle(rotation.y, 0.0, clampf(delta * 3.0, 0.0, 1.0))
 	else:
 		var dist := Vector2(global_position.x - player_pos.x, global_position.z - player_pos.z).length()
 		var moved := (player_pos - _last_player).length()
@@ -173,7 +215,7 @@ func _animate(delta: float, moving: bool) -> void:
 	var bob := sin(phase) * 0.04 if moving else 0.0
 	model.position.y = bob - (0.2 if resting else 0.0)
 	for i in range(legs.size()):
-		legs[i].rotation.x = (sin(phase + float(i) * PI) * 0.5) if moving else 0.0
+		legs[i].rotation.x = (sin(phase + float(i % 2) * PI) * 0.45) if moving else 0.0
 	tail.rotation.y = sin(phase * 0.7) * 0.25 if moving else sin(Time.get_ticks_msec() * 0.002) * 0.12
 	if swing > 0.0:
 		tail.rotation.y = sin(swing * PI) * (1.0 if int(smash_left) % 2 == 0 else -1.0) * 1.1

@@ -4,6 +4,11 @@ class_name QuarryWalterDialog
 ## of the screen. Always skippable; the owner decides what happens when it finishes.
 
 signal finished(skipped: bool)
+signal line_changed(index: int)
+
+var timed := false          ## cinematic mode: lines advance by themselves after their "dur" seconds
+var _timer := 0.0
+var _done := false
 
 var lines: Array = []       ## [{speaker, text}]
 var index := 0
@@ -12,8 +17,9 @@ var body: Label
 var next_btn: Button
 var skip_btn: Button
 
-func setup(entries: Array) -> void:
+func setup(entries: Array, is_timed := false) -> void:
 	lines = entries
+	timed = is_timed
 	name = "WalterDialog"
 	set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	custom_minimum_size = Vector2(620, 0)
@@ -44,15 +50,30 @@ func _show() -> void:
 	speaker_label.text = str(l.get("speaker", "WALTER"))
 	body.text = '"%s"' % str(l.get("text", ""))
 	next_btn.text = "Continue" if index < lines.size() - 1 else "Done"
+	_timer = float(l.get("dur", 4.0))
+	line_changed.emit(index)
+
+func _process(delta: float) -> void:
+	if not timed:
+		return
+	_timer -= delta
+	if _timer <= 0.0:
+		advance()
 
 func advance() -> void:
+	if _done:
+		return
 	if index >= lines.size() - 1:
+		_done = true
 		finished.emit(false)
 		return
 	index += 1
 	_show()
 
 func skip() -> void:
+	if _done:
+		return
+	_done = true
 	finished.emit(true)
 
 ## Keyboard: E / Enter / Space continue, Esc skips.
