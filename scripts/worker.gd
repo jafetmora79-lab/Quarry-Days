@@ -138,7 +138,7 @@ func _apply_variant(body: Node3D) -> void:
 			var m: BaseMaterial3D = mi.get_active_material(0).duplicate()
 			m.albedo_color = m.albedo_color * tint
 			mi.material_override = m
-	model.scale = Vector3.ONE * float(HEIGHT_SCALE[v])
+	body.scale = Vector3.ONE * float(HEIGHT_SCALE[v])     # on the body, so the model keeps its exact -Z facing
 
 ## Per-tool grip configuration (VeilRig.add_tool): which hand, the point of the tool that sits in the palm, the
 ## relaxed hold (shaft direction / blade plane in rig components right, up, forward), the second grip for two-handed
@@ -381,7 +381,7 @@ func step(delta: float) -> void:
 				e["task"] = "At home - back at %s" % game.fmt_time(int(e["shift_start"]))
 			return                                   # at home: nothing to simulate
 	# the first meeting: a new employee comes over to say hello while the player is free; a busy player is left alone
-	if not bool(e.get("intro_done", true)) and not bool(e.get("away", false)):
+	if game.introductions_enabled and not bool(e.get("intro_done", true)) and not bool(e.get("away", false)):
 		if game.dialog_worker == self:
 			_halt(delta)
 			_face(game.player.global_position)

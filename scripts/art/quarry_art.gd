@@ -187,6 +187,12 @@ func _clear_placeholders() -> void:
 # ------------------------------------------------------------------ ground
 
 func _ground() -> void:
+	# The ground is a single-sided surface; from inside the pit (looking out through the ramp mouth) its underside was culled
+	# and the sky's pale ground colour showed instead. Drawing both sides makes it a solid-looking dirt ceiling there.
+	for key in ["QuarryFloor", "ExcavatedDirt"]:
+		var gm = MeshKit.mat(key)
+		if gm is BaseMaterial3D:
+			(gm as BaseMaterial3D).cull_mode = BaseMaterial3D.CULL_DISABLED
 	# Base quarry floor: crushed-limestone gravel with a gentle 3-6 cm undulation (physics stays flat).
 	var s := soup("QuarryFloor")
 	var step := 2.0

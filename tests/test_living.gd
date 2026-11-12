@@ -36,6 +36,7 @@ func run() -> void:
 	var game = load("res://Main.tscn").instantiate()
 	game.autosave_enabled = false
 	game.curfew_enabled = false
+	game.introductions_enabled = true
 	root.add_child(game)
 	await process_frame
 	await frames(4)
@@ -73,7 +74,7 @@ func run() -> void:
 	var e: Dictionary = biz.employees[0]
 	check(QuarryBusiness.PERSONALITIES.has(str(e["personality"])) and int(e["variant"]) >= 0 and int(e["variant"]) < 4 and not bool(e["intro_done"]), "B a new hire has a personality, a look and a pending introduction (%s, look %d)" % [e["personality"], int(e["variant"])])
 	var w = game.worker_nodes.values()[0]
-	check(absf(w.model.scale.y - float(w.HEIGHT_SCALE[int(e["variant"])])) < 0.001, "B the look variant is applied to the model")
+	check(absf(w.model.get_child(0).scale.y - float(w.HEIGHT_SCALE[int(e["variant"])])) < 0.001, "B the look variant is applied to the model")
 	var old := {"id": 77, "profession": "miner", "name": "Old Timer", "skill": 2}
 	QuarryBusiness.ensure_identity(old)
 	check(bool(old["intro_done"]) and QuarryBusiness.PERSONALITIES.has(str(old["personality"])), "B older saves get a personality and never replay the introduction")

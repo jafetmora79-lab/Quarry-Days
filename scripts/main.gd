@@ -95,6 +95,7 @@ var sleep_timer := 0.0
 var _late_day := -1             # day on which the "go home to sleep" hint was shown
 var landscape: QuarryLandscape  # sky, clouds, distant mountains and forest (no collision)
 var curfew_enabled := true                      ## tests switch it off when they run the clock past the curfew
+var introductions_enabled := DisplayServer.get_name() != "headless"   ## headless tests hire workers without the conversation
 var autosave_enabled := DisplayServer.get_name() != "headless"   ## tests run headless and never touch the player's save
 var autosave_t := 0.0
 var _confirm_new := false
@@ -425,7 +426,7 @@ func player_free_for_intro() -> bool:
 ## A new employee who has walked up to the player starts the introduction (never forced: busy players are left alone,
 ## the employee just starts working and the conversation happens the next time they meet).
 func _check_introductions() -> void:
-	if dialog != null or not player_free_for_intro():
+	if dialog != null or not introductions_enabled or not player_free_for_intro():
 		return
 	for w in worker_nodes.values():
 		if not w.visible or bool(w.e.get("away", false)) or bool(w.e.get("intro_done", true)):
@@ -2547,6 +2548,8 @@ func conveyor_snap(at: Vector3, kind := "straight") -> Dictionary:
 	# port takes material in. Corners turn 90 degrees to the right or left of the flow, so a corner snapped onto a
 	# straight belt, a crusher, a storage or another corner always lines up end to end.
 	for port in belt_ports():
+		if kind == "straight" and str(port.get("src", "")) in ["crusher", "output"]:
+			continue   # straight belts keep their established machine snap spots (below)
 		var pd: Vector3 = port["dir"]
 		var pp: Vector3 = port["pos"]
 		var yd := atan2(-pd.x, -pd.z)
@@ -2604,13 +2607,13 @@ func belt_ports() -> Array:
 	for i in range(state.crushers.size()):
 		var c: Vector3 = Business.v3(state.crushers[i]["position"]) * Vector3(1, 0, 1)
 		var f := Business.forward(float(state.crushers[i]["yaw"]))
-		ports.append({"pos": c + f * 1.15, "dir": f, "io": "out"})
-		ports.append({"pos": c - f * 1.15, "dir": f, "io": "in"})
+		ports.append({"pos": c + f * 1.15, "dir": f, "io": "out", "src": "crusher"})
+		ports.append({"pos": c - f * 1.15, "dir": f, "io": "in", "src": "crusher"})
 	for o in business.outputs:
 		var op: Vector3 = Business.v3(o["position"]) * Vector3(1, 0, 1)
 		for k in range(4):
 			var d := Business.forward(float(k) * PI * 0.5)
-			ports.append({"pos": op - d * 0.9, "dir": d, "io": "in"})
+			ports.append({"pos": op - d * 0.9, "dir": d, "io": "in", "src": "output"})
 	var sp: Vector3 = business.storage_pos * Vector3(1, 0, 1)
 	for k in range(4):
 		var d2 := Business.forward(float(k) * PI * 0.5)

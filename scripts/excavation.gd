@@ -118,6 +118,8 @@ func _build_visuals(rx0: float, rx1: float, rz_top: float, rz_bot: float, ang: f
 	MeshKit.cliff_into(walls, w + 1.8, depth, 0.8, 501, 3, Transform3D(Basis(Vector3.UP, PI), Vector3((x0 + x1) * 0.5, -depth, z0 - 0.4)))       # north, faces +Z
 	MeshKit.cliff_into(walls, d + 1.8, depth, 0.8, 502, 3, Transform3D(Basis(Vector3.UP, -PI * 0.5), Vector3(x0 - 0.4, -depth, (z0 + z1) * 0.5))) # west, faces +X
 	MeshKit.cliff_into(walls, d + 1.8, depth, 0.8, 503, 3, Transform3D(Basis(Vector3.UP, PI * 0.5), Vector3(x1 + 0.4, -depth, (z0 + z1) * 0.5)))  # east, faces -X
+	if rx0 - x0 > 0.5:   # the south wall west of the ramp mouth (it was missing: the gap showed the far side of the floor slab)
+		MeshKit.cliff_into(walls, rx0 - x0 + 0.9, depth, 0.8, 505, 3, Transform3D(Basis(), Vector3((x0 + rx0) * 0.5 - 0.45, -depth, z1 + 0.4)))
 	MeshKit.cliff_into(walls, x1 - rx1 + 0.9, depth, 0.8, 504, 3, Transform3D(Basis(), Vector3((rx1 + x1) * 0.5 + 0.45, -depth, z1 + 0.4)))      # south, faces -Z
 	MeshKit.inst(visuals, walls.mesh(), MeshKit.mat("RockDeep"))
 	# ramp surface (dirt road), curb on the open side
@@ -126,7 +128,10 @@ func _build_visuals(rx0: float, rx1: float, rz_top: float, rz_bot: float, ang: f
 	var hw := (rx1 - rx0) * 0.5
 	var hl := length * 0.5 + 0.15
 	rs.quad(xf * Vector3(-hw, 0, -hl), xf * Vector3(-hw, 0, hl), xf * Vector3(hw, 0, hl), xf * Vector3(hw, 0, -hl))
-	MeshKit.inst(visuals, rs.mesh(), MeshKit.mat("GroundRoad"))
+	var road_mat = MeshKit.mat("GroundRoad")
+	if road_mat is BaseMaterial3D:
+		(road_mat as BaseMaterial3D).cull_mode = BaseMaterial3D.CULL_DISABLED   # seen from below too: the space under the ramp is not see-through
+	MeshKit.inst(visuals, rs.mesh(), road_mat)
 	var curb := MeshKit.Soup.new()
 	MeshKit.box_into(curb, Vector3.ZERO, Vector3(0.25, 0.35, length - 0.6), Vector2.ONE, Transform3D(Basis(Vector3.RIGHT, -ang), Vector3(rx1 + 0.15, -depth * 0.5 + 0.17, (rz_top + rz_bot) * 0.5)))
 	MeshKit.inst(visuals, curb.mesh(), MeshKit.mat("Hazard"))
