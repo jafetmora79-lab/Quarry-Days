@@ -541,6 +541,7 @@ def main():
         "T_QD_Sign_Safety": ("HARD HAT AREA\nKEEP CLEAR", 96, 32, yel[3], ink[1], ink[0]),
         "T_QD_Sign_Storage": ("STORAGE", 64, 16, back[2] if len(back) > 2 else white[1], ink[1], ink[0]),
         "T_QD_Sign_Upgrades": ("UPGRADES", 64, 16, white[1], ink[1], ink[0]),
+        "T_QD_Sign_Home": ("HOME", 64, 16, green[2], white[-1], green[0]),
     }
     for name, (txt, w, h, bg, fg, bd) in signs.items():
         save(name, sign(txt, w, h, bg, fg, bd), rough=0.8, tiling=False)

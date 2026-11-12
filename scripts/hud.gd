@@ -32,6 +32,7 @@ var dura_label: Label
 var popups: Control
 var toast_root: Control
 var card: PanelContainer
+var fade_rect: ColorRect
 var card_title: Label
 var card_body: Label
 var card_hint: Label
@@ -220,6 +221,12 @@ func _build() -> void:
 	dura_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	dura_root.add_child(dura_label)
 	dura_root.modulate.a = 0.0
+	fade_rect = ColorRect.new()
+	fade_rect.color = Color(0.02, 0.02, 0.04, 0.0)
+	fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(fade_rect)
+	fade_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	fade_rect.z_index = 100
 	# ---- pop-ups, toasts, story card
 	popups = Control.new()
 	popups.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -345,6 +352,14 @@ func show_card(title: String, body: String, callback := Callable()) -> void:
 	card_callback = callback
 	card.visible = true
 	card.modulate.a = 0.0
+
+## Fades the screen to black (alpha 1) or back (0), used when going to sleep.
+func fade_to(alpha: float, seconds: float) -> void:
+	var tw := create_tween()
+	tw.tween_property(fade_rect, "color:a", alpha, seconds)
+
+func fade_alpha() -> float:
+	return fade_rect.color.a
 
 func card_open() -> bool:
 	return card.visible

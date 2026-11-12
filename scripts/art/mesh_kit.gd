@@ -93,6 +93,11 @@ static func box_into(s: Soup, c: Vector3, size: Vector3, taper := Vector2.ONE, x
 		var j := (i + 1) % 4
 		s.quad(b[i], t[i], t[j], b[j])
 
+static func frustum(r0: float, r1: float, height: float, seg := 8) -> ArrayMesh:
+	var s := Soup.new()
+	frustum_into(s, Vector3.ZERO, r0, r1, height, seg)
+	return s.mesh()
+
 static func box(size: Vector3, taper := Vector2.ONE) -> ArrayMesh:
 	var s := Soup.new()
 	box_into(s, Vector3.ZERO, size, taper)

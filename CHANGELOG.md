@@ -1,5 +1,15 @@
 # Changelog
 
+## Quarry Days — world polish (home, sleep, intro, hangar view, walls, ground)
+
+- **Walls that looked like flat grey slabs were never dressed:** the engine renames duplicate nodes, so the cliff-dressing code only matched the first piece of each name. Every ring cliff and low rim is now recognised by its box and gets the rough natural cliff mesh.
+- **The mismatched yellow ground patches** came from the VEIL dirt-road and gravel materials laid over the yard. Roads and the yard now use the same calm ground texture as the floor (with a tiny tint change), so there is no patchwork.
+- **Hillside rock:** blocks have no visible chamfer seams any more, and the rock uses the lighter cliff palette so it matches the ring.
+- **Home and sleep:** a small house next to the garage (`HOME_POS`) with a bed. E on the bed (after 17:00, or in the small hours) fades out, jumps to 07:00, settles wages, **saves the game** and shows "Good morning". Money, bag, staff and every excavated section are untouched; machines simply rest. A gentle "it's getting late" hint appears each evening after 20:00.
+- **Intro:** the letter now mentions the house, and a second card, "YOUR FIRST DAY", lists the first steps (hammer, selling, upgrade board, sleeping, the cleanup and Walt's gift).
+- **Hangar view:** the roof lifts off while you drive a vehicle inside the hangar, and the chase camera is pulled in by a ray so it can never sit behind a wall (it was behind the hangar's back wall, which is why you could not see the vehicle until you left).
+- **Tests:** `tests/test_world_polish.gd` (24 checks); the access and Phase 5 tests close the second intro card.
+
 ## Quarry Days — natural environment pass (not yet visually confirmed)
 
 Priority: one continuous rock surface, then the simple background. No visual check was made (none was requested); the checks below are automated only.

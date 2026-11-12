@@ -191,9 +191,28 @@ func recover() -> void:
 
 # ------------------------------------------------------------------ animation & feedback
 
+## Chase camera that never ends up behind a wall: a ray from the pivot toward the wanted spot stops it at the first
+## solid thing (hangar back wall, building, rock), so you always see the vehicle, also inside the equipment garage.
+func _pull_camera_in() -> void:
+	var dist := 7.5 if vtype == "truck" else 6.5
+	var want_local := Vector3(0, 1.6, dist)
+	var from := cam_pivot.global_position
+	var to := cam_pivot.to_global(want_local)
+	var q := PhysicsRayQueryParameters3D.create(from, to)
+	q.collision_mask = 1
+	q.exclude = [get_rid()]
+	var hit := get_world_3d().direct_space_state.intersect_ray(q)
+	if hit.is_empty():
+		camera.position = want_local
+		return
+	var p: Vector3 = hit["position"] + (hit["normal"] as Vector3) * 0.35
+	var l := cam_pivot.to_local(p)
+	camera.position = l if l.length() > 1.8 else want_local.normalized() * 1.8
+
 func _animate(delta: float) -> void:
 	if driven:
 		cam_pivot.rotation = Vector3(cam_pitch, cam_yaw, 0)
+		_pull_camera_in()
 		if absf(speed) > 1.0:
 			cam_yaw = lerp_angle(cam_yaw, 0.0, delta * 0.6)
 	for w in wheels:

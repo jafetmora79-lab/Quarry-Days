@@ -710,7 +710,7 @@
   },
   "story": {
     "intro_title": "A LETTER FROM GRANDPA",
-    "intro": "Kiddo,\n\nIf you're reading this, the quarry is yours now. The bank says it's worth nothing. The town says it never made a cent.\n\nThey're wrong. There's good rock in those hills, and better rock under them. I just got too old to dig.\n\nThe place is overgrown and buried in rubble. Start small: use my hammer, cut the weeds, break the old heaps and sell the stone. Clean the whole site and I'll see to the rest.\n\n- Grandpa Walt",
+    "intro": "Kiddo,\n\nIf you're reading this, the quarry is yours now. The bank says it's worth nothing. The town says it never made a cent.\n\nThey're wrong. There's good rock in those hills, and better rock under them. I just got too old to dig.\n\nThe place is overgrown and buried in rubble. Start small: use my hammer, cut the weeds, break the old heaps and sell the stone. Clean the whole site and I'll see to the rest.\n\nThe little house by the garage is yours too. Sleep there when the day is done; a rested miner is a careful miner.\n\n- Grandpa Walt",
     "discoveries": {
       "first_clear": {
         "title": "GRANDPA'S LOCKBOX",
@@ -718,7 +718,9 @@
         "text": "Under the last of the rock sits a rusted lockbox. Inside:\n\n- A faded photo of the crew in 1971, standing on this same floor.\n- Mining records: 'Core sample, 3.5 m below the north bench: copper staining, trace gold.'\n- A note: 'Didn't have the machines to go deeper. Maybe you will.'\n\nThere's also an old savings bond. It's still good.",
         "reward": 400
       }
-    }
+    },
+    "intro2_title": "YOUR FIRST DAY",
+    "intro2": "1. Left click swings your hammer. Cut the weeds and break the rubble heaps. The HUD counts the cleanup.\n\n2. Carry the stone to the SALES booth and press E to sell it.\n\n3. Spend your first money at the UPGRADE board outside the office: a pickaxe comes first.\n\n4. When it gets dark (after 17:00) walk to the house by the garage and press E on the bed to sleep. Sleeping saves the game and starts a new morning.\n\n5. Clean the whole site and Walt sends money, opens the hillside and the north gate."
   },
   "cleanup": {
     "_comment": "Phase 6.2 tutorial: clear Grandpa's overgrown site (weeds and rubble heaps). Positions are fixed so saves can store what is left. Clearing everything unlocks the hillside and brings Walt's letter with the gift.",
@@ -852,5 +854,9 @@
     "ramp_run": 20.0,
     "wall_height": 8.0,
     "build_margin": 3.0
+  },
+  "home": {
+    "sleep_from_hour": 17.0,
+    "wake_hour": 7.0
   }
 }

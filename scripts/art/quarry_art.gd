@@ -81,6 +81,7 @@ func build_environment(main_node) -> void:
 	_cliffs()
 	_office()
 	_shed()
+	_home()
 	_garage()
 	_stations()
 	_site_props()
@@ -178,7 +179,7 @@ func _clear_placeholders() -> void:
 					prop(P_PINE, Vector3(p.x, 0, p.z), float(int(p.x * 7.0 + p.z * 3.0) % 6), 1.0)
 			elif nm.begins_with("Equipment parking sign"):
 				n.queue_free()                                  # the garage carries its own sign now
-			elif nm in ["Quarry floor", "Expansion floor", "Pit cap"] or nm.begins_with("Office ") or nm.begins_with("Storage shed ") \
+			elif nm in ["Quarry floor", "Expansion floor", "Pit cap"] or nm.begins_with("Office ") or nm.begins_with("Home ") or nm.begins_with("Storage shed ") \
 					or nm.begins_with("Break bench") or nm.begins_with("Upgrade board") or nm.begins_with("Selling station") \
 					or nm.begins_with("Crusher order kiosk") or nm.begins_with("Management desk"):
 				_hide(n)
@@ -378,6 +379,32 @@ func _office() -> void:
 	prop(P_BENCH, Vector3(-9.6, 0, 15.3), PI)
 	prop(P_TRASH, Vector3(-11.6, 0, 15.6))
 
+## The player's small house by the garage: a bed to sleep in once the day is done (see main.try_sleep).
+func _home() -> void:
+	var c: Vector3 = game.HOME_POS
+	_walls(c, M_SIDING, M_DRYWALL)
+	_gable_roof(c, "Corrugated", 5.6, 5.6, 2.8, 1.0)
+	quad_flat(M_LINO, c, Vector2(4.6, 4.5), 0.0, 0.16)
+	_sign(root, "Sign_Home", c + Vector3(0, 2.5, -2.62), Vector2(1.4, 0.35), PI)
+	for z in [-0.9, 1.0]:
+		prop(P_WINDOW, c + Vector3(2.53, 1.05, z), PI * 0.5)
+	prop(P_WINDOW, c + Vector3(-2.53, 1.05, 0.0), -PI * 0.5)
+	prop(P_DOOR, c + Vector3(0.72, 0.16, -2.3), PI * 0.5 - 0.35)
+	prop(P_WALL_LAMP, c + Vector3(-1.0, 2.3, -2.5), PI)
+	light(c + Vector3(0, 2.4, 0.3), Color(1.0, 0.84, 0.58), 1.0, 6.0)
+	# bed in the back-left corner (collision body "Bed" is built by main), bedside table with a lamp
+	bx(M_WOOD, c + Vector3(-1.3, 0.3, 1.3), Vector3(1.0, 0.28, 2.0))
+	bx(M_WOOD, c + Vector3(-1.3, 0.75, 2.27), Vector3(1.04, 0.9, 0.08))               # headboard
+	MeshKit.inst(root, MeshKit.box(Vector3(0.96, 0.18, 1.9)), MeshKit.flat(Color(0.88, 0.85, 0.76)), c + Vector3(-1.3, 0.54, 1.3))   # mattress
+	MeshKit.inst(root, MeshKit.box(Vector3(0.9, 0.08, 1.3)), MeshKit.flat(Color(0.27, 0.46, 0.50)), c + Vector3(-1.3, 0.67, 0.95))   # blanket
+	MeshKit.inst(root, MeshKit.box(Vector3(0.6, 0.12, 0.34)), MeshKit.flat(Color(0.96, 0.95, 0.9)), c + Vector3(-1.3, 0.67, 2.0))    # pillow
+	bx(M_WOOD, c + Vector3(-0.35, 0.3, 2.05), Vector3(0.4, 0.6, 0.4))
+	MeshKit.inst(root, MeshKit.frustum(0.09, 0.07, 0.22), MeshKit.flat(Color(1.0, 0.9, 0.6), 1.2), c + Vector3(-0.35, 0.6, 2.05))
+	light(c + Vector3(-0.35, 0.95, 2.0), Color(1.0, 0.85, 0.55), 0.7, 3.0)
+	prop(P_CLOCK, c + Vector3(1.4, 2.1, 2.2), PI)
+	prop(P_SHELF, c + Vector3(1.9, 0.16, 1.5), -PI * 0.5)
+	prop(P_BOXES, c + Vector3(1.6, 0.16, -1.2), 0.4)
+
 func _shed() -> void:
 	var c := Vector3(14, 0, 12)
 	_walls(c, "Corrugated", M_BASEMENT)
@@ -396,6 +423,8 @@ func _shed() -> void:
 
 ## Open-front equipment garage over the parking bays: steel frame, corrugated walls and roof,
 ## workbench, shelving and clutter along the walls (clear of the bays).
+var garage_roof: MeshInstance3D
+
 func _garage() -> void:
 	var x0 := -4.7
 	var x1 := 14.5
@@ -418,7 +447,9 @@ func _garage() -> void:
 		bx("SteelGreen", Vector3(x, 4.35, (z0 + z1) * 0.5), Vector3(0.18, 0.3, z1 - z0))   # truss
 	bx("SteelGreen", Vector3(cx, 4.45, z0 + 0.1), Vector3(w + 0.3, 0.35, 0.3))
 	var roof := PackedVector2Array([Vector2(z0 - 0.6, 4.6), Vector2(z1 + 0.3, 4.15), Vector2(z1 + 0.3, 4.27), Vector2(z0 - 0.6, 4.72)])
-	MeshKit.extrude_into(soup("Corrugated"), roof, w + 0.6, Transform3D(Basis(), Vector3(cx, 0, 0)))
+	var roof_soup := MeshKit.Soup.new()
+	MeshKit.extrude_into(roof_soup, roof, w + 0.6, Transform3D(Basis(), Vector3(cx, 0, 0)))
+	garage_roof = MeshKit.inst(root, roof_soup.mesh(), _material("Corrugated"))   # its own node: hidden while a vehicle is driven inside
 	bx("Hazard", Vector3(cx, 4.45, z0 - 0.07), Vector3(w + 0.3, 0.12, 0.02))
 	_sign(root, "Sign_Garage", Vector3(cx, 4.95, z0 - 0.02), Vector2(4.0, 0.5), PI)
 	_sign(root, "Sign_Safety", Vector3(x0 - 0.13, 2.6, z0 + 1.2), Vector2(1.5, 0.5), -PI * 0.5)

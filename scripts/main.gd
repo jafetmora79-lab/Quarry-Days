@@ -20,6 +20,7 @@ const ExcavationScript = preload("res://scripts/excavation.gd")
 const RigScript = preload("res://scripts/rig.gd")
 const MINE_REACH := 2.6 # tools reach a little past the visual lunge (QuarryToolView.REACH_MAX)
 const HILLSIDE_ID := "hillside_face_01"
+const HOME_POS := Vector3(-7.3, 0, 19.6)
 const SAVE_PATH := "user://quarry_save.json"
 const RESOURCE_ORDER := ["limestone", "coal", "iron_ore", "crushed_stone", "copper_ore", "gold_ore"]
 # Phase 5: the three small starting rocks are replaced by enormous finite formations (data/progression.json).
@@ -83,6 +84,9 @@ var pile_nodes := {}
 var construction := false
 var relocating := {}
 var sell_confirm := ""
+var sleeping := false
+var sleep_timer := 0.0
+var _late_day := -1             # day on which the "go home to sleep" hint was shown
 var landscape: QuarryLandscape  # sky, clouds, distant mountains and forest (no collision)
 var pit_zone: QuarryPitZone     # Phase 6.3a: the new pit area behind the north-east gate
 var pit_retired: Array = []     # ring pieces retired to make the gate (for tests)
@@ -286,6 +290,9 @@ func _build_quarry() -> void:
 			_visual_box(world,Vector3(x,2.85,z),Vector3(2.1,2.5,2.1),Color(0.13,0.24,0.16))
 	_building("Office", Vector3(-14,0,12), Color(0.48,0.42,0.31))
 	_building("Storage shed", Vector3(14,0,12), Color(0.38,0.37,0.31))
+	_building("Home", HOME_POS, Color(0.46,0.38,0.28))
+	var bed := _solid(world, "Bed", HOME_POS + Vector3(-1.3, 0.35, 1.3), Vector3(1.0, 0.7, 2.0), Color(0.45,0.3,0.22))
+	bed.set_meta("kind", "bed")
 	var sell := _solid(world,"Selling station",Vector3(-7,0.85,10),Vector3(2.2,1.7,1.25),Color(0.37,0.26,0.14))
 	sell.set_meta("kind","sell")
 	var shop := _solid(world,"Upgrade board",Vector3(-14,1.2,7.8),Vector3(2.1,1.4,0.25),Color(0.15,0.26,0.27))
@@ -344,6 +351,61 @@ func _building(label: String, pos: Vector3, color: Color) -> void:
 	_solid(world,label+" front left",pos+Vector3(-1.6,1.4,-2.35),Vector3(1.8,2.8,0.22),color)
 	_solid(world,label+" front right",pos+Vector3(1.6,1.4,-2.35),Vector3(1.8,2.8,0.22),color)
 	_solid(world,label+" roof",pos+Vector3(0,2.92,0),Vector3(5.4,0.27,5.2),Color(0.24,0.25,0.26))
+
+# ------------------------------------------------------------------ home and sleep
+
+func _sleep_tick(delta: float) -> void:
+	if sleeping:
+		sleep_timer -= delta
+		if sleep_timer <= 0.0:
+			if hud.fade_alpha() >= 0.99:
+				sleep_now()
+				hud.fade_to(0.0, 0.9)
+				sleep_timer = 1.0
+			else:
+				sleeping = false
+				player.locked = false
+		return
+	# one gentle hint per evening
+	var h := _hour()
+	var day := int(state.clock_minutes / 1440.0)
+	if h >= 20.0 and _late_day != day and menu == "" and not placement:
+		_late_day = day
+		hud.toast("It's getting late", "Your bed is in the little house by the garage (E).", "info")
+
+func _hour() -> float:
+	return fposmod(state.clock_minutes, 1440.0) / 60.0
+
+## Beds are for the evening and the small hours: from `sleep_from_hour` until `wake_hour`.
+func can_sleep() -> bool:
+	var h := _hour()
+	return h >= float(prog.cfg.get("home", {}).get("sleep_from_hour", 17.0)) or h < float(prog.cfg.get("home", {}).get("wake_hour", 7.0)) - 1.0
+
+func try_sleep() -> void:
+	if sleeping:
+		return
+	if not can_sleep():
+		_notify("You are not tired yet. Rest after %02d:00." % int(prog.cfg.get("home", {}).get("sleep_from_hour", 17.0)))
+		return
+	sleeping = true
+	player.locked = true
+	hud.fade_to(1.0, 0.9)
+	sleep_timer = 1.1
+
+## Advances the clock to the next wake-up time and saves. Money, staff, machines and every excavated section stay as
+## they are: wages are settled minute by minute by the business, machines simply rest, and rock never grows back.
+func sleep_now() -> void:
+	var wake := float(prog.cfg.get("home", {}).get("wake_hour", 7.0)) * 60.0
+	var day_start := floorf(state.clock_minutes / 1440.0) * 1440.0
+	var target := day_start + wake
+	if target <= state.clock_minutes:
+		target += 1440.0
+	state.clock_minutes = target
+	business.tick(0.0) # settle wages up to the new time
+	_update_light()
+	_late_day = -1
+	_save()
+	hud.toast("Good morning", "Day %d. The game was saved." % (int(state.clock_minutes / 1440.0) + 1), "milestone")
 
 # ------------------------------------------------------------------ Phase 6.2: clean up Grandpa's site
 
@@ -1016,6 +1078,13 @@ func _look_target() -> Node3D:
 func _physics_process(delta: float) -> void:
 	if menu != "":
 		return
+	_sleep_tick(delta)
+	if sleeping:
+		return
+	if art and art.garage_roof:
+		# the chase camera would sit inside the roof: take the roof off while a vehicle is driven under it
+		var inside := driving != null and driving.global_position.x > -6.5 and driving.global_position.x < 16.0 and driving.global_position.z > 14.0 and driving.global_position.z < 24.0
+		art.garage_roof.visible = not inside
 	state.tick(delta)
 	business.tick(delta)
 	fleet.tick()
@@ -1049,6 +1118,7 @@ func _physics_process(delta: float) -> void:
 			"debris":
 				var did := str(last_target.get_meta("debris_id", ""))
 				prompt = "LMB: cut the weeds" if did.begins_with("w") else "LMB: break the rubble heap (%d stone left)" % prog.heap_units_left(did)
+			"bed": prompt = "E: sleep until morning" if can_sleep() else "Too early to sleep (rest after %02d:00)" % int(prog.cfg.get("home", {}).get("sleep_from_hour", 17.0))
 			"discovery": prompt = "E: open the old lockbox"
 			"rig":
 				var ri := int(last_target.get_meta("index"))
@@ -1197,6 +1267,8 @@ func _interact(target: Node3D) -> void:
 			_open_menu(str(target.get_meta("kind")),int(target.get_meta("index",-1)))
 		"office":
 			_open_menu("manage")
+		"bed":
+			try_sleep()
 		"discovery":
 			_read_discovery(str(target.get_meta("discovery")))
 		"rig":
@@ -2749,7 +2821,13 @@ func _show_intro() -> void:
 	var st: Dictionary = prog.cfg.get("story", {})
 	if hud and not prog.story["intro_seen"]:
 		player.locked = true
-		hud.show_card(str(st.get("intro_title", "")), str(st.get("intro", "")), func(): prog.story["intro_seen"] = true; player.locked = false)
+		# two cards: Grandpa's letter, then a short "how to start" so the first day is clear
+		hud.show_card(str(st.get("intro_title", "")), str(st.get("intro", "")), func():
+			if str(st.get("intro2", "")) != "":
+				hud.show_card(str(st.get("intro2_title", "YOUR FIRST DAY")), str(st.get("intro2", "")), func(): prog.story["intro_seen"] = true; player.locked = false)
+			else:
+				prog.story["intro_seen"] = true
+				player.locked = false)
 
 ## First formation fully cleared: grandpa's lockbox appears where the rock stood.
 func _on_formation_cleared(id: String) -> void:
