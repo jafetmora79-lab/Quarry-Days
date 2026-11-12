@@ -1311,6 +1311,7 @@ func _open_menu(kind: String, index := -1) -> void:
 
 func _close_menu() -> void:
 	menu = ""
+	player.tool_view.equip(state.tool_tier, true)   # always back in hand with the tool you own
 	panel.visible = false
 	management.visible = false
 	player.locked = false
@@ -2995,7 +2996,7 @@ func buy_next_tool() -> bool:
 	if not prog.buy_next_tool():
 		_notify("The %s costs %s." % [str(nt["title"]), QuarryTheme.money_text(int(nt["cost"]))])
 		return false
-	player.tool_view.equip(state.tool_tier)
+	player.tool_view.equip(state.tool_tier, menu != "")   # behind a menu nobody sees the swap animation: just show the new tool
 	hud.toast("New tool: " + str(nt["title"]), "MINING POWER +%d%%" % prog.tool_gain_percent(from, state.tool_tier), "unlock")
 	_sfx_unlock()
 	_notify(str(nt.get("desc", "")))

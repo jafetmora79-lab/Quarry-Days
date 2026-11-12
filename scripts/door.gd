@@ -1,6 +1,6 @@
 extends Node3D
 class_name QuarryDoor
-## A hinged wooden house door you open and close with E. The panel swings into the house; a worker walking up to it
+## A hinged wooden house door you open and close with E (it also opens when you or a worker walk up to it). The panel swings into the house; a worker walking up to it
 ## opens it as well, so nobody is ever locked out or in. The collider sits on the panel, so it blocks only while shut.
 
 const W := 1.38
@@ -66,6 +66,8 @@ func is_open() -> bool:
 
 func _workers_near() -> bool:
 	var c := global_position + Vector3(-hinge_side * W * 0.5, 0.0, 0.0)
+	if not game.driving and game.player and Vector2(game.player.global_position.x, game.player.global_position.z).distance_to(Vector2(c.x, c.z)) < 1.5:
+		return true   # walking up to a door opens it; E still opens and closes it by hand
 	for w in game.worker_nodes.values():
 		if Vector2(w.global_position.x, w.global_position.z).distance_to(Vector2(c.x, c.z)) < 1.9:
 			return true
