@@ -11,6 +11,9 @@ var game
 var time_label: Label
 var money_label: Label
 var income_label: Label
+var badge_label: Label
+var hint_text := "WASD move  SHIFT sprint  LMB mine  E use  M manage  B build  F5 save  ESC pause"
+var _income_override := ""
 var stage_label: Label
 var objective_label: Label
 var objective_bar: ProgressBar
@@ -97,6 +100,9 @@ func _build() -> void:
 	v.add_child(money_label)
 	income_label = QuarryTheme.label("", QuarryTheme.BODY, QuarryTheme.GOOD)
 	v.add_child(income_label)
+	badge_label = QuarryTheme.label("", QuarryTheme.SMALL, QuarryTheme.DIM)   # deliveries waiting, unconnected belts
+	badge_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(badge_label)
 	# ---- top-right: objective
 	var tr := _panel(Control.PRESET_TOP_RIGHT)
 	tr.custom_minimum_size = Vector2(310, 0)
@@ -339,7 +345,21 @@ func _money_popup(amount: int, gain: bool, anchor: Vector2) -> void:
 
 ## Queued notification at the top centre. kind: unlock | sale | milestone | info | warn
 func toast(title: String, sub := "", kind := "info") -> void:
+	# the same message is never shown twice in a row, and the queue stays short: when it is full the oldest
+	# plain notices are dropped so a milestone is not stuck behind a pile of old news
+	for q in toast_queue:
+		if str(q[0]) == title:
+			return
+	if toast_active != null and str(toast_active.get_meta("title", "")) == title and toast_t < 1.5:
+		return
 	toast_queue.append([title, sub, kind])
+	while toast_queue.size() > 4:
+		var drop := -1
+		for i in range(toast_queue.size()):
+			if str(toast_queue[i][2]) in ["info", "sale", "warn"]:
+				drop = i
+				break
+		toast_queue.remove_at(drop if drop >= 0 else 0)
 
 func show_mining(text: String, fraction: float) -> void:
 	dura_label.text = text
@@ -391,13 +411,22 @@ func _process(delta: float) -> void:
 	money_label.text = QuarryTheme.money_text(int(round(shown_money)))
 	money_label.modulate = Color(1, 1, 1).lerp(Color(1.25, 1.2, 0.9), money_pulse)
 	var clock := int(st.clock_minutes)
-	time_label.text = "DAY %d   %02d:%02d" % [clock / 1440 + 1, (clock / 60) % 24, clock % 60]
+	var hr := (clock / 60) % 24
+	var phase_name := "NIGHT" if hr < 5 or hr >= 21 else "DAWN" if hr < 7 else "MORNING" if hr < 12 else "AFTERNOON" if hr < 17 else "EVENING"
+	time_label.text = "DAY %d   %02d:%02d   %s" % [clock / 1440 + 1, hr, clock % 60, phase_name]
+	time_label.add_theme_color_override("font_color", QuarryTheme.WARN if hr >= 20 or hr < 5 else QuarryTheme.DIM)
 	while not income_log.is_empty() and _now - float(income_log[0][0]) > 60.0:
 		income_log.pop_front()
 	var per_min := 0
 	for e in income_log:
 		per_min += int(e[1])
-	income_label.text = ("+%s / min" % QuarryTheme.money_text(per_min)) if per_min > 0 else "no sales yet" if st.earned <= 0 else ""
+	if (hr >= 20 or hr < 5) and game.prog.story["intro_seen"]:
+		income_label.text = "Day ends at %02d:00 - head home to sleep" % int(game.prog.cfg.get("home", {}).get("curfew_hour", 22.0))
+		income_label.add_theme_color_override("font_color", QuarryTheme.WARN)
+	else:
+		income_label.text = ("+%s / min" % QuarryTheme.money_text(per_min)) if per_min > 0 else "no sales yet" if st.earned <= 0 else ""
+		income_label.add_theme_color_override("font_color", QuarryTheme.GOOD)
+	hint_label.text = hint_text
 	# message fade
 	message_timer = maxf(0.0, message_timer - delta)
 	message_label.modulate.a = clampf(message_timer / 0.4, 0.0, 1.0)
@@ -445,8 +474,9 @@ func refresh_panels() -> void:
 		var detail := []
 		for r in reqs:
 			frac = minf(frac, float(r[1]) / maxf(0.0001, float(r[2])))
-			if float(r[1]) < float(r[2]):
-				detail.append("%s  (%s)" % [r[0], _amount(r)])
+			var done_r := float(r[1]) >= float(r[2]) - 0.00001
+			# a full checklist: finished requirements stay visible and ticked, so progress is never a surprise
+			detail.append("%s %s%s" % ["[x]" if done_r else "[ ]", r[0], "" if done_r else "  (%s)" % _amount(r)])
 		objective_label.text = "Next: %s" % str(info["title"])
 		objective_bar.value = clampf(frac, 0.0, 1.0)
 		objective_detail.text = "\n".join(detail) if not detail.is_empty() else "Ready!"
@@ -456,6 +486,14 @@ func refresh_panels() -> void:
 		objective_bar.value = prog.cleared_fraction(prog.formation_ids())
 		objective_detail.text = "Quarry excavated: %d%%" % int(objective_bar.value * 100.0)
 	status_label.text = game.hud_status_text()
+	var badge_lines := []
+	var warn := false
+	for b in game.hud_badges():
+		badge_lines.append(str(b[0]))
+		warn = warn or bool(b[1])
+	badge_label.text = "\n".join(badge_lines)
+	badge_label.visible = not badge_lines.is_empty()
+	badge_label.add_theme_color_override("font_color", QuarryTheme.WARN if warn else QuarryTheme.DIM)
 
 func _amount(r: Array) -> String:
 	if str(r[0]).begins_with("Earn"):
@@ -496,11 +534,14 @@ func _update_toasts(delta: float) -> void:
 	if toast_active == null and not toast_queue.is_empty():
 		var item: Array = toast_queue.pop_front()
 		toast_active = _make_toast(str(item[0]), str(item[1]), str(item[2]))
+		toast_active.set_meta("title", str(item[0]))
+		toast_active.set_meta("kind", str(item[2]))
 		toast_t = 0.0
 	if toast_active == null:
 		return
 	toast_t += delta
-	var life := 3.2 if toast_queue.is_empty() else 2.0
+	var big := str(toast_active.get_meta("kind", "")) == "milestone"
+	var life := (4.8 if big else 3.2) if toast_queue.is_empty() else (3.0 if big else 2.0)   # milestones linger
 	var a_in := clampf(toast_t / 0.25, 0.0, 1.0)
 	var a_out := clampf((life - toast_t) / 0.35, 0.0, 1.0)
 	var e := 1.0 - pow(1.0 - a_in, 3.0)
@@ -517,7 +558,7 @@ func _make_toast(title: String, sub: String, kind: String) -> Control:
 	p.add_theme_stylebox_override("panel", QuarryTheme.panel_box(QuarryTheme.BG, border, 10, 3))
 	toast_root.add_child(p)
 	var v := _vbox(p, 1)
-	var t := QuarryTheme.label(title.to_upper(), 12, border, true)
+	var t := QuarryTheme.label(title.to_upper(), 16 if kind == "milestone" else 12, border, true)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
 	if sub != "":

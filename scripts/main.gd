@@ -1258,6 +1258,7 @@ func _physics_process(delta: float) -> void:
 	if placement:
 		prompt = "PLACE %s: %s | LMB place | R rotate | G grid %s | Esc cancel%s" % [placement_kind.replace("output","output storage").to_upper(), "VALID" if ghost_valid else "BLOCKED", "on" if grid_snap else "off", placement_hint]
 	hud.set_prompt(prompt)
+	hud.hint_text = _hint_text()
 	hud.tutorial = tutorial_visible and not driving
 	hud_refresh_t -= delta
 	if hud_refresh_t <= 0.0:
@@ -3327,6 +3328,36 @@ func _read_discovery(did: String) -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 ## One line per production fact for the HUD (only what is really happening).
+## The bottom key hint follows what the player is doing.
+func _hint_text() -> String:
+	if driving:
+		return "WASD drive  Mouse look  Space brake  R recover  E exit vehicle"
+	if placement:
+		return "LMB place  R rotate  G grid snap  Esc cancel"
+	if construction:
+		return "LMB select a machine  B move  X sell  Esc leave construction"
+	return "WASD move  SHIFT sprint  LMB mine  E use  M manage  B build  F5 save  ESC pause"
+
+## Small status lines under the clock: deliveries waiting in the construction inventory, vehicles on their way, belts
+## that are not connected at both ends.
+func hud_badges() -> Array:
+	var lines := []
+	var n := 0
+	for k in business.inventory:
+		n += int(business.inventory[k])
+	if n > 0:
+		lines.append(["%d delivered machine%s waiting - place %s from the order screen" % [n, "" if n == 1 else "s", "it" if n == 1 else "them"], false])
+	if delivery and not delivery.jobs.is_empty():
+		lines.append(["%d vehicle%s arriving" % [delivery.jobs.size(), "" if delivery.jobs.size() == 1 else "s"], false])
+	var loose := 0
+	for i in range(business.links.size()):
+		var l: Dictionary = business.links[i]
+		if l.get("src", {}).is_empty() or l.get("dst", {}).is_empty():
+			loose += 1
+	if loose > 0:
+		lines.append(["%d belt%s not connected at both ends" % [loose, "" if loose == 1 else "s"], true])
+	return lines
+
 func hud_status_text() -> String:
 	var lines := []
 	if prog.cleanup_active():
