@@ -157,6 +157,7 @@ func _tool_clipboard() -> Node3D:
 	return n
 
 var _last_yaw := 0.0
+var _load_vis := 0.0
 
 func _animate(delta: float) -> void:
 	# Distant workers animate at a reduced rate (and not at all when far away and off-screen).
@@ -167,7 +168,11 @@ func _animate(delta: float) -> void:
 	var dt := delta * (4.0 if far else 1.0)
 	var carrying := business.carry_total(e) > 0
 	# the load is visible exactly while the worker owns it (it vanishes when the deposit actually happens)
-	carry_box.visible = carrying
+	# The load is either carried or put away: while the miner swings the pick it is out of sight (in the bag), and it
+	# comes back when the pick is slung. It still vanishes only when the real deposit happens.
+	_load_vis = move_toward(_load_vis, 1.0 if carrying and anim != "work" else 0.0, dt * 8.0)
+	carry_box.visible = carrying and _load_vis > 0.02
+	carry_box.scale = Vector3.ONE * maxf(_load_vis, 0.01)
 	if carrying:
 		carry_box.material_override = MeshKit.mat(QuarryArt.ROCK_MAT.get(e["carry"].keys()[0], "RockLimestone"))
 	if rig:
@@ -177,7 +182,7 @@ func _animate(delta: float) -> void:
 		# the miner's pick is in the working grip only for mining and the walk there; it is slung while carrying
 		# rock, picking pieces up, resting or off shift
 		if profession == "miner":
-			rig.set_tool_held("pickaxe", not carrying and anim in ["idle", "walk", "turn", "work"])
+			rig.set_tool_held("pickaxe", anim == "work" or (not carrying and anim in ["idle", "walk", "turn"]))
 		rig.pose(dt, anim, speed_now, profession, carrying, anim_phase, yr)
 
 # ------------------------------------------------------------------ navigation

@@ -254,14 +254,16 @@ func _build(t: int) -> Node3D:
 const HAND_R_DIR := Vector3(0.40, -0.53, 0.74)
 const HAND_L_DIR := Vector3(-0.45, -0.45, 0.77)
 const HANDS := {
-	0: [["R", Vector3(0, 0.03, 0)]],
-	1: [["R", Vector3(0, 0.02, 0)], ["L", Vector3(0, 0.24, 0)]],
-	2: [["R", Vector3(0, 0.02, 0)], ["L", Vector3(0, 0.26, 0)]],
+	0: [["R", Vector3(0, 0.09, 0)]],
+	1: [["R", Vector3(0, 0.10, 0)], ["L", Vector3(0, 0.33, 0)]],
+	2: [["R", Vector3(0, 0.12, 0)], ["L", Vector3(0, 0.37, 0)]],
 	3: [["R", Vector3(0, 0.0, 0.05)], ["L", Vector3(-0.065, 0.12, -0.1)]],
 	4: [["R", Vector3(0.15, 0.0, 0)], ["L", Vector3(-0.15, 0.0, 0)]],
 }
 const SKIN := Color(0.80, 0.62, 0.48)
-const SLEEVE := Color(0.30, 0.36, 0.44)
+const GLOVE := Color(0.17, 0.18, 0.21)
+const SLEEVE := Color(0.86, 0.46, 0.16)        # the miners' orange work jacket
+const BAND := Color(0.86, 0.86, 0.78)          # reflective cuff band
 
 func _add_hands(n: Node3D, t: int) -> void:
 	var def: Dictionary = TOOL[t]
@@ -273,12 +275,14 @@ func _add_hands(n: Node3D, t: int) -> void:
 		var right: bool = h[0] == "R"
 		var dir_m: Vector3 = (inv * (HAND_R_DIR if right else HAND_L_DIR)).normalized()
 		var at: Vector3 = h[1]
-		var fist := MeshKit.box(Vector3(0.085, 0.085, 0.095) * inv_s)
-		MeshKit.inst(n, fist, MeshKit.flat(SKIN), at)
-		var cuff := MeshKit.box(Vector3(0.095, 0.095, 0.05) * inv_s)
 		var basis := VeilRig.basis_zy(dir_m, Vector3.UP)
-		var cf := MeshKit.inst(n, cuff, MeshKit.flat(SLEEVE), at + dir_m * 0.07 * inv_s)
-		cf.basis = basis
+		# gloved fist closed round the handle, a thumb on top, a reflective cuff band, then the jacket sleeve
+		var fist := MeshKit.inst(n, MeshKit.box(Vector3(0.075, 0.07, 0.085) * inv_s), MeshKit.flat(GLOVE), at)
+		fist.basis = basis
+		var thumb := MeshKit.inst(n, MeshKit.box(Vector3(0.028, 0.03, 0.06) * inv_s), MeshKit.flat(SKIN), at + (basis * Vector3(0.0, 0.045, -0.02)) * inv_s)
+		thumb.basis = basis
+		var band := MeshKit.inst(n, MeshKit.box(Vector3(0.088, 0.088, 0.02) * inv_s), MeshKit.flat(BAND), at + dir_m * 0.075 * inv_s)
+		band.basis = basis
 		var arm := MeshKit.box(Vector3(0.085, 0.085, 0.30) * inv_s)
 		var af := MeshKit.inst(n, arm, MeshKit.flat(SLEEVE), at + dir_m * 0.22 * inv_s)
 		af.basis = basis

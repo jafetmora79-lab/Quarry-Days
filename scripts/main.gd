@@ -2296,13 +2296,13 @@ func _update_structures() -> void:
 		var sratio := float(state.total(state.storage)) / float(maxi(1, state.storage_capacity()))
 		sf.visible = sratio > 0.0
 		sf.scale.y = maxf(0.08, sratio)
-		sf.position.y = -0.55 + 0.6 * maxf(0.08, sratio) * 0.5
+		sf.position.y = -0.5                           # on the crate floor, heaping up inside the walls
 	for i in range(mini(output_nodes.size(), business.outputs.size())):
 		var fill: MeshInstance3D = output_nodes[i].get_meta("fill")
 		var ratio := float(business.output_total(i)) / float(business.output_capacity())
 		fill.visible = ratio > 0.0
 		fill.scale.y = maxf(0.05, ratio)
-		fill.position.y = -0.5 + 0.5 * maxf(0.05, ratio) + 0.08
+		fill.position.y = -0.04                        # on the bin floor, heaping up inside the walls (not under the hopper)
 
 ## Magnetic placement for belts (grid snap on): within 2.6 m of a machine port or the end of another belt, the
 ## ghost jumps to the spot where its end touches the machine and faces along the flow, so it links with no

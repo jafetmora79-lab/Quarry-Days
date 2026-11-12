@@ -487,11 +487,11 @@ func pose(delta: float, state: String, speed: float, work_kind: String, carrying
 		var out := -1.0 if side == "Left" else 1.0
 		var s := "l" if side == "Left" else "r"
 		var damp := (1.0 - _carry) * (1.0 - 0.7 * float(hold[side]))
-		var swing := -cyc * out * 19.0 * w * damp                 # left arm forward when the right leg is
+		var swing := -cyc * out * 27.0 * w * damp                 # left arm forward when the right leg is
 		var idle := sin(t * 0.9 + out) * 1.5 * (1.0 - w)
 		var up: float = lerpf(swing + idle + cu, float(_cur[s + "u"]), k)
-		var fore: float = lerpf(10.0 * w + maxf(swing, 0.0) * 0.7 + cf, float(_cur[s + "f"]), k)
-		_pose_bone(side + "UpperArm", _q(R, up) * _q(F, -out * (float(_cur[s + "o"]) * k + 5.0 * _carry)))
+		var fore: float = lerpf(24.0 * w + maxf(swing, 0.0) * 0.9 + cf, float(_cur[s + "f"]), k)
+		_pose_bone(side + "UpperArm", _q(R, up) * _q(F, -out * (float(_cur[s + "o"]) * k + 5.0 * _carry + 5.0 * w)))
 		_pose_bone(side + "LowerArm", _q(R, fore))
 	# legs: planted-foot walk cycle, stepping turn, and a crouch that keeps both feet planted --
 	var a_amp := rad_to_deg(asin(clampf(STANCE * 2.0 * _step_len / (4.0 * _leg), 0.0, 0.9)))
@@ -529,7 +529,7 @@ func pose(delta: float, state: String, speed: float, work_kind: String, carrying
 	var any_ik := _swing_w > 0.001 or _reach_w > 0.001 or ik_carry > 0.001
 	if carry_node:
 		var ccen := carry_center(state, p, cfm)
-		carry_node.transform = Transform3D(cfm.basis, ccen)
+		carry_node.transform = Transform3D(cfm.basis * Basis.from_scale(carry_node.scale), ccen)
 	if any_ik:
 		_save_arms(_qfk)
 		for k2 in range(_qfk.size()):

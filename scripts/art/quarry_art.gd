@@ -700,7 +700,7 @@ func dress_output(body: StaticBody3D) -> void:
 	var fill: MeshInstance3D = body.get_meta("fill")
 	_strip(body, [fill])
 	output_model(body, -(body.position.y - float(body.get_meta("ground_y", 0.0))))
-	fill.mesh = MeshKit.rock(Vector3(1.25, 0.5, 1.25), 61, 3, 8)
+	fill.mesh = MeshKit.rock(Vector3(1.22, 0.9, 1.22), 61, 3, 8)     # heaped inside the bin walls (floor at local y -0.07)
 	fill.material_override = _material("RockLimestone")
 
 func conveyor_model(parent: Node3D, g: float) -> void:
@@ -743,6 +743,6 @@ func storage_model(parent: Node3D, g: float) -> void:
 func dress_storage(body: StaticBody3D) -> void:
 	_strip(body, [])
 	storage_model(body, -(body.position.y - float(body.get_meta("ground_y", 0.0))))
-	var fill := MeshKit.inst(body, MeshKit.rock(Vector3(1.8, 0.6, 1.4), 62, 3, 8), _material("RockLimestone"), Vector3(0, -0.5, 0))
+	var fill := MeshKit.inst(body, MeshKit.rock(Vector3(1.76, 1.5, 1.36), 62, 3, 8), _material("RockLimestone"), Vector3(0, -0.5, 0))
 	body.set_meta("fill", fill)
 	_sign(body, "Sign_Storage", Vector3(0, 0.45, -0.84), Vector2(1.0, 0.25), PI)
