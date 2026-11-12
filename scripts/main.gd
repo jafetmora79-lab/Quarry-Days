@@ -88,6 +88,7 @@ var sleeping := false
 var sleep_timer := 0.0
 var _late_day := -1             # day on which the "go home to sleep" hint was shown
 var landscape: QuarryLandscape  # sky, clouds, distant mountains and forest (no collision)
+var delivery: QuarryDelivery    # service gate, garage door, delivery drivers and walk-in hires
 var pit_zone: QuarryPitZone     # Phase 6.3a: the new pit area behind the north-east gate
 var pit_retired: Array = []     # ring pieces retired to make the gate (for tests)
 var cleanup_nodes := {}      # Phase 6.2: weed clumps and rubble heaps still on the site (id -> body)
@@ -151,6 +152,8 @@ func _ready() -> void:
 	art.build_environment(self)
 	_carve_hillside_site()
 	_build_pit_zone()
+	delivery = QuarryDelivery.new()
+	delivery.build(self)
 	landscape = LandscapeScript.new()
 	landscape.build(self)
 	_spawn_cleanup()
@@ -2088,7 +2091,7 @@ func _sync_workers() -> void:
 			w.position = Vector3(float(p[0]), maxf(0.05, float(p[1])), float(p[2]))
 			w.rotation.y = float(e.get("yaw", 0.0))
 		else:
-			w.position = break_spot(business.employees.find(e)) + Vector3(0, 0.05, 0)
+			w.position = delivery.gate_point(business.employees.find(e)) if delivery else break_spot(business.employees.find(e)) + Vector3(0, 0.05, 0)
 		workers_root.add_child(w)
 		worker_nodes[id] = w
 
@@ -2106,7 +2109,7 @@ func ui_hire(candidate_id: String) -> String:
 	if business.employees.size() == 1:
 		hud.toast("First employee: " + str(e["name"]), "They'll mine right beside you.", "milestone")
 		_sfx_unlock()
-	return "Hired %s. They will head to the break area, then to work during their shift." % e["name"]
+	return "Hired %s. They walk in through the service gate, then head to work during their shift." % e["name"]
 
 func ui_fire(id: int) -> String:
 	var e := business.employee(id)
@@ -2341,7 +2344,7 @@ func _sync_vehicles(rebuild := false) -> void:
 func free_parking_slot() -> Variant:
 	for slot in fleet.cfg.get("parking", []):
 		var pos := Vector3(float(slot[0]), 0.05, float(slot[2]))
-		if _near_vehicle(pos, 3.5):
+		if _near_vehicle(pos, 3.5) or (delivery and delivery.reserved.has(pos)):
 			continue
 		var shape := BoxShape3D.new()
 		shape.size = Vector3(2.6, 1.8, 4.8)
@@ -2354,7 +2357,7 @@ func free_parking_slot() -> Variant:
 	return null
 
 func enter_vehicle(v: QuarryVehicle) -> void:
-	if driving or v == null:
+	if driving or v == null or v.has_meta("delivering"):
 		return
 	driving = v
 	v.driven = true
@@ -2602,9 +2605,11 @@ func ui_buy_vehicle(type: String) -> String:
 	var slot = free_parking_slot()
 	if slot == null:
 		return "Equipment parking is blocked - clear a parking bay south of the yard"
-	fleet.buy(type, slot, 0.0)
+	var rec := fleet.buy(type, slot, 0.0)
 	_sync_vehicles()
 	nav_dirty = true
+	if delivery and not rec.is_empty() and delivery.start(int(rec["id"]), slot):
+		return "%s is being driven in through the service door to the equipment parking area." % fleet.spec(type)["title"]
 	return "%s delivered to the equipment parking area." % fleet.spec(type)["title"]
 
 func ui_vehicle_upgrade(key: String) -> String:

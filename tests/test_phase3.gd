@@ -196,7 +196,9 @@ func scene_tests() -> void:
 	check(game.business.expansion_unlocked and game.pile_nodes["iron_rubble_east"].visible, "expansion opens its rubble piles")
 	# --- purchase & parking
 	check(game.ui_buy_vehicle("loader").ends_with("parking area."), "front loader bought at the office")
+	game.delivery.finish_all()
 	check(game.ui_buy_vehicle("truck").ends_with("parking area."), "dump truck bought at the office")
+	game.delivery.finish_all()
 	check(game.state.money == 50000 - 7500, "office purchases charge $7,500 in total")
 	var loader = null
 	var truck = null

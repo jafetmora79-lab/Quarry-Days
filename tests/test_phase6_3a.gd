@@ -101,6 +101,7 @@ func run() -> void:
 	prog.stage = prog.stage_index("large")
 	game.state.money = 50000
 	game.ui_buy_vehicle("loader")
+	game.delivery.finish_all()
 	check(game.vehicle_nodes.size() > 0, "F a loader can be bought")
 	if game.vehicle_nodes.is_empty():
 		quit(1)

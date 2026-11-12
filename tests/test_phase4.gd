@@ -186,6 +186,7 @@ func scene_world() -> void:
 	game.state.money = 50000
 	game.business.milestones["mechanized"] = true
 	check(game.ui_buy_vehicle("loader").ends_with("parking area."), "6 loader delivered into the garage bay")
+	game.delivery.finish_all()
 	var loader = game.vehicle_nodes.values()[0]
 	game.enter_vehicle(loader)
 	await frames(5)

@@ -391,6 +391,7 @@ func scene_more() -> void:
 	game.business.milestones["mechanized"] = true
 	game.business.milestones["automated"] = true
 	check(game.ui_buy_vehicle("truck").ends_with("parking area."), "5 dump truck bought")
+	game.delivery.finish_all()
 	var truck = game.vehicle_nodes.values()[0]
 	var rec: Dictionary = game.fleet.vehicle(truck.vehicle_id)
 	game.fleet.add_cargo(rec, "limestone", 10)
@@ -509,6 +510,7 @@ func scene_deep() -> void:
 	# a vehicle drives down the ramp
 	game.business.milestones["mechanized"] = true
 	game.ui_buy_vehicle("loader")
+	game.delivery.finish_all()
 	var loader = game.vehicle_nodes.values()[0]
 	loader.global_position = Vector3(-3.5, 0.1, -4.0)
 	loader.rotation.y = 0.0

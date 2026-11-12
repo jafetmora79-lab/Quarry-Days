@@ -432,13 +432,23 @@ func _garage() -> void:
 	var z1 := 22.4
 	var cx := (x0 + x1) * 0.5
 	var w := x1 - x0
-	solid("Garage back wall", Vector3(cx, 2.0, z1), Vector3(w, 4.0, 0.25))
+	# The back wall has a big service door (see scripts/delivery.gd): deliveries and new hires come in through it.
+	var dx0: float = QuarryDelivery.DOOR_X - QuarryDelivery.DOOR_W * 0.5
+	var dx1: float = QuarryDelivery.DOOR_X + QuarryDelivery.DOOR_W * 0.5
+	for seg in [[x0, dx0], [dx1, x1]]:
+		var sc: float = (float(seg[0]) + float(seg[1])) * 0.5
+		var sw: float = float(seg[1]) - float(seg[0])
+		solid("Garage back wall", Vector3(sc, 2.0, z1), Vector3(sw, 4.0, 0.25))
+		bx("Corrugated", Vector3(sc, 2.0, z1), Vector3(sw, 4.0, 0.2))
+		bx(M_FOUNDATION, Vector3(sc, 0.2, z1), Vector3(sw + 0.1, 0.4, 0.3))
+	bx("Corrugated", Vector3(QuarryDelivery.DOOR_X, 3.95, z1), Vector3(QuarryDelivery.DOOR_W + 0.4, 0.5, 0.2))   # header over the door
+	for dxp in [dx0 - 0.1, dx1 + 0.1]:
+		bx("SteelGreen", Vector3(dxp, 2.0, z1 + 0.02), Vector3(0.25, 4.0, 0.34))
+	bx("Hazard", Vector3(QuarryDelivery.DOOR_X, 3.65, z1 - 0.12), Vector3(QuarryDelivery.DOOR_W, 0.16, 0.04))
 	solid("Garage wall", Vector3(x0, 2.0, (z0 + z1) * 0.5), Vector3(0.25, 4.0, z1 - z0))
 	solid("Garage wall", Vector3(x1, 2.0, (z0 + z1) * 0.5), Vector3(0.25, 4.0, z1 - z0))
-	bx("Corrugated", Vector3(cx, 2.0, z1), Vector3(w, 4.0, 0.2))
 	bx("Corrugated", Vector3(x0, 2.0, (z0 + z1) * 0.5), Vector3(0.2, 4.0, z1 - z0))
 	bx("Corrugated", Vector3(x1, 2.0, (z0 + z1) * 0.5), Vector3(0.2, 4.0, z1 - z0))
-	bx(M_FOUNDATION, Vector3(cx, 0.2, z1), Vector3(w + 0.1, 0.4, 0.3))
 	for x in [x0, x1]:
 		bx(M_FOUNDATION, Vector3(x, 0.2, (z0 + z1) * 0.5), Vector3(0.3, 0.4, z1 - z0))
 	# steel frame: front columns, I-beam, roof trusses
@@ -457,7 +467,7 @@ func _garage() -> void:
 	prop(P_WORKBENCH, Vector3(x0 + 0.55, 0.0, 19.6), PI * 0.5)
 	prop(P_TOOLBOX, Vector3(x0 + 0.5, 0.95, 19.2), PI * 0.5)
 	prop(P_SHELF, Vector3(x0 + 0.4, 0.0, 21.5), PI * 0.5)
-	prop(P_SHELF, Vector3(1.2, 0.0, z1 - 0.4), PI)
+	prop(P_SHELF, Vector3(11.8, 0.0, z1 - 0.4), PI)
 	prop(P_SHELF, Vector3(5.2, 0.0, z1 - 0.4), PI)
 	prop(P_ELEC, Vector3(9.8, 0.0, z1 - 0.35), PI)
 	prop(P_BOXES, Vector3(14.0, 0.0, 21.6), -PI * 0.5)
@@ -466,7 +476,7 @@ func _garage() -> void:
 	prop(P_CONE, Vector3(x0 + 1.0, 0.0, 17.2))
 	for k in range(3):                                                                   # oil drums
 		MeshKit.frustum_into(soup("PaintRed" if k != 1 else "SteelGreen"), Vector3(13.7 - 0.6 * (k % 2), 0, 19.0 + 0.62 * k), 0.29, 0.29, 0.88, 8)
-	solid("Garage shelving", Vector3(cx, 0.9, z1 - 0.45), Vector3(w - 0.4, 1.8, 0.6))       # behind the bays
+	solid("Garage shelving", Vector3((dx1 + x1) * 0.5, 0.9, z1 - 0.45), Vector3(x1 - dx1 - 0.4, 1.8, 0.6))       # behind the bays, clear of the door
 	solid("Garage workbench", Vector3(x0 + 0.5, 0.5, 20.2), Vector3(0.75, 1.0, 3.6))
 	solid("Garage drums", Vector3(13.6, 0.45, 19.6), Vector3(0.9, 0.9, 1.9))
 	light(Vector3(cx - 5, 4.0, 19.5), Color(0.9, 0.95, 1.0), 1.2, 9.0)

@@ -153,6 +153,9 @@ func control(delta: float) -> void:
 		speed = move_toward(speed, 0.0, 1.6 * delta) # rolling resistance: heavy, coasts a little
 	var steer_grip := clampf(speed / 2.5, -1.0, 1.0)
 	rotation.y -= steer * float(s["turn"]) * steer_grip * delta
+	if has_meta("delivering"):
+		_animate(delta) # an NPC is driving it into its bay (see scripts/delivery.gd)
+		return
 	var parked := not driven and absf(speed) < 0.01 and is_on_floor() and settled_frames > 5
 	if parked:
 		_animate(delta)
