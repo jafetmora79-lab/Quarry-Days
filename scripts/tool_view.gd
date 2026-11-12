@@ -279,6 +279,6 @@ func _add_hands(n: Node3D, t: int) -> void:
 		var basis := VeilRig.basis_zy(dir_m, Vector3.UP)
 		var cf := MeshKit.inst(n, cuff, MeshKit.flat(SLEEVE), at + dir_m * 0.07 * inv_s)
 		cf.basis = basis
-		var arm := MeshKit.box(Vector3(0.085, 0.085, 0.42) * inv_s)
-		var af := MeshKit.inst(n, arm, MeshKit.flat(SLEEVE), at + dir_m * 0.30 * inv_s)
+		var arm := MeshKit.box(Vector3(0.085, 0.085, 0.30) * inv_s)
+		var af := MeshKit.inst(n, arm, MeshKit.flat(SLEEVE), at + dir_m * 0.22 * inv_s)
 		af.basis = basis
