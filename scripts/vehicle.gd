@@ -67,7 +67,24 @@ func setup(main_node, f: QuarryFleet, record: Dictionary) -> void:
 	box.size = size
 	shape.shape = box
 	shape.position = Vector3(0, size.y * 0.5 + 0.05, 0)
+	shape.disabled = true          # kept only as the machine's footprint (navigation obstacle, tests); the hull below collides
 	add_child(shape)
+	# The body collides as a hull with bevelled bottom edges: a flat box catches on the seams between neighbouring ground
+	# boxes (the loader used to stall on the join between the corridor and the plateau).
+	var hx := size.x * 0.5
+	var hz := size.z * 0.5
+	var pts := PackedVector3Array()
+	for sx in [-1.0, 1.0]:
+		for sz in [-1.0, 1.0]:
+			pts.append(Vector3(sx * (hx - 0.14), 0.05, sz * (hz - 0.14)))
+			pts.append(Vector3(sx * hx, 0.05 + 0.14, sz * hz))
+			pts.append(Vector3(sx * hx, 0.05 + size.y, sz * hz))
+	var hull := ConvexPolygonShape3D.new()
+	hull.points = pts
+	var hull_shape := CollisionShape3D.new()
+	hull_shape.name = "BodyHull"
+	hull_shape.shape = hull
+	add_child(hull_shape)
 	if vtype == "loader":
 		_build_loader()
 	else:
