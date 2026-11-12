@@ -178,14 +178,23 @@ func control(delta: float) -> void:
 		_animate(delta)
 		return
 	var f := forward()
-	velocity.x = f.x * speed
-	velocity.z = f.z * speed
-	velocity.y = velocity.y - 22.0 * delta if not is_on_floor() else -0.5
+	# On a slope the machine drives along the ground (up or down it) instead of pressing into it: the old constant
+	# downward push slid it back on ramps, and the resulting tiny negative speed then stopped it from ever accelerating.
+	var heading := f
+	if is_on_floor():
+		var fn := get_floor_normal()
+		heading = f.slide(fn)
+		heading = heading.normalized() if heading.length() > 0.01 else f
+		velocity = heading * speed
+	else:
+		velocity.x = f.x * speed
+		velocity.z = f.z * speed
+		velocity.y = velocity.y - 22.0 * delta
 	move_and_slide()
 	settled_frames = settled_frames + 1 if is_on_floor() else 0
 	# Collisions bleed speed: only motion along the heading survives.
 	var real := get_real_velocity()
-	var along := real.x * f.x + real.z * f.z
+	var along := real.dot(heading)
 	if absf(along) < absf(speed):
 		speed = along
 	_track_safety(delta)

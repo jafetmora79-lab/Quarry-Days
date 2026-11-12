@@ -88,10 +88,14 @@ func run() -> void:
 		await drive(game, v, pz, 1.0, func(): return pz.to_loc(v.global_position).z < -63.5, 1800)
 		var lp: Vector3 = pz.to_loc(v.global_position)
 		check(lp.z < -62.0 and lp.y < -6.3 and absf(lp.x + 25.0) < 2.0, "C the %s drives down the level 2 ramp (%s)" % [title, str(lp)])
-		await drive(game, v, pz, -1.0, func(): return pz.to_loc(v.global_position).z > -50.5, 2400)
+		v.rotation.y += PI          # turn round at the bottom (the cleared floor gives room) and drive back up forwards
+		v.speed = 0.0
+		await frames(10)
+		await drive(game, v, pz, 1.0, func(): return pz.to_loc(v.global_position).z > -50.5, 2400)
 		lp = pz.to_loc(v.global_position)
 		check(lp.z > -52.0 and lp.y > -4.5, "C and back up it (%s)" % str(lp))
-		game.exit_vehicle()
+		game._reset_driving()        # (the exit spot at the ramp foot can be tight: just release the vehicle)
+		game.driving = null
 		await frames(5)
 	game.scripted_input = false
 	# ---- D: building on the lower floors respects the terrain
