@@ -86,6 +86,7 @@ var vehicles_root: Node3D
 var vehicle_nodes := {}
 var driving: QuarryVehicle
 var storage_body: StaticBody3D
+var sell_body: StaticBody3D
 var pile_nodes := {}
 var construction := false
 var relocating := {}
@@ -326,6 +327,7 @@ func _build_quarry() -> void:
 	bed.set_meta("kind", "bed")
 	var sell := _solid(world,"Selling station",Vector3(-7,0.85,10),Vector3(2.2,1.7,1.25),Color(0.37,0.26,0.14))
 	sell.set_meta("kind","sell")
+	sell_body = sell
 	var shop := _solid(world,"Upgrade board",OFFICE_POS + Vector3(-2.2, 1.45, -0.4),Vector3(0.14,1.2,2.0),Color(0.15,0.26,0.27))   # the whiteboard inside the office
 	shop.set_meta("kind","upgrades")
 	_build_workbench()
@@ -487,6 +489,7 @@ func can_sleep() -> bool:
 	return h >= float(prog.cfg.get("home", {}).get("sleep_from_hour", 17.0)) or h < float(prog.cfg.get("home", {}).get("wake_hour", 7.0)) - 1.0
 
 func try_sleep() -> void:
+	release_cart()
 	if sleeping:
 		return
 	if not can_sleep():
@@ -1210,7 +1213,7 @@ func _notify(s: String) -> void:
 ## Interaction highlight (Phase 8.5): a thin warm outline on the one thing you could press E on. Only real interactables get it
 ## (never terrain, rock, loose pieces or weeds), it is removed the moment you look away, open a menu, drive or build, and it is
 ## never used for construction ghosts, which have their own blueprint look.
-const HIGHLIGHT_KINDS := ["door", "bed", "sell", "upgrades", "storage", "crusher", "output", "shop", "office", "rig", "vehicle", "worker", "discovery", "walter", "fossil", "egg", "conveyor", "gate"]
+const HIGHLIGHT_KINDS := ["cart", "door", "bed", "sell", "upgrades", "storage", "crusher", "output", "shop", "office", "rig", "vehicle", "worker", "discovery", "walter", "fossil", "egg", "conveyor", "gate"]
 var highlight_node: Node3D
 var highlight_meshes: Array = []
 var _hl_mat: StandardMaterial3D
@@ -1267,11 +1270,14 @@ func _look_target() -> Node3D:
 	return null
 
 func _physics_process(delta: float) -> void:
-	_gear_timer += delta
-	if _gear_timer > 0.6:
-		_gear_timer = 0.0
-		if not gear_props.is_empty():
-			_update_cart_load()
+	if held_cart != null:
+		_cart_follow(delta)
+	for i in range(mini(output_nodes.size(), business.outputs.size())):
+		var arm = output_nodes[i].get_meta("arm") if output_nodes[i].has_meta("arm") else null
+		if arm != null and is_instance_valid(arm):
+			var working: bool = business.sorter_busy(i)
+			var goal := sin(Time.get_ticks_msec() * 0.006) * 0.55 if working else 0.0
+			arm.rotation.y = lerpf(arm.rotation.y, goal, minf(1.0, delta * 8.0))
 	if menu != "":
 		return
 	_sleep_tick(delta)
@@ -1354,7 +1360,9 @@ func _physics_process(delta: float) -> void:
 			"crusher": prompt = "E: use crusher"
 			"sell": prompt = "E: sell materials"
 			"shop": prompt = "E: order machinery"
-			"output": prompt = "E: output storage"
+			"output":
+				var ov := str(last_target.get_meta("variant", "output"))
+				prompt = {"output": "E: output storage", "hopper": "E: small hopper", "sorter": "E: sorting table"}[ov]
 			"conveyor":
 				var ci := int(last_target.get_meta("index"))
 				var link: Dictionary = business.links[ci] if ci < business.links.size() else {}
@@ -1364,6 +1372,9 @@ func _physics_process(delta: float) -> void:
 				var who := business.employee(int(last_target.get_meta("employee")))
 				if not who.is_empty():
 					prompt = "%s (%s): %s" % [who["name"], business.profession(who["profession"])["title"], who["task"]]
+			"cart":
+				var cid := str(last_target.get_meta("cart"))
+				prompt = "E: %s  (%d / %d)" % [str(prog.gear_def(cid).get("title", cid)), state.cart_total(cid), state.cart_cap(cid)]
 			"upgrades": prompt = "E: use the workbench and tools"
 			"storage": prompt = "E: storage"
 			"vehicle":
@@ -1466,6 +1477,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			elif event.button_index == MOUSE_BUTTON_LEFT:
 				_place_ghost()
 		return
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_F and held_cart != null and menu == "":
+		release_cart()
+		_notify("You let go of the cart.")
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_Q and not placement and not driving and menu == "" and name_dialog == null:
 		cycle_tool()
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_U and not placement and not driving and menu == "":
@@ -1505,6 +1519,8 @@ func _interact(target: Node3D) -> void:
 				_notify("Backpack full")
 		"sell", "upgrades", "storage", "crusher", "output", "shop":
 			_open_menu(str(target.get_meta("kind")),int(target.get_meta("index",-1)))
+		"cart":
+			_open_menu("cart", state.carts.find(str(target.get_meta("cart"))))
 		"office":
 			_open_menu("manage")
 		"bed":
@@ -1597,6 +1613,7 @@ func _draw_menu() -> void:
 						_draw_menu()]])
 		"sell": _draw_sell(p)
 		"upgrades": _draw_upgrades(p)
+		"cart": _draw_cart(p, idx)
 		"storage":
 			p.begin("STORAGE   %d / %d" % [state.total(state.storage), state.storage_capacity()], -1, "Optional keys: 1-6 store all, Shift+1-6 take all")
 			for i in range(RESOURCE_ORDER.size()):
@@ -1606,7 +1623,7 @@ func _draw_menu() -> void:
 		"crusher":
 			if idx >= 0 and idx < state.crushers.size():
 				var c: Dictionary = state.crushers[idx]
-				p.begin("STONE CRUSHER #%d" % (idx + 1), m, "Optional keys: 1 load, 2 start, 3 collect, 4 hopper")
+				p.begin("SMALL JAW CRUSHER #%d" % (idx + 1), m, "Optional keys: 1 load, 2 start, 3 collect, 4 hopper")
 				p.text("Hopper (automated feed): %d      Limestone input: %d      Crushed output: %d" % [c.get("hopper", 0), c["input"], c["output"]], QuarryTheme.INK)
 				p.text("Limestone in your bag: %d      %s" % [state.inventory["limestone"], ("Running: %.1f sec left" % c["remaining"]) if c["running"] else "Idle"])
 				p.button_bar([["load", "LOAD LIMESTONE", int(state.inventory["limestone"]) > 0, func(): menu_act("crusher", 0, false)], ["start", "START", not bool(c["running"]) and int(c["input"]) > 0, func(): menu_act("crusher", 1, false)]])
@@ -1614,6 +1631,9 @@ func _draw_menu() -> void:
 		"output":
 			if idx >= 0 and idx < business.outputs.size():
 				var items: Dictionary = business.outputs[idx]["items"]
+				if business.variant_of(idx) != "output":
+					_draw_variant_output(p, idx)
+					return
 				p.begin("OUTPUT STORAGE #%d   %d / %d" % [idx + 1, business.output_total(idx), business.output_capacity()], -1, "Optional keys: 1-6 withdraw, Shift+4 deposit gravel")
 				for i in range(RESOURCE_ORDER.size()):
 					var key: String = RESOURCE_ORDER[i]
@@ -1644,6 +1664,86 @@ func _draw_menu() -> void:
 					p.item("upgrade", "Upgrade", str(up["effect"]), int(up["cost"]), "Level %d" % (int(r["level"]) + 1), "UPGRADE", true, func(): menu_act("rig", 2, false))
 				else:
 					p.text("Fully upgraded.", QuarryTheme.GOOD)
+
+## Hand transfers at a hopper or a sorting table: bag -> bin and bin -> bag, never more than either side can take.
+func output_deposit(idx: int, key: String) -> int:
+	var ep := {"type": "output", "index": idx, "resource": key}
+	var n := mini(int(state.inventory[key]), business.ep_space(ep, key))
+	if n <= 0:
+		return 0
+	state.inventory[key] -= n
+	business.ep_put(ep, key, n, false)
+	return n
+
+func output_withdraw(idx: int, key: String) -> int:
+	var n := mini(int(business.outputs[idx]["items"].get(key, 0)), state.capacity() - state.total(state.inventory))
+	if n <= 0:
+		return 0
+	business.outputs[idx]["items"][key] = int(business.outputs[idx]["items"][key]) - n
+	state.inventory[key] += n
+	return n
+
+func sorter_sell_now(idx: int) -> int:
+	var pay := business.sorter_sell(idx)
+	if pay > 0:
+		sfx["coin"].play()
+		_notify("Sorted rock sold for %s (%d%% of the full price)" % [QuarryTheme.money_text(pay), int(round(float(business.cfg.get("sort_bonus", 1.3)) * 100.0))])
+	return pay
+
+func _draw_variant_output(p: QuarryStationUI, idx: int) -> void:
+	var v := business.variant_of(idx)
+	var items: Dictionary = business.outputs[idx]["items"]
+	var cap := business.output_capacity_of(idx)
+	if v == "hopper":
+		p.begin("SMALL HOPPER #%d   %d / %d" % [idx + 1, business.output_total(idx), cap], -1, "Belts feed it and empty it. By hand: put material in, take it out.")
+		for key in RESOURCE_ORDER:
+			var k: String = key
+			p.row([[prog.display(k), QuarryTheme.INK, 130], ["in hopper %d" % int(items[k]), QuarryTheme.DIM, 120], ["bag %d" % int(state.inventory[k]), QuarryTheme.DIM, 80]],
+				[["hd_" + k, "PUT IN", int(state.inventory[k]) > 0 and business.output_total(idx) < cap, func(): output_deposit(idx, k)], ["hw_" + k, "TAKE OUT", int(items[k]) > 0, func(): output_withdraw(idx, k)]], QuarryTheme.RES_COLORS.get(k, Color.WHITE))
+		return
+	var o: Dictionary = business.outputs[idx]
+	p.begin("MANUAL SORTING TABLE #%d   %d / %d" % [idx + 1, business.output_total(idx), cap], state.money, "Put rock on the table, sort a batch, then sell the sorted rock for %d%% of the price." % int(round(float(business.cfg.get("sort_bonus", 1.3)) * 100.0)))
+	var sorted_total := 0
+	for key in business.SORTABLE:
+		var k: String = key
+		sorted_total += business.sorter_sorted(idx, k)
+		p.row([[prog.display(k), QuarryTheme.INK, 110], ["on table %d" % int(items[k]), QuarryTheme.DIM, 100], ["sorted %d" % business.sorter_sorted(idx, k), QuarryTheme.GOOD, 90], ["bag %d" % int(state.inventory[k]), QuarryTheme.DIM, 70]],
+			[["sd_" + k, "PUT ON", int(state.inventory[k]) > 0 and business.output_total(idx) < cap, func(): output_deposit(idx, k)], ["sw_" + k, "TAKE OFF", int(items[k]) > 0, func(): output_withdraw(idx, k)]], QuarryTheme.RES_COLORS.get(k, Color.WHITE))
+	var left := float(o.get("sort_left", 0.0))
+	p.text(("Sorting: %.1f seconds left" % left) if left > 0.0 else "The table is idle.", QuarryTheme.INK)
+	p.button_bar([["sort", "SORT A BATCH", not business.sorter_busy(idx), func(): business.sorter_start(idx)], ["sell_sorted", "SELL SORTED (%d)" % sorted_total, sorted_total > 0, func(): sorter_sell_now(idx)]])
+
+func _draw_cart(p: QuarryStationUI, idx: int) -> void:
+	if idx < 0 or idx >= state.carts.size():
+		p.begin("CART", -1, "")
+		return
+	var id := str(state.carts[idx])
+	var title := str(prog.gear_def(id).get("title", id)).to_upper()
+	var near_store := cart_near(id, storage_body)
+	var near_sell := cart_near(id, sell_body)
+	p.begin("%s   %d / %d" % [title, state.cart_total(id), state.cart_cap(id)], state.money, "Load it from your bag, push it (E to let go), unload at the storage crate or sell from it at the selling station.")
+	for i in range(RESOURCE_ORDER.size()):
+		var key: String = RESOURCE_ORDER[i]
+		var buttons := [["cl_" + key, "LOAD", int(state.inventory[key]) > 0 and state.cart_space(id) > 0, func(): cart_move("load", id, key)],
+			["cu_" + key, "UNLOAD", state.cart_units(id, key) > 0, func(): cart_move("unload", id, key)]]
+		if near_store:
+			buttons.append(["cs_" + key, "TO CRATE", state.cart_units(id, key) > 0, func(): cart_move("store", id, key)])
+			buttons.append(["ct_" + key, "FROM CRATE", int(state.storage[key]) > 0 and state.cart_space(id) > 0, func(): cart_move("take", id, key)])
+		if near_sell:
+			buttons.append(["cx_" + key, "SELL", state.cart_units(id, key) > 0, func(): cart_move("sell", id, key)])
+		p.row([[prog.display(key), QuarryTheme.INK, 110], ["cart %d" % state.cart_units(id, key), QuarryTheme.DIM, 80], ["bag %d" % int(state.inventory[key]), QuarryTheme.DIM, 70]], buttons, QuarryTheme.RES_COLORS.get(key, Color.WHITE))
+	var held := held_cart != null and held_cart.cart_id == id
+	var bar := [["grab", ("LET GO" if held else ("PULL IT" if QuarryCart.mode_of(id) == "pull" else "PUSH IT")), true, func():
+		if held_cart != null and held_cart.cart_id == id:
+			release_cart()
+		else:
+			hold_cart(id)]]
+	if near_sell:
+		bar.append(["sell_all", "SELL ALL", state.cart_total(id) > 0, func(): cart_move_all("sell", id)])
+	if near_store:
+		bar.append(["store_all", "STORE ALL", state.cart_total(id) > 0, func(): cart_move_all("store", id)])
+	p.button_bar(bar)
+	p.text("The crate and the selling station are %s." % ("in reach of this cart" if (near_store or near_sell) else "too far away: push the cart close to one"), QuarryTheme.DIM)
 
 func _draw_sell(p: QuarryStationUI) -> void:
 	var bag_value := 0
@@ -1789,31 +1889,26 @@ func _refresh_workbench() -> void:
 	# [id, ladder tier or -1] in the order they are bought; ladder tools and the new tools interleave by price
 	var order := [["hand", 0], ["pointed_chisel", -1], ["pickaxe", 1], ["flat_chisel", -1], ["repaired_pickaxe", -1], ["reinforced", 2], ["sledgehammer", -1],
 		["steel_pickaxe", -1], ["hardened_pickaxe", -1], ["hand_splitter", -1], ["powered_hammer", -1], ["drill", 3], ["pneumatic_chisel", -1], ["jackhammer", 4]]
+	var viewer := QuarryToolView.new()               # only used to build the ladder models without hands
 	for i in range(order.size()):
 		var id: String = order[i][0]
 		var lt: int = order[i][1]
 		var owned := prog.owns(id)
 		var is_next := id == next_id
-		var col := i % 7
-		var row := i / 7
-		var z := -0.62 + float(col) * 0.205
-		var y := 0.22 - float(row) * 0.5
-		var m: Node3D = null
-		if lt == 0 or lt == 4:      # the rock hammer and the jackhammer keep their original pegboard pieces
-			var tint := 1.0 if (owned or is_next) else 0.4
-			if lt == 0:
-				_wb_box(Vector3(0, y - 0.12, z), Vector3(0.04, 0.4, 0.04), wood, tint)
-				_wb_box(Vector3(0, y + 0.1, z), Vector3(0.08, 0.1, 0.17), steel, tint)
-			else:
-				_wb_box(Vector3(0, y - 0.05, z), Vector3(0.12, 0.4, 0.12), Color(0.85, 0.35, 0.12), tint)
-				_wb_box(Vector3(0, y - 0.34, z), Vector3(0.04, 0.26, 0.04), steel, tint)
-				_wb_box(Vector3(0, y + 0.18, z), Vector3(0.09, 0.05, 0.3), Color(0.15, 0.15, 0.17), tint)
-			continue
-		m = GearModels.build_ladder(lt) if lt > 0 else GearModels.build_tool(id)
+		var col := i % 5
+		var row := i / 5
+		var z := float(col - 2) * 0.37
+		var y := 0.42 - float(row) * 0.42
+		var m: Node3D
+		if lt == 0 or lt == 4:
+			m = viewer._build(lt, false)              # the rock hammer and the jackhammer: their real models
+		elif lt > 0:
+			m = GearModels.build_ladder(lt)
+		else:
+			m = GearModels.build_tool(id)
 		workbench_tools.add_child(m)
-		var sc := 0.5 if lt < 0 else 0.55
+		var sc := 0.42 if lt != 4 else 0.38
 		m.scale = Vector3.ONE * sc
-		m.position = Vector3(0, y, z)
 		# hang it by its middle: centre the model's mesh bounds on the slot
 		var bb := AABB()
 		var first := true
@@ -1828,11 +1923,26 @@ func _refresh_workbench() -> void:
 				cur = cur.get_parent()
 			bb = (xf * mesh.get_aabb()) if first else bb.merge(xf * mesh.get_aabb())
 			first = false
-		if not first:
-			m.position = Vector3(0, y - bb.get_center().y * sc, z - bb.get_center().z * sc)
+		var centre := bb.get_center() * sc
+		m.position = Vector3(0, y - centre.y, z - centre.z)
+		m.set_meta("tool_id", id)
 		if not (owned or is_next):
 			for mi in m.find_children("*", "MeshInstance3D", true, false):
+				(mi as MeshInstance3D).material_override = null
 				(mi as MeshInstance3D).material_overlay = _dim_mat
+		# a small name label under each tool
+		var lbl := Label3D.new()
+		lbl.text = prog.item_title(id)
+		lbl.font_size = 14
+		lbl.pixel_size = 0.0035
+		lbl.outline_size = 5
+		lbl.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+		lbl.modulate = Color(1, 0.95, 0.82) if (owned or is_next) else Color(0.6, 0.58, 0.52)
+		lbl.visibility_range_end = 5.0
+		lbl.rotation.y = -PI * 0.5                      # the parent is turned along the wall: face out of it
+		lbl.position = Vector3(-0.07, y - 0.19, z)
+		workbench_tools.add_child(lbl)
+	viewer.free()
 	var nt := prog.next_tool()
 	if nt.is_empty():
 		workbench_tag.text = "WORKBENCH\nAll tools owned"
@@ -1843,57 +1953,130 @@ func _refresh_workbench() -> void:
 # ------------------------------------------------------------------ hauling aids and compressor standing in the yard (Phase 9)
 
 const GEAR_PROP_SPOTS := {"hand_cart": Vector3(-19.2, 0, 9.4), "wheelbarrow": Vector3(-19.2, 0, 11.4), "reinforced_wheelbarrow": Vector3(-19.2, 0, 13.4), "air_compressor": Vector3(-21.5, 0, 10.0)}
-var gear_props := {}
-var _gear_timer := 0.0
+const CART_IDS := ["hand_cart", "wheelbarrow", "reinforced_wheelbarrow"]
+var gear_props := {}          ## the compressor (a fixed prop)
+var cart_nodes := {}          ## cart id -> QuarryCart
+var held_cart: QuarryCart
+var _cart_save_t := 0.0
 
-## Standing beside the office once owned. Each has a small collider so it is a real object in the yard.
+## Bought carts stand in the yard (where they were left), the compressor beside the office.
 func _refresh_gear_props() -> void:
-	for id in GEAR_PROP_SPOTS:
-		var owned: bool = (id in state.carts) or (id in state.gear)
-		if owned and not gear_props.has(id):
-			var body := StaticBody3D.new()
-			body.name = "Prop_" + id
-			body.position = GEAR_PROP_SPOTS[id]
-			body.rotation.y = PI * 0.5 if id != "air_compressor" else PI
-			body.set_meta("gear_prop", id)
-			var prop := GearModels.build_prop(id)
-			body.add_child(prop)
-			var cs := CollisionShape3D.new()
-			var box := BoxShape3D.new()
-			box.size = Vector3(0.9, 0.9, 1.5) if id != "air_compressor" else Vector3(0.7, 1.0, 1.0)
-			cs.shape = box
-			cs.position = Vector3(0, 0.45, 0.2 if id != "air_compressor" else 0.15)
-			body.add_child(cs)
-			world.add_child(body)
-			gear_props[id] = body
+	for id in CART_IDS:
+		var owned: bool = id in state.carts
+		if owned and not cart_nodes.has(id):
+			var cart := QuarryCart.new()
+			cart.setup(id)
+			world.add_child(cart)
+			cart_nodes[id] = cart
+		elif not owned and cart_nodes.has(id):
+			if held_cart == cart_nodes[id]:
+				held_cart = null
+				player.speed_mult = 1.0
+			cart_nodes[id].queue_free()
+			cart_nodes.erase(id)
+		if cart_nodes.has(id) and cart_nodes[id] != held_cart:
+			var cp: Array = state.cart_pos.get(id, [])
+			var spot: Vector3 = GEAR_PROP_SPOTS[id]
+			cart_nodes[id].global_position = Vector3(float(cp[0]), float(cp[1]), float(cp[2])) if cp.size() >= 4 else spot
+			cart_nodes[id].rotation.y = float(cp[3]) if cp.size() >= 4 else PI * 0.5
+			cart_nodes[id].velocity = Vector3.ZERO
+	if "air_compressor" in state.gear and not gear_props.has("air_compressor"):
+		var body := StaticBody3D.new()
+		body.name = "Prop_air_compressor"
+		body.position = GEAR_PROP_SPOTS["air_compressor"]
+		body.rotation.y = PI
+		body.set_meta("gear_prop", "air_compressor")
+		body.add_child(GearModels.build_prop("air_compressor"))
+		var cs := CollisionShape3D.new()
+		var box := BoxShape3D.new()
+		box.size = Vector3(0.7, 1.0, 1.0)
+		cs.shape = box
+		cs.position = Vector3(0, 0.5, 0.15)
+		body.add_child(cs)
+		world.add_child(body)
+		gear_props["air_compressor"] = body
 	_update_cart_load()
 
-## The cart that is in use shows what the bag holds: the pile grows with the load and takes the colour of the main rock.
 func _update_cart_load() -> void:
-	var best := ""
-	for id in ["reinforced_wheelbarrow", "wheelbarrow", "hand_cart"]:
-		if gear_props.has(id):
-			best = id
-			break
-	var total := state.total(state.inventory)
-	var cap := maxi(1, state.capacity())
-	var top_res := "limestone"
-	var top_n := -1
-	for k in state.inventory:
-		if int(state.inventory[k]) > top_n:
-			top_n = int(state.inventory[k])
-			top_res = str(k)
-	for id in ["hand_cart", "wheelbarrow", "reinforced_wheelbarrow"]:
-		if not gear_props.has(id):
-			continue
-		var load: Node3D = gear_props[id].get_child(0).get_node_or_null("Load")
-		if load == null:
-			continue
-		var fill := clampf(float(total) / float(cap), 0.0, 1.0) if id == best else 0.0
-		load.visible = fill > 0.02
-		load.scale = Vector3(1.0, 0.25 + 0.9 * fill, 1.0)
-		var mi: MeshInstance3D = load.get_meta("pile")
-		mi.material_override = MeshKit.mat(QuarryArt.ROCK_MAT.get(top_res, "RockLimestone"))
+	for id in cart_nodes:
+		cart_nodes[id].show_load(state.cart_load.get(id, {}), state.cart_cap(id))
+
+# ------------------------------------------------------------------ pushing and pulling a cart, loading and unloading it
+
+func hold_cart(id: String) -> void:
+	if not cart_nodes.has(id):
+		return
+	if held_cart and held_cart != cart_nodes[id]:
+		release_cart()
+	held_cart = cart_nodes[id]
+	held_cart.held = true
+	player.speed_mult = 0.8
+	_notify("%s %s. Move to take it along. F or E lets go." % ["Pulling" if QuarryCart.mode_of(id) == "pull" else "Pushing", str(prog.gear_def(id).get("title", id)).to_lower()])
+
+func release_cart() -> void:
+	if held_cart and is_instance_valid(held_cart):
+		held_cart.held = false
+		held_cart.velocity = Vector3.ZERO
+		var id := held_cart.cart_id
+		state.cart_pos[id] = [held_cart.global_position.x, held_cart.global_position.y, held_cart.global_position.z, held_cart.rotation.y]
+	held_cart = null
+	if player:
+		player.speed_mult = 1.0
+
+func _cart_follow(delta: float) -> void:
+	if held_cart == null or not is_instance_valid(held_cart) or driving != null or sleeping:
+		release_cart()
+		return
+	var fwd := -player.global_transform.basis.z
+	fwd.y = 0.0
+	fwd = fwd.normalized()
+	var id := held_cart.cart_id
+	var target := player.global_position + fwd * QuarryCart.offset_of(id)
+	target.y = held_cart.global_position.y
+	var gap := held_cart.follow(target, player.rotation.y, delta)
+	if gap > 2.2:
+		release_cart()
+		_notify("The cart is stuck: you let go of it.")
+		return
+	_cart_save_t += delta
+	if _cart_save_t > 0.4:
+		_cart_save_t = 0.0
+		state.cart_pos[id] = [held_cart.global_position.x, held_cart.global_position.y, held_cart.global_position.z, held_cart.rotation.y]
+
+## The cart stands close enough to a station (the storage crate, the selling station) to be unloaded there.
+func cart_near(id: String, station: Node3D, radius := 6.5) -> bool:
+	if not cart_nodes.has(id) or station == null:
+		return false
+	return Vector2(cart_nodes[id].global_position.x - station.global_position.x, cart_nodes[id].global_position.z - station.global_position.z).length() <= radius
+
+## One transfer of the cart menu. op: load (bag -> cart), unload (cart -> bag), store (cart -> crate), take (crate -> cart), sell (cart -> money).
+func cart_move(op: String, id: String, key: String, n := 9999) -> int:
+	var moved := 0
+	match op:
+		"load": moved = state.cart_load_from_bag(id, key, n)
+		"unload": moved = state.cart_unload_to_bag(id, key, n)
+		"store":
+			if cart_near(id, storage_body):
+				moved = state.cart_store(id, key, n)
+		"take":
+			if cart_near(id, storage_body):
+				moved = state.cart_take(id, key, n)
+		"sell":
+			if cart_near(id, sell_body):
+				var before := state.money
+				moved = state.cart_sell(id, key, n)
+				if moved > 0:
+					sfx["coin"].play()
+					_notify("Sold %d %s for %s" % [moved, prog.display(key).to_lower(), QuarryTheme.money_text(state.money - before)])
+	_update_cart_load()
+	return moved
+
+## All of one cart's contents through one transfer type; returns units moved.
+func cart_move_all(op: String, id: String) -> int:
+	var total := 0
+	for key in RESOURCE_ORDER:
+		total += cart_move(op, id, str(key))
+	return total
 
 func _draw_shop(p: QuarryStationUI) -> void:
 	p.begin("MACHINERY ORDERS", state.money, "Click an item to see it turn, then BUY. Placement: R rotate, G grid snap, left click place, Esc refund.")
@@ -1901,8 +2084,8 @@ func _draw_shop(p: QuarryStationUI) -> void:
 	var stage_note := "Unlocks at the %s stage" % prog.feature_stage_title("crusher")
 	var cs := int(state.config.get("crusher_seconds", 18))
 	var cl := int(state.config.get("crusher_input_limit", 12))
-	p.offer_item("shop_crusher", "Stone crusher", "Limestone to gravel: %d stone per batch, %d s a batch." % [cl, cs], int(state.config["crusher_price"]), _shop_tag("crusher", "Owned: %d" % state.crushers.size()), _shop_offer("crusher", 0), "" if machines_ok else stage_note)
-	p.offer_item("shop_output", "Output storage", "Holds %d crushed stone from a crusher chute or a belt." % business.output_capacity(), int(business.cfg["output_storage_price"]), _shop_tag("output", "Owned: %d" % business.outputs.size()), _shop_offer("output", 1), "" if machines_ok else stage_note)
+	p.offer_item("shop_crusher", "Small jaw crusher", "Limestone to gravel: %d stone per batch, %d s a batch." % [cl, cs], int(state.config["crusher_price"]), _shop_tag("crusher", "Owned: %d" % state.crushers.size()), _shop_offer("crusher", 0), "" if machines_ok else stage_note)
+	p.offer_item("shop_output", "Output storage", "Holds %d crushed stone from a crusher chute or a belt." % business.output_capacity(), int(business.cfg["output_storage_price"]), _shop_tag("output", "Owned: %d" % _variant_count("output")), _shop_offer("output", 1), "" if machines_ok else stage_note)
 	var conv_ok := business.conveyors_unlocked()
 	var cr := float(business.cfg.get("conveyor_rate", 0.5))
 	var cc := int(business.cfg.get("conveyor_capacity", 3))
@@ -1910,6 +2093,8 @@ func _draw_shop(p: QuarryStationUI) -> void:
 	p.offer_item("shop_conveyor", "Conveyor, straight", "2 m belt: %.1f items a second, holds %d. Snaps onto machine ports." % [cr, cc], int(business.cfg["conveyor_price"]), _shop_tag("conveyor", "Owned: %d" % business.conveyors.size()), _shop_offer("conveyor", 2), conv_note)
 	p.offer_item("shop_conveyor_left", "Conveyor, left corner", "Turns material 90 degrees to the left.", int(business.cfg["conveyor_price"]), _shop_tag("conveyor_left", ""), _shop_offer("conveyor_left", 7), conv_note)
 	p.offer_item("shop_conveyor_right", "Conveyor, right corner", "Turns material 90 degrees to the right.", int(business.cfg["conveyor_price"]), _shop_tag("conveyor_right", ""), _shop_offer("conveyor_right", 8), conv_note)
+	p.offer_item("shop_sorter", "Manual sorting table", "Sort raw rock by hand: sorted stone, coal and iron sell for %d%% more." % int(round(float(business.cfg.get("sort_bonus", 1.3)) * 100.0)), int(business.cfg["sorter_price"]), _shop_tag("sorter", "Owned: %d" % _variant_count("sorter")), _shop_offer("sorter", 11), "" if prog.unlocked("sorter") else "Unlocks at the %s stage" % prog.feature_stage_title("sorter"))
+	p.offer_item("shop_hopper", "Small hopper", "A funnel bin for %d units of any material. Belts feed it and empty it." % int(business.cfg.get("hopper_capacity", 60)), int(business.cfg["hopper_price"]), _shop_tag("hopper", "Owned: %d" % _variant_count("hopper")), _shop_offer("hopper", 12), "" if prog.unlocked("hopper") else "Unlocks at the %s stage" % prog.feature_stage_title("hopper"))
 	var adv_ok := prog.unlocked("advanced_crusher")
 	var am: Dictionary = prog.machine("advanced_crusher")
 	p.offer_item("shop_advanced", "Advanced crusher", "Batches of %d stone, %.0f s a batch." % [cl * int(am.get("capacity_mult", 2)), cs * float(am.get("speed_mult", 0.45))], int(am["price"]), _shop_tag("advanced_crusher", ""), _shop_offer("advanced_crusher", 3), "" if adv_ok else "Unlocks at the %s stage" % prog.feature_stage_title("advanced_crusher"))
@@ -1943,6 +2128,13 @@ func _shop_tag(key: String, owned: String) -> String:
 	var n := int(business.inventory.get(key, 0))
 	return ("In inventory: %d" % n) if n > 0 else owned
 
+func _variant_count(variant: String) -> int:
+	var n := 0
+	for i in range(business.outputs.size()):
+		if business.variant_of(i) == variant:
+			n += 1
+	return n
+
 func _shop_button(key: String) -> String:
 	return "PLACE (%d)" % int(business.inventory.get(key, 0)) if int(business.inventory.get(key, 0)) > 0 else "ORDER"
 
@@ -1952,6 +2144,9 @@ func order_machine(key: String) -> bool:
 	var kind := key
 	if key.begins_with("conveyor"):
 		kind = "conveyor"
+	if kind in ["hopper", "sorter"] and not prog.unlocked(kind):
+		_notify("The %s unlocks at the %s stage." % [("small hopper" if kind == "hopper" else "sorting table"), prog.feature_stage_title(kind)])
+		return false
 	if kind in ["crusher", "output", "advanced_crusher"] and not prog.unlocked("crusher"):
 		_notify("Machinery unlocks at the %s stage." % prog.feature_stage_title("crusher"))
 		return false
@@ -1966,7 +2161,7 @@ func order_machine(key: String) -> bool:
 		_notify("Need $%d" % price)
 		return false
 	business.inventory[key] = int(business.inventory.get(key, 0)) + 1
-	var titles := {"crusher": "Stone crusher", "output": "Output storage", "advanced_crusher": "Advanced crusher", "conveyor": "Straight conveyor",
+	var titles := {"crusher": "Small jaw crusher", "hopper": "Small hopper", "sorter": "Manual sorting table", "output": "Output storage", "advanced_crusher": "Advanced crusher", "conveyor": "Straight conveyor",
 		"conveyor_left": "Left corner conveyor", "conveyor_right": "Right corner conveyor"}
 	hud.toast("Delivery confirmed", "%s is in your construction inventory - place it from the order screen or in construction mode." % titles.get(key, key), "unlock")
 	_sfx_unlock()
@@ -2041,6 +2236,8 @@ func menu_act(kind: String, digit: int, shift: bool) -> void:
 				3: _shop_pick("advanced_crusher")
 				7: _shop_pick("conveyor_left")
 				8: _shop_pick("conveyor_right")
+				11: _shop_pick("sorter")
+				12: _shop_pick("hopper")
 				4, 5, 9, 10:
 					var t: String = {4: "drill_rig", 5: "rock_breaker", 9: "improved_rig", 10: "heavy_breaker"}[digit]
 					if not prog.unlocked(t):
@@ -2201,6 +2398,12 @@ func _place_ghost() -> void:
 		"output":
 			_create_output(business.add_output(ghost.position,placement_yaw))
 			_notify("Output storage placed. Place it beside a crusher's chute or at a conveyor end.")
+		"hopper":
+			_create_output(business.add_output(ghost.position,placement_yaw,"hopper"))
+			_notify("Small hopper placed. Feed it by hand or from a belt, and empty it with a belt or by hand.")
+		"sorter":
+			_create_output(business.add_output(ghost.position,placement_yaw,"sorter"))
+			_notify("Sorting table placed. Put rock on it, press SORT, then sell the sorted stone for more.")
 		"conveyor":
 			_create_conveyor(business.add_conveyor(ghost.position,placement_yaw,placement_belt))
 			var link: Dictionary = business.links.back()
@@ -2214,6 +2417,8 @@ func _placement_price(kind: String) -> int:
 	match kind:
 		"advanced_crusher": return int(prog.machine("advanced_crusher")["price"])
 		"output": return int(business.cfg["output_storage_price"])
+		"hopper": return int(business.cfg["hopper_price"])
+		"sorter": return int(business.cfg["sorter_price"])
 		"conveyor": return int(business.cfg["conveyor_price"])
 	return int(state.config["crusher_price"])
 
@@ -2226,6 +2431,9 @@ func _start_placement(kind: String) -> void:
 	if kind == "conveyor_left" or kind == "conveyor_right":
 		placement_belt = kind.substr(9)
 		kind = "conveyor"
+	if kind in ["hopper", "sorter"] and not prog.unlocked(kind):
+		_notify("The %s unlocks at the %s stage." % [("small hopper" if kind == "hopper" else "sorting table"), prog.feature_stage_title(kind)])
+		return
 	if kind in ["crusher", "output", "advanced_crusher"] and not prog.unlocked("crusher"):
 		_notify("Machinery unlocks at the %s stage." % prog.feature_stage_title("crusher"))
 		return
@@ -2255,6 +2463,15 @@ func _start_placement(kind: String) -> void:
 		"crusher": _crusher_visual(ghost,true)
 		"advanced_crusher": _crusher_visual(ghost,true,2)
 		"output": _output_visual(ghost,true)
+		"hopper", "sorter":
+			if art:
+				if kind == "hopper":
+					art.hopper_model(ghost, 0.0)
+				else:
+					art.sorting_table_model(ghost, 0.0)
+			for child in ghost.get_children():
+				if child is GeometryInstance3D:
+					child.transparency = 0.45
 		"conveyor": _conveyor_visual(ghost,true,placement_belt)
 	_notify("Choose a clear patch of ground. R rotates, G toggles grid snap, left click places.")
 
@@ -2379,6 +2596,7 @@ func new_game() -> void:
 	get_tree().reload_current_scene()
 
 func _load(quiet := false) -> void:
+	release_cart()
 	var data = _read_save()
 	if data == null:
 		if not quiet:
@@ -2794,15 +3012,21 @@ func _conveyor_visual(parent: Node3D, transparent := false, belt := "straight") 
 func _create_output(index: int) -> void:
 	var data: Dictionary = business.outputs[index]
 	var p := Business.v3(data["position"])
-	var body := _solid(world,"Output storage",Vector3(p.x,p.y+0.55,p.z),Vector3(1.4,1.1,1.4),Color(0.24,0.30,0.22),float(data["yaw"]))
+	var variant := str(data.get("variant", "output"))
+	var size := Vector3(1.4, 1.1, 1.4) if variant == "output" else (Vector3(1.4, 1.2, 1.4) if variant == "hopper" else Vector3(1.55, 1.0, 0.95))
+	var body := _solid(world,{"output": "Output storage", "hopper": "Small hopper", "sorter": "Sorting table"}[variant],Vector3(p.x,p.y+size.y*0.5,p.z),size,Color(0.24,0.30,0.22),float(data["yaw"]))
 	body.set_meta("ground_y", p.y)
 	body.set_meta("kind","output")
+	body.set_meta("variant", variant)
 	body.set_meta("index",index)
 	_visual_box(body,Vector3(0,0.57,0),Vector3(1.5,0.08,1.5),Color(0.40,0.36,0.22))
 	var fill := _visual_box(body,Vector3(0,0.3,0),Vector3(1.2,0.5,1.2),Color(0.75,0.73,0.66))
 	body.set_meta("fill", fill)
 	if art:
-		art.dress_output(body)
+		match variant:
+			"hopper": art.dress_hopper(body)
+			"sorter": art.dress_sorter(body)
+			_: art.dress_output(body)
 	output_nodes.append(body)
 
 func _create_conveyor(index: int) -> void:
@@ -2911,10 +3135,10 @@ func _update_structures() -> void:
 	for i in range(mini(output_nodes.size(), business.outputs.size())):
 		var fill: MeshInstance3D = output_nodes[i].get_meta("fill")
 		_style_fill(output_nodes[i], fill, business.outputs[i]["items"], 0.82)
-		var ratio := float(business.output_total(i)) / float(business.output_capacity())
+		var ratio := float(business.output_total(i)) / float(business.output_capacity_of(i))
 		fill.visible = ratio > 0.0
 		fill.scale.y = maxf(0.05, ratio)
-		fill.position.y = -0.04                        # on the bin floor, heaping up inside the walls (not under the hopper)
+		fill.position.y = float(output_nodes[i].get_meta("fill_y", -0.04))   # on the bin floor, heaping up inside the walls (not under the hopper)
 
 ## Magnetic placement for belts (grid snap on): within 2.6 m of a machine port or the end of another belt, the
 ## ghost jumps to the spot where its end touches the machine and faces along the flow, so it links with no
@@ -3196,6 +3420,7 @@ func free_fallback_slot(type := "loader") -> Variant:
 	return _find_parking(type, true)
 
 func enter_vehicle(v: QuarryVehicle) -> void:
+	release_cart()
 	if driving or v == null or v.has_meta("delivering"):
 		return
 	driving = v

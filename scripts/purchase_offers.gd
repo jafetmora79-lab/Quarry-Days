@@ -84,7 +84,7 @@ static func machine(game, key: String, on_buy: Callable) -> Dictionary:
 	var reason := ""
 	match key:
 		"crusher":
-			title = "Stone Crusher"
+			title = "Small Jaw Crusher"
 			price = int(cfg["crusher_price"])
 			model = {"kind": "crusher", "tier": 1}
 			stats = [_row("Crushes", "limestone into gravel"), _row("Batch", "%d stone every %d seconds" % [int(cfg.get("crusher_input_limit", 12)), int(cfg.get("crusher_seconds", 18))]),
@@ -106,6 +106,25 @@ static func machine(game, key: String, on_buy: Callable) -> Dictionary:
 			model = {"kind": "output"}
 			stats = [_row("Holds", "%d crushed stone" % biz.output_capacity()), _row("Fed by", "a crusher chute or a conveyor belt")]
 			compare = [_cmp("You own %d." % biz.outputs.size(), "flat")]
+		"hopper":
+			title = "Small Hopper"
+			price = int(biz.cfg["hopper_price"])
+			model = {"kind": "hopper"}
+			stats = [_row("Holds", "%d units of any material" % int(biz.cfg.get("hopper_capacity", 60))), _row("Connects", "belts fill it and empty it at its ports (the yellow plate is the belt port)"),
+				_row("Level", "the heap in the funnel shows how full it is"), _row("Compared with output storage", "%d units instead of %d, and takes every material" % [int(biz.cfg.get("hopper_capacity", 60)), biz.output_capacity()])]
+			compare = [_cmp("You own %d small hopper%s." % [biz.outputs.filter(func(o): return str(o.get("variant", "output")) == "hopper").size(), ""], "flat")]
+			if not prog.unlocked("hopper"):
+				reason = "Unlocks at the %s stage" % prog.feature_stage_title("hopper")
+		"sorter":
+			title = "Manual Sorting Table"
+			price = int(biz.cfg["sorter_price"])
+			model = {"kind": "sorter"}
+			stats = [_row("Sorts", "stone, coal and iron: %d units a batch, %.0f seconds a batch" % [int(biz.cfg.get("sort_batch", 10)), float(biz.cfg.get("sort_seconds", 6.0))]),
+				_row("Benefit", "sorted rock sells for %d%% of the price" % int(round(float(biz.cfg.get("sort_bonus", 1.3)) * 100.0))), _row("Holds", "%d units on the table" % int(biz.cfg.get("sorter_capacity", 36))),
+				_row("Use", "put rock on it, SORT A BATCH, then SELL SORTED")]
+			compare = [_cmp("A batch of 10 stone is worth %d%% more than selling it straight from the bag." % int(round((float(biz.cfg.get("sort_bonus", 1.3)) - 1.0) * 100.0)), "good")]
+			if not prog.unlocked("sorter"):
+				reason = "Unlocks at the %s stage" % prog.feature_stage_title("sorter")
 		"conveyor", "conveyor_left", "conveyor_right":
 			var bk := "straight" if key == "conveyor" else ("left" if key == "conveyor_left" else "right")
 			title = {"straight": "Conveyor, Straight", "left": "Conveyor, Left Corner", "right": "Conveyor, Right Corner"}[bk]
@@ -163,10 +182,11 @@ static func gear(game, id: String, on_buy: Callable) -> Dictionary:
 	var stats := []
 	var compare := []
 	if kind == "cart":
-		stats.append(_row("Carries", "+%d units in the bag" % int(g["capacity"])))
-		stats.append(_row("Bag with it", "%d units (now %d)" % [game.state.capacity() - game.state.cart_capacity() + int(g["capacity"]), game.state.capacity()]))
+		stats.append(_row("Carries", "%d units, in the cart itself" % int(g["capacity"])))
+		stats.append(_row("Use", "%s it (E to grab, F to let go); load and unload at the crate or the selling station" % ("Pull" if id == "hand_cart" else "Push")))
+		stats.append(_row("Per trip", "%d units with your bag (%d bag + %d cart)" % [game.state.capacity() + int(g["capacity"]), game.state.capacity(), int(g["capacity"])]))
 		var diff: int = int(g["capacity"]) - game.state.cart_capacity()
-		compare.append(_cmp("Fewer trips to sell or store: %s%d units against what you use now" % ["+" if diff >= 0 else "", diff], "good" if diff > 0 else "flat"))
+		compare.append(_cmp("Fewer trips to sell or store: %s%d units against the best cart you own" % ["+" if diff >= 0 else "", diff], "good" if diff > 0 else "flat"))
 	elif kind == "equipment":
 		stats.append(_row("Effect", "powered tools work %d%% faster" % int(round((float(g.get("power_mult", 1.0)) - 1.0) * 100.0))))
 		compare.append(_cmp("Helps the drill, powered hammer, pneumatic chisel and jackhammer.", "flat"))

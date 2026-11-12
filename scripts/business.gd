@@ -317,6 +317,7 @@ func current_day() -> int:
 ## Advance business time. Payroll is evaluated once per whole in-game minute,
 ## so large ticks (accelerated tests) and overnight shifts are handled exactly.
 func tick(seconds: float) -> void:
+	tick_sorters(seconds)
 	_process_payroll()
 	tick_conveyors(seconds)
 	_scan_crushers()
@@ -407,6 +408,87 @@ func output_capacity() -> int:
 func output_total(i: int) -> int:
 	return state.total(outputs[i]["items"])
 
+# ---------------------------------------------------------------- Phase 9.6: hopper and sorting table (variants of the output bin)
+# Both are "output" structures with a "variant": the same placement, belts (links), workers' endpoints, selling and saving. A
+# plain output bin takes crushed stone only; the Small Hopper takes any material (capacity hopper_capacity); the Manual Sorting
+# Table takes the three raw rocks and can sort them (see sorter_*).
+
+const SORTABLE := ["limestone", "coal", "iron_ore"]
+
+func variant_of(i: int) -> String:
+	return str(outputs[i].get("variant", "output")) if i >= 0 and i < outputs.size() else "output"
+
+func output_capacity_of(i: int) -> int:
+	match variant_of(i):
+		"hopper": return int(cfg.get("hopper_capacity", 60))
+		"sorter": return int(cfg.get("sorter_capacity", 36))
+	return output_capacity()
+
+func variant_accepts(i: int, res: String) -> bool:
+	match variant_of(i):
+		"hopper": return true
+		"sorter": return res in SORTABLE
+	return res == "crushed_stone"
+
+## Sorted units are a flag on units that stay in the table's items: they are never created, and leave with the items.
+func sorter_sorted(i: int, res: String) -> int:
+	return mini(int(outputs[i].get("sorted", {}).get(res, 0)), int(outputs[i]["items"].get(res, 0)))
+
+func sorter_unsorted(i: int, res: String) -> int:
+	var pending := int(outputs[i].get("sort_job", {}).get(res, 0))
+	return maxi(0, int(outputs[i]["items"].get(res, 0)) - sorter_sorted(i, res) - pending)
+
+func sorter_busy(i: int) -> bool:
+	return float(outputs[i].get("sort_left", 0.0)) > 0.0
+
+## Starts sorting one batch: up to sort_batch units of the rock the table holds most of (not yet sorted).
+func sorter_start(i: int) -> bool:
+	if variant_of(i) != "sorter" or sorter_busy(i):
+		return false
+	var best := ""
+	var best_n := 0
+	for res in SORTABLE:
+		var n := sorter_unsorted(i, res)
+		if n > best_n:
+			best_n = n
+			best = res
+	if best == "":
+		return false
+	outputs[i]["sort_job"] = {best: mini(best_n, int(cfg.get("sort_batch", 10)))}
+	outputs[i]["sort_left"] = float(cfg.get("sort_seconds", 6.0))
+	return true
+
+func tick_sorters(seconds: float) -> void:
+	for i in range(outputs.size()):
+		var o: Dictionary = outputs[i]
+		if float(o.get("sort_left", 0.0)) <= 0.0:
+			continue
+		o["sort_left"] = maxf(0.0, float(o["sort_left"]) - seconds)
+		if float(o["sort_left"]) <= 0.0:
+			if not o.has("sorted"):
+				o["sorted"] = {}
+			for res in o.get("sort_job", {}):
+				var n := mini(int(o["sort_job"][res]), int(o["items"].get(res, 0)) - sorter_sorted(i, str(res)))
+				o["sorted"][res] = sorter_sorted(i, str(res)) + maxi(0, n)
+			o["sort_job"] = {}
+
+## Sorted rock sells at sort_bonus times the price. The units leave the table and are paid for; returns the money.
+func sorter_sell(i: int) -> int:
+	if variant_of(i) != "sorter":
+		return 0
+	var total := 0
+	for res in SORTABLE:
+		var n := sorter_sorted(i, res)
+		if n <= 0:
+			continue
+		outputs[i]["items"][res] = int(outputs[i]["items"][res]) - n
+		outputs[i]["sorted"][res] = int(outputs[i]["sorted"].get(res, 0)) - n
+		var pay := int(round(float(n) * state.unit_price(res) * float(cfg.get("sort_bonus", 1.3))))
+		state.add_income(pay, "sorted")
+		state.note_lifetime("sold", res, n)
+		total += pay
+	return total
+
 func ep_valid(ep: Dictionary) -> bool:
 	match str(ep.get("type", "")):
 		"storage": return true
@@ -430,9 +512,9 @@ func ep_space(ep: Dictionary, res: String) -> int:
 			var hc := int(cfg.get("crusher_hopper_capacity", 24)) * (2 if int(state.crushers[int(ep["index"])].get("tier", 1)) >= 2 else 1)
 			return maxi(0, hc - int(state.crushers[int(ep["index"])].get("hopper", 0)))
 		"output":
-			if res != "crushed_stone":
+			if not variant_accepts(int(ep["index"]), res):
 				return 0
-			return maxi(0, output_capacity() - output_total(int(ep["index"])))
+			return maxi(0, output_capacity_of(int(ep["index"])) - output_total(int(ep["index"])))
 		"conveyor":
 			var c: Dictionary = conveyors[int(ep["index"])]
 			if int(c["items"]) > 0 and str(c["resource"]) != res:
@@ -595,11 +677,11 @@ func buy(price: int) -> bool:
 	state.money -= price
 	return true
 
-func add_output(pos: Vector3, yaw: float) -> int:
+func add_output(pos: Vector3, yaw: float, variant := "output") -> int:
 	var items := {}
 	for k in QuarryState.RESOURCE_NAMES:
 		items[k] = 0
-	outputs.append({"position": [pos.x, pos.y, pos.z], "yaw": yaw, "items": items})
+	outputs.append({"position": [pos.x, pos.y, pos.z], "yaw": yaw, "items": items, "variant": variant, "sorted": {}, "sort_left": 0.0, "sort_job": {}})
 	compute_links()
 	return outputs.size() - 1
 
@@ -843,7 +925,20 @@ func restore(data: Dictionary) -> void:
 		var items := {}
 		for k in QuarryState.RESOURCE_NAMES:
 			items[k] = maxi(0, int(o.get("items", {}).get(k, 0)))
-		outputs.append({"position": o["position"].duplicate(), "yaw": float(o.get("yaw", 0.0)), "items": items})
+		var var_name := str(o.get("variant", "output"))
+		if not var_name in ["output", "hopper", "sorter"]:
+			var_name = "output"
+		var sorted := {}
+		for k in SORTABLE:
+			var sn := mini(maxi(0, int(o.get("sorted", {}).get(k, 0))), int(items[k])) if var_name == "sorter" else 0
+			if sn > 0:
+				sorted[k] = sn
+		var job := {}
+		for k in o.get("sort_job", {}):
+			if str(k) in SORTABLE and var_name == "sorter":
+				job[str(k)] = mini(maxi(0, int(o["sort_job"][k])), int(items[str(k)]))
+		outputs.append({"position": o["position"].duplicate(), "yaw": float(o.get("yaw", 0.0)), "items": items, "variant": var_name, "sorted": sorted,
+			"sort_left": maxf(0.0, float(o.get("sort_left", 0.0))) if not job.is_empty() else 0.0, "sort_job": job})
 	inventory = {}
 	var inv = data.get("inventory", {})
 	if inv is Dictionary:
@@ -878,6 +973,8 @@ func structure_price(kind: String) -> int:
 
 func refund_value(kind: String, index := -1) -> int:
 	var price := structure_price(kind)
+	if kind == "output" and index >= 0 and index < outputs.size() and variant_of(index) != "output":
+		price = int(cfg.get(variant_of(index) + "_price", price))
 	if kind == "crusher" and index >= 0 and index < state.crushers.size() and int(state.crushers[index].get("tier", 1)) >= 2 and prog:
 		price = int(prog.machine("advanced_crusher").get("price", price))
 	return int(floor(price * 0.5))
@@ -943,7 +1040,9 @@ func _return_plan(kind: String, index: int) -> Array:
 					break
 				if kind == "output" and j == index:
 					continue
-				var room := maxi(0, output_capacity() - output_total(j))
+				if not variant_accepts(j, res):
+					continue
+				var room := maxi(0, output_capacity_of(j) - output_total(j))
 				for p in plan:
 					if p[0] == "output" and p[1] == j:
 						room -= int(p[3])

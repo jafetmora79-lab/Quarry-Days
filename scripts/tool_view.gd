@@ -211,7 +211,7 @@ func _process(delta: float) -> void:
 func _box(s: MeshKit.Soup, c: Vector3, size: Vector3, taper := Vector2.ONE) -> void:
 	MeshKit.box_into(s, c, size, taper)
 
-func _build(t: int) -> Node3D:
+func _build(t: int, with_hands := true) -> Node3D:
 	if t >= GearModels.TIER_BASE:                  # Phase 9 tools: their own models
 		var gn := GearModels.build_tool(GearModels.id_of(t))
 		gn.rotation.x = float(_def(t).get("model_pitch", 0.0))      # the pneumatic chisel leans forward like the jackhammer
@@ -284,7 +284,8 @@ func _build(t: int) -> Node3D:
 		MeshKit.inst(chisel, c.mesh(), MeshKit.mat("SteelPlate"))
 		n.set_meta("spinner", chisel)
 		n.rotation.x = float(TOOL[4]["model_pitch"]) # lean the body forward so the chisel points down-range at the rock
-	_add_hands(n, t)
+	if with_hands:
+		_add_hands(n, t)
 	for gi in n.find_children("*", "GeometryInstance3D", true, false):
 		gi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	return n

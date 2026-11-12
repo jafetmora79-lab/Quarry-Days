@@ -251,5 +251,12 @@
     }
   ],
   "wage_scale": 3.0,
-  "hire_fee_scale": 5.0
+  "hire_fee_scale": 5.0,
+  "hopper_price": 1000,
+  "hopper_capacity": 60,
+  "sorter_price": 200,
+  "sorter_capacity": 36,
+  "sort_batch": 10,
+  "sort_seconds": 6.0,
+  "sort_bonus": 1.3
 }

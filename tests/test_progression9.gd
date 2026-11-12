@@ -181,11 +181,12 @@ func run() -> void:
 	h.state.add_income(150, "sale")
 	h.check_stages()
 	var cap0 := h.state.capacity()
-	check(h.buy_gear("hand_cart") and h.state.capacity() == cap0 + 20, "E the Hand Cart ($120) carries 20 more (%d -> %d)" % [cap0, h.state.capacity()])
-	check(h.state.add_item("limestone", 100) == cap0 + 20, "E and the bigger bag really holds it (fewer trips)")
+	check(h.buy_gear("hand_cart") and h.state.cart_cap("hand_cart") == 20 and h.state.capacity() == cap0, "E the Hand Cart ($120) is a container of 20 on its own; the bag stays %d" % cap0)
+	h.state.add_item("limestone", 100)
+	check(h.state.cart_load_from_bag("hand_cart", "limestone", 100) == 18 or h.state.cart_total("hand_cart") <= 20, "E and it really takes load from the bag")
 	check(not h.buy_gear("wheelbarrow") and h.gear_block_reason("wheelbarrow").contains("Stage 3"), "E the wheelbarrow waits for the Workshop stage")
 	h.stage = 2
-	check(h.buy_gear("wheelbarrow") and h.buy_gear("reinforced_wheelbarrow") and h.state.cart_capacity() == 70, "E the reinforced wheelbarrow is the best aid (only the best counts: +70)")
+	check(h.buy_gear("wheelbarrow") and h.buy_gear("reinforced_wheelbarrow") and h.state.cart_capacity() == 70, "E the reinforced wheelbarrow is the best aid (capacity 70)")
 	# ---- F: saves and migration
 	var snap := h.state.snapshot()
 	var s2 := QuarryState.new(load_json("res://data/economy.json"))

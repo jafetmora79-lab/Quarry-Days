@@ -59,7 +59,7 @@ func simulate(strategy: String, horizon := 14400.0, start_late := false) -> Dict
 		# --- the player's work: the best $ per second among the rock the tool can break (stone, coal, iron are all in the yard)
 		var best := 0.0
 		var best_res := "limestone"
-		var bag := float(s.capacity())
+		var bag := float(s.capacity() + s.cart_capacity())     # the load per trip: the bag plus the best cart
 		for res in ["limestone", "coal", "iron_ore"]:
 			if not p.can_mine(res):
 				continue

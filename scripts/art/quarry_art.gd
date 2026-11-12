@@ -693,6 +693,82 @@ func dress_crusher(body: StaticBody3D, tier := 1) -> void:
 	_strip(body, [])
 	crusher_model(body, -(body.position.y - float(body.get_meta("ground_y", 0.0))), tier)
 
+## Phase 9.6: the Small Hopper. A funnel on a braced frame: open rim, spout, belt port plate and the material heaped in the funnel.
+func hopper_model(parent: Node3D, g: float) -> void:
+	var p := {"SteelPlate": MeshKit.Soup.new(), "SteelGreen": MeshKit.Soup.new(), "Hazard": MeshKit.Soup.new(), "PaintYellow": MeshKit.Soup.new()}
+	for x in [-0.55, 0.55]:
+		for z in [-0.55, 0.55]:
+			MeshKit.box_into(p["SteelPlate"], Vector3(x, g + 0.45, z), Vector3(0.08, 0.9, 0.08))               # legs
+	for y in [0.3, 0.9]:
+		MeshKit.box_into(p["SteelPlate"], Vector3(0, g + y, -0.55), Vector3(1.1, 0.05, 0.05))                 # frame rails
+		MeshKit.box_into(p["SteelPlate"], Vector3(0, g + y, 0.55), Vector3(1.1, 0.05, 0.05))
+		MeshKit.box_into(p["SteelPlate"], Vector3(-0.55, g + y, 0), Vector3(0.05, 0.05, 1.1))
+		MeshKit.box_into(p["SteelPlate"], Vector3(0.55, g + y, 0), Vector3(0.05, 0.05, 1.1))
+	MeshKit.frustum_into(p["SteelGreen"], Vector3(0, g + 0.5, 0), 0.16, 0.7, 0.68, 8, Transform3D.IDENTITY, false)       # the funnel (open top)
+	MeshKit.box_into(p["SteelPlate"], Vector3(0, g + 0.52, 0), Vector3(0.34, 0.02, 0.34))                       # dark floor under the funnel
+	for sd in [[Vector3(0, 0, -0.72), Vector3(1.46, 0.07, 0.07)], [Vector3(0, 0, 0.72), Vector3(1.46, 0.07, 0.07)], [Vector3(-0.72, 0, 0), Vector3(0.07, 0.07, 1.46)], [Vector3(0.72, 0, 0), Vector3(0.07, 0.07, 1.46)]]:
+		MeshKit.box_into(p["Hazard"], sd[0] + Vector3(0, g + 1.17, 0), sd[1])                                   # painted rim
+	MeshKit.frustum_into(p["SteelGreen"], Vector3(0, g + 0.18, 0), 0.1, 0.16, 0.34, 8)                         # spout
+	MeshKit.box_into(p["PaintYellow"], Vector3(0, g + 0.3, -0.66), Vector3(0.36, 0.3, 0.06))                   # belt port plate (the belt meets it here)
+	MeshKit.box_into(p["SteelPlate"], Vector3(0.74, g + 0.9, 0.0), Vector3(0.04, 0.5, 0.1))                    # level gauge rail
+	_parts(parent, p)
+
+func dress_hopper(body: StaticBody3D) -> void:
+	var fill: MeshInstance3D = body.get_meta("fill")
+	_strip(body, [fill])
+	hopper_model(body, -(body.position.y - float(body.get_meta("ground_y", 0.0))))
+	body.set_meta("fill_key", "")
+	body.set_meta("fill_y", 0.42)
+	fill.mesh = MeshKit.rock(Vector3(1.1, 0.7, 1.1), 62, 3, 8)
+	fill.material_override = _material("RockLimestone")
+
+## Phase 9.6: the Manual Sorting Table. A plank work surface on legs with a back rail, a raw-rock tray on the left, three sorting
+## trays in front (stone / coal / iron colours) and a sweeping arm that works while a batch is being sorted.
+func sorting_table_model(parent: Node3D, g: float) -> void:
+	var p := {QuarryArt.M_WOOD: MeshKit.Soup.new(), "SteelPlate": MeshKit.Soup.new(), "PaintYellow": MeshKit.Soup.new(), "PaintRed": MeshKit.Soup.new(), "SteelGreen": MeshKit.Soup.new(), "Hazard": MeshKit.Soup.new()}
+	var w: MeshKit.Soup = p[QuarryArt.M_WOOD]
+	MeshKit.box_into(w, Vector3(0, g + 0.88, 0), Vector3(1.5, 0.08, 0.85))                                    # work surface
+	for x in [-0.68, 0.68]:
+		for z in [-0.36, 0.36]:
+			MeshKit.box_into(w, Vector3(x, g + 0.44, z), Vector3(0.08, 0.88, 0.08))                           # legs
+	MeshKit.box_into(w, Vector3(0, g + 0.28, 0), Vector3(1.36, 0.05, 0.7))                                    # lower shelf
+	MeshKit.box_into(w, Vector3(0, g + 1.12, 0.4), Vector3(1.5, 0.4, 0.05))                                   # back rail
+	# raw-rock tray (left): a sloped tipping tray
+	MeshKit.box_into(p["SteelGreen"], Vector3(-0.52, g + 0.98, -0.02), Vector3(0.4, 0.12, 0.6))
+	for sx in [-0.72, -0.32]:
+		MeshKit.box_into(p["SteelGreen"], Vector3(sx, g + 1.05, -0.02), Vector3(0.03, 0.16, 0.6))
+	# three sorting trays (front right), each an open box with its own colour
+	var cols := ["PaintYellow", "SteelPlate", "PaintRed"]
+	for k in range(3):
+		var cx := -0.05 + 0.32 * k
+		var m: MeshKit.Soup = p[cols[k]]
+		MeshKit.box_into(m, Vector3(cx, g + 0.95, -0.2), Vector3(0.28, 0.04, 0.4))
+		MeshKit.box_into(m, Vector3(cx, g + 1.0, -0.4), Vector3(0.28, 0.12, 0.03))
+		MeshKit.box_into(m, Vector3(cx, g + 1.0, 0.0), Vector3(0.28, 0.12, 0.03))
+		MeshKit.box_into(m, Vector3(cx - 0.14, g + 1.0, -0.2), Vector3(0.03, 0.12, 0.4))
+		MeshKit.box_into(m, Vector3(cx + 0.14, g + 1.0, -0.2), Vector3(0.03, 0.12, 0.4))
+	MeshKit.box_into(p["Hazard"], Vector3(0.28, g + 0.93, 0.18), Vector3(0.92, 0.015, 0.06))                  # bench edge marking
+	_parts(parent, p)
+	# the sweeping arm: pivots on the back rail and sweeps from the raw tray across the trays
+	var arm := Node3D.new()
+	arm.position = Vector3(0.1, g + 1.06, 0.34)
+	parent.add_child(arm)
+	var a := MeshKit.Soup.new()
+	MeshKit.box_into(a, Vector3(0.0, 0.0, -0.2), Vector3(0.05, 0.05, 0.42))
+	MeshKit.box_into(a, Vector3(0.0, -0.03, -0.43), Vector3(0.14, 0.04, 0.05))                                # the paddle
+	MeshKit.inst(arm, a.mesh(), _material("SteelPlate"))
+	parent.set_meta("arm", arm)
+
+func dress_sorter(body: StaticBody3D) -> void:
+	var fill: MeshInstance3D = body.get_meta("fill")
+	_strip(body, [fill])
+	sorting_table_model(body, -(body.position.y - float(body.get_meta("ground_y", 0.0))))
+	body.set_meta("fill_key", "")
+	body.set_meta("fill_y", 0.36)
+	fill.mesh = MeshKit.rock(Vector3(0.36, 0.2, 0.52), 63, 3, 7)
+	fill.position = Vector3(-0.52, 0.36, 0.0)
+	fill.material_override = _material("RockLimestone")
+
 func output_model(parent: Node3D, g: float) -> void:
 	var p := {"SteelGreen": MeshKit.Soup.new(), "SteelPlate": MeshKit.Soup.new(), "Hazard": MeshKit.Soup.new()}
 	for x in [-0.6, 0.6]:

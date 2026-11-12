@@ -181,6 +181,17 @@ static func build_model(game, spec: Dictionary) -> Node3D:
 			if game.art:
 				game.art.dress_crusher(body, tier)
 			return body
+		"hopper", "sorter":
+			var hb := StaticBody3D.new()
+			hb.collision_layer = 0
+			if game.art:
+				if kind == "hopper":
+					game.art.hopper_model(hb, 0.0)
+					var heap := MeshKit.inst(hb, MeshKit.rock(Vector3(1.1, 0.5, 1.1), 62, 3, 8), MeshKit.mat("RockLimestone"), Vector3(0, 0.95, 0))
+					heap.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				else:
+					game.art.sorting_table_model(hb, 0.0)
+			return hb
 		"output":
 			var body := StaticBody3D.new()
 			body.collision_layer = 0

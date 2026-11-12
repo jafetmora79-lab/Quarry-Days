@@ -5,6 +5,7 @@ var camera: Camera3D
 var pitch := 0.0
 var locked := false
 var drive_wish := Vector3.INF
+var speed_mult := 1.0          ## 0.8 while pushing or pulling a cart
 var tool_view: QuarryToolView
 var blueprint: QuarryBlueprintHands
 var pickaxe: Node3D # kept for older callers: the tool view node
@@ -76,6 +77,7 @@ func _physics_process(delta: float) -> void:
 		if drive_wish != Vector3.INF:        # scripted walking (tests): a world-space direction instead of the keyboard
 			wish = drive_wish.normalized() if drive_wish.length() > 0.01 else Vector3.ZERO
 			speed = 4.2
+		speed *= speed_mult
 		velocity.x = move_toward(velocity.x, wish.x * speed, delta * 18)
 		velocity.z = move_toward(velocity.z, wish.z * speed, delta * 18)
 		_wish_flat = Vector3(wish.x, 0.0, wish.z)
