@@ -439,6 +439,17 @@ func build_ok(p: Vector3, margin := 0.0) -> bool:
 		if absf(l.x) > hx - 1.5 - margin or l.z < basin_zn() + 1.5 + margin or l.z > basin_zs() - 1.5 - margin:
 			return false
 		return not (absf(l.x) < ramp_w * 0.5 + 1.0 and l.z > basin_zs() - ramp_run - 2.0)
+	# the floors of the lower levels: machines may stand on a cleared floor (belts, outputs, crushers), away from the walls,
+	# the ramps and the pit of the next level. (The floor must really be there: placement also checks the ground.)
+	for k in range(level_pits.size()):
+		var lp: Dictionary = level_pits[k]
+		if absf(l.y - float(lp["y_bot"])) < 1.0:
+			var inset: Rect2 = (lp["cols"] as Rect2).grow(-(1.0 + margin))
+			if not inset.has_point(Vector2(l.x, l.z)):
+				continue
+			if k + 1 < level_pits.size() and (level_pits[k + 1]["rect"] as Rect2).grow(1.0).has_point(Vector2(l.x, l.z)):
+				continue
+			return true
 	return false
 
 # ------------------------------------------------------------------ navigation (own region, baked in the background)

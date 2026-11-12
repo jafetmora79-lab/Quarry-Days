@@ -341,7 +341,7 @@ func nearest_column(id: String, from: Vector3, exposed_only := true, max_dist :=
 	var best := -1
 	var best_d := INF
 	for i in range(column_count(id)):
-		if column_units(id, i) <= 0 or (exposed_only and not column_exposed(id, i)):
+		if column_units(id, i) <= 0 or column_covered(id, i) or (exposed_only and not column_exposed(id, i)):
 			continue
 		var p := column_pos(id, i)
 		var dd := Vector2(p.x, p.z).distance_to(Vector2(from.x, from.z))
@@ -568,7 +568,9 @@ func pad(formation: String, p: int) -> Dictionary:
 	if p < 0 or p >= pads.size():
 		return {}
 	var a: Array = pads[p]
-	return {"pos": Vector3(float(a[0]), float(a[1]), float(a[2])), "yaw": float(a[3])}
+	# pads of formations in the pit frame are given in that frame: bring them into world space
+	var fx := formation_frame(formation)
+	return {"pos": fx * Vector3(float(a[0]), float(a[1]), float(a[2])), "yaw": float(a[3]) + fx.basis.get_euler().y}
 
 func pad_taken(formation: String, p: int) -> bool:
 	for r in rigs:

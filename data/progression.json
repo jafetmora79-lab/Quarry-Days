@@ -642,6 +642,7 @@
       ]
     },
     "bench_l2_coal": {
+      "pads": [[-7.0, -3.6, -61.0, 1.5708], [-7.0, -3.6, -64.0, 1.5708]],
       "title": "Coal Bench",
       "resource": "coal",
       "frame": "pit",
@@ -708,6 +709,7 @@
       ]
     },
     "bench_l2_iron": {
+      "pads": [[-7.0, -3.6, -52.0, 1.5708], [-7.0, -3.6, -55.0, 1.5708]],
       "title": "Iron Bench",
       "resource": "iron_ore",
       "frame": "pit",
