@@ -56,6 +56,7 @@ func simulate(strategy: String, horizon := 14400.0, start_late := false) -> Dict
 		t += 1.0
 		if t >= CLEANUP_AT:
 			p.cleanup["done"] = true
+			for k in ["battery", "hose", "fuel", "started", "legacy"]: p.story["excavator"][k] = true
 		# --- the player's work: the best $ per second among the rock the tool can break (stone, coal, iron are all in the yard)
 		var best := 0.0
 		var best_res := "limestone"

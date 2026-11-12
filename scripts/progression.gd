@@ -768,6 +768,8 @@ func milestone_done(id: String) -> bool:
 					return true
 			return state.gear.size() > 0 or state.tool_tier >= 3
 		"crusher_built": return state.crushers.size() > 0
+		"excavator_running": return excavator_ready()
+		"soil_hauled": return bool(story["excavator"].get("legacy", false)) or state.soil_dumped >= int(opening_cfg().get("soil_hauled_units", 24))
 	if bool(story.get("milestones", {}).get(id, false)):
 		return true
 	return business != null and bool(business.milestones.get(id, false))

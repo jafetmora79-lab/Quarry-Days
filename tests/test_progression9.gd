@@ -163,6 +163,7 @@ func run() -> void:
 	g.state.money = 100000
 	check(g.gear_block_reason("pointed_chisel").contains("Stage 2") and not g.buy_gear("pointed_chisel"), "D a locked tool says which stage it needs and cannot be bought")
 	g.cleanup["done"] = true
+	for k in ["battery", "hose", "fuel", "started", "legacy"]: g.story["excavator"][k] = true
 	g.state.add_income(150, "sale")
 	g.check_stages()
 	var m0 := g.state.money
@@ -178,6 +179,7 @@ func run() -> void:
 	var h := fresh()
 	h.state.money = 5000
 	h.cleanup["done"] = true
+	for k in ["battery", "hose", "fuel", "started", "legacy"]: h.story["excavator"][k] = true
 	h.state.add_income(150, "sale")
 	h.check_stages()
 	var cap0 := h.state.capacity()

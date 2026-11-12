@@ -65,7 +65,7 @@ func run() -> void:
 	check(solids == counts["boulders"] + counts["outcrops"], "A boulders and outcrops are solid (%d) while pebbles and scrub are merged meshes (%d draw nodes)" % [solids, game.natural_root.get_child_count() - solids])
 	# ---- B: the broken excavator
 	var ex: QuarryVehicle = game._starter_vehicle()
-	check(ex != null and ex.vtype == "starter_excavator" and game.fleet.vehicles.size() == 1, "B the new game owns Grandpa's mini excavator")
+	check(ex != null and ex.vtype == "starter_excavator" and game.fleet.vehicles.size() == 2, "B the new game owns Grandpa's mini excavator and utility truck")
 	check(not game.fleet.types().has("starter_excavator") and game.fleet.buy_block_reason("starter_excavator") == "Not for sale", "B it is not in the shop")
 	check(not prog.excavator_ready() and game.opening_parts.size() == 3, "B it is broken and the three parts lie near the workshop")
 	game.enter_vehicle(ex)
@@ -96,7 +96,7 @@ func run() -> void:
 	for r in range(2):
 		game._load(true)
 		await frames(3)
-	check(prog.repair_done("battery") and not prog.repair_done("hose") and game.fleet.vehicles.size() == 1 and game.opening_parts.size() == 2 and not game.opening_parts.has("battery"), "C the repair record survives saving: battery done, two parts still lie there, one excavator")
+	check(prog.repair_done("battery") and not prog.repair_done("hose") and game.fleet.vehicles.size() == 2 and game.opening_parts.size() == 2 and not game.opening_parts.has("battery"), "C the repair record survives saving: battery done, two parts still lie there, one excavator")
 	ex = game._starter_vehicle()
 	# ---- D: finish the repairs and the start
 	game._pick_up_part("hose")
@@ -122,7 +122,7 @@ func run() -> void:
 	game._save(true)
 	game._load(true)
 	await frames(3)
-	check(prog.excavator_ready() and game.opening_parts.is_empty() and game.fleet.vehicles.size() == 1 and game.walter_mode != "waiting", "E a finished repair stays finished after loading (no parts, one machine, Grandpa has left his post)")
+	check(prog.excavator_ready() and game.opening_parts.is_empty() and game.fleet.vehicles.size() == 2 and game.walter_mode != "waiting", "E a finished repair stays finished after loading (no parts, one machine, Grandpa has left his post)")
 	# ---- F: a save from before Phase 10 skips the opening
 	var legacy := {"schema": 3, "stage": 3, "quarry_level": 1, "story": {"intro_seen": true}, "rigs": []}
 	prog.restore(legacy, [])

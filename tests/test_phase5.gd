@@ -170,7 +170,11 @@ func test_stages() -> void:
 	check(p.stage == 0, "12 $150 alone does not open Better Tools: the site must be cleared too")
 	p.cleanup["done"] = true
 	p.check_stages()
-	check(p.stage == 1, "12 money and a cleared site open the Better Tools stage")
+	check(p.stage == 0, "12 Phase 10: a cleared site is not enough: Grandpa's excavator must run and soil be hauled too")
+	p.story["excavator"].merge({"battery": true, "hose": true, "fuel": true, "started": true}, true)
+	p.state.soil_dumped = 24
+	p.check_stages()
+	check(p.stage == 1, "12 money, a cleared site, a running excavator and hauled soil open the Better Tools stage")
 	p.state.add_income(450, "sale")
 	p.check_stages()
 	check(p.stage == 1, "12 The Workshop needs a pickaxe as well as $600 earned")

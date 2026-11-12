@@ -134,11 +134,13 @@
   {
    "id": "better_tools",
    "title": "Better Tools",
-   "goal": "Earn $150 and clear the site. Then buy better hand tools at the workbench.",
+   "goal": "Earn $150, clear the site, get Grandpa's excavator running and haul away the first soil. Then buy better hand tools at the workbench.",
    "req": {
     "earned": 150,
     "milestones": [
-     "cleanup_done"
+     "cleanup_done",
+     "excavator_running",
+     "soil_hauled"
     ]
    },
    "unlocks": [
@@ -2784,7 +2786,9 @@
  "milestone_titles": {
   "cleanup_done": "Clear Grandpa's overgrown site",
   "workshop_upgrade": "Buy a workbench upgrade",
-  "crusher_built": "Build a crusher"
+  "crusher_built": "Build a crusher",
+  "excavator_running": "Repair Grandpa's excavator",
+  "soil_hauled": "Haul 24 loads of soil to the spoil heap"
  },
  "gear": {
   "pointed_chisel": {
@@ -3063,7 +3067,8 @@
     "speaker": "GRANDPA WALTER",
     "text": "She only moves loose soil and gravel. Rock is another matter, but it is a start. She is yours."
    }
-  ]
+  ],
+  "soil_hauled_units": 24
  },
  "soil": {
   "_comment": "Phase 10.2: the loose soil of the working ground. Grid cells of `cell` m from `origin` (x, z); a cell holds layers x units_per_layer soil units, layer_h metres each. hp = damage per unit.",
