@@ -2098,7 +2098,7 @@ func is_visible_to_player(pos: Vector3) -> bool:
 
 ## Where off-duty workers leave the site and come back to work: the service gate (there is no break area any more).
 func break_spot(slot: int) -> Vector3:
-	return Vector3(0.5 + 0.9 * float(clampi(slot, 0, 3) % 3 - 1), 0, 26.9 - 0.9 * float(clampi(slot, 0, 3) / 3))
+	return Vector3(0.5 + 0.9 * float(clampi(slot, 0, 3) % 3 - 1), 0, QuarryDelivery.GATE.z - 0.9 * float(clampi(slot, 0, 3) / 3))
 
 ## Standing area for a workplace endpoint: centre, radius of reachable ring, preferred side.
 func workplace(ep: Dictionary) -> Dictionary:

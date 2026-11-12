@@ -9,7 +9,7 @@ const DOOR_X := 0.5
 const DOOR_Z := 22.4
 const DOOR_W := 5.4
 const DOOR_H := 3.7
-const GATE := Vector3(0.5, 0.05, 26.9)     ## where drivers and new hires step out of the tunnel mouth
+const GATE := Vector3(0.5, 0.05, 25.4)     ## where drivers and new hires step out of the tunnel mouth
 const VEHICLE_SPEED := 3.6
 const WALK_SPEED := 2.4
 
@@ -81,7 +81,7 @@ func _build_gate() -> void:
 	var hm := BoxMesh.new()
 	hm.size = Vector3(6.8, 4.4, 0.3)
 	hole.mesh = hm
-	hole.position = Vector3(DOOR_X, 2.2, z + 0.8)
+	hole.position = Vector3(DOOR_X, 2.2, z - 0.35)
 	hole.material_override = MeshKit.flat(Color(0.03, 0.03, 0.035))
 	game.world.add_child(hole)
 	var stripe := MeshInstance3D.new()
