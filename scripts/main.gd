@@ -1889,31 +1889,26 @@ func _refresh_workbench() -> void:
 	# [id, ladder tier or -1] in the order they are bought; ladder tools and the new tools interleave by price
 	var order := [["hand", 0], ["pointed_chisel", -1], ["pickaxe", 1], ["flat_chisel", -1], ["repaired_pickaxe", -1], ["reinforced", 2], ["sledgehammer", -1],
 		["steel_pickaxe", -1], ["hardened_pickaxe", -1], ["hand_splitter", -1], ["powered_hammer", -1], ["drill", 3], ["pneumatic_chisel", -1], ["jackhammer", 4]]
+	var viewer := QuarryToolView.new()               # only used to build the ladder models without hands
 	for i in range(order.size()):
 		var id: String = order[i][0]
 		var lt: int = order[i][1]
 		var owned := prog.owns(id)
 		var is_next := id == next_id
-		var col := i % 7
-		var row := i / 7
-		var z := -0.62 + float(col) * 0.205
-		var y := 0.22 - float(row) * 0.5
-		var m: Node3D = null
-		if lt == 0 or lt == 4:      # the rock hammer and the jackhammer keep their original pegboard pieces
-			var tint := 1.0 if (owned or is_next) else 0.4
-			if lt == 0:
-				_wb_box(Vector3(0, y - 0.12, z), Vector3(0.04, 0.4, 0.04), wood, tint)
-				_wb_box(Vector3(0, y + 0.1, z), Vector3(0.08, 0.1, 0.17), steel, tint)
-			else:
-				_wb_box(Vector3(0, y - 0.05, z), Vector3(0.12, 0.4, 0.12), Color(0.85, 0.35, 0.12), tint)
-				_wb_box(Vector3(0, y - 0.34, z), Vector3(0.04, 0.26, 0.04), steel, tint)
-				_wb_box(Vector3(0, y + 0.18, z), Vector3(0.09, 0.05, 0.3), Color(0.15, 0.15, 0.17), tint)
-			continue
-		m = GearModels.build_ladder(lt) if lt > 0 else GearModels.build_tool(id)
+		var col := i % 5
+		var row := i / 5
+		var z := float(col - 2) * 0.37
+		var y := 0.42 - float(row) * 0.42
+		var m: Node3D
+		if lt == 0 or lt == 4:
+			m = viewer._build(lt, false)              # the rock hammer and the jackhammer: their real models
+		elif lt > 0:
+			m = GearModels.build_ladder(lt)
+		else:
+			m = GearModels.build_tool(id)
 		workbench_tools.add_child(m)
-		var sc := 0.5 if lt < 0 else 0.55
+		var sc := 0.42 if lt != 4 else 0.38
 		m.scale = Vector3.ONE * sc
-		m.position = Vector3(0, y, z)
 		# hang it by its middle: centre the model's mesh bounds on the slot
 		var bb := AABB()
 		var first := true
@@ -1928,11 +1923,26 @@ func _refresh_workbench() -> void:
 				cur = cur.get_parent()
 			bb = (xf * mesh.get_aabb()) if first else bb.merge(xf * mesh.get_aabb())
 			first = false
-		if not first:
-			m.position = Vector3(0, y - bb.get_center().y * sc, z - bb.get_center().z * sc)
+		var centre := bb.get_center() * sc
+		m.position = Vector3(0, y - centre.y, z - centre.z)
+		m.set_meta("tool_id", id)
 		if not (owned or is_next):
 			for mi in m.find_children("*", "MeshInstance3D", true, false):
+				(mi as MeshInstance3D).material_override = null
 				(mi as MeshInstance3D).material_overlay = _dim_mat
+		# a small name label under each tool
+		var lbl := Label3D.new()
+		lbl.text = prog.item_title(id)
+		lbl.font_size = 14
+		lbl.pixel_size = 0.0035
+		lbl.outline_size = 5
+		lbl.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+		lbl.modulate = Color(1, 0.95, 0.82) if (owned or is_next) else Color(0.6, 0.58, 0.52)
+		lbl.visibility_range_end = 5.0
+		lbl.rotation.y = -PI * 0.5                      # the parent is turned along the wall: face out of it
+		lbl.position = Vector3(-0.07, y - 0.19, z)
+		workbench_tools.add_child(lbl)
+	viewer.free()
 	var nt := prog.next_tool()
 	if nt.is_empty():
 		workbench_tag.text = "WORKBENCH\nAll tools owned"

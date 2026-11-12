@@ -256,6 +256,44 @@ func run() -> void:
 				colliders += 1
 	check(colliders == 4, "E every prop has a collider")
 	# ---- F: pegboard
-	check(game.workbench_tools.get_child_count() >= 12, "F the workbench pegboard shows the tools (%d pieces)" % game.workbench_tools.get_child_count())
+	var boards: Array = []
+	var labels := 0
+	for c in game.workbench_tools.get_children():
+		if c.has_meta("tool_id"):
+			boards.append(c)
+		elif c is Label3D:
+			labels += 1
+	check(boards.size() == 14 and labels == 14, "F the pegboard hangs 14 real tool models, each with a name label (%d models, %d labels)" % [boards.size(), labels])
+	var ids := {}
+	for m in boards:
+		ids[str(m.get_meta("tool_id"))] = true
+	check(ids.size() == 14 and ids.has("hand") and ids.has("jackhammer"), "F every tool is there once, the rock hammer and the jackhammer included")
+	var real_models := true
+	var no_box_pieces := true
+	for m in boards:
+		real_models = real_models and verts(m) >= 100
+	for c in game.workbench_tools.get_children():
+		if c is MeshInstance3D and (c as MeshInstance3D).mesh is BoxMesh:
+			no_box_pieces = false
+	check(real_models and no_box_pieces, "F no placeholder boxes remain: every pegboard piece is a real built model")
+	var overlap := false
+	var inside := true
+	var heights := []
+	for i in range(boards.size()):
+		var bi := bounds(boards[i] as Node3D)
+		var gi: AABB = (game.workbench_tools.global_transform * (boards[i] as Node3D).transform) * bi if false else AABB()
+		var pi: Transform3D = (boards[i] as Node3D).transform
+		var ai: AABB = pi * bi
+		heights.append(ai.size.y)
+		inside = inside and ai.position.z > -0.95 and ai.end.z < 0.95 and ai.position.y > -0.66 and ai.end.y < 0.66
+		for j in range(i + 1, boards.size()):
+			var aj: AABB = (boards[j] as Node3D).transform * bounds(boards[j] as Node3D)
+			var a2 := AABB(Vector3(-1, ai.position.y, ai.position.z), Vector3(2, ai.size.y, ai.size.z))
+			var b2 := AABB(Vector3(-1, aj.position.y, aj.position.z), Vector3(2, aj.size.y, aj.size.z))
+			if a2.grow(-0.005).intersects(b2.grow(-0.005)):
+				overlap = true
+				printerr("   pegboard overlap: %s and %s" % [str(boards[i].get_meta("tool_id")), str(boards[j].get_meta("tool_id"))])
+	check(not overlap, "F no two tools on the pegboard overlap")
+	check(inside, "F every tool hangs inside the board's area")
 	print("RESULT: %d checks, %d failures" % [checks, failures.size()])
 	quit(1 if failures.size() > 0 else 0)
