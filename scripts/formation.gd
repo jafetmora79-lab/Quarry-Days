@@ -61,6 +61,11 @@ func setup(main_node, p: QuarryProgression, id: String) -> void:
 	# the ramp, the lower level) it still renders solid instead of letting the sky show through.
 	var mat: Material = MeshKit.mat(QuarryArt.ROCK_MAT.get(res, "RockLimestone")).duplicate()
 	(mat as BaseMaterial3D).cull_mode = BaseMaterial3D.CULL_DISABLED
+	# world-space mapping: the boulders of a pile share one continuous set of strata instead of each restarting its texture
+	(mat as BaseMaterial3D).uv1_triplanar = true
+	(mat as BaseMaterial3D).uv1_world_triplanar = true
+	(mat as BaseMaterial3D).uv1_scale = Vector3(0.5, 0.5, 0.5)
+	(mat as BaseMaterial3D).uv1_triplanar_sharpness = 6.0
 	# Phase 6.1: style "cut" = quarry-wall blocks (flat faces, chamfered corners, bedded strata) instead of boulders.
 	cut = str(f.get("style", "")) == "cut"
 	if cut:

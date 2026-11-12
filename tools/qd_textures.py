@@ -250,6 +250,27 @@ def natural_strata(size, r, seed, seams=None, veins=None, drill=0, cracks=4):
     return a
 
 
+def calm_ground(size, r, seed, base=3):
+    """Compacted dirt for the yard and pit floors: one dominant tone with sparse one-step speckle and a few small
+    pebbles, no large blotches and no contrasting patches, so large floors look like one cohesive surface and
+    neighbouring ground materials blend instead of forming a patchwork."""
+    rng = np.random.default_rng(seed)
+    a = canvas(size, size)
+    n = pnoise(size, size, 8, seed)
+    for y in range(size):
+        for x in range(size):
+            lv = base
+            if n[y, x] > 0.9 and rng.random() < 0.35:
+                lv += 1
+            elif n[y, x] < 0.1 and rng.random() < 0.35:
+                lv -= 1
+            elif rng.random() < 0.035:
+                lv += int(rng.choice([-1, 1]))
+            a[y, x] = r[int(np.clip(lv, 0, len(r) - 1))]
+    stones(a, r, base, (size // 10) ** 2, (1, 2), seed + 2)
+    return a
+
+
 def gravel(size, r, seed, base=3, dust=None):
     a = canvas(size, size)
     n = pnoise(size, size, 4, seed)
@@ -498,8 +519,8 @@ def main():
     save("T_QD_RockIron", natural_strata(128, [rust[0], rust[1], soil[2], rust[2], soil[3], rust[3]], 13, veins=(rust, 4, 14)))
     save("T_QD_CutLimestone", natural_strata(128, rock_lime, 15, cracks=5))
     save("T_QD_CliffStrata", natural_strata(128, [conc[2], stone[2], conc[3], stone[3], conc[4], stone[4]], 14, cracks=6))
-    save("T_QD_QuarryFloor", gravel(256, conc, 21, base=3, dust=(stone, 2)))
-    save("T_QD_ExcavatedDirt", gravel(128, soil, 22, base=3, dust=(mud, 2)))
+    save("T_QD_QuarryFloor", calm_ground(256, soil, 21, base=3))
+    save("T_QD_ExcavatedDirt", calm_ground(128, soil, 22, base=3))
     save("T_QD_Corrugated", corrugated(64, metal, rust, 31), rough=0.6, metal_spec=0.5)
     save("T_QD_CorrugatedRed", corrugated(64, red, rust, 32), rough=0.7, metal_spec=0.4)
     save("T_QD_PaintYellow", painted(64, [mustard[0], mustard[1], mustard[2], mustard[3], mustard[4], yel[-1]], 41, base=3,

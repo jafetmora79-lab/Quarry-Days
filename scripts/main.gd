@@ -13,6 +13,7 @@ const FormationScript = preload("res://scripts/formation.gd")
 const FXScript = preload("res://scripts/fx.gd")
 const HUDScript = preload("res://scripts/hud.gd")
 const PitZoneScript = preload("res://scripts/pit_zone.gd")
+const LandscapeScript = preload("res://scripts/art/landscape.gd")
 const ArcFormationScript = preload("res://scripts/arc_formation.gd")
 const TouchScript = preload("res://scripts/touch_controls.gd")
 const ExcavationScript = preload("res://scripts/excavation.gd")
@@ -82,6 +83,7 @@ var pile_nodes := {}
 var construction := false
 var relocating := {}
 var sell_confirm := ""
+var landscape: QuarryLandscape  # sky, clouds, distant mountains and forest (no collision)
 var pit_zone: QuarryPitZone     # Phase 6.3a: the new pit area behind the north-east gate
 var pit_retired: Array = []     # ring pieces retired to make the gate (for tests)
 var cleanup_nodes := {}      # Phase 6.2: weed clumps and rubble heaps still on the site (id -> body)
@@ -145,6 +147,8 @@ func _ready() -> void:
 	art.build_environment(self)
 	_carve_hillside_site()
 	_build_pit_zone()
+	landscape = LandscapeScript.new()
+	landscape.build(self)
 	_spawn_cleanup()
 	art.dress_storage(storage_body)
 	for kind in deposit_nodes:
@@ -1097,6 +1101,8 @@ func _update_light() -> void:
 	sky_light.environment.ambient_light_energy = 0.14+day*0.4
 	if art:
 		art.set_night(1.0 - day)
+	if landscape:
+		landscape.set_day(day)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if hud and hud.card_open():

@@ -215,7 +215,7 @@ static func rock(size: Vector3, seed: int, rings := 4, seg := 7) -> ArrayMesh:
 static func cliff_into(s: Soup, length: float, height: float, depth: float, seed: int, beds := 4, xf := Transform3D.IDENTITY) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed
-	var cols := int(maxf(3.0, length / 1.6))
+	var cols := int(maxf(4.0, length / 1.2))
 	var rows := beds * 2
 	var pts := []
 	for r in range(rows + 1):
@@ -224,9 +224,15 @@ static func cliff_into(s: Soup, length: float, height: float, depth: float, seed
 		var bench := float(r / 2) * depth * 0.18 + (0.12 * depth if r % 2 == 1 else 0.0)
 		for k in range(cols + 1):
 			var x := -length * 0.5 + length * float(k) / cols
-			var z := -depth * 0.5 + bench + rng.randf_range(-0.18, 0.18) * (0.0 if r == 0 else 1.0)
-			var yy := y + (rng.randf_range(-0.15, 0.15) if r > 0 and r < rows else 0.0)
-			row.append(xf * Vector3(x + (rng.randf_range(-0.2, 0.2) if k > 0 and k < cols else 0.0), yy, z))
+			# a slow swell in height along the wall plus strong per-vertex roughness: an uneven skyline and a face
+			# with protrusions and recesses instead of a straight, regular barrier
+			var swell := 1.0 + 0.16 * sin(float(k) * 0.45 + float(seed)) + 0.07 * sin(float(k) * 1.3 + float(seed) * 2.0)
+			var edge := 0.0 if (k == 0 or k == cols) else 1.0
+			var z := -depth * 0.5 + bench + rng.randf_range(-0.5, 0.5) * (0.0 if r == 0 else 1.0)
+			var yy := y * swell + (rng.randf_range(-0.35, 0.35) if r > 0 and r < rows else 0.0)
+			if r == rows:
+				yy += rng.randf_range(-0.7, 0.4) * edge   # ragged crest
+			row.append(xf * Vector3(x + rng.randf_range(-0.45, 0.45) * edge * (1.0 if r > 0 else 0.0), yy, z))
 		pts.append(row)
 	for r in range(rows):
 		for k in range(cols):

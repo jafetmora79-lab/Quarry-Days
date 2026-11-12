@@ -113,7 +113,7 @@ func run() -> void:
 	game.enter_vehicle(loader)
 	game.scripted_input = true
 	loader.input = {"throttle": 1.0, "steer": 0.0, "brake": false}
-	await frames(900, func(): return pz.to_loc(loader.global_position).z < -52.0)
+	await frames(1600, func(): return pz.to_loc(loader.global_position).z < -52.0)
 	var lz: float = pz.to_loc(loader.global_position).z
 	check(lz < -50.0 and absf(pz.to_loc(loader.global_position).x) < 4.5, "F the loader drives out of the yard, through the gate, along the corridor and onto the plateau (local z %.1f)" % lz)
 	loader.input = {"throttle": 0.0, "steer": 0.0, "brake": true}

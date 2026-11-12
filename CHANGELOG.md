@@ -1,5 +1,24 @@
 # Changelog
 
+## Quarry Days — natural environment pass (not yet visually confirmed)
+
+Priority: one continuous rock surface, then the simple background. No visual check was made (none was requested); the checks below are automated only.
+
+- **Continuous rock:**
+  - New `natural_strata` texture generator: wavy beds of different thickness, fine layer lines, hairline cracks, soft tone clusters. It has no block outlines and tiles seamlessly. It replaces the brick-like rock, coal, iron, copper, gold, deep and cliff textures.
+  - Hillside, curved bench and the boulder piles map their rock in **world space** (triplanar), so strata run unbroken across block seams instead of restarting on every block.
+  - Cut blocks are now nearly flat (tiny chamfer, no tilt or jitter), sit exactly on each other with no wobble or rotation, and every course has the same tone. Fresh cuts are only slightly brighter than weathered rock, so the cut reads without a striped grid.
+  - The mining grid, collision, exposure, saves and formation sizes are untouched.
+- **Rougher cliffs:** `MeshKit.cliff_into` (pit walls, hillside backdrop, ring cliffs) now has a swelling height along the wall, a ragged crest, and much stronger per-vertex roughness, so walls are uneven rather than regular barriers. Collision is unchanged.
+- **Ground:** `T_QD_QuarryFloor` and `T_QD_ExcavatedDirt` are now one calm compacted-dirt tone with sparse speckle (no yellow patches), so floors and roads blend.
+- **Background** (`scripts/art/landscape.gd`, no collision, no navigation, about 20 draw calls):
+  - sky gradient and sun disc, recoloured with the time of day;
+  - lighter horizon-tinted haze (fog density 0.006 down to 0.0016);
+  - 14 slow cloud blobs;
+  - three layers of distant mountains beyond 290 m;
+  - about 360 low-poly conifers in one MultiMesh on the embankment ring (not in the access corridor or the east expansion).
+- **Tests:** `tests/test_natural_env.gd` (15 checks) covers the landscape cost, collision-free nodes, distances, tree placement, world-space rock materials, missing resources, the cliff ring and the cliff mesh. The Phase 6.3a loader drive got a longer time allowance.
+
 ## Quarry Days — Phase 6.3b: curved benches (arc formations) and MultiMesh chunks
 
 - **Arc layout** (`progression.gd`): a formation can have `layout: "arc"` and `frame: "pit"`. Columns are angular slices (x index) of concentric rings (y index, row 0 = inner ring) around a centre, in the pit zone's frame. `cell_pos`, `column_pos`, `column_yaw`, `column_size` and `column_open_dir` are generic, so exposure, staff standing spots, saves and the rest of the column logic are reused unchanged. Grid formations behave exactly as before.
