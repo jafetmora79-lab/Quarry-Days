@@ -57,7 +57,17 @@ func setup(main_node) -> void:
 	rcs.shape = rbox
 	ramp.add_child(rcs)
 	game.world.add_child(ramp)
-	# rim barriers (railing height), leaving the ramp mouth open
+	# solid fill under the ramp (stepped boxes just below the slab): nobody walks or sees under it
+	for i in range(4):
+		var seg := run / 4.0
+		var top := -depth * float(i + 1) / 4.0 - 0.5
+		var hgt := top + depth + 0.25
+		if hgt > 0.05:
+			var fill := _body("Ramp fill", Vector3((rx0 + rx1) * 0.5, -depth - 0.25 + hgt * 0.5, rz_top - seg * (float(i) + 0.5)), Vector3(rx1 - rx0, hgt, seg))
+			fill.remove_meta("ground")
+			fill.set_meta("nav_skip", true)
+			fill.set_meta("climbable", true)
+		# rim barriers (railing height), leaving the ramp mouth open
 	var specs := [
 		[Vector3((x0 + x1) * 0.5, 0.5, z0 - 0.15), Vector3(x1 - x0 + 0.3, 1.0, 0.3)],
 		[Vector3(x0 - 0.15, 0.5, (z0 + z1) * 0.5), Vector3(0.3, 1.0, z1 - z0)],
@@ -132,6 +142,15 @@ func _build_visuals(rx0: float, rx1: float, rz_top: float, rz_bot: float, ang: f
 	if road_mat is BaseMaterial3D:
 		(road_mat as BaseMaterial3D).cull_mode = BaseMaterial3D.CULL_DISABLED   # seen from below too: the space under the ramp is not see-through
 	MeshKit.inst(visuals, rs.mesh(), road_mat)
+	# the solid body of the ramp: both side faces of the wedge between the road and the lower floor (no hollow underside)
+	var wedge := MeshKit.Soup.new()
+	for xw in [rx0, rx1]:
+		var a := Vector3(xw, 0.0, rz_top)
+		var b := Vector3(xw, -depth, rz_top)
+		var c := Vector3(xw, -depth, rz_bot)
+		wedge.tri(a, b, c)
+		wedge.tri(a, c, b)
+	MeshKit.inst(visuals, wedge.mesh(), MeshKit.mat("RockDeep"))
 	var curb := MeshKit.Soup.new()
 	MeshKit.box_into(curb, Vector3.ZERO, Vector3(0.25, 0.35, length - 0.6), Vector2.ONE, Transform3D(Basis(Vector3.RIGHT, -ang), Vector3(rx1 + 0.15, -depth * 0.5 + 0.17, (rz_top + rz_bot) * 0.5)))
 	MeshKit.inst(visuals, curb.mesh(), MeshKit.mat("Hazard"))

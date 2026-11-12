@@ -1466,6 +1466,7 @@ func _close_menu() -> void:
 	_confirm_new = false
 	player.tool_view.equip(state.tool_tier, true)   # always back in hand with the tool you own
 	panel.visible = false
+	panel.pane.pause()                              # the preview stops rendering while no shop is open
 	management.visible = false
 	player.locked = false
 	crusher_audio.stream_paused = false
@@ -1606,6 +1607,7 @@ func _draw_upgrades(p: QuarryStationUI) -> void:
 	var tools_total := prog.tools().size()
 	if nt.is_empty():
 		p.text("Every tool on the pegboard is yours. The jackhammer breaks anything.", QuarryTheme.GOOD)
+		p.offer_item("tool", str(prog.tool()["title"]), str(prog.tool().get("desc", "")), 0, "In your hand", PurchaseOffers.tool_owned(self))
 	else:
 		var nxt := state.tool_tier + 1
 		p.text("NEXT ON THE PEGBOARD", QuarryTheme.ACCENT)
@@ -1613,8 +1615,8 @@ func _draw_upgrades(p: QuarryStationUI) -> void:
 		p.text(_bar(prog.tool_dps(nxt), top) + "  %.0f damage a second  (+%d%%)" % [prog.tool_dps(nxt), prog.tool_gain_percent(state.tool_tier, nxt)], QuarryTheme.MONEY)
 		var newly := int(nt.get("max_hardness", 1)) > int(prog.tool().get("max_hardness", 1))
 		var short := maxi(0, int(nt["cost"]) - state.money)
-		p.item("tool", str(nt["title"]), "%s%s" % [str(nt.get("desc", "")), "  It can break harder rock than your current tool." if newly else ""], int(nt["cost"]),
-			"Tool %d of %d" % [nxt + 1, tools_total], "VIEW", true, func(): open_offer(PurchaseOffers.tool_next(self, func(): menu_act("upgrades", 0, false))), "" if short <= 0 else "Need %s more" % QuarryTheme.money_text(short))
+		p.offer_item("tool", str(nt["title"]), "%s%s" % [str(nt.get("desc", "")), "  It can break harder rock than your current tool." if newly else ""], int(nt["cost"]),
+			"Tool %d of %d" % [nxt + 1, tools_total], PurchaseOffers.tool_next(self, func(): menu_act("upgrades", 0, false)), "" if short <= 0 else "Need %s more" % QuarryTheme.money_text(short))
 	p.text("TUNING AND GEAR", QuarryTheme.ACCENT)
 	for i in range(UPGRADE_MENU.size()):
 		var key: String = UPGRADE_MENU[i]
@@ -1629,31 +1631,42 @@ var workbench_tools: Node3D
 var workbench_tag: Label3D
 
 func _build_workbench() -> void:
-	var o := OFFICE_POS + Vector3(1.8, 0.0, 0.3)
-	var bench := _solid(world, "Workbench", o + Vector3(0, 0.5, 0), Vector3(0.8, 1.0, 2.3), Color(0.40, 0.28, 0.16))
+	# On the office's front wall, left of the door: clear wall, nothing in the way, in view as you walk in.
+	var b := OFFICE_POS + Vector3(-1.5, 0.0, -1.85)
+	var wood := MeshKit.mat(QuarryArt.M_WOOD)
+	var steel := MeshKit.mat("SteelPlate")
+	var bench := _solid(world, "Workbench", b + Vector3(0, 0.5, 0), Vector3(1.5, 1.0, 0.7), Color(0.40, 0.28, 0.16))
 	bench.set_meta("kind", "upgrades")
-	_visual_box(world, o + Vector3(0, 1.03, 0), Vector3(0.9, 0.07, 2.4), Color(0.52, 0.38, 0.22))
-	for sx in [-0.36, 0.36]:
-		for sz in [-1.1, 1.1]:
-			_visual_box(world, o + Vector3(sx, 0.5, sz), Vector3(0.08, 1.0, 0.08), Color(0.28, 0.2, 0.12))
-	_visual_box(world, o + Vector3(0.0, 0.3, 0), Vector3(0.74, 0.05, 2.1), Color(0.33, 0.23, 0.14))       # lower shelf
-	_visual_box(world, o + Vector3(-0.25, 1.14, -0.8), Vector3(0.22, 0.16, 0.3), Color(0.2, 0.22, 0.26))   # vise
-	_visual_box(world, o + Vector3(-0.25, 1.24, -0.8), Vector3(0.1, 0.06, 0.36), Color(0.6, 0.6, 0.62))
-	_visual_box(world, o + Vector3(0.1, 1.11, 0.6), Vector3(0.3, 0.08, 0.3), Color(0.7, 0.55, 0.2))       # parts box
-	# pegboard on the wall above
-	_visual_box(world, o + Vector3(0.52, 1.75, 0.0), Vector3(0.05, 1.1, 2.3), Color(0.55, 0.45, 0.3))
+	for ch in bench.get_children():
+		if ch is MeshInstance3D:
+			ch.visible = false                                  # the collider's plain box is replaced by the parts below
+	MeshKit.inst(world, MeshKit.box(Vector3(1.56, 0.07, 0.74)), wood, b + Vector3(0, 0.965, 0))                 # bench top
+	MeshKit.inst(world, MeshKit.box(Vector3(1.44, 0.16, 0.05)), wood, b + Vector3(0, 0.84, 0.31))               # front apron
+	for sx in [-0.7, 0.7]:
+		for sz in [-0.3, 0.3]:
+			MeshKit.inst(world, MeshKit.box(Vector3(0.08, 0.93, 0.08)), wood, b + Vector3(sx, 0.465, sz))     # legs
+	MeshKit.inst(world, MeshKit.box(Vector3(1.4, 0.04, 0.6)), wood, b + Vector3(0, 0.28, 0))                    # lower shelf
+	MeshKit.inst(world, MeshKit.box(Vector3(0.36, 0.2, 0.3)), steel, b + Vector3(-0.45, 0.4, 0.0))              # toolbox on the shelf
+	MeshKit.inst(world, MeshKit.box(Vector3(0.3, 0.14, 0.26)), wood, b + Vector3(0.1, 0.37, 0.0))               # crate
+	MeshKit.inst(world, MeshKit.box(Vector3(0.18, 0.1, 0.22)), steel, b + Vector3(0.55, 1.04, 0.05))            # vise base
+	MeshKit.inst(world, MeshKit.box(Vector3(0.05, 0.12, 0.2)), steel, b + Vector3(0.64, 1.13, 0.05))           # vise jaw
+	MeshKit.inst(world, MeshKit.box(Vector3(0.32, 0.04, 0.22)), MeshKit.flat(Color(0.66, 0.5, 0.2)), b + Vector3(-0.35, 1.02, 0.0))   # parts tray
+	# pegboard on the wall above, clear of the door, the lamp and the whiteboard
+	MeshKit.inst(world, MeshKit.box(Vector3(1.5, 1.05, 0.04)), MeshKit.flat(Color(0.62, 0.5, 0.34)), Vector3(b.x, 1.78, OFFICE_POS.z - 2.205))
 	workbench_tools = Node3D.new()
 	workbench_tools.name = "WorkbenchTools"
 	world.add_child(workbench_tools)
-	workbench_tools.position = o + Vector3(0.46, 0.0, 0.0)
+	workbench_tools.position = Vector3(b.x, 1.72, OFFICE_POS.z - 2.15)
+	workbench_tools.rotation.y = PI * 0.5            # tools are modelled along z: turn them to run along the wall
+	workbench_tools.scale = Vector3.ONE * 0.8
 	workbench_tag = Label3D.new()
 	workbench_tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	workbench_tag.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-	workbench_tag.font_size = 24
+	workbench_tag.font_size = 22
 	workbench_tag.pixel_size = 0.005
 	workbench_tag.outline_size = 8
-	workbench_tag.position = o + Vector3(0.3, 2.45, 0.0)
-	workbench_tag.visibility_range_end = 14.0
+	workbench_tag.position = Vector3(b.x, 2.5, OFFICE_POS.z - 1.9)
+	workbench_tag.visibility_range_end = 9.0
 	world.add_child(workbench_tag)
 	_refresh_workbench()
 
@@ -1672,8 +1685,8 @@ func _refresh_workbench() -> void:
 		var owned := i <= state.tool_tier
 		var is_next := i == state.tool_tier + 1
 		var tint := 1.0 if owned else (0.9 if is_next else 0.35)
-		var z := -0.9 + float(i) * 0.45
-		var y := 1.75
+		var z := -0.84 + float(i) * 0.42
+		var y := 0.0
 		match i:
 			0:   # rock hammer
 				_wb_box(Vector3(0, y, z), Vector3(0.05, 0.5, 0.05), wood, tint)
@@ -1698,48 +1711,32 @@ func _refresh_workbench() -> void:
 	else:
 		workbench_tag.text = "WORKBENCH\nNext: %s  %s" % [str(nt["title"]), QuarryTheme.money_text(int(nt["cost"]))]
 
-var purchase_dialog: QuarryPurchaseDialog
-
-## Opens the purchase window for an offer (see PurchaseOffers). BUY runs the offer's own purchase code; `after` gets its result.
-func open_offer(offer: Dictionary, after := Callable()) -> void:
-	if offer.is_empty() or purchase_dialog != null:
-		return
-	purchase_dialog = QuarryPurchaseDialog.new()
-	purchase_dialog.setup(self, offer)
-	ui.add_child(purchase_dialog)
-	purchase_dialog.confirmed.connect(func(result):
-		purchase_dialog = null
-		if hud:
-			hud.purchase_flourish()
-		if after.is_valid():
-			after.call(result))
-	purchase_dialog.cancelled.connect(func(): purchase_dialog = null)
-
 func _draw_shop(p: QuarryStationUI) -> void:
-	p.begin("MACHINERY ORDERS", state.money, "Optional keys: 1-7 order. Placement: R rotate, G grid snap, left click place, Esc refund.")
+	p.begin("MACHINERY ORDERS", state.money, "Click an item to see it turn, then BUY. Placement: R rotate, G grid snap, left click place, Esc refund.")
 	var machines_ok := prog.unlocked("crusher")
 	var stage_note := "Unlocks at the %s stage" % prog.feature_stage_title("crusher")
 	var cs := int(state.config.get("crusher_seconds", 18))
 	var cl := int(state.config.get("crusher_input_limit", 12))
-	p.item("shop_crusher", "Stone crusher", "Limestone to gravel: %d stone per batch, %d s a batch. Place it on clear ground." % [cl, cs], int(state.config["crusher_price"]), _shop_tag("crusher", "Owned: %d" % state.crushers.size()), _shop_button("crusher"), machines_ok, _shop_open("crusher", 0), "" if machines_ok else stage_note)
-	p.item("shop_output", "Output storage", "Holds %d crushed stone from a crusher chute or a belt." % business.output_capacity(), int(business.cfg["output_storage_price"]), _shop_tag("output", "Owned: %d" % business.outputs.size()), _shop_button("output"), machines_ok, _shop_open("output", 1), "" if machines_ok else stage_note)
+	p.offer_item("shop_crusher", "Stone crusher", "Limestone to gravel: %d stone per batch, %d s a batch." % [cl, cs], int(state.config["crusher_price"]), _shop_tag("crusher", "Owned: %d" % state.crushers.size()), _shop_offer("crusher", 0), "" if machines_ok else stage_note)
+	p.offer_item("shop_output", "Output storage", "Holds %d crushed stone from a crusher chute or a belt." % business.output_capacity(), int(business.cfg["output_storage_price"]), _shop_tag("output", "Owned: %d" % business.outputs.size()), _shop_offer("output", 1), "" if machines_ok else stage_note)
 	var conv_ok := business.conveyors_unlocked()
 	var cr := float(business.cfg.get("conveyor_rate", 0.5))
 	var cc := int(business.cfg.get("conveyor_capacity", 3))
-	p.item("shop_conveyor", "Conveyor, straight", "2 m belt: %.1f items a second, holds %d. Snaps onto machine ports." % [cr, cc], int(business.cfg["conveyor_price"]), _shop_tag("conveyor", "Owned: %d" % business.conveyors.size()), _shop_button("conveyor"), conv_ok, _shop_open("conveyor", 2), "" if conv_ok else "Needs a crusher + operator")
-	p.item("shop_conveyor_left", "Conveyor, left corner", "Turns material 90 degrees to the left. Same speed and capacity.", int(business.cfg["conveyor_price"]), _shop_tag("conveyor_left", ""), _shop_button("conveyor_left"), conv_ok, _shop_open("conveyor_left", 7), "" if conv_ok else "Needs a crusher + operator")
-	p.item("shop_conveyor_right", "Conveyor, right corner", "Turns material 90 degrees to the right. Same speed and capacity.", int(business.cfg["conveyor_price"]), _shop_tag("conveyor_right", ""), _shop_button("conveyor_right"), conv_ok, _shop_open("conveyor_right", 8), "" if conv_ok else "Needs a crusher + operator")
+	var conv_note := "" if conv_ok else "Needs a crusher and an operator"
+	p.offer_item("shop_conveyor", "Conveyor, straight", "2 m belt: %.1f items a second, holds %d. Snaps onto machine ports." % [cr, cc], int(business.cfg["conveyor_price"]), _shop_tag("conveyor", "Owned: %d" % business.conveyors.size()), _shop_offer("conveyor", 2), conv_note)
+	p.offer_item("shop_conveyor_left", "Conveyor, left corner", "Turns material 90 degrees to the left.", int(business.cfg["conveyor_price"]), _shop_tag("conveyor_left", ""), _shop_offer("conveyor_left", 7), conv_note)
+	p.offer_item("shop_conveyor_right", "Conveyor, right corner", "Turns material 90 degrees to the right.", int(business.cfg["conveyor_price"]), _shop_tag("conveyor_right", ""), _shop_offer("conveyor_right", 8), conv_note)
 	var adv_ok := prog.unlocked("advanced_crusher")
 	var am: Dictionary = prog.machine("advanced_crusher")
-	p.item("shop_advanced", "Advanced crusher", "Batches of %d stone, %.0f s a batch (%.0f%% of the normal time)." % [cl * int(am.get("capacity_mult", 2)), cs * float(am.get("speed_mult", 0.45)), float(am.get("speed_mult", 0.45)) * 100.0], int(am["price"]), _shop_tag("advanced_crusher", ""), _shop_button("advanced_crusher"), adv_ok, _shop_open("advanced_crusher", 3), "" if adv_ok else "Unlocks at the %s stage" % prog.feature_stage_title("advanced_crusher"))
-	for pair in [["drill_rig", "Drilling rig", "Works stone, coal, iron and copper from a fixed pad.", 4], ["improved_rig", "Improved drilling rig", "%.0f damage a second and hard enough for gold-bearing rock: for the deeper layers." % float(prog.machine("improved_rig").get("dps", 0)), 9], ["rock_breaker", "Rock breaker", "Breaks any rock, gold too.", 5], ["heavy_breaker", "Heavy-duty rock breaker", "%.0f damage a second: the strongest machine in the quarry." % float(prog.machine("heavy_breaker").get("dps", 0)), 10]]:
+	p.offer_item("shop_advanced", "Advanced crusher", "Batches of %d stone, %.0f s a batch." % [cl * int(am.get("capacity_mult", 2)), cs * float(am.get("speed_mult", 0.45))], int(am["price"]), _shop_tag("advanced_crusher", ""), _shop_offer("advanced_crusher", 3), "" if adv_ok else "Unlocks at the %s stage" % prog.feature_stage_title("advanced_crusher"))
+	for pair in [["drill_rig", "Drilling rig", "Works stone, coal, iron and copper from a fixed pad.", 4], ["improved_rig", "Improved drilling rig", "%.0f damage a second, reaches gold-bearing rock." % float(prog.machine("improved_rig").get("dps", 0)), 9], ["rock_breaker", "Rock breaker", "Breaks any rock, gold too.", 5], ["heavy_breaker", "Heavy-duty rock breaker", "%.0f damage a second: the strongest machine." % float(prog.machine("heavy_breaker").get("dps", 0)), 10]]:
 		var t: String = pair[0]
 		var owned := 0
 		for r in prog.rigs:
 			if str(r["type"]) == t:
 				owned += 1
 		var ok := prog.unlocked(t)
-		p.item("shop_" + t, str(pair[1]), str(pair[2]), int(prog.machine(t)["price"]), "Owned: %d" % owned, "ORDER", ok, _shop_open(t, int(pair[3])), "" if ok else "Unlocks at the %s stage" % prog.feature_stage_title(t))
+		p.offer_item("shop_" + t, str(pair[1]), str(pair[2]), int(prog.machine(t)["price"]), "Owned: %d" % owned, _shop_offer(t, int(pair[3])), "" if ok else "Unlocks at the %s stage" % prog.feature_stage_title(t))
 	if prog.level_unlocked >= 2:
 		p.item("shop_permit", "Excavation permit", "The lower level is open.", 0, "OWNED", "OWNED", false, func(): pass)
 	else:
@@ -1747,13 +1744,15 @@ func _draw_shop(p: QuarryStationUI) -> void:
 		p.item("shop_permit", "Excavation permit", "Opens a 3.5 m lower level with copper and gold.", prog.permit_cost(), "", "BUY", pok, func(): menu_act("shop", 6, false), "" if pok else "Unlocks at the %s stage" % prog.feature_stage_title("permit"))
 	p.text("Rigs work a formation from a drilling pad and fill their own output bin: collect it (E), send a hauler, a belt or the loader.")
 
-## A shop card's action: something already delivered is simply placed; anything else opens the purchase window first.
-func _shop_open(key: String, digit: int) -> Callable:
-	return func():
-		if int(business.inventory.get(key, 0)) > 0:
-			menu_act("shop", digit, false)
-		else:
-			open_offer(PurchaseOffers.machine(self, key, func(): menu_act("shop", digit, false)))
+## The offer shown in the pane for a shop card. Something already delivered is simply placed instead of bought.
+func _shop_offer(key: String, digit: int) -> Dictionary:
+	var o := PurchaseOffers.machine(self, key, func(): menu_act("shop", digit, false))
+	var n := int(business.inventory.get(key, 0))
+	if n > 0:
+		o["price"] = 0
+		o["reason"] = ""
+		o["buy_text"] = "PLACE  (%d delivered)" % n
+	return o
 
 ## "In inventory: n" once something has been delivered and not yet placed.
 func _shop_tag(key: String, owned: String) -> String:
@@ -1796,8 +1795,6 @@ func _shop_pick(key: String) -> void:
 		order_machine(key)
 
 func _menu_key(event: InputEventKey) -> void:
-	if purchase_dialog != null:
-		return                      # the purchase window has the keyboard
 	if event.keycode == KEY_F5:
 		_save()
 	elif event.keycode == KEY_F9:

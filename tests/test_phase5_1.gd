@@ -151,7 +151,7 @@ func scene_tests() -> void:
 	st.money = 20
 	game._open_menu("upgrades", -1)
 	var cost: int = int(st.config["upgrades"]["larger_backpack"])
-	check(game.panel.buttons["up_larger_backpack"].disabled and game.panel.buttons["tool"].disabled, "2 unaffordable upgrades have disabled buttons")
+	check(game.panel.buttons["up_larger_backpack"].disabled and game.panel.pane.buy_btn.disabled, "2 unaffordable upgrades have disabled buttons")
 	click(game, "up_larger_backpack")
 	check(st.money == 20 and not st.upgrades["larger_backpack"], "3 a disabled/failed purchase takes no money")
 	check(pop_texts(game).is_empty(), "3 a failed purchase shows no deduction pop-up")
@@ -175,12 +175,9 @@ func scene_tests() -> void:
 	game._open_menu("upgrades", -1)
 	var tool_cost: int = int(prog.next_tool()["cost"])
 	game._click_ms.clear()
-	var b: Button = game.panel.buttons["tool"]
-	b.pressed.emit()                                   # the card opens the purchase window
-	await process_frame
-	var pd = game.purchase_dialog
-	pd.buy_btn.pressed.emit()
-	pd.buy_btn.pressed.emit()
+	var pb: Button = game.panel.pane.buy_btn          # the tool is shown in the pane first; BUY is in the pane
+	pb.pressed.emit()
+	pb.pressed.emit()
 	check(st.money == 500 - tool_cost and st.tool_tier == 1, "4 two instant clicks on a Buy button charge once (tool tier %d)" % st.tool_tier)
 	var count := {"n": 0}
 	game._click_ms.clear()
@@ -195,7 +192,7 @@ func scene_tests() -> void:
 	# ---- shop cards and locks
 	st.money = 100000
 	game._open_menu("shop", -1)
-	for k in ["shop_crusher", "shop_output", "shop_conveyor", "shop_advanced", "shop_drill_rig", "shop_rock_breaker", "shop_permit"]:
+	for k in ["pick_shop_crusher", "pick_shop_output", "pick_shop_conveyor", "pick_shop_advanced", "pick_shop_drill_rig", "pick_shop_rock_breaker", "shop_permit"]:
 		check(game.panel.buttons.has(k), "2 the machinery menu has a clickable card: %s" % k)
 	game._close_menu()
 

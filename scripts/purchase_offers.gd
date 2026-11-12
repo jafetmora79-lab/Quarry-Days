@@ -137,3 +137,17 @@ static func machine(game, key: String, on_buy: Callable) -> Dictionary:
 	if reason == "" and game.state.money < price:
 		reason = "Need %s more" % QuarryTheme.money_text(price - game.state.money)
 	return {"title": title, "price": price, "model": model, "stats": stats, "compare": compare, "reason": reason, "on_buy": on_buy, "owned": 0}
+
+## The tool in your hand when there is nothing left to buy.
+static func tool_owned(game) -> Dictionary:
+	var prog: QuarryProgression = game.prog
+	var t: Dictionary = prog.tool()
+	var tier: int = game.state.tool_tier
+	var stats := []
+	if prog.is_continuous(tier):
+		stats.append(_row("Mining power", "%.0f damage a second, held down" % prog.tool_dps(tier)))
+	else:
+		stats.append(_row("Mining power", "%.0f damage a swing" % prog.tool_power(tier)))
+		stats.append(_row("Swing speed", "%.1f swings a second" % (1.0 / prog.tool_interval(tier) * prog.speed_mult())))
+	stats.append(_row("Hardest rock", HARDNESS[clampi(int(t.get("max_hardness", 1)), 0, 4)]))
+	return {"title": str(t["title"]), "price": 0, "model": {"kind": "tool", "tier": tier}, "stats": stats, "compare": [_cmp("The best tool in the quarry: it breaks anything.", "good")], "reason": "", "owned_only": true, "on_buy": Callable(), "owned": 0}

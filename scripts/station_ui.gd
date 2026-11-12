@@ -20,6 +20,10 @@ var money_label: Label
 var scroll: ScrollContainer
 var list: VBoxContainer
 var foot: Label
+var pane: QuarryOfferPane            # the preview pane (shown when a menu offers things to buy)
+var offers := {}
+var selected_offer := ""
+var _pane_menu := ""
 var buttons := {}   # key -> Button (the current menu's buttons; also used by tests)
 var _scroll_keep := 0
 
@@ -54,10 +58,20 @@ func setup(g) -> void:
 	close.pressed.connect(func(): game.ui_click("close", func(): game._close_menu(), close))
 	top.add_child(close)
 	root.add_child(HSeparator.new())
+	var body := HBoxContainer.new()
+	body.add_theme_constant_override("separation", 12)
+	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root.add_child(body)
+	pane = QuarryOfferPane.new()
+	pane.setup(g)
+	pane.visible = false
+	pane.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	body.add_child(pane)
 	scroll = ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	root.add_child(scroll)
+	body.add_child(scroll)
 	list = VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list.add_theme_constant_override("separation", 6)
@@ -76,6 +90,13 @@ func fit(w: float, h: float) -> void:
 	foot.custom_minimum_size.x = w - 40.0
 
 func begin(title: String, money := -1, hint := "") -> void:
+	if title != _pane_menu:
+		selected_offer = ""          # a different menu: its own first item is shown
+		_pane_menu = title
+	offers.clear()
+	if pane:
+		pane.visible = false
+		fit(700, 470)
 	_scroll_keep = scroll.scroll_vertical
 	for c in list.get_children():
 		list.remove_child(c)
@@ -198,6 +219,64 @@ func item(key: String, title: String, desc: String, price: int, level_text: Stri
 	var b := make_button(key, btn_text, can_buy and locked_note == "" and affordable, action, 96.0, "primary")
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(b)
+	return b
+
+## A shop card that shows its model in the pane when clicked. `offer` comes from PurchaseOffers; the first card of a menu is
+## shown at once. The card's button only selects; BUY is in the pane, so you see the thing before you decide.
+func offer_item(key: String, title: String, desc: String, price: int, level_text: String, offer: Dictionary, locked_note := "") -> Button:
+	offers[key] = offer
+	if selected_offer == "":
+		selected_offer = key
+	var is_sel := key == selected_offer
+	var affordable: bool = game.state.money >= price
+	var card := _box(Color(0.24, 0.18, 0.12, 0.98) if is_sel else Color(0.19, 0.145, 0.1, 0.96), QuarryTheme.ACCENT if is_sel else Color(0.4, 0.31, 0.2))
+	card.mouse_filter = Control.MOUSE_FILTER_STOP
+	card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 8)
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(h)
+	var left := VBoxContainer.new()
+	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	left.add_theme_constant_override("separation", 1)
+	left.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(left)
+	left.add_child(QuarryTheme.label(title, FS + 1, ACCENT if locked_note == "" else DIM, false, true))
+	var d := QuarryTheme.label(desc, FS - 1, DIM)
+	d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	d.custom_minimum_size = Vector2(150, 0)
+	d.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	left.add_child(d)
+	var mid := VBoxContainer.new()
+	mid.custom_minimum_size = Vector2(86, 0)
+	mid.alignment = BoxContainer.ALIGNMENT_CENTER
+	mid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(mid)
+	if locked_note != "":
+		var n := _cell(locked_note, WARN, 86)
+		n.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		mid.add_child(n)
+	else:
+		var pc := _cell(QuarryTheme.money_text(price) if price > 0 else "FREE", GOOD if affordable else WARN, 86, HORIZONTAL_ALIGNMENT_RIGHT)
+		pc.add_theme_font_override("font", QuarryTheme.bold())
+		mid.add_child(pc)
+	if level_text != "":
+		mid.add_child(_cell(level_text, DIM, 86, HORIZONTAL_ALIGNMENT_RIGHT))
+	var pick := func():
+		if selected_offer != key:
+			selected_offer = key
+			game._draw_menu()
+	var b := make_button("pick_" + key, "SHOWING" if is_sel else "VIEW", not is_sel, pick, 70.0)
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(b)
+	card.gui_input.connect(func(ev: InputEvent):
+		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
+			pick.call())
+	if is_sel and pane:
+		pane.visible = true
+		fit(860, 470)
+		pane.show_offer(key, offer)
+		pane.resume()
 	return b
 
 var _row_n := 0

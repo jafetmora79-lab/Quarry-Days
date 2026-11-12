@@ -149,6 +149,36 @@ func run() -> void:
 	# ---- 6: the workbench
 	var bench = game.world.get_node_or_null("Workbench")
 	check(bench != null and str(bench.get_meta("kind")) == "upgrades", "6 there is a physical workbench in the office that opens the upgrades")
+	var bc: Vector3 = bench.global_position
+	var q := PhysicsShapeQueryParameters3D.new()
+	var sh := BoxShape3D.new()
+	sh.size = Vector3(1.4, 0.5, 0.6)
+	q.shape = sh
+	q.transform = Transform3D(Basis(), bc)
+	q.collision_mask = 0xFFFF
+	q.exclude = [bench.get_rid()]
+	var hits: Array = game.get_world_3d().direct_space_state.intersect_shape(q, 6)
+	var others := []
+	for h in hits:
+		others.append(str(h["collider"].name))
+	check(others.is_empty() and bc.x - 0.75 > game.OFFICE_POS.x - 2.29 and bc.x + 0.75 < game.OFFICE_POS.x - 0.7 and bc.z - 0.35 > game.OFFICE_POS.z - 2.24, "6a the bench stands clear inside the office, left of the door, against the front wall (%s)" % str(others))
+	# the way in is free: walk from the door to the management desk
+	game.player.locked = false
+	game.safety.enabled = false
+	game.player.global_position = game.OFFICE_POS + Vector3(0.0, 0.2, -3.2)
+	await frames(10)
+	var reached := false
+	var goal: Vector3 = game.OFFICE_POS + Vector3(0.0, 0.0, 0.5)
+	for i in range(420):
+		var dd := Vector3(goal.x - game.player.global_position.x, 0, goal.z - game.player.global_position.z)
+		if dd.length() < 0.3:
+			reached = true
+			break
+		game.player.drive_wish = dd
+		await physics_frame
+	game.player.drive_wish = Vector3.INF
+	game.safety.enabled = true
+	check(reached, "6a2 the player can still walk in through the office door to the desk")
 	check(game.workbench_tools != null and game.workbench_tools.get_child_count() >= 12, "6b the tools hang on the pegboard (%d parts)" % game.workbench_tools.get_child_count())
 	check(game.workbench_tag.text.contains("Next:") and game.workbench_tag.text.contains(str(prog.next_tool()["title"])), "6c a sign shows the next tool and its price")
 	game.state.money = 5

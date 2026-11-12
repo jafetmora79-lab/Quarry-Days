@@ -438,9 +438,30 @@ func _milestones(b: QuarryBusiness) -> void:
 
 # ------------------------------------------------------------------ equipment (Phase 3)
 
+const WARN_COLOR := Color(1.0, 0.5, 0.38)
+var equip_sel := ""
+
 func _equipment() -> void:
 	var f: QuarryFleet = game.fleet
-	content.add_child(_label("Heavy machinery is delivered to the equipment parking bays south of the yard. Walk up and press E to drive.", DIM))
+	content.add_child(_label("Heavy machinery is delivered to the equipment parking bays south of the yard. Click a machine to see it, then BUY.", DIM))
+	if equip_sel == "" or not f.cfg["vehicles"].has(equip_sel):
+		equip_sel = str(f.types()[0])
+	var hb := HBoxContainer.new()
+	hb.add_theme_constant_override("separation", 12)
+	content.add_child(hb)
+	var pane := QuarryOfferPane.new()
+	pane.setup(game)
+	pane.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	hb.add_child(pane)
+	var sel_type: String = equip_sel
+	pane.show_offer("veh_" + sel_type, PurchaseOffers.vehicle(game, sel_type, func(): return game.ui_buy_vehicle(sel_type)))
+	pane.bought.connect(func(result): _say(str(result)))
+	var list := VBoxContainer.new()
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list.add_theme_constant_override("separation", 6)
+	hb.add_child(list)
+	var saved := content
+	content = list
 	for type in f.types():
 		var spec: Dictionary = f.spec(type)
 		var card := _card()
@@ -450,26 +471,28 @@ func _equipment() -> void:
 		for v in f.vehicles:
 			if str(v["type"]) == type:
 				owned += 1
-		row.add_child(_label("%s   $%d   %s" % [spec["title"], spec["price"], ("owned: %d" % owned) if owned > 0 else ""], ACCENT))
-		var reason: String = f.buy_block_reason(type)
 		var t: String = type
-		row.add_child(_button("View and buy" if reason == "" else reason, func(): game.open_offer(PurchaseOffers.vehicle(game, t, func(): return game.ui_buy_vehicle(t)), func(msg): _say(str(msg))), reason == ""))
+		var is_sel: bool = type == equip_sel
+		var head := _label("%s%s   $%d   %s" % ["> " if is_sel else "", spec["title"], spec["price"], ("owned: %d" % owned) if owned > 0 else ""], ACCENT if is_sel else INK)
+		head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(head)
+		row.add_child(_button("Showing" if is_sel else "View", func(): equip_sel = t; refresh(), not is_sel))
 		var kind := f.kind(type)
-		var desc := "Scoops rubble piles and loose rock; dumps into the storage crate, crusher hoppers, output storage or a truck."
+		var desc := "Scoops rubble piles and loose rock; dumps into storage, crusher hoppers, output storage or a truck."
 		if kind == "truck":
-			desc = "Hauls loads from the loader or excavator to the storage crate, crusher hoppers or output storage. Bed tips to unload."
+			desc = "Hauls loads to the storage crate, crusher hoppers or output storage. The bed tips to unload."
 		elif kind == "excavator":
-			desc = "Digs exposed rock up to hardness %d (%.0f damage a second, reach %.1f m) straight into its bucket, and scoops loose rock." % [int(spec.get("dig_hardness", 1)), float(spec.get("dig_dps", 0)), float(spec.get("dig_reach", 0))]
+			desc = "Digs exposed rock up to hardness %d (%.0f damage a second, reach %.1f m) straight into its bucket." % [int(spec.get("dig_hardness", 1)), float(spec.get("dig_dps", 0)), float(spec.get("dig_reach", 0))]
 		card.add_child(_label(desc, DIM, QuarryTheme.BODY))
-		card.add_child(_label("Cargo %d   Top speed %s   Acceleration %s   Best use: %s" % [int(spec["capacity"]), str(spec.get("speed_label", "")), str(spec.get("accel_label", "")), str(spec.get("best_use", ""))], INK, QuarryTheme.BODY))
 		if not game.prog.unlocked(type):
-			card.add_child(_label("Unlocks at the %s stage" % game.prog.feature_stage_title(type), DIM, QuarryTheme.BODY))
+			card.add_child(_label("Unlocks at the %s stage" % game.prog.feature_stage_title(type), WARN_COLOR, QuarryTheme.BODY))
 		for v in f.vehicles:
 			if str(v["type"]) == type:
 				var cargo := ""
 				for k in v["cargo"]:
 					cargo += " %s %d" % [str(k).replace("_", " "), v["cargo"][k]]
-				card.add_child(_label("  %s  load %d/%d%s   top speed %.1f m/s   acceleration %.1f m/s2" % [str(v.get("name", "#%d" % int(v["id"]))), f.cargo_total(v), f.capacity(v), cargo, f.max_speed(v), f.accel(v)], INK, QuarryTheme.BODY))
+				card.add_child(_label("  %s  load %d/%d%s" % [str(v.get("name", "#%d" % int(v["id"]))), f.cargo_total(v), f.capacity(v), cargo], INK, QuarryTheme.BODY))
+	content = saved
 	var up := _card()
 	up.add_child(_label("EQUIPMENT UPGRADES", ACCENT))
 	for key in ["bucket", "cargo", "engine"]:

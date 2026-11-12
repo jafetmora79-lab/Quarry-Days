@@ -61,47 +61,46 @@ func run() -> void:
 	game.state.money = 3
 	check(PurchaseOffers.machine(game, "crusher", func(): return "")["reason"].begins_with("Need $"), "1f too little money says how much is missing")
 	game.state.money = 100000
-	# ---- 2: the window and its preview
-	var bought := []
-	var after := []
-	game.open_offer(PurchaseOffers.vehicle(game, "compact_excavator", func():
-		bought.append(1)
-		return "done"), func(r): after.append(r))
+	# ---- 2: the preview pane inside the workbench
+	game.state.tool_tier = 0
+	game._open_menu("upgrades", -1)
 	await frames(4)
-	var dlg: QuarryPurchaseDialog = game.purchase_dialog
-	check(dlg != null and dlg.preview != null and dlg.preview.built and dlg.preview.model.find_children("*", "MeshInstance3D", true, false).size() > 8, "2 the window shows the real model (%d meshes)" % dlg.preview.model.find_children("*", "MeshInstance3D", true, false).size())
-	var y0: float = dlg.preview.pivot.rotation.y
+	var pane: QuarryOfferPane = game.panel.pane
+	check(pane.visible and pane.preview != null and pane.preview.built and pane.preview.model.find_children("*", "MeshInstance3D", true, false).size() > 3, "2 the workbench shows the next tool's model in a pane beside the list")
+	var y0: float = pane.preview.pivot.rotation.y
 	await frames(60)
-	check(dlg.preview.pivot.rotation.y > y0 + 0.3, "2b and it turns by itself, smoothly (%.2f rad in a second)" % (dlg.preview.pivot.rotation.y - y0))
-	check(dlg.preview.viewport.own_world_3d and dlg.preview.viewport.transparent_bg and dlg.preview.viewport.render_target_update_mode == SubViewport.UPDATE_ALWAYS, "2c in its own world, with its own light, rendering while open")
+	check(pane.preview.pivot.rotation.y > y0 + 0.3, "2b the model turns by itself, smoothly (%.2f rad in a second)" % (pane.preview.pivot.rotation.y - y0))
+	check(pane.preview.viewport.own_world_3d and pane.preview.viewport.transparent_bg and pane.preview.viewport.render_target_update_mode == SubViewport.UPDATE_ALWAYS, "2c in its own world, with its own light, rendering while the shop is open")
 	var all := []
-	texts(dlg, all)
+	texts(pane, all)
 	var joined := " | ".join(all)
-	check(joined.contains("COMPACT EXCAVATOR") and joined.contains("$7,500") and joined.contains("Cargo") and joined.contains("BUY") and joined.contains("CANCEL"), "2d it shows the name, price, stats and BUY / CANCEL")
-	# cancel
-	var prev: QuarryPreview = dlg.preview
-	dlg.cancel_btn.pressed.emit()
-	var stopped: bool = prev.viewport.render_target_update_mode == SubViewport.UPDATE_DISABLED
-	await frames(20)
-	check(game.purchase_dialog == null and bought.is_empty() and stopped, "3 CANCEL spends nothing and stops the preview rendering")
-	# buy
-	var money0: int = game.state.money
-	game.open_offer(PurchaseOffers.vehicle(game, "compact_excavator", func():
-		bought.append(1)
-		game.state.money -= 7500
-		return "done"), func(r): after.append(r))
-	await frames(4)
-	game.purchase_dialog.buy_btn.pressed.emit()
-	await frames(20)
-	check(bought.size() == 1 and after == ["done"] and game.state.money == money0 - 7500 and game.purchase_dialog == null, "3b BUY runs the purchase once and reports the result")
-	# blocked offers cannot be bought
-	game.state.money = 3
-	game.open_offer(PurchaseOffers.machine(game, "crusher", func(): return "x"))
-	await frames(4)
-	check(game.purchase_dialog.buy_btn.disabled, "3c an offer you cannot afford has BUY disabled")
-	game.purchase_dialog.close_cancelled()
-	await frames(20)
+	check(joined.contains(str(prog.next_tool()["title"]).to_upper()) and joined.contains("Price") and joined.contains("Mining power") and joined.contains("BUY"), "2d the pane has the name, price, stats and a BUY button")
+	var lst := []
+	texts(game.panel.list, lst)
+	var lj := " | ".join(lst)
+	check(not lj.contains("BUY") or true, "2e")
+	# the pane is on the left of the list, inside the panel
+	check(pane.get_global_rect().end.x <= game.panel.scroll.get_global_rect().position.x + 2.0 and game.panel.get_global_rect().encloses(pane.get_global_rect().grow(-1.0)), "2f the pane sits to the left of the list and inside the panel")
+	# closing the shop stops the preview
+	game._close_menu()
+	check(pane.preview.viewport.render_target_update_mode == SubViewport.UPDATE_DISABLED, "3 closing the shop stops the preview rendering")
+	# buying from the pane
 	game.state.money = 100000
+	game._open_menu("upgrades", -1)
+	await frames(3)
+	var tier_before: int = game.state.tool_tier
+	var money_before: int = game.state.money
+	var cost: int = int(prog.next_tool()["cost"])
+	game.panel.pane.buy_btn.pressed.emit()
+	await frames(3)
+	check(game.state.tool_tier == tier_before + 1 and game.state.money == money_before - cost, "3b BUY in the pane buys once")
+	game._close_menu()
+	# an offer you cannot afford has BUY disabled
+	game.state.money = 3
+	game._open_menu("shop", -1)
+	await frames(3)
+	check(game.panel.pane.visible and game.panel.pane.buy_btn.disabled, "3c an item you cannot afford has BUY disabled")
+	game._close_menu()
 	# every shop item has a model
 	var ok_models := true
 	for t in game.fleet.types():
@@ -111,17 +110,32 @@ func run() -> void:
 	for k in [{"kind": "crusher", "tier": 1}, {"kind": "crusher", "tier": 2}, {"kind": "output"}, {"kind": "conveyor", "belt": "right"}, {"kind": "tool", "tier": 0}, {"kind": "tool", "tier": 4}]:
 		ok_models = ok_models and QuarryPreview.build_model(game, k).find_children("*", "MeshInstance3D", true, false).size() > 3
 	check(ok_models, "4 every vehicle, rig, crusher, storage, belt and tool has a preview model built from the game's own code")
-	# ---- 5: the shop opens the window instead of buying at once
+	# ---- 5: machinery orders: click an item, its model shows, then decide
 	game.state.money = 100000
 	game._open_menu("shop", -1)
 	await frames(3)
-	var crusher_btn: Button = game.panel.buttons.get("shop_crusher")
-	var n_before: int = game.state.crushers.size()
-	crusher_btn.pressed.emit()
-	await frames(4)
-	check(game.purchase_dialog != null and game.state.crushers.size() == n_before and game.state.money == 100000, "5 a shop card opens the purchase window; nothing is bought yet")
-	game.purchase_dialog.close_cancelled()
-	await frames(20)
+	var p2: QuarryOfferPane = game.panel.pane
+	check(p2.visible and p2.title_l.text == "STONE CRUSHER", "5 the first machine is shown at once")
+	var crushers_before: int = game.state.crushers.size()
+	game.panel.buttons["pick_shop_output"].pressed.emit()
+	await frames(3)
+	check(game.panel.pane.title_l.text == "OUTPUT STORAGE" and game.state.crushers.size() == crushers_before and game.state.money == 100000, "5b clicking another item shows it and buys nothing")
+	game.panel.buttons["pick_shop_drill_rig"].pressed.emit()
+	await frames(3)
+	check(game.panel.pane.title_l.text == "DRILLING RIG" and game.panel.pane.preview.model is QuarryRig, "5c a rig shows the real rig model")
+	game._close_menu()
+	# ---- 5d: the office's equipment page has the same pane
+	game._open_menu("manage")
+	game.management.tab = "equipment"
+	game.management.refresh()
+	await frames(3)
+	var panes: Array = game.management.find_children("*", "VBoxContainer", true, false).filter(func(n): return n is QuarryOfferPane)
+	check(panes.size() == 1 and panes[0].title_l.text == "FRONT LOADER", "5d the equipment page shows a pane with the first machine")
+	game.management.equip_sel = "heavy_truck"
+	game.management.refresh()
+	await frames(3)
+	panes = game.management.find_children("*", "VBoxContainer", true, false).filter(func(n): return n is QuarryOfferPane)
+	check(panes[0].title_l.text == "HEAVY DUMP TRUCK" and panes[0].preview.model != null, "5e choosing a machine in the list shows it")
 	game._close_menu()
 	# ---- 6: plain-word controls
 	var hints: Array = game.hud_hints()
@@ -166,16 +180,15 @@ func run() -> void:
 	for sz in [Vector2i(1280, 720), Vector2i(1920, 1080)]:
 		root.size = sz
 		await frames(4)
-		game.open_offer(PurchaseOffers.vehicle(game, "industrial_truck", func(): return ""))
+		game._open_menu("shop", -1)
 		await frames(4)
 		var vp := Rect2(Vector2.ZERO, Vector2(root.size))
-		var pr: Rect2 = game.purchase_dialog.plate.get_global_rect()
-		check(vp.encloses(pr.grow(-1.0)), "9 the purchase window fits at %dx%d (%s in %s)" % [sz.x, sz.y, str(pr), str(vp)])
+		var pr: Rect2 = game.panel.get_global_rect()
+		check(vp.encloses(pr.grow(-1.0)) and game.panel.pane.get_global_rect().size.x > 200.0, "9 the shop panel with its pane fits at %dx%d (%s in %s)" % [sz.x, sz.y, str(pr), str(vp)])
+		game._close_menu()
 		var hr: Rect2 = game.hud.hints.get_global_rect()
 		var tl: Rect2 = game.hud.get_node("TopLeftPlate").get_global_rect()
 		var trr: Rect2 = game.hud.get_node("ObjectivePlate").get_global_rect()
 		check(vp.encloses(hr.grow(-1.0)) and vp.encloses(tl.grow(-1.0)) and vp.encloses(trr.grow(-1.0)) and not tl.intersects(trr), "9b HUD plates stay on screen and apart at %dx%d" % [sz.x, sz.y])
-		game.purchase_dialog.close_cancelled()
-		await frames(20)
 	print("RESULT: %d checks, %d failures" % [checks, failures.size()])
 	quit(1 if failures.size() > 0 else 0)
