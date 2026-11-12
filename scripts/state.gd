@@ -21,6 +21,8 @@ var lifetime := {"mined": {}, "sold": {}}   ## units collected / sold per resour
 var gear: Array = []                         ## ids of the extra tools bought beyond the five-tool ladder (see progression "gear")
 var equipped := ""                           ## "" = the ladder tool of tool_tier, else the id of an owned extra tool in hand
 var price_mult := 1.0                        ## buyers' pay factor of the current progression stage (see progression "price_mult")
+var soil_units: Array = []                   ## soil units left per cell of the working ground (Phase 10.2); empty = untouched
+var soil_dumped := 0                         ## soil units hauled to the spoil heap, ever
 var carts: Array = []
 var cart_load := {}                          ## cart id -> {resource: units}: what each cart carries (Phase 9.6)
 var cart_pos := {}                           ## cart id -> [x, y, z, yaw]: where each cart stands                        ## ids of hauling aids owned (hand_cart, wheelbarrow, ...)
@@ -349,7 +351,7 @@ func regrow_eta(kind: String) -> float:
 	return maxf(0.0, float(d["regrow_at"]) - clock_minutes)
 
 func snapshot() -> Dictionary:
-	return {"version": 2, "tool_tier": tool_tier, "earned": earned, "money": money, "inventory": inventory.duplicate(true), "storage": storage.duplicate(true), "upgrades": upgrades.duplicate(true), "clock_minutes": clock_minutes, "player_position": player_position.duplicate(), "player_yaw": player_yaw, "deposits": deposits.duplicate(true), "crushers": crushers.duplicate(true), "lifetime": lifetime.duplicate(true), "gear": gear.duplicate(), "equipped": equipped, "carts": carts.duplicate(), "cart_load": cart_load.duplicate(true), "cart_pos": cart_pos.duplicate(true)}
+	return {"version": 2, "tool_tier": tool_tier, "earned": earned, "money": money, "inventory": inventory.duplicate(true), "storage": storage.duplicate(true), "upgrades": upgrades.duplicate(true), "clock_minutes": clock_minutes, "player_position": player_position.duplicate(), "player_yaw": player_yaw, "deposits": deposits.duplicate(true), "crushers": crushers.duplicate(true), "lifetime": lifetime.duplicate(true), "gear": gear.duplicate(), "equipped": equipped, "carts": carts.duplicate(), "cart_load": cart_load.duplicate(true), "cart_pos": cart_pos.duplicate(true), "soil_units": soil_units.duplicate(), "soil_dumped": soil_dumped}
 
 func restore(data: Dictionary) -> bool:
 	# Version 1 = Phase 1 saves; version 2 adds Phase 2 business data stored beside this snapshot.
@@ -401,6 +403,10 @@ func restore(data: Dictionary) -> bool:
 						room -= n
 						if n > 0:
 							_cart_put(str(id), str(k), n)
+	soil_units = []
+	for u in data.get("soil_units", []):
+		soil_units.append(maxi(0, int(u)))
+	soil_dumped = maxi(0, int(data.get("soil_dumped", 0)))
 	cart_pos = {}
 	var cp = data.get("cart_pos", {})
 	if cp is Dictionary:

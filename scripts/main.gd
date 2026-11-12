@@ -1976,6 +1976,8 @@ const CART_IDS := ["hand_cart", "wheelbarrow", "reinforced_wheelbarrow"]
 var gear_props := {}          ## the compressor (a fixed prop)
 var cart_nodes := {}          ## cart id -> QuarryCart
 var natural_start_enabled := true      ## Phase 10: false keeps the three old starting piles (legacy layouts and older tests)
+var soil: QuarrySoil
+var spoil_node: Node3D
 var held_cart: QuarryCart
 var _cart_save_t := 0.0
 
@@ -2172,10 +2174,17 @@ func _ensure_opening() -> void:
 		var rec := fleet.give("starter_excavator", Vector3(float(pp[0]), float(pp[1]), float(pp[2])), float(oc.get("yaw", 0.0)))
 		if not rec.is_empty():
 			ex["granted"] = true
+			var tc: Dictionary = prog.cfg.get("soil", {}).get("truck", {})
+			if not tc.is_empty() and not fleet.owns_type("starter_truck"):
+				var tp: Array = tc["pos"]
+				fleet.give("starter_truck", Vector3(float(tp[0]), float(tp[1]), float(tp[2])), float(tc.get("yaw", 0.0)))
 			_sync_vehicles()
 	_decorate_starter()
 	_spawn_repair_parts()
 	_build_natural_ground(natural)
+	if soil and is_instance_valid(soil):
+		soil.apply(state.soil_units)
+		_update_spoil()
 	if natural and not bool(ex["started"]) and bool(prog.story["intro_seen"]) and not walter_intro_running:
 		_grandpa_to_post()
 
@@ -2219,6 +2228,12 @@ func _build_natural_ground(natural: bool) -> void:
 		if natural_root and is_instance_valid(natural_root):
 			natural_root.queue_free()
 		natural_root = null
+		if soil and is_instance_valid(soil):
+			soil.queue_free()
+		soil = null
+		if spoil_node and is_instance_valid(spoil_node):
+			spoil_node.queue_free()
+		spoil_node = null
 		return
 	if natural_root and is_instance_valid(natural_root):
 		return
@@ -2227,8 +2242,71 @@ func _build_natural_ground(natural: bool) -> void:
 		return not in_pit_corridor(v, 5.0) and not in_hillside_zone(v, 4.0) and not hub_rect().grow(3.0).has_point(p) and p.distance_to(Vector2(2.0, -14.0)) > 3.0 and p.distance_to(Vector2(11.5, -11.0)) > 3.0
 	var info := OpeningModels.natural_ground(world, ok, Rect2(-23.0, -29.0, 46.0, 21.5), 1010)
 	natural_root = info["root"]
+	_build_soil()
 	natural_root.set_meta("counts", {"boulders": info["boulders"], "outcrops": info["outcrops"], "patches": info["patches"], "scrub": info["scrub"], "pebbles": info["pebbles"]})
 	nav_dirty = true
+
+## The soil field: cells clear of the boulders and outcrops, the paths, the ore outcrops and the spoil heap. State comes from the save.
+func _build_soil() -> void:
+	var sc: Dictionary = prog.cfg.get("soil", {})
+	if sc.is_empty() or (soil and is_instance_valid(soil)):
+		return
+	var cols := int(sc["cols"])
+	var rows := int(sc["rows"])
+	var cell := float(sc.get("cell", 2.0))
+	var org := Vector2(float(sc["origin"][0]), float(sc["origin"][1]))
+	var sp: Array = sc["spoil"]["pos"]
+	var spoil_pos := Vector2(float(sp[0]), float(sp[2]))
+	var mask := PackedByteArray()
+	mask.resize(cols * rows)
+	var solids: Array = []
+	for c in natural_root.get_children():
+		if c is StaticBody3D:
+			solids.append(Vector2(c.global_position.x, c.global_position.z))
+	var avoid: Array = [Vector2(2.0, -14.0), Vector2(11.5, -11.0), spoil_pos]
+	for i in range(cols * rows):
+		var p := Vector2(org.x + (float(i % cols) + 0.5) * cell, org.y + (float(i / cols) + 0.5) * cell)
+		var ok := not in_pit_corridor(Vector3(p.x, 0, p.y), 3.0) and not in_hillside_zone(Vector3(p.x, 0, p.y), 1.5) and not hub_rect().has_point(p)
+		for q in solids:
+			if (q as Vector2).distance_to(p) < 2.6:
+				ok = false
+		for q in avoid:
+			if (q as Vector2).distance_to(p) < 3.6:
+				ok = false
+		mask[i] = 1 if ok else 0
+	soil = QuarrySoil.new()
+	world.add_child(soil)
+	soil.setup(sc, mask, state.soil_units)
+	# the spoil heap: a marked patch whose mound grows with what has been dumped there
+	spoil_node = Node3D.new()
+	spoil_node.name = "SpoilHeap"
+	spoil_node.position = Vector3(spoil_pos.x, 0.0, spoil_pos.y)
+	world.add_child(spoil_node)
+	var ring := MeshKit.Soup.new()
+	MeshKit.frustum_into(ring, Vector3.ZERO, float(sc["spoil"]["radius"]), float(sc["spoil"]["radius"]), 0.04, 14)
+	MeshKit.inst(spoil_node, ring.mesh(), MeshKit.mat("ExcavatedDirt"))
+	var mound := MeshKit.inst(spoil_node, MeshKit.rock(Vector3(3.6, 1.8, 3.6), 77, 3, 8), MeshKit.mat("ExcavatedDirt"))
+	spoil_node.set_meta("mound", mound)
+	for k in range(4):
+		var a := TAU * float(k) / 4.0 + 0.4
+		var stake := MeshKit.Soup.new()
+		MeshKit.box_into(stake, Vector3.ZERO, Vector3(0.08, 1.2, 0.08))
+		MeshKit.box_into(stake, Vector3(0, 0.55, 0), Vector3(0.3, 0.12, 0.02))
+		MeshKit.inst(spoil_node, stake.mesh(), MeshKit.flat(Color(0.9, 0.55, 0.15)), Vector3(cos(a) * float(sc["spoil"]["radius"]), 0.6, sin(a) * float(sc["spoil"]["radius"])))
+	_update_spoil()
+
+func _update_spoil() -> void:
+	if spoil_node == null or not is_instance_valid(spoil_node):
+		return
+	var mound: MeshInstance3D = spoil_node.get_meta("mound")
+	var f := clampf(float(state.soil_dumped) / 120.0, 0.0, 1.0)
+	mound.visible = state.soil_dumped > 0
+	mound.scale = Vector3(0.3 + 0.7 * f, 0.15 + 0.85 * f, 0.3 + 0.7 * f)
+	mound.position.y = -0.1
+
+func soil_sync_state() -> void:
+	if soil and is_instance_valid(soil):
+		state.soil_units = Array(soil.units)
 
 func _pick_up_part(id: String) -> void:
 	if prog.carried_part() != "":
@@ -3717,7 +3795,7 @@ func _driving_input(event: InputEvent) -> bool:
 		return true
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_LEFT:
-			if driving.vkind == "excavator" and not excavator_target(driving).is_empty():
+			if driving.vkind == "excavator" and (not excavator_target(driving).is_empty() or soil_target(driving) >= 0):
 				driving.digging = true            # held: dig the rock in reach (see _excavator_dig)
 				driving.bucket_target = 0.0
 			elif driving.has_bucket():
@@ -3822,11 +3900,46 @@ func excavator_target(v: QuarryVehicle) -> Dictionary:
 
 ## One frame of digging: the excavator's dps goes into the same extraction rules as every other tool (hardness, exposure,
 ## locked levels, nothing under anyone's feet). Rock goes into the bucket; what does not fit drops beside the column.
+## The soil cell the bucket can reach (-1 when there is none).
+func soil_target(v: QuarryVehicle) -> int:
+	if soil == null or not is_instance_valid(soil):
+		return -1
+	return soil.nearest_cell(v.work_point(), float(fleet.spec(v.vtype).get("dig_reach", 4.0)))
+
+var _soil_progress := {}
+
+## One frame of digging soil: the damage becomes whole units, taken from the cell only as far as the bucket has room. What
+## the bucket holds is real cargo (it can be dumped into a truck or on the spoil heap).
+func _dig_soil(v: QuarryVehicle, delta: float) -> bool:
+	var i := soil_target(v)
+	if i < 0:
+		return false
+	var s: Dictionary = fleet.spec(v.vtype)
+	var rec := fleet.vehicle(v.vehicle_id)
+	if fleet.space(rec) <= 0:
+		v.digging = false
+		_notify("The bucket is full. Right click to dump it into a truck or on the spoil heap.")
+		return true
+	var acc := float(_soil_progress.get(v.vehicle_id, 0.0)) + float(s.get("dig_dps", 10.0)) * delta / float(prog.cfg["soil"].get("hp", 3.0))
+	var n := mini(int(floor(acc)), fleet.space(rec))
+	acc -= float(n)
+	_soil_progress[v.vehicle_id] = minf(acc, 0.99)
+	if n > 0:
+		var took := soil.remove(i, n)
+		fleet.add_cargo(rec, "soil", took)
+		soil.refresh()
+		soil_sync_state()
+		fx.impact(soil.cell_center(i) + Vector3(0, 0.3, 0), "limestone", 0.8)
+		_sfx_at("hit_pick", soil.cell_center(i), -6.0)
+	return true
+
 func _excavator_dig(v: QuarryVehicle, delta: float) -> void:
 	var s: Dictionary = fleet.spec(v.vtype)
 	power_feedback_t = maxf(0.0, power_feedback_t - delta)
 	var t := excavator_target(v)
 	if t.is_empty():
+		if _dig_soil(v, delta):
+			return
 		v.digging = false
 		return
 	if prog.material(str(t["res"])).get("hardness", 1) > int(s.get("dig_hardness", 1)):
@@ -3868,6 +3981,12 @@ func dump_target(point: Vector3, radius: float, from: QuarryVehicle) -> Dictiona
 		if d < best_d:
 			best_d = d
 			best = {"ep": c[0]}
+	if spoil_node and is_instance_valid(spoil_node) and fleet.cargo_total(fleet.vehicle(from.vehicle_id)) > 0 and int(fleet.vehicle(from.vehicle_id)["cargo"].get("soil", 0)) > 0:
+		var sr := float(prog.cfg["soil"]["spoil"]["radius"])
+		var spoil_d := Vector2(point.x, point.z).distance_to(Vector2(spoil_node.global_position.x, spoil_node.global_position.z))
+		if spoil_d < sr + 1.5:
+			best = {"spoil": true}
+			best_d = 0.0
 	if from.has_bucket():
 		for other in vehicle_nodes.values():
 			if other != from and other.vkind == "truck":
@@ -3879,6 +3998,8 @@ func dump_target(point: Vector3, radius: float, from: QuarryVehicle) -> Dictiona
 	return best
 
 func _target_name(t: Dictionary) -> String:
+	if t.has("spoil"):
+		return "the spoil heap"
 	if t.has("truck"):
 		return "the dump truck"
 	return business.describe_ep(t["ep"])
@@ -3900,7 +4021,9 @@ func vehicle_dump(v: QuarryVehicle) -> int:
 		_notify("Raising the bed over %s..." % _target_name(t))
 		return 0
 	var moved := 0
-	if t.has("truck"):
+	if t.has("spoil"):
+		moved = _dump_soil(rec)
+	elif t.has("truck"):
 		moved = fleet.transfer(rec, fleet.vehicle(t["truck"].vehicle_id))
 	else:
 		moved = fleet.dump_to(rec, t["ep"])
@@ -3910,8 +4033,19 @@ func vehicle_dump(v: QuarryVehicle) -> int:
 	_notify("Dumped %d into %s.%s" % [moved, _target_name(t), (" %d left in the bucket (target full or wrong material)." % fleet.cargo_total(rec)) if fleet.cargo_total(rec) > 0 else ""])
 	return moved
 
+## Soil cargo goes onto the spoil heap: it leaves the vehicle and is counted (soil_dumped); nothing else is touched.
+func _dump_soil(rec: Dictionary) -> int:
+	var n := fleet.take_cargo(rec, "soil", int(rec["cargo"].get("soil", 0)))
+	state.soil_dumped += n
+	_update_spoil()
+	return n
+
 func truck_finish_unload(v: QuarryVehicle, t: Dictionary) -> int:
 	var rec := fleet.vehicle(v.vehicle_id)
+	if t.has("spoil"):
+		var sm := _dump_soil(rec)
+		_notify("Tipped %d soil onto the spoil heap." % sm)
+		return sm
 	if rec.is_empty() or not t.has("ep") or not business.ep_valid(t["ep"]):
 		return 0
 	var moved := fleet.dump_to(rec, t["ep"])
@@ -3940,9 +4074,11 @@ func _driving_hud() -> String:
 	if driving.vkind == "loader":
 		lmb = "Left click bucket %s  " % ("down" if driving.bucket_target > 0.5 else "up/scoop")
 	elif driving.vkind == "excavator":
-		lmb = "HOLD LEFT CLICK dig the rock  left click (no rock) scoop  "
+		lmb = "HOLD LEFT CLICK dig  "
 		if not excavator_target(driving).is_empty():
 			hint = "  >> HOLD LEFT CLICK dig %s" % prog.display(str(excavator_target(driving)["res"]))
+		elif soil_target(driving) >= 0:
+			hint = "  >> HOLD LEFT CLICK dig soil"
 	var controls := "WASD drive  Mouse look  %sright click %s  Space brake  R recover  E exit" % [lmb, "dump bucket" if driving.has_bucket() else "raise bed / unload"]
 	return "%s  %.1f m/s   %s %d/%d%s%s" % [str(rec.get("name", fleet.spec(driving.vtype)["title"])).to_upper(), absf(driving.speed), load_label, fleet.cargo_total(rec), fleet.capacity(rec), cargo, hint]
 

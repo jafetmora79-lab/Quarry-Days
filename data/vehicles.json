@@ -212,6 +212,29 @@
       "accel_label": "Weak",
       "best_use": "Loose soil and gravel only. It cannot cut rock.",
       "paint": "PaintYellow"
+    },
+    "starter_truck": {
+      "title": "Grandpa's Utility Truck",
+      "kind": "truck",
+      "price": 0,
+      "gate": "grandpa",
+      "capacity": 10,
+      "accel": 1.6,
+      "max_speed": 3.2,
+      "reverse_speed": 3.0,
+      "turn": 1.5,
+      "brake": 8.0,
+      "size": [
+        1.8,
+        1.6,
+        3.8
+      ],
+      "speed_label": "Medium",
+      "accel_label": "High",
+      "best_use": "Hauling loose soil and small loads around the quarry",
+      "cab_paint": "PaintYellow",
+      "bed_paint": "PaintYellow",
+      "starter": true
     }
   },
   "upgrades": {

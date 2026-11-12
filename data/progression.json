@@ -2562,7 +2562,8 @@
   "industrial_truck": "deeper_ground",
   "compact_excavator": "moving_mountains",
   "heavy_excavator": "deeper_ground",
-  "starter_excavator": "grandpa"
+  "starter_excavator": "grandpa",
+  "starter_truck": "grandpa"
  },
  "quarry_milestones": [
   {
@@ -3063,5 +3064,35 @@
     "text": "She only moves loose soil and gravel. Rock is another matter, but it is a start. She is yours."
    }
   ]
+ },
+ "soil": {
+  "_comment": "Phase 10.2: the loose soil of the working ground. Grid cells of `cell` m from `origin` (x, z); a cell holds layers x units_per_layer soil units, layer_h metres each. hp = damage per unit.",
+  "origin": [
+   -22.0,
+   -28.0
+  ],
+  "cols": 22,
+  "rows": 10,
+  "cell": 2.0,
+  "layers": 3,
+  "units_per_layer": 4,
+  "layer_h": 0.3,
+  "hp": 3.0,
+  "spoil": {
+   "pos": [
+    -19.0,
+    0.0,
+    -5.0
+   ],
+   "radius": 3.2
+  },
+  "truck": {
+   "pos": [
+    -21.0,
+    0.0,
+    5.0
+   ],
+   "yaw": 0.0
+  }
  }
 }

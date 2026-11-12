@@ -163,7 +163,7 @@ func max_speed(v: Dictionary) -> float:
 
 func add_cargo(v: Dictionary, res: String, n: int) -> int:
 	var taken := mini(n, space(v))
-	if taken <= 0 or not state.inventory.has(res):
+	if taken <= 0 or not (state.inventory.has(res) or res == "soil"):
 		return 0
 	v["cargo"][res] = int(v["cargo"].get(res, 0)) + taken
 	return taken
@@ -249,7 +249,7 @@ func restore(data: Dictionary) -> void:
 		if raw is Dictionary and cfg["vehicles"].has(str(raw.get("type", ""))) and raw.get("position") is Array and raw["position"].size() == 3:
 			var cargo := {}
 			for k in raw.get("cargo", {}):
-				if state.inventory.has(k) and int(raw["cargo"][k]) > 0:
+				if (state.inventory.has(k) or str(k) == "soil") and int(raw["cargo"][k]) > 0:
 					cargo[k] = int(raw["cargo"][k])
 			var same := 1
 			for o in vehicles:
