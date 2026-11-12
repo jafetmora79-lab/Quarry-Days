@@ -26,6 +26,8 @@ func run() -> void:
 	root.add_child(game)
 	await process_frame
 	await frames(4)
+	if game.walter_dialog:
+		game.walter_dialog.skip()
 	game.hud.close_card()
 	await process_frame
 	game.hud.close_card()
