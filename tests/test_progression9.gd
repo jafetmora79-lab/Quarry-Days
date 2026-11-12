@@ -293,6 +293,6 @@ func run() -> void:
 	game.state.money = 100000
 	game.state.add_item("limestone", 0)
 	var held := prog.tool()
-	check(str(held["id"]) == "repaired_pickaxe" and prog.model_tier() == 1, "H extra tools reuse an existing model (pickaxe)")
+	check(str(held["id"]) == "repaired_pickaxe" and prog.model_tier() == GearModels.tier_of("repaired_pickaxe"), "H extra tools have their own model slot")
 	print("RESULT: %d checks, %d failures" % [checks, failures.size()])
 	quit(1 if failures.size() > 0 else 0)

@@ -187,8 +187,9 @@ static func gear(game, id: String, on_buy: Callable) -> Dictionary:
 		compare.append(_cmp("In hand now: %s, %.0f damage a second" % [str(prog.tool()["title"]), cur_dps], "flat"))
 		if int(g.get("max_hardness", 1)) > int(prog.tool().get("max_hardness", 1)):
 			compare.append(_cmp("Breaks harder rock than your %s" % str(prog.tool()["title"]).to_lower(), "good"))
-		stats.append(_row("Model", "uses the existing %s model" % ["hammer", "pickaxe", "reinforced pickaxe", "drill", "jackhammer"][clampi(int(g.get("model", 0)), 0, 4)]))
+		if bool(g.get("powered", false)) and "air_compressor" not in game.state.gear:
+			stats.append(_row("Power", "runs 15% faster with an air compressor"))
 	stats.append(_row("About", str(g.get("desc", ""))))
 	var reason := prog.gear_block_reason(id)
-	return {"title": str(g["title"]), "price": int(g["cost"]), "model": {"kind": "tool", "tier": int(g.get("model", 0))}, "stats": stats, "compare": compare,
+	return {"title": str(g["title"]), "price": int(g["cost"]), "model": ({"kind": "tool", "tier": GearModels.tier_of(id)} if kind == "tool" else {"kind": "gear", "id": id}), "stats": stats, "compare": compare,
 		"reason": "" if reason == "Already owned" else reason, "on_buy": on_buy, "owned": 1 if prog.owns(id) else 0}

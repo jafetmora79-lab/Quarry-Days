@@ -1267,6 +1267,11 @@ func _look_target() -> Node3D:
 	return null
 
 func _physics_process(delta: float) -> void:
+	_gear_timer += delta
+	if _gear_timer > 0.6:
+		_gear_timer = 0.0
+		if not gear_props.is_empty():
+			_update_cart_load()
 	if menu != "":
 		return
 	_sleep_tick(delta)
@@ -1764,43 +1769,131 @@ func _build_workbench() -> void:
 func _wb_box(pos: Vector3, size_v: Vector3, col: Color, t: float) -> void:
 	_visual_box(workbench_tools, pos, size_v, Color(col.r * t, col.g * t, col.b * t))
 
+var _dim_mat: StandardMaterial3D
+
+## Pegboard: every tool of the workbench hangs there as its real model. Owned tools and the next one are in full colour,
+## the rest are dimmed. The tools of Phase 9 sit beside the original five, two rows along the board.
 func _refresh_workbench() -> void:
 	if workbench_tools == null:
 		return
 	for c in workbench_tools.get_children():
 		c.queue_free()
+	if _dim_mat == null:
+		_dim_mat = StandardMaterial3D.new()
+		_dim_mat.albedo_color = Color(0.05, 0.04, 0.03, 0.62)
+		_dim_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_dim_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	var steel := Color(0.62, 0.64, 0.68)
 	var wood := Color(0.5, 0.35, 0.2)
-	var n := prog.tools().size()
-	for i in range(n):
-		var owned := i <= state.tool_tier
-		var is_next := i == state.tool_tier + 1
-		var tint := 1.0 if owned else (0.9 if is_next else 0.35)
-		var z := -0.84 + float(i) * 0.42
-		var y := 0.0
-		match i:
-			0:   # rock hammer
-				_wb_box(Vector3(0, y, z), Vector3(0.05, 0.5, 0.05), wood, tint)
-				_wb_box(Vector3(0, y + 0.27, z), Vector3(0.1, 0.12, 0.2), steel, tint)
-			1:   # basic pickaxe
-				_wb_box(Vector3(0, y, z), Vector3(0.05, 0.7, 0.05), wood, tint)
-				_wb_box(Vector3(0, y + 0.35, z), Vector3(0.07, 0.07, 0.5), steel, tint)
-			2:   # reinforced pickaxe
-				_wb_box(Vector3(0, y, z), Vector3(0.06, 0.78, 0.06), Color(0.25, 0.25, 0.3), tint)
-				_wb_box(Vector3(0, y + 0.39, z), Vector3(0.1, 0.09, 0.58), Color(0.78, 0.5, 0.2), tint)
-			3:   # power drill
-				_wb_box(Vector3(0, y - 0.05, z), Vector3(0.14, 0.2, 0.34), Color(0.9, 0.7, 0.1), tint)
-				_wb_box(Vector3(0, y - 0.3, z), Vector3(0.04, 0.34, 0.04), steel, tint)
-				_wb_box(Vector3(0, y + 0.1, z - 0.12), Vector3(0.1, 0.18, 0.06), Color(0.2, 0.2, 0.22), tint)
-			4:   # jackhammer
-				_wb_box(Vector3(0, y + 0.1, z), Vector3(0.16, 0.5, 0.16), Color(0.85, 0.35, 0.12), tint)
-				_wb_box(Vector3(0, y - 0.28, z), Vector3(0.05, 0.4, 0.05), steel, tint)
-				_wb_box(Vector3(0, y + 0.38, z), Vector3(0.1, 0.06, 0.34), Color(0.15, 0.15, 0.17), tint)
+	var next_id := str(prog.next_tool().get("id", ""))
+	# [id, ladder tier or -1] in the order they are bought; ladder tools and the new tools interleave by price
+	var order := [["hand", 0], ["pointed_chisel", -1], ["pickaxe", 1], ["flat_chisel", -1], ["repaired_pickaxe", -1], ["reinforced", 2], ["sledgehammer", -1],
+		["steel_pickaxe", -1], ["hardened_pickaxe", -1], ["hand_splitter", -1], ["powered_hammer", -1], ["drill", 3], ["pneumatic_chisel", -1], ["jackhammer", 4]]
+	for i in range(order.size()):
+		var id: String = order[i][0]
+		var lt: int = order[i][1]
+		var owned := prog.owns(id)
+		var is_next := id == next_id
+		var col := i % 7
+		var row := i / 7
+		var z := -0.62 + float(col) * 0.205
+		var y := 0.22 - float(row) * 0.5
+		var m: Node3D = null
+		if lt == 0 or lt == 4:      # the rock hammer and the jackhammer keep their original pegboard pieces
+			var tint := 1.0 if (owned or is_next) else 0.4
+			if lt == 0:
+				_wb_box(Vector3(0, y - 0.12, z), Vector3(0.04, 0.4, 0.04), wood, tint)
+				_wb_box(Vector3(0, y + 0.1, z), Vector3(0.08, 0.1, 0.17), steel, tint)
+			else:
+				_wb_box(Vector3(0, y - 0.05, z), Vector3(0.12, 0.4, 0.12), Color(0.85, 0.35, 0.12), tint)
+				_wb_box(Vector3(0, y - 0.34, z), Vector3(0.04, 0.26, 0.04), steel, tint)
+				_wb_box(Vector3(0, y + 0.18, z), Vector3(0.09, 0.05, 0.3), Color(0.15, 0.15, 0.17), tint)
+			continue
+		m = GearModels.build_ladder(lt) if lt > 0 else GearModels.build_tool(id)
+		workbench_tools.add_child(m)
+		var sc := 0.5 if lt < 0 else 0.55
+		m.scale = Vector3.ONE * sc
+		m.position = Vector3(0, y, z)
+		# hang it by its middle: centre the model's mesh bounds on the slot
+		var bb := AABB()
+		var first := true
+		for mi in m.find_children("*", "MeshInstance3D", true, false):
+			var mesh := (mi as MeshInstance3D).mesh
+			if mesh == null:
+				continue
+			var xf := Transform3D.IDENTITY
+			var cur: Node = mi
+			while cur != null and cur != m:
+				xf = (cur as Node3D).transform * xf
+				cur = cur.get_parent()
+			bb = (xf * mesh.get_aabb()) if first else bb.merge(xf * mesh.get_aabb())
+			first = false
+		if not first:
+			m.position = Vector3(0, y - bb.get_center().y * sc, z - bb.get_center().z * sc)
+		if not (owned or is_next):
+			for mi in m.find_children("*", "MeshInstance3D", true, false):
+				(mi as MeshInstance3D).material_overlay = _dim_mat
 	var nt := prog.next_tool()
 	if nt.is_empty():
 		workbench_tag.text = "WORKBENCH\nAll tools owned"
 	else:
 		workbench_tag.text = "WORKBENCH\nNext: %s  %s" % [str(nt["title"]), QuarryTheme.money_text(int(nt["cost"]))]
+	_refresh_gear_props()
+
+# ------------------------------------------------------------------ hauling aids and compressor standing in the yard (Phase 9)
+
+const GEAR_PROP_SPOTS := {"hand_cart": Vector3(-19.2, 0, 9.4), "wheelbarrow": Vector3(-19.2, 0, 11.4), "reinforced_wheelbarrow": Vector3(-19.2, 0, 13.4), "air_compressor": Vector3(-21.5, 0, 10.0)}
+var gear_props := {}
+var _gear_timer := 0.0
+
+## Standing beside the office once owned. Each has a small collider so it is a real object in the yard.
+func _refresh_gear_props() -> void:
+	for id in GEAR_PROP_SPOTS:
+		var owned: bool = (id in state.carts) or (id in state.gear)
+		if owned and not gear_props.has(id):
+			var body := StaticBody3D.new()
+			body.name = "Prop_" + id
+			body.position = GEAR_PROP_SPOTS[id]
+			body.rotation.y = PI * 0.5 if id != "air_compressor" else PI
+			body.set_meta("gear_prop", id)
+			var prop := GearModels.build_prop(id)
+			body.add_child(prop)
+			var cs := CollisionShape3D.new()
+			var box := BoxShape3D.new()
+			box.size = Vector3(0.9, 0.9, 1.5) if id != "air_compressor" else Vector3(0.7, 1.0, 1.0)
+			cs.shape = box
+			cs.position = Vector3(0, 0.45, 0.2 if id != "air_compressor" else 0.15)
+			body.add_child(cs)
+			world.add_child(body)
+			gear_props[id] = body
+	_update_cart_load()
+
+## The cart that is in use shows what the bag holds: the pile grows with the load and takes the colour of the main rock.
+func _update_cart_load() -> void:
+	var best := ""
+	for id in ["reinforced_wheelbarrow", "wheelbarrow", "hand_cart"]:
+		if gear_props.has(id):
+			best = id
+			break
+	var total := state.total(state.inventory)
+	var cap := maxi(1, state.capacity())
+	var top_res := "limestone"
+	var top_n := -1
+	for k in state.inventory:
+		if int(state.inventory[k]) > top_n:
+			top_n = int(state.inventory[k])
+			top_res = str(k)
+	for id in ["hand_cart", "wheelbarrow", "reinforced_wheelbarrow"]:
+		if not gear_props.has(id):
+			continue
+		var load: Node3D = gear_props[id].get_child(0).get_node_or_null("Load")
+		if load == null:
+			continue
+		var fill := clampf(float(total) / float(cap), 0.0, 1.0) if id == best else 0.0
+		load.visible = fill > 0.02
+		load.scale = Vector3(1.0, 0.25 + 0.9 * fill, 1.0)
+		var mi: MeshInstance3D = load.get_meta("pile")
+		mi.material_override = MeshKit.mat(QuarryArt.ROCK_MAT.get(top_res, "RockLimestone"))
 
 func _draw_shop(p: QuarryStationUI) -> void:
 	p.begin("MACHINERY ORDERS", state.money, "Click an item to see it turn, then BUY. Placement: R rotate, G grid snap, left click place, Esc refund.")

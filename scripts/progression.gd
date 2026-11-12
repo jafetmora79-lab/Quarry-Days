@@ -87,8 +87,8 @@ func cycle_tool() -> String:
 ## Which of the five existing 3D tool models is shown for the tool in hand (extra tools reuse one; see the gear "model").
 func model_tier() -> int:
 	var t := tool()
-	if t.has("model"):
-		return clampi(int(t["model"]), 0, 4)
+	if t.has("class") and GearModels.tier_of(str(t.get("id", ""))) >= 0:
+		return GearModels.tier_of(str(t["id"]))
 	return state.tool_tier
 
 ## Damage multiplier of the tool in hand against a mineral (chisels are soft-rock specialists; powered tools use the compressor).

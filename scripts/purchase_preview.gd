@@ -147,7 +147,22 @@ static func build_model(game, spec: Dictionary) -> Node3D:
 			r.rkind = str(game.prog.machine(r.rtype).get("kind", "drill"))
 			r._build()
 			return r
+		"gear":       # hauling aids and the compressor: the same prop model that stands in the yard
+			var prop := GearModels.build_prop(str(spec["id"]))
+			var gh := Node3D.new()
+			gh.add_child(prop)
+			var pile = prop.get_node_or_null("Load")
+			if pile:
+				pile.scale = Vector3(1, 0.8, 1)
+			return gh
 		"tool":
+			if int(spec["tier"]) >= GearModels.TIER_BASE:        # Phase 9 tools: shown without hands, laid on the turntable
+				var gm := GearModels.build_tool(GearModels.id_of(int(spec["tier"])))
+				var gholder := Node3D.new()
+				gholder.add_child(gm)
+				gm.scale = Vector3.ONE * (1.7 if GearModels.POSE.get(GearModels.id_of(int(spec["tier"])), {}).get("power", false) else 2.0)
+				gm.rotation = Vector3(0, 0, deg_to_rad(65)) if not GearModels.POSE.get(GearModels.id_of(int(spec["tier"])), {}).get("power", false) else Vector3(0, deg_to_rad(40), 0)
+				return gholder
 			var tv := QuarryToolView.new()
 			var m: Node3D = tv._build(int(spec["tier"]))
 			var holder := Node3D.new()

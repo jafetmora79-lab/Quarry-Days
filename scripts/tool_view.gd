@@ -11,7 +11,8 @@ var tier := -1
 var models := {}
 var pivot: Node3D          # grip point the swing rotates around
 var model: Node3D
-var spinner: Node3D        # drill bit / jackhammer chisel
+var spinner: Node3D        # drill bit / jackhammer chisel / hammer ram
+var lever: Node3D          # the hand splitter's lever
 var phase := -1.0          # 0..1 while swinging, -1 idle
 var duration := 0.5
 var impact_done := true
@@ -33,8 +34,8 @@ const TOOL := {
 	0: {"grip": Vector3(0.30, -0.42, -0.55), "scale": 0.8, "rest": -0.75, "yaw": 0.2, "wind": 0.1, "strike": -1.35, "tip": Vector3(0, 0.36, -0.1)},
 	1: {"grip": Vector3(0.30, -0.42, -0.55), "scale": 0.8, "rest": -0.75, "yaw": 0.2, "wind": 0.1, "strike": -1.35, "tip": Vector3(0, 0.48, -0.27)},
 	2: {"grip": Vector3(0.30, -0.42, -0.55), "scale": 0.75, "rest": -0.75, "yaw": 0.2, "wind": 0.1, "strike": -1.35, "tip": Vector3(0, 0.52, -0.32)},
-	3: {"grip": Vector3(0.28, -0.3, -0.5), "scale": 0.7, "rest_rot": Vector3(0.12, 0.2, 0.0), "tip": Vector3(0, 0.12, -0.46)},
-	4: {"grip": Vector3(0.3, -0.12, -0.5), "scale": 0.7, "rest_rot": Vector3(0.0, 0.3, 0.0), "model_pitch": 0.8, "tip": Vector3(0, -0.61, 0)},
+	3: {"grip": Vector3(0.28, -0.3, -0.5), "scale": 0.7, "power": true, "spin": "rotate", "amp": 0.006, "rest_rot": Vector3(0.12, 0.2, 0.0), "tip": Vector3(0, 0.12, -0.54)},
+	4: {"grip": Vector3(0.3, -0.12, -0.5), "scale": 0.7, "power": true, "spin": "pump_y", "amp": 0.014, "rest_rot": Vector3(0.0, 0.3, 0.0), "model_pitch": 0.8, "tip": Vector3(0, -0.61, 0)},
 }
 const REACH_MIN := 0.85      # the working end meets the rock this far in front of the camera, at least...
 const REACH_MAX := 1.6       # ...and at most (mining reach in main.gd is just beyond this)
@@ -47,6 +48,14 @@ var engage := 0.0            # 0..1 how much the working end is pulled onto the 
 func _ready() -> void:
 	pivot = Node3D.new()
 	add_child(pivot)
+
+## The pose definition of a tool tier: the five ladder tools, or one of the Phase 9 tools (tier >= GearModels.TIER_BASE).
+func _def(t: int) -> Dictionary:
+	if t >= GearModels.TIER_BASE:
+		var d: Dictionary = GearModels.SWING.duplicate()
+		d.merge(GearModels.POSE.get(GearModels.id_of(t), {}), true)
+		return d
+	return TOOL.get(t, TOOL[0])
 
 func equip(t: int, instant := false) -> void:
 	if t == tier and pending_tier < 0:
@@ -67,9 +76,10 @@ func _show(t: int) -> void:
 		models[t] = _build(t)
 		pivot.add_child(models[t])
 	model = models[t]
-	model.scale = Vector3.ONE * float(TOOL[t].get("scale", 1.0))
+	model.scale = Vector3.ONE * float(_def(t).get("scale", 1.0))
 	model.visible = true
 	spinner = model.get_meta("spinner") if model.has_meta("spinner") else null
+	lever = model.get_meta("lever") if model.has_meta("lever") else null
 	phase = -1.0
 	impact_done = true
 
@@ -103,13 +113,14 @@ func _process(delta: float) -> void:
 	var lower := sin(clampf(equip_t, 0.0, 1.0) * PI) * 0.45 # 0 -> dip -> 0
 	bob_t += delta * (2.0 + 7.0 * moving)
 	var bob := Vector3(cos(bob_t) * 0.012, absf(sin(bob_t)) * 0.016, 0) * (0.3 + moving)
-	var def: Dictionary = TOOL.get(tier, TOOL[0])
+	var def: Dictionary = _def(tier)
+	var is_power: bool = bool(def.get("power", false))
 	var base: Vector3 = def["grip"]
 	var rot := Vector3.ZERO
 	var off := Vector3.ZERO
 	var rest: float = def.get("rest", 0.0)
 	var weight := 0.0
-	if tier < 3:
+	if not is_power:
 		rot.x = rest
 		rot.y = float(def.get("yaw", 0.0))
 		if phase >= 0.0:
@@ -121,11 +132,11 @@ func _process(delta: float) -> void:
 			if p < 0.42:                                  # wind-up: ease out, working end goes up and back
 				var a := p / 0.42
 				ang = lerpf(rest, wind, 1.0 - pow(1.0 - a, 3.0))
-				off = Vector3(0.0, 0.07, -0.10) * a
+				off = Vector3(0.0, 0.07 + float(def.get("lift", 0.0)), -0.10) * a
 			elif p < 0.58:                                # strike: accelerate onto the rock
 				var a := (p - 0.42) / 0.16
 				ang = lerpf(wind, strike, a * a)
-				off = Vector3(0.0, lerpf(0.07, -0.03, a), lerpf(-0.10, -0.12, a))
+				off = Vector3(0.0, lerpf(0.07 + float(def.get("lift", 0.0)), -0.03, a), lerpf(-0.10, -0.12, a))
 				weight = a * a
 			else:                                         # recover: ease back with a small settle
 				var a := clampf((p - 0.58) / 0.42, 0.0, 1.0)
@@ -149,17 +160,38 @@ func _process(delta: float) -> void:
 		deflect_t = maxf(0.0, deflect_t - delta)
 		rot.x += sin(deflect_t / 0.3 * PI) * 0.5
 		off += Vector3(0, 0.04, 0.06) * sin(deflect_t / 0.3 * PI)
+	if lever:        # the hand splitter: the lever is pulled down and let up with every press
+		var pull := 0.0
+		if phase >= 0.0:
+			pull = sin(clampf(phase, 0.0, 1.0) * PI)
+		lever.rotation.x = -0.15 + pull * 0.55
 	# power tools: vibration and push while running; the working end eases onto the crosshair point
-	if tier >= 3:
+	if is_power:
 		var v := op_blend
-		var amp := 0.006 if tier == 3 else 0.014
-		off += Vector3(sin(_t * 91.0) * amp, sin(_t * 113.0) * amp * (2.2 if tier == 4 else 1.0), -0.04 * v) * v
+		var amp := float(def.get("amp", 0.01))
+		var spin := str(def.get("spin", "rotate"))
+		off += Vector3(sin(_t * 91.0) * amp, sin(_t * 113.0) * amp * (2.2 if spin == "pump_y" else 1.0), -0.04 * v) * v
 		weight = v * 0.85
+		if phase >= 0.0:        # a powered tool that works in blows (the powered hammer): a lunge at the rock, the ram slams home
+			phase += delta / duration
+			var kick := sin(clampf(phase, 0.0, 1.0) * PI)
+			off += Vector3(0.0, -0.01 * kick, -0.10 * kick)
+			weight = maxf(weight, kick)
+			if phase >= 0.5 and not impact_done:
+				impact_done = true
+				if on_impact.is_valid():
+					on_impact.call()
+			if phase >= 1.0:
+				phase = -1.0
+			elif spinner and str(def.get("spin", "")) == "pump_z":
+				spinner.position.z = -0.33 - 0.1 * kick
 		if spinner:
-			if tier == 3:
-				spinner.rotate_z(delta * 40.0 * v)
-			else:
-				spinner.position.y = -0.42 - absf(sin(_t * 56.0)) * 0.035 * v
+			match spin:
+				"rotate": spinner.rotate_z(delta * 40.0 * v)
+				"pump_y": spinner.position.y = -0.42 - absf(sin(_t * 56.0)) * 0.035 * v
+				"pump_z":
+					if phase < 0.0:
+						spinner.position.z = -0.33 - absf(sin(_t * 48.0)) * 0.05 * v
 	pivot.rotation = rot
 	var placed := base + bob + off + Vector3(0, -lower, 0)
 	# working end in camera space, then pull it toward the point on the crosshair ray where the rock is
@@ -167,7 +199,7 @@ func _process(delta: float) -> void:
 	var tip_now := placed + pivot.transform.basis * (model.transform * tip_local) if model else placed
 	var contact := Vector3(0, 0, -clampf(target_dist, REACH_MIN, REACH_MAX))
 	var corr := (contact - tip_now)
-	var cap := MAX_CORRECTION if tier < 3 else 0.1 # power tools stay in the hands: only a small nudge toward the rock
+	var cap := MAX_CORRECTION if not is_power else 0.1 # power tools stay in the hands: only a small nudge toward the rock
 	if corr.length() > cap:
 		corr = corr.normalized() * cap
 	engage = weight
@@ -180,6 +212,19 @@ func _box(s: MeshKit.Soup, c: Vector3, size: Vector3, taper := Vector2.ONE) -> v
 	MeshKit.box_into(s, c, size, taper)
 
 func _build(t: int) -> Node3D:
+	if t >= GearModels.TIER_BASE:                  # Phase 9 tools: their own models
+		var gn := GearModels.build_tool(GearModels.id_of(t))
+		gn.rotation.x = float(_def(t).get("model_pitch", 0.0))      # the pneumatic chisel leans forward like the jackhammer
+		_add_hands(gn, t)
+		for gi in gn.find_children("*", "GeometryInstance3D", true, false):
+			gi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		return gn
+	if t >= 1 and t <= 3:                          # worn pickaxe, reinforced pickaxe, corded drill: upgraded models
+		var ln := GearModels.build_ladder(t)
+		_add_hands(ln, t)
+		for gi in ln.find_children("*", "GeometryInstance3D", true, false):
+			gi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		return ln
 	var n := Node3D.new()
 	n.name = "Tool%d" % t
 	var wood := MeshKit.Soup.new()
@@ -266,12 +311,12 @@ const SLEEVE := Color(0.86, 0.46, 0.16)        # the miners' orange work jacket
 const BAND := Color(0.86, 0.86, 0.78)          # reflective cuff band
 
 func _add_hands(n: Node3D, t: int) -> void:
-	var def: Dictionary = TOOL[t]
-	var pivot_b := Basis.from_euler(Vector3(float(def.get("rest", 0.0)), float(def.get("yaw", 0.0)), 0.0)) if t < 3 else Basis.from_euler(def["rest_rot"])
+	var def: Dictionary = _def(t)
+	var pivot_b := Basis.from_euler(def["rest_rot"]) if bool(def.get("power", false)) else Basis.from_euler(Vector3(float(def.get("rest", 0.0)), float(def.get("yaw", 0.0)), 0.0))
 	var model_b := Basis.from_euler(Vector3(float(def.get("model_pitch", 0.0)), 0.0, 0.0))
 	var inv := (pivot_b * model_b).inverse()
 	var inv_s := 1.0 / float(def.get("scale", 1.0))
-	for h in HANDS[t]:
+	for h in (def["hands"] if def.has("hands") else HANDS[t]):
 		var right: bool = h[0] == "R"
 		var dir_m: Vector3 = (inv * (HAND_R_DIR if right else HAND_L_DIR)).normalized()
 		var at: Vector3 = h[1]
