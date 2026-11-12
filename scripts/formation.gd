@@ -55,7 +55,8 @@ func setup(main_node, p: QuarryProgression, id: String) -> void:
 	tier_h = float(f["tier_h"])
 	name = id
 	var c: Array = f["center"]
-	position = Vector3(float(c[0]), float(c[1]), float(c[2]))
+	# Phase 8.7: a formation in the pit frame is rotated with it, so its axis-aligned column boxes tile the (rotated) grid exactly
+	transform = prog.formation_frame(id) * Transform3D(Basis.IDENTITY, Vector3(float(c[0]), float(c[1]), float(c[2])))
 	set_meta("kind", "deposit")
 	set_meta("deposit", id)
 	set_meta("resource", res)
@@ -102,8 +103,7 @@ func setup(main_node, p: QuarryProgression, id: String) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(id)
 	for i in range(prog.column_count(id)):
-		var local := prog.column_pos(id, i) - position
-		local.y = 0.0
+		var local := _local(i)
 		var cs := CollisionShape3D.new()
 		var box := BoxShape3D.new()
 		cs.shape = box
@@ -183,7 +183,7 @@ func refresh(instant := false) -> void:
 		var h := float(want) * tier_h
 		cs.disabled = want <= 0
 		(cs.shape as BoxShape3D).size = Vector3(cell, maxf(0.2, h), cell)
-		var lp := prog.column_pos(fid, i) - position
+		var lp := _local(i)
 		cs.position = Vector3(lp.x, maxf(0.2, h) * 0.5, lp.z)
 		top_y = maxf(top_y, h)
 		if cut and want > 0:
@@ -212,7 +212,7 @@ func _rebuild_skin(heights: Array) -> void:
 	var half := cell * 0.5
 	var jit := cell * 0.16
 	var origin := Vector3.ZERO
-	var c0 := prog.column_pos(fid, 0) - position
+	var c0 := _local(0)
 	origin = Vector3(c0.x, 0, c0.z)
 	# corner (gx, gy) is the lower-left corner of column (gx, gy) in grid space (gx in 0..d.x, gy in 0..d.y)
 	var corner := func(gx: int, gy: int, h: float) -> Vector3:
@@ -276,6 +276,12 @@ func _tri_out(s: MeshKit.Soup, a: Vector3, b: Vector3, c: Vector3, hint: Vector3
 func _quad_out(s: MeshKit.Soup, a: Vector3, b: Vector3, c: Vector3, e: Vector3, hint: Vector3) -> void:
 	_tri_out(s, a, b, c, hint)
 	_tri_out(s, a, c, e, hint)
+
+## A column's centre in this node's own frame, at floor level.
+func _local(i: int) -> Vector3:
+	var l := transform.affine_inverse() * prog.column_pos(fid, i)
+	l.y = 0.0
+	return l
 
 func update_label() -> void:
 	var left := prog.units_left(fid)

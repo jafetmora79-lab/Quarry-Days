@@ -127,6 +127,18 @@ func run() -> void:
 	var rock_top: float = ground_y(game, -30.0, -120.0)
 	check(absf(rock_top + 3.6) < 0.2, "A the level 2 rock is flush with the basin floor, no pre-cut pit (%.2f)" % rock_top)
 	check(absf(ground_y(game, -54.5, -66.0) + 3.6) < 0.6 and absf(ground_y(game, -54.5, -95.0) + 7.2) < 0.15, "A the first ramp descends from -3.6 to -7.2 at the pit's edge")
+	var gaps := 0
+	var lattice := 0
+	var gx := -49.5
+	while gx < -5.5:
+		var gz := -149.5
+		while gz < -69.5:
+			lattice += 1
+			if absf(ground_y(game, gx, gz) + 3.6) > 0.15:
+				gaps += 1
+			gz += 1.3
+		gx += 1.3
+	check(lattice > 1500 and gaps == 0, "A the level 2 rock is one gap-free mass: %d of %d ray samples across it are not at its top" % [gaps, lattice])
 	var big := 0
 	for id in ["bench_l2_coal", "bench_l2_iron"]:
 		big += prog.column_count(id)

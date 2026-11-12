@@ -145,10 +145,8 @@ func run() -> void:
 			x += 0.75
 	check(holes == 0, "2 with every level fully excavated there is still ground everywhere (%d holes)" % holes)
 	# ---- 3: walk all four levels down and back up with a real capsule
-	var route := [Vector2(0, -20), Vector2(0, -46), Vector2(0, -68), Vector2(-6, -68), Vector2(-6, -50), Vector2(-6, -48),
-		Vector2(-25, -48), Vector2(-25, -58), Vector2(-25, -65.6),
-		Vector2(-22, -65.6), Vector2(-22, -50.2), Vector2(-19, -50.2), Vector2(-19, -58), Vector2(-19, -64.5),
-		Vector2(-16, -64.4), Vector2(-15.5, -62.5), Vector2(-15.5, -55), Vector2(-15.5, -53.3), Vector2(-12.5, -53.3), Vector2(-12.5, -58)]
+	var route := [Vector2(0, -20), Vector2(0, -46), Vector2(0, -72), Vector2(-20, -60), Vector2(-54.5, -60), Vector2(-54.5, -80), Vector2(-54.5, -110), Vector2(-54.5, -143), Vector2(-15.5, -143),
+		Vector2(-15.5, -112), Vector2(-15.5, -95), Vector2(-36.5, -92), Vector2(-36.5, -100), Vector2(-36.5, -130)]
 	ignore = [game.player.get_rid()]
 	game.player.locked = false
 	game.safety.enabled = false
@@ -156,7 +154,7 @@ func run() -> void:
 	await frames(10)
 	var ok := await walk(game, route, "down")
 	check(ok, "3 the player goes from the pit gate down the basin ramp and through the ramps of levels 2, 3 and 4")
-	var lvl4 := ground_y(game, -12.5, -58)
+	var lvl4 := ground_y(game, -36.5, -130)
 	check(absf(pz.to_loc(game.player.global_position).y - lvl4) < 0.6 and lvl4 < -14.0, "3b it ends on the level 4 floor (y %.2f)" % pz.to_loc(game.player.global_position).y)
 	var back := route.duplicate()
 	back.reverse()
@@ -288,7 +286,7 @@ func run() -> void:
 		waited += 1
 	await frames(5)
 	var gate_w: Vector3 = pz.to_world(Vector3(0, 0.0, -10))
-	var targets := {"the basin floor": Vector3(-6, -3.6, -58), "the level 2 floor": Vector3(-22, -7.2, -58), "the level 3 floor": Vector3(-14, -10.8, -64), "the level 4 floor": Vector3(-12.5, -14.4, -58)}
+	var targets := {"the basin floor": Vector3(-6, -3.6, -58), "the level 2 floor": Vector3(-54.5, -7.2, -100), "the level 3 floor": Vector3(-15.5, -10.8, -100), "the level 4 floor": Vector3(-36.5, -14.4, -125)}
 	for tname in targets:
 		var tw: Vector3 = pz.to_world(targets[tname])
 		var pth: PackedVector3Array = NavigationServer3D.map_get_path(game.nav_map, gate_w, tw, true)

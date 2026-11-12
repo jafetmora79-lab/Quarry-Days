@@ -70,13 +70,13 @@ func run() -> void:
 	var f: Dictionary = prog.fdef(BID)
 	check(prog.is_arc(BID) and prog.dims(BID) == Vector2i(16, 6) and prog.column_count(BID) == 96, "A the bench is an arc formation: 16 slices x 6 rings = 96 columns")
 	var center: Vector3 = prog.formation_origin_world(BID)
-	check(center.distance_to(pz.to_world(Vector3(0, -3.6, -75))) < 0.01, "A its frame is the pit zone's: the centre is the basin centre")
+	check(center.distance_to(pz.to_world(Vector3(34, -3.6, -122))) < 0.01, "A its frame is the pit zone's: the centre is the basin centre")
 	var ring_ok := true
 	var spacing_ok := true
 	for i in range(96):
 		var x := i % 16
 		var y := i / 16
-		var l: Vector3 = pz.to_loc(prog.column_pos(BID, i)) - Vector3(0, -3.6, -75)
+		var l: Vector3 = pz.to_loc(prog.column_pos(BID, i)) - Vector3(34, -3.6, -122)
 		var r := Vector2(l.x, l.z).length()
 		ring_ok = ring_ok and absf(r - (6.0 + (float(y) + 0.5) * 1.9)) < 0.01
 		if x > 0:
