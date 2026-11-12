@@ -63,7 +63,7 @@ func run() -> void:
 	check(ids.size() == 4 and floors[0] > floors[1] and floors[1] > floors[2] and floors[2] > floors[3], "A levels have unique ids and descend (%s)" % str(floors))
 	check(ok_mats, "A every planned material is an existing material definition")
 	check(prog.level_built(1) and prog.level_formations(1).size() == 2, "A level 1 is the hillside face and the basin bench")
-	check(not prog.level_built(2) and not prog.level_built(3) and not prog.level_built(4), "A levels 2-4 are defined but not built yet")
+	check(prog.level_built(2) and prog.level_built(3) and prog.level_built(4), "A levels 2-4 are built (Phase 7.2)")
 	check(prog.quarry_level == 1, "A a new game starts on level 1")
 	# ---- B: excavation fraction
 	check(prog.level_cleared_fraction(1) == 0.0, "B an untouched quarry is 0% excavated")
@@ -92,21 +92,15 @@ func run() -> void:
 	check(prog.stage >= 3, "C cutting into the quarry face finishes it (stage index %d)" % prog.stage)
 	check(prog.stage < 5, "C and the later stages still ask for more excavation (stage index %d)" % prog.stage)
 	# ---- D: level unlocking
-	check(prog.quarry_level == 1, "D level 2 stays closed while it is not built, whatever is mined")
+	check(prog.quarry_level == 1, "D level 2 stays closed while level 1 is mostly uncut")
 	excavate(prog, "hillside_face_01", 1.0)
 	excavate(prog, "pit_band_01", 1.0)
-	prog.check_levels()
-	check(prog.quarry_level == 1, "D (even with level 1 fully cut)")
-	prog.cfg["quarry_levels"][1]["built"] = true
-	prog.cfg["quarry_levels"][1]["formations"] = ["stone_mountain"]
 	var reached := [0]
 	prog.quarry_level_reached.connect(func(n): reached[0] = n)
 	prog.check_levels()
-	check(prog.quarry_level == 2 and reached[0] == 2, "D a built level opens once the one above is cut far enough")
+	check(prog.quarry_level == 2 and reached[0] == 2, "D level 2 opens once level 1 is cut far enough")
 	prog.check_levels()
-	check(prog.quarry_level == 2, "D and never opens more than one at a time")
-	prog.cfg["quarry_levels"][1]["built"] = false
-	prog.cfg["quarry_levels"][1]["formations"] = []
+	check(prog.quarry_level == 2, "D and only one level opens at a time (level 3 needs level 2 cut)")
 	# ---- E: schema and migration
 	var snap: Dictionary = prog.snapshot()
 	check(int(snap["schema"]) == 2 and int(snap["quarry_level"]) == 2, "E the progression save carries a schema and the quarry level")

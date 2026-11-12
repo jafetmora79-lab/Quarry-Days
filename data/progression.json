@@ -159,7 +159,7 @@
       "req": {
         "earned": 6000,
         "crushers": 1,
-        "excavated": {"level": 1, "fraction": 0.25}
+        "quarry_level": 2
       }
     },
     {
@@ -169,7 +169,7 @@
       "req": {
         "earned": 14000,
         "cleared": 0.55,
-        "excavated": {"level": 1, "fraction": 0.5}
+        "quarry_level": 3
       }
     }
   ],
@@ -640,6 +640,292 @@
           3
         ]
       ]
+    },
+    "bench_l2_coal": {
+      "title": "Coal Bench",
+      "resource": "coal",
+      "frame": "pit",
+      "layout": "grid",
+      "center": [
+        -16.0,
+        -7.2,
+        -62.0
+      ],
+      "cell": 2.0,
+      "tier_h": 1.2,
+      "chunk_units": 70,
+      "level": 1,
+      "quarry_level": 2,
+      "style": "cut",
+      "strict": true,
+      "requires_cleanup": true,
+      "tiers": [
+        [
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3
+        ],
+        [
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3
+        ],
+        [
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3
+        ],
+        [
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3
+        ],
+        [
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3
+        ]
+      ]
+    },
+    "bench_l2_iron": {
+      "title": "Iron Bench",
+      "resource": "iron_ore",
+      "frame": "pit",
+      "layout": "grid",
+      "center": [
+        -16.0,
+        -7.2,
+        -53.0
+      ],
+      "cell": 2.0,
+      "tier_h": 1.2,
+      "chunk_units": 70,
+      "level": 1,
+      "quarry_level": 2,
+      "style": "cut",
+      "strict": true,
+      "requires_cleanup": true,
+      "tiers": [
+        [
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3
+        ],
+        [
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3
+        ],
+        [
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3
+        ],
+        [
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3
+        ]
+      ]
+    },
+    "bench_l3_iron": {
+      "title": "Deep Iron Bench",
+      "resource": "iron_ore",
+      "frame": "pit",
+      "layout": "grid",
+      "center": [
+        -14.0,
+        -10.8,
+        -61.0
+      ],
+      "cell": 2.0,
+      "tier_h": 1.2,
+      "chunk_units": 70,
+      "level": 1,
+      "quarry_level": 3,
+      "style": "cut",
+      "strict": true,
+      "requires_cleanup": true,
+      "tiers": [
+        [
+          3,
+          3,
+          3
+        ],
+        [
+          3,
+          3,
+          3
+        ],
+        [
+          3,
+          3,
+          3
+        ],
+        [
+          3,
+          3,
+          3
+        ]
+      ],
+      "cover": [
+        "bench_l2_coal",
+        "bench_l2_iron"
+      ]
+    },
+    "bench_l3_copper": {
+      "title": "Copper Bench",
+      "resource": "copper_ore",
+      "frame": "pit",
+      "layout": "grid",
+      "center": [
+        -14.0,
+        -10.8,
+        -54.0
+      ],
+      "cell": 2.0,
+      "tier_h": 1.2,
+      "chunk_units": 70,
+      "level": 1,
+      "quarry_level": 3,
+      "style": "cut",
+      "strict": true,
+      "requires_cleanup": true,
+      "tiers": [
+        [
+          3,
+          3,
+          3
+        ],
+        [
+          3,
+          3,
+          3
+        ],
+        [
+          3,
+          3,
+          3
+        ]
+      ],
+      "cover": [
+        "bench_l2_coal",
+        "bench_l2_iron"
+      ]
+    },
+    "bench_l4_copper": {
+      "title": "Deep Copper Bench",
+      "resource": "copper_ore",
+      "frame": "pit",
+      "layout": "grid",
+      "center": [
+        -12.5,
+        -14.4,
+        -60.0
+      ],
+      "cell": 1.5,
+      "tier_h": 1.2,
+      "chunk_units": 60,
+      "level": 1,
+      "quarry_level": 4,
+      "style": "cut",
+      "strict": true,
+      "requires_cleanup": true,
+      "tiers": [
+        [
+          3,
+          3
+        ],
+        [
+          3,
+          3
+        ],
+        [
+          3,
+          3
+        ],
+        [
+          3,
+          3
+        ]
+      ],
+      "cover": [
+        "bench_l3_iron",
+        "bench_l3_copper"
+      ]
+    },
+    "bench_l4_gold": {
+      "title": "Gold Bench",
+      "resource": "gold_ore",
+      "frame": "pit",
+      "layout": "grid",
+      "center": [
+        -12.5,
+        -14.4,
+        -54.75
+      ],
+      "cell": 1.5,
+      "tier_h": 1.2,
+      "chunk_units": 60,
+      "level": 1,
+      "quarry_level": 4,
+      "style": "cut",
+      "strict": true,
+      "requires_cleanup": true,
+      "tiers": [
+        [
+          3,
+          3
+        ],
+        [
+          3,
+          3
+        ],
+        [
+          3,
+          3
+        ]
+      ],
+      "cover": [
+        "bench_l3_iron",
+        "bench_l3_copper"
+      ]
     }
   },
   "starting_formations": [
@@ -850,8 +1136,8 @@
     "corridor_width": 8.0,
     "plateau_width": 90.0,
     "plateau_depth": 90.0,
-    "basin_width": 36.0,
-    "basin_depth": 36.0,
+    "basin_width": 56.0,
+    "basin_depth": 56.0,
     "basin_floor": -3.6,
     "ramp_width": 8.0,
     "ramp_run": 20.0,
@@ -864,11 +1150,14 @@
     "quarry": {"frame": "pit", "gate_angle_deg": 306.0}
   },
   "quarry_levels": [
-    {"_comment": "Four levels of ONE continuous quarry. 'formations' are the ids cut in that level; 'built' is true once the level's geometry and formations exist (levels 2-4 are added in Phase 7.2); 'unlock' is the share of the PREVIOUS level that must be excavated before this one can be reached; 'materials' is the planned distribution by depth.",
+    {"_comment": "Four levels of ONE continuous quarry (Phase 7.2). 'formations' are cut in that level; 'unlock' is the share of the PREVIOUS level that must be excavated before the level's rock can be mined (the shell, ramp and walls are always there, under the flush columns). 'pit' (pit frame): rect = [x0, z0, x1, z1] of the whole pit including its ramp strip on the west side; ramp_w = width of that strip; the ramp runs along z from the south end (z1, previous floor) down to the north end (z0, this floor); the columns fill the rest of the rectangle.",
      "id": "surface", "title": "Surface Operations", "floor_y": -3.6, "materials": ["limestone"], "formations": ["hillside_face_01", "pit_band_01"], "built": true, "unlock": 0.0},
-    {"id": "bench", "title": "First Excavation Bench", "floor_y": -7.2, "materials": ["limestone", "coal", "iron_ore"], "formations": [], "built": false, "unlock": 0.6},
-    {"id": "deep", "title": "Deep Quarry", "floor_y": -10.8, "materials": ["iron_ore", "copper_ore"], "formations": [], "built": false, "unlock": 0.6},
-    {"id": "lower", "title": "Lower Quarry", "floor_y": -14.4, "materials": ["copper_ore", "gold_ore"], "formations": [], "built": false, "unlock": 0.6}
+    {"id": "bench", "title": "First Excavation Bench", "floor_y": -7.2, "materials": ["coal", "iron_ore"], "formations": ["bench_l2_coal", "bench_l2_iron"], "built": true, "unlock": 0.6,
+     "pit": {"rect": [-27.0, -67.0, -9.0, -49.0], "ramp_w": 4.0, "y_top": -3.6}},
+    {"id": "deep", "title": "Deep Quarry", "floor_y": -10.8, "materials": ["iron_ore", "copper_ore"], "formations": ["bench_l3_iron", "bench_l3_copper"], "built": true, "unlock": 0.6,
+     "pit": {"rect": [-21.0, -65.0, -11.0, -51.0], "ramp_w": 4.0, "y_top": -7.2}},
+    {"id": "lower", "title": "Lower Quarry", "floor_y": -14.4, "materials": ["copper_ore", "gold_ore"], "formations": ["bench_l4_copper", "bench_l4_gold"], "built": true, "unlock": 0.6,
+     "pit": {"rect": [-17.0, -63.0, -11.0, -52.5], "ramp_w": 3.0, "y_top": -10.8}}
   ],
   "home": {
     "sleep_from_hour": 17.0,

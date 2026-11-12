@@ -116,7 +116,7 @@ func is_formation(id: String) -> bool:
 	return cfg.get("formations", {}).has(id)
 
 func formation_active(id: String) -> bool:
-	return is_formation(id) and int(fdef(id).get("level", 1)) <= level_unlocked and int(fdef(id).get("quarry_level", 1)) <= quarry_level
+	return is_formation(id) and int(fdef(id).get("level", 1)) <= level_unlocked
 
 func dims(id: String) -> Vector2i:
 	var tiers: Array = fdef(id)["tiers"]
@@ -255,6 +255,8 @@ func _open_neighbour(id: String, d: Vector2i, nx: int, ny: int) -> bool:
 
 ## Exposed = on the formation's open edge or next to an emptied column (reachable from the floor).
 func column_exposed(id: String, i: int) -> bool:
+	if column_covered(id, i):
+		return false
 	var d := dims(id)
 	var x := i % d.x
 	var y := i / d.x
@@ -275,10 +277,42 @@ func column_cut_exposed(id: String, i: int) -> bool:
 			return true
 	return false
 
+## Index of the grid column of formation `id` that contains world position `p` (-1 outside the grid).
+func cell_index_at(id: String, p: Vector3) -> int:
+	if is_arc(id) or not is_formation(id):
+		return -1
+	var f := fdef(id)
+	var d := dims(id)
+	var c: Array = f["center"]
+	var cell := float(f["cell"])
+	var l := formation_frame(id).affine_inverse() * p
+	var fx := (l.x - float(c[0])) / cell + (d.x - 1) * 0.5
+	var fy := (l.z - float(c[2])) / cell + (d.y - 1) * 0.5
+	var ix := int(round(fx))
+	var iy := int(round(fy))
+	if absf(fx - float(ix)) > 0.5001 or absf(fy - float(iy)) > 0.5001 or ix < 0 or iy < 0 or ix >= d.x or iy >= d.y:
+		return -1
+	return iy * d.x + ix
+
+## Stacked levels: a column lies under the columns of the formations in its "cover" list (the rock of the level above,
+## same place in plan). It cannot be reached, or mined, until every one of them has been cut away.
+func column_covered(id: String, i: int) -> bool:
+	var cover: Array = fdef(id).get("cover", [])
+	if cover.is_empty():
+		return false
+	var p := column_pos(id, i)
+	for cid in cover:
+		if not state.deposits.has(str(cid)):
+			init_formation(str(cid))
+		var j := cell_index_at(str(cid), p)
+		if j >= 0 and column_units(str(cid), j) > 0:
+			return true
+	return false
+
 ## Formations flagged "strict" (the hillside) only let a column be mined while it is exposed: nothing can be
 ## taken through the solid rock in front of it. Free-standing piles keep their old behaviour.
 func column_minable(id: String, i: int) -> bool:
-	return column_units(id, i) > 0 and (not bool(fdef(id).get("strict", false)) or column_exposed(id, i))
+	return column_units(id, i) > 0 and not column_covered(id, i) and (not bool(fdef(id).get("strict", false)) or column_exposed(id, i))
 
 ## Outward direction from column i toward open floor (for worker standing spots).
 func column_open_dir(id: String, i: int, from: Vector3) -> Vector3:
@@ -389,6 +423,7 @@ func requirement_progress(i: int) -> Array:
 			"employees": out.append(["Hire %d worker" % int(target), float(business.employees.size() if business else 0), float(target)])
 			"crushers": out.append(["Own %d crusher" % int(target), float(state.crushers.size()), float(target)])
 			"cleared": out.append(["Clear %d%% of the first deposits" % int(float(target) * 100.0), cleared_fraction(), float(target)])
+			"quarry_level": out.append(["Open quarry level %d" % int(target), float(quarry_level), float(target)])
 			"excavated":
 				var lv := int(target.get("level", 1))
 				out.append(["Clear %d%% of quarry level %d" % [int(float(target.get("fraction", 0.5)) * 100.0), lv], level_cleared_fraction(lv), float(target.get("fraction", 0.5))])
@@ -734,6 +769,9 @@ func clear_cleanup_item(id: String) -> bool:
 func formation_locked(id: String) -> String:
 	if bool(fdef(id).get("requires_cleanup", false)) and cleanup_active():
 		return "Clear the weeds and rubble first (%d left)" % cleanup_left()
+	var ql := int(fdef(id).get("quarry_level", 1))
+	if ql > quarry_level:
+		return "Quarry level %d is not open yet: cut %d%% of level %d first" % [ql, int(float(level_def(ql).get("unlock", 0.6)) * 100.0), ql - 1]
 	return ""
 
 # ------------------------------------------------------------------ story
