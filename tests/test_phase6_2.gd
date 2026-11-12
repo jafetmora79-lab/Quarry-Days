@@ -36,6 +36,8 @@ func run() -> void:
 	await process_frame
 	await physics_frame
 	await physics_frame
+	if game.walter_dialog:
+		game.walter_dialog.skip()
 	game.hud.close_card()
 	game.tutorial_visible = false
 	var st: QuarryState = game.state

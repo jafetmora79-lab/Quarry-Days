@@ -1066,9 +1066,9 @@
   "walter": {
     "_comment": "Phase 7.5: Walter is alive and retiring, not dead. Intro scene, timed visits and journal. Conditions: stage (id), quarry_level, cleaned (site cleanup done). Visits show once, in the morning/afternoon, when the player talks to him.",
     "pos": [
-      -4.2,
+      -3.2,
       0,
-      5.2
+      7.4
     ],
     "journal": {
       "lockbox": {

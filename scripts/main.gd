@@ -3361,6 +3361,7 @@ func _build_truck() -> void:
 			root.add_child(w)
 	world.add_child(root)
 	truck_node = root
+	nav_dirty = true
 
 ## Walter: the miner model with white hair. Anyone can talk to him with E while he waits.
 func _spawn_walter(at := Vector3.INF, face_to := Vector3.ZERO, npc := "walter") -> void:
@@ -3411,6 +3412,7 @@ func _remove_walter() -> void:
 ## Walter walks to `goal` along the navigation mesh (a straight line while it is not ready).
 func _walter_goto(goal: Vector3) -> void:
 	walter_goal = goal
+	walter_node.collision_layer = 0            # walking people do not block the player
 	var from := walter_node.global_position
 	walter_path = NavigationServer3D.map_get_path(nav_map, from, goal, true) if nav_ready() else PackedVector3Array()
 	if walter_path.size() < 2:
@@ -3440,6 +3442,7 @@ func _walter_tick(delta: float) -> void:
 		if not walking:
 			if walter_mode == "arriving":
 				walter_mode = "waiting"
+				walter_node.collision_layer = 1
 				_walter_face_player()
 				if hud:
 					var who := str(prog.visit_def(walter_visit).get("npc_name", "Grandpa Walt"))

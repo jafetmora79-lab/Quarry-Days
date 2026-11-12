@@ -374,9 +374,16 @@ func show_card(title: String, body: String, callback := Callable()) -> void:
 	card.modulate.a = 0.0
 
 ## Fades the screen to black (alpha 1) or back (0), used when going to sleep.
+var _fade_tween: Tween
+
 func fade_to(alpha: float, seconds: float) -> void:
-	var tw := create_tween()
-	tw.tween_property(fade_rect, "color:a", alpha, seconds)
+	if _fade_tween and _fade_tween.is_valid():
+		_fade_tween.kill()                     # a newer fade replaces the one still running
+	if seconds <= 0.0:
+		fade_rect.color.a = alpha
+		return
+	_fade_tween = create_tween()
+	_fade_tween.tween_property(fade_rect, "color:a", alpha, seconds)
 
 func fade_alpha() -> float:
 	return fade_rect.color.a
