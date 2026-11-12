@@ -24,8 +24,8 @@ func frames(n: int) -> void:
 func ground_y(game, lx: float, lz: float, y_from := 6.0) -> float:
 	var w: Vector3 = game.pit_zone.to_world(Vector3(lx, y_from, lz))
 	var q := PhysicsRayQueryParameters3D.create(w, w + Vector3(0, -30.0, 0), 1)
-	var h := game.get_world_3d().direct_space_state.intersect_ray(q)
-	return h["position"].y if h else -99.0
+	var h: Dictionary = game.get_world_3d().direct_space_state.intersect_ray(q)
+	return float(h["position"].y) if not h.is_empty() else -99.0
 
 func empty_formation(game, id: String) -> void:
 	var prog: QuarryProgression = game.prog
@@ -80,7 +80,7 @@ func run() -> void:
 	check(game.player_mine("bench_l2_coal", 0, 99.0) == 0 and prog.units_left("bench_l2_coal") == before, "C a locked bench cannot be mined")
 	prog.quarry_level = 2
 	check(prog.formation_locked("bench_l2_coal") == "", "C level 2 opens its benches")
-	var d := prog.dims("bench_l2_coal")
+	var d: Vector2i = prog.dims("bench_l2_coal")
 	var corner := 0
 	var inner := d.x + 1
 	check(prog.column_exposed("bench_l2_coal", corner) and not prog.column_exposed("bench_l2_coal", inner) or d.y < 3, "C the edge of the bench is reachable, the interior is not")
