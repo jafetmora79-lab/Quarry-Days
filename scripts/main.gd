@@ -1256,6 +1256,8 @@ func _physics_process(delta: float) -> void:
 		var inside := driving != null and driving.global_position.x > -6.5 and driving.global_position.x < 16.0 and driving.global_position.z > 12.5 and driving.global_position.z < 24.0
 		art.garage_roof.visible = not inside
 	safety.tick(delta)
+	if fossil_reveal_active and Input.is_action_just_pressed("interact"):
+		_end_fossil_reveal()
 	player.blueprint.set_active(placement or construction)
 	_check_introductions()
 	_check_walter_visit()
@@ -3937,6 +3939,17 @@ func _check_walter_visit() -> void:
 	walter_mode = "arriving"
 	_walter_goto(walter_pos())
 
+## Smoothly turns the player's view toward a point (used by the conversations and reveals). Returns the tween.
+func _turn_view_to(point: Vector3, secs := 0.5) -> Tween:
+	var d := point - player.camera.global_position
+	var yaw := atan2(-d.x, -d.z)
+	var pitch := clampf(atan2(d.y, Vector2(d.x, d.z).length()), -0.45, 0.45)
+	var tw := create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(player, "rotation:y", player.rotation.y + angle_difference(player.rotation.y, yaw), secs).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_property(player.camera, "rotation:x", pitch, secs).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	return tw
+
 func _talk_to_walter() -> void:
 	if walter_visit == "" or walter_dialog != null or walter_mode != "waiting":
 		return
@@ -3949,11 +3962,13 @@ func _talk_to_walter() -> void:
 			lines.append({"speaker": "GRANDPA WALTER", "text": str(t)})
 	var id := walter_visit
 	_walter_face_player()
+	_turn_view_to(walter_node.global_position + Vector3(0, 1.5, 0), 0.5)
 	walter_pose = "talk"
 	_open_walter_dialog(lines, func(_skipped: bool):
 		prog.complete_visit(id)
 		walter_visit = ""
 		walter_pose = "idle"
+		create_tween().tween_property(player.camera, "rotation:x", 0.0, 0.4)
 		player.locked = false
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 		_walter_leave()
@@ -4044,11 +4059,33 @@ func _fossil_tick(delta: float) -> void:
 	if prog.fossil_state() == "" and prog.quarry_level >= 4 and prog.check_fossil():
 		_spawn_fossil()
 		_sfx_unlock()
+		_fossil_reveal()
 		var t: Array = prog.fossil_cfg().get("toast", ["", ""])
 		if hud:
 			hud.toast(str(t[0]), str(t[1]), "milestone")
 	elif prog.fossil_state() == "found" and fossil_node == null:
 		_spawn_fossil()
+
+var reveal_cinematic := DisplayServer.get_name() != "headless"
+var fossil_reveal_active := false
+
+## The moment the bones come out of the rock: control is taken for a few seconds, the view swings to them, holds, and returns.
+## E skips it.
+func _fossil_reveal() -> void:
+	if not reveal_cinematic or fossil_node == null or not hud or driving or menu != "":
+		return
+	fossil_reveal_active = true
+	player.locked = true
+	var tw := _turn_view_to(fossil_node.global_position + Vector3(0, 0.4, 0), 1.0)
+	tw.chain().tween_interval(2.0)
+	tw.chain().tween_callback(_end_fossil_reveal)
+
+func _end_fossil_reveal() -> void:
+	if not fossil_reveal_active:
+		return
+	fossil_reveal_active = false
+	create_tween().tween_property(player.camera, "rotation:x", 0.0, 0.5)
+	player.locked = false
 
 func _talk_to_fossil() -> void:
 	if prog.fossil_state() != "found" or fossil_dialog != null or not hud:
@@ -4197,7 +4234,7 @@ func _companion_tick(delta: float) -> void:
 		elif st == "egg":
 			if egg_node == null:
 				_spawn_egg()
-			if prog.companion_stage(prog.current_day) != "egg" and name_dialog == null:
+			if prog.companion_stage(prog.current_day) != "egg" and name_dialog == null and not _hatching:
 				_hatch_egg()
 		elif st == "alive":
 			if companion_node == null:
@@ -4218,7 +4255,23 @@ func _companion_tick(delta: float) -> void:
 			rest = Vector3(float(rp[0]), float(rp[1]), float(rp[2]))
 		companion_node.step(delta, player.global_position, rest)
 
+var hatch_wobble := DisplayServer.get_name() != "headless"      ## the egg rocks and cracks for a moment before it opens
+var _hatching := false
+
 func _hatch_egg() -> void:
+	if hatch_wobble and egg_node != null and is_instance_valid(egg_node) and not _hatching:
+		_hatching = true
+		var tw := create_tween()
+		for i in range(8):
+			tw.tween_property(egg_node, "rotation:z", (0.32 if i % 2 == 0 else -0.32) * (0.5 + float(i) * 0.1), 0.16).set_trans(Tween.TRANS_SINE)
+		tw.tween_property(egg_node, "scale", Vector3.ONE * 1.2, 0.12)
+		tw.tween_callback(func():
+			_hatching = false
+			_finish_hatch())
+		return
+	_finish_hatch()
+
+func _finish_hatch() -> void:
 	prog.companion_hatch(prog.current_day, "")
 	_remove_egg()
 	_spawn_companion()
@@ -4326,7 +4379,7 @@ func companion_strike(kind: String, col: int, damage: float, who: Node3D) -> voi
 	if not bool(prog.story.get("dino_mining_seen", false)) and int(ex["units"]) > 0:
 		prog.story["dino_mining_seen"] = true
 		_walter_cheer()
-	var at := node.column_top(col)
+	var at: Vector3 = who.club_pos() if who != null and who.has_method("club_pos") else node.column_top(col)     # dust where the club met the rock
 	if player and player.global_position.distance_to(at) < 24.0:
 		fx.impact(at, res, 1.2)
 		_sfx_at("hit_pick", at, -2.0)
