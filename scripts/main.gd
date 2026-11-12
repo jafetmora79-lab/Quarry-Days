@@ -1207,6 +1207,7 @@ func _physics_process(delta: float) -> void:
 		var inside := driving != null and driving.global_position.x > -6.5 and driving.global_position.x < 16.0 and driving.global_position.z > 12.5 and driving.global_position.z < 24.0
 		art.garage_roof.visible = not inside
 	safety.tick(delta)
+	player.blueprint.set_active(placement or construction)
 	_check_introductions()
 	_check_walter_visit()
 	_walter_tick(delta)
@@ -1251,10 +1252,10 @@ func _physics_process(delta: float) -> void:
 	var prompt := ""
 	if last_target:
 		match str(last_target.get_meta("kind","")):
-			"deposit": prompt = "%s %s  -  %s" % ["Hold LMB: drill" if prog.is_continuous() else "LMB: mine", prog.display(str(last_target.get_meta("resource"))), _deposit_status(str(last_target.get_meta("deposit")))]
+			"deposit": prompt = "%s %s  -  %s" % ["Hold left click: drill" if prog.is_continuous() else "Left click: mine", prog.display(str(last_target.get_meta("resource"))), _deposit_status(str(last_target.get_meta("deposit")))]
 			"debris":
 				var did := str(last_target.get_meta("debris_id", ""))
-				prompt = "LMB: cut the weeds" if did.begins_with("w") else "LMB: break the rubble heap (%d stone left)" % prog.heap_units_left(did)
+				prompt = "Left click: cut the weeds" if did.begins_with("w") else "Left click: break the rubble heap (%d stone left)" % prog.heap_units_left(did)
 			"door":
 				var dn := str(last_target.get_meta("door"))
 				prompt = "E: use the door"
@@ -1298,7 +1299,7 @@ func _physics_process(delta: float) -> void:
 	if driving:
 		prompt = _driving_hud()
 	if placement:
-		prompt = "PLACE %s: %s | LMB place | R rotate | G grid %s | Esc cancel%s" % [placement_kind.replace("output","output storage").to_upper(), "VALID" if ghost_valid else "BLOCKED", "on" if grid_snap else "off", placement_hint]
+		prompt = "PLACE %s: %s | left click place | R rotate | G grid %s | Esc cancel%s" % [placement_kind.replace("output","output storage").to_upper(), "VALID" if ghost_valid else "BLOCKED", "on" if grid_snap else "off", placement_hint]
 	hud.set_prompt(prompt)
 	hud.hint_text = _hint_text()
 	hud.tutorial = tutorial_visible and not driving
@@ -1394,7 +1395,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_B:
 		construction = not construction
 		sell_confirm = ""
-		_notify("Construction mode: aim at a crusher, conveyor, storage crate or output storage. LMB move, X sell, B exit." if construction else "Construction mode off")
+		_notify("Construction mode: aim at a crusher, conveyor, storage crate or output storage. left click move, X sell, B exit." if construction else "Construction mode off")
 		return
 	if construction:
 		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
@@ -1613,7 +1614,7 @@ func _draw_upgrades(p: QuarryStationUI) -> void:
 		var newly := int(nt.get("max_hardness", 1)) > int(prog.tool().get("max_hardness", 1))
 		var short := maxi(0, int(nt["cost"]) - state.money)
 		p.item("tool", str(nt["title"]), "%s%s" % [str(nt.get("desc", "")), "  It can break harder rock than your current tool." if newly else ""], int(nt["cost"]),
-			"Tool %d of %d" % [nxt + 1, tools_total], "BUY", true, func(): menu_act("upgrades", 0, false), "" if short <= 0 else "Need %s more" % QuarryTheme.money_text(short))
+			"Tool %d of %d" % [nxt + 1, tools_total], "VIEW", true, func(): open_offer(PurchaseOffers.tool_next(self, func(): menu_act("upgrades", 0, false))), "" if short <= 0 else "Need %s more" % QuarryTheme.money_text(short))
 	p.text("TUNING AND GEAR", QuarryTheme.ACCENT)
 	for i in range(UPGRADE_MENU.size()):
 		var key: String = UPGRADE_MENU[i]
@@ -1697,23 +1698,40 @@ func _refresh_workbench() -> void:
 	else:
 		workbench_tag.text = "WORKBENCH\nNext: %s  %s" % [str(nt["title"]), QuarryTheme.money_text(int(nt["cost"]))]
 
+var purchase_dialog: QuarryPurchaseDialog
+
+## Opens the purchase window for an offer (see PurchaseOffers). BUY runs the offer's own purchase code; `after` gets its result.
+func open_offer(offer: Dictionary, after := Callable()) -> void:
+	if offer.is_empty() or purchase_dialog != null:
+		return
+	purchase_dialog = QuarryPurchaseDialog.new()
+	purchase_dialog.setup(self, offer)
+	ui.add_child(purchase_dialog)
+	purchase_dialog.confirmed.connect(func(result):
+		purchase_dialog = null
+		if hud:
+			hud.purchase_flourish()
+		if after.is_valid():
+			after.call(result))
+	purchase_dialog.cancelled.connect(func(): purchase_dialog = null)
+
 func _draw_shop(p: QuarryStationUI) -> void:
-	p.begin("MACHINERY ORDERS", state.money, "Optional keys: 1-7 order. Placement: R rotate, G grid snap, LMB place, Esc refund.")
+	p.begin("MACHINERY ORDERS", state.money, "Optional keys: 1-7 order. Placement: R rotate, G grid snap, left click place, Esc refund.")
 	var machines_ok := prog.unlocked("crusher")
 	var stage_note := "Unlocks at the %s stage" % prog.feature_stage_title("crusher")
 	var cs := int(state.config.get("crusher_seconds", 18))
 	var cl := int(state.config.get("crusher_input_limit", 12))
-	p.item("shop_crusher", "Stone crusher", "Limestone to gravel: %d stone per batch, %d s a batch. Place it on clear ground." % [cl, cs], int(state.config["crusher_price"]), _shop_tag("crusher", "Owned: %d" % state.crushers.size()), _shop_button("crusher"), machines_ok, func(): menu_act("shop", 0, false), "" if machines_ok else stage_note)
-	p.item("shop_output", "Output storage", "Holds %d crushed stone from a crusher chute or a belt." % business.output_capacity(), int(business.cfg["output_storage_price"]), _shop_tag("output", "Owned: %d" % business.outputs.size()), _shop_button("output"), machines_ok, func(): menu_act("shop", 1, false), "" if machines_ok else stage_note)
+	p.item("shop_crusher", "Stone crusher", "Limestone to gravel: %d stone per batch, %d s a batch. Place it on clear ground." % [cl, cs], int(state.config["crusher_price"]), _shop_tag("crusher", "Owned: %d" % state.crushers.size()), _shop_button("crusher"), machines_ok, _shop_open("crusher", 0), "" if machines_ok else stage_note)
+	p.item("shop_output", "Output storage", "Holds %d crushed stone from a crusher chute or a belt." % business.output_capacity(), int(business.cfg["output_storage_price"]), _shop_tag("output", "Owned: %d" % business.outputs.size()), _shop_button("output"), machines_ok, _shop_open("output", 1), "" if machines_ok else stage_note)
 	var conv_ok := business.conveyors_unlocked()
 	var cr := float(business.cfg.get("conveyor_rate", 0.5))
 	var cc := int(business.cfg.get("conveyor_capacity", 3))
-	p.item("shop_conveyor", "Conveyor, straight", "2 m belt: %.1f items a second, holds %d. Snaps onto machine ports." % [cr, cc], int(business.cfg["conveyor_price"]), _shop_tag("conveyor", "Owned: %d" % business.conveyors.size()), _shop_button("conveyor"), conv_ok, func(): menu_act("shop", 2, false), "" if conv_ok else "Needs a crusher + operator")
-	p.item("shop_conveyor_left", "Conveyor, left corner", "Turns material 90 degrees to the left. Same speed and capacity.", int(business.cfg["conveyor_price"]), _shop_tag("conveyor_left", ""), _shop_button("conveyor_left"), conv_ok, func(): menu_act("shop", 7, false), "" if conv_ok else "Needs a crusher + operator")
-	p.item("shop_conveyor_right", "Conveyor, right corner", "Turns material 90 degrees to the right. Same speed and capacity.", int(business.cfg["conveyor_price"]), _shop_tag("conveyor_right", ""), _shop_button("conveyor_right"), conv_ok, func(): menu_act("shop", 8, false), "" if conv_ok else "Needs a crusher + operator")
+	p.item("shop_conveyor", "Conveyor, straight", "2 m belt: %.1f items a second, holds %d. Snaps onto machine ports." % [cr, cc], int(business.cfg["conveyor_price"]), _shop_tag("conveyor", "Owned: %d" % business.conveyors.size()), _shop_button("conveyor"), conv_ok, _shop_open("conveyor", 2), "" if conv_ok else "Needs a crusher + operator")
+	p.item("shop_conveyor_left", "Conveyor, left corner", "Turns material 90 degrees to the left. Same speed and capacity.", int(business.cfg["conveyor_price"]), _shop_tag("conveyor_left", ""), _shop_button("conveyor_left"), conv_ok, _shop_open("conveyor_left", 7), "" if conv_ok else "Needs a crusher + operator")
+	p.item("shop_conveyor_right", "Conveyor, right corner", "Turns material 90 degrees to the right. Same speed and capacity.", int(business.cfg["conveyor_price"]), _shop_tag("conveyor_right", ""), _shop_button("conveyor_right"), conv_ok, _shop_open("conveyor_right", 8), "" if conv_ok else "Needs a crusher + operator")
 	var adv_ok := prog.unlocked("advanced_crusher")
 	var am: Dictionary = prog.machine("advanced_crusher")
-	p.item("shop_advanced", "Advanced crusher", "Batches of %d stone, %.0f s a batch (%.0f%% of the normal time)." % [cl * int(am.get("capacity_mult", 2)), cs * float(am.get("speed_mult", 0.45)), float(am.get("speed_mult", 0.45)) * 100.0], int(am["price"]), _shop_tag("advanced_crusher", ""), _shop_button("advanced_crusher"), adv_ok, func(): menu_act("shop", 3, false), "" if adv_ok else "Unlocks at the %s stage" % prog.feature_stage_title("advanced_crusher"))
+	p.item("shop_advanced", "Advanced crusher", "Batches of %d stone, %.0f s a batch (%.0f%% of the normal time)." % [cl * int(am.get("capacity_mult", 2)), cs * float(am.get("speed_mult", 0.45)), float(am.get("speed_mult", 0.45)) * 100.0], int(am["price"]), _shop_tag("advanced_crusher", ""), _shop_button("advanced_crusher"), adv_ok, _shop_open("advanced_crusher", 3), "" if adv_ok else "Unlocks at the %s stage" % prog.feature_stage_title("advanced_crusher"))
 	for pair in [["drill_rig", "Drilling rig", "Works stone, coal, iron and copper from a fixed pad.", 4], ["improved_rig", "Improved drilling rig", "%.0f damage a second and hard enough for gold-bearing rock: for the deeper layers." % float(prog.machine("improved_rig").get("dps", 0)), 9], ["rock_breaker", "Rock breaker", "Breaks any rock, gold too.", 5], ["heavy_breaker", "Heavy-duty rock breaker", "%.0f damage a second: the strongest machine in the quarry." % float(prog.machine("heavy_breaker").get("dps", 0)), 10]]:
 		var t: String = pair[0]
 		var owned := 0
@@ -1721,13 +1739,21 @@ func _draw_shop(p: QuarryStationUI) -> void:
 			if str(r["type"]) == t:
 				owned += 1
 		var ok := prog.unlocked(t)
-		p.item("shop_" + t, str(pair[1]), str(pair[2]), int(prog.machine(t)["price"]), "Owned: %d" % owned, "ORDER", ok, func(): menu_act("shop", int(pair[3]), false), "" if ok else "Unlocks at the %s stage" % prog.feature_stage_title(t))
+		p.item("shop_" + t, str(pair[1]), str(pair[2]), int(prog.machine(t)["price"]), "Owned: %d" % owned, "ORDER", ok, _shop_open(t, int(pair[3])), "" if ok else "Unlocks at the %s stage" % prog.feature_stage_title(t))
 	if prog.level_unlocked >= 2:
 		p.item("shop_permit", "Excavation permit", "The lower level is open.", 0, "OWNED", "OWNED", false, func(): pass)
 	else:
 		var pok := prog.unlocked("permit")
 		p.item("shop_permit", "Excavation permit", "Opens a 3.5 m lower level with copper and gold.", prog.permit_cost(), "", "BUY", pok, func(): menu_act("shop", 6, false), "" if pok else "Unlocks at the %s stage" % prog.feature_stage_title("permit"))
 	p.text("Rigs work a formation from a drilling pad and fill their own output bin: collect it (E), send a hauler, a belt or the loader.")
+
+## A shop card's action: something already delivered is simply placed; anything else opens the purchase window first.
+func _shop_open(key: String, digit: int) -> Callable:
+	return func():
+		if int(business.inventory.get(key, 0)) > 0:
+			menu_act("shop", digit, false)
+		else:
+			open_offer(PurchaseOffers.machine(self, key, func(): menu_act("shop", digit, false)))
 
 ## "In inventory: n" once something has been delivered and not yet placed.
 func _shop_tag(key: String, owned: String) -> String:
@@ -1770,6 +1796,8 @@ func _shop_pick(key: String) -> void:
 		order_machine(key)
 
 func _menu_key(event: InputEventKey) -> void:
+	if purchase_dialog != null:
+		return                      # the purchase window has the keyboard
 	if event.keycode == KEY_F5:
 		_save()
 	elif event.keycode == KEY_F9:
@@ -1995,7 +2023,7 @@ func _place_ghost() -> void:
 		"conveyor":
 			_create_conveyor(business.add_conveyor(ghost.position,placement_yaw,placement_belt))
 			var link: Dictionary = business.links.back()
-			_notify("Conveyor: %s -> %s. B then LMB to move it if disconnected." % [business.describe_ep(link["src"]), business.describe_ep(link["dst"])])
+			_notify("Conveyor: %s -> %s. B then left click to move it if disconnected." % [business.describe_ep(link["src"]), business.describe_ep(link["dst"])])
 	business.compute_links()
 	business.check_milestones()
 	nav_dirty = true
@@ -2047,7 +2075,7 @@ func _start_placement(kind: String) -> void:
 		"advanced_crusher": _crusher_visual(ghost,true,2)
 		"output": _output_visual(ghost,true)
 		"conveyor": _conveyor_visual(ghost,true,placement_belt)
-	_notify("Choose a clear patch of ground. R rotates, G toggles grid snap, LMB places.")
+	_notify("Choose a clear patch of ground. R rotates, G toggles grid snap, left click places.")
 
 func _cancel_placement(refund := true) -> void:
 	if not relocating.is_empty():
@@ -3094,13 +3122,13 @@ func _nearest_pile(point: Vector3, radius: float) -> String:
 			best = id
 	return best
 
-## Contextual LMB: a lowered bucket scoops (pile first, then loose pieces) and lifts;
+## Contextual left click: a lowered bucket scoops (pile first, then loose pieces) and lifts;
 ## a raised bucket lowers.
 func loader_primary(v: QuarryVehicle) -> int:
 	var rec := fleet.vehicle(v.vehicle_id)
 	if v.bucket_target > 0.5:
 		v.bucket_target = 0.0
-		_notify("Bucket lowered - drive into a rubble pile and press LMB to scoop.")
+		_notify("Bucket lowered - drive into a rubble pile and press left click to scoop.")
 		return 0
 	var point := v.work_point()
 	var got := 0
@@ -3140,7 +3168,7 @@ func loader_primary(v: QuarryVehicle) -> int:
 		pickup_audio.play()
 		_notify("Scooped %d from %s. Bucket %d/%d." % [got, source, fleet.cargo_total(rec), fleet.capacity(rec)])
 	elif fleet.space(rec) <= 0:
-		_notify("Bucket is full - dump it into a truck, crusher hopper or the storage crate (RMB).")
+		_notify("Bucket is full - dump it into a truck, crusher hopper or the storage crate (right click).")
 	else:
 		_notify("Nothing to scoop here. Lower the bucket at a rubble pile or loose rock.")
 	return got
@@ -3227,7 +3255,7 @@ func _target_name(t: Dictionary) -> String:
 		return "the dump truck"
 	return business.describe_ep(t["ep"])
 
-## RMB: loader dumps its bucket; truck raises its bed and unloads.
+## right click: loader dumps its bucket; truck raises its bed and unloads.
 func vehicle_dump(v: QuarryVehicle) -> int:
 	var rec := fleet.vehicle(v.vehicle_id)
 	if fleet.cargo_total(rec) <= 0:
@@ -3274,21 +3302,21 @@ func _driving_hud() -> String:
 	if driving.has_bucket():
 		var pile := _nearest_pile(point, 3.0)
 		if driving.bucket_target < 0.5 and pile != "":
-			hint = "  >> LMB scoop %s (%d)" % [fleet.cfg["piles"][pile]["title"], fleet.piles[pile]["amount"]]
+			hint = "  >> left click scoop %s (%d)" % [fleet.cfg["piles"][pile]["title"], fleet.piles[pile]["amount"]]
 	if fleet.cargo_total(rec) > 0:
 		var t := dump_target(point, 3.0, driving)
 		if not t.is_empty():
-			hint = "  >> RMB unload into " + _target_name(t)
+			hint = "  >> right click unload into " + _target_name(t)
 	var load_label := "BUCKET" if driving.has_bucket() else "BED"
 	var lmb := ""
 	if driving.vkind == "loader":
-		lmb = "LMB bucket %s  " % ("down" if driving.bucket_target > 0.5 else "up/scoop")
+		lmb = "Left click bucket %s  " % ("down" if driving.bucket_target > 0.5 else "up/scoop")
 	elif driving.vkind == "excavator":
-		lmb = "HOLD LMB dig the rock  LMB (no rock) scoop  "
+		lmb = "HOLD LEFT CLICK dig the rock  left click (no rock) scoop  "
 		if not excavator_target(driving).is_empty():
-			hint = "  >> HOLD LMB dig %s" % prog.display(str(excavator_target(driving)["res"]))
-	var controls := "WASD drive  Mouse look  %sRMB %s  Space brake  R recover  E exit" % [lmb, "dump bucket" if driving.has_bucket() else "raise bed / unload"]
-	return "%s  %.1f m/s   %s %d/%d%s%s\n%s" % [fleet.spec(driving.vtype)["title"].to_upper(), absf(driving.speed), load_label, fleet.cargo_total(rec), fleet.capacity(rec), cargo, hint, controls]
+			hint = "  >> HOLD LEFT CLICK dig %s" % prog.display(str(excavator_target(driving)["res"]))
+	var controls := "WASD drive  Mouse look  %sright click %s  Space brake  R recover  E exit" % [lmb, "dump bucket" if driving.has_bucket() else "raise bed / unload"]
+	return "%s  %.1f m/s   %s %d/%d%s%s" % [str(rec.get("name", fleet.spec(driving.vtype)["title"])).to_upper(), absf(driving.speed), load_label, fleet.cargo_total(rec), fleet.capacity(rec), cargo, hint]
 
 func ui_buy_vehicle(type: String) -> String:
 	if not prog.unlocked(type):
@@ -3348,9 +3376,9 @@ func _construction_prompt() -> String:
 	var kind := str(t["kind"])
 	var index := int(t["index"])
 	if kind == "storage":
-		return "Storage crate  |  LMB move  (the main crate cannot be sold)  |  B exit"
+		return "Storage crate  |  left click move  (the main crate cannot be sold)  |  B exit"
 	var n := business.contents_total(business.structure_contents(kind, index))
-	return "%s%s  |  LMB move  |  X sell (+$%d refund)  |  B exit" % [_structure_name(kind, index), (" holding %d items" % n) if n > 0 else "", business.refund_value(kind, index)]
+	return "%s%s  |  left click move  |  X sell (+$%d refund)  |  B exit" % [_structure_name(kind, index), (" holding %d items" % n) if n > 0 else "", business.refund_value(kind, index)]
 
 func start_relocation(kind: String, index: int) -> bool:
 	var node := _structure_node(kind, index)
@@ -3375,7 +3403,7 @@ func start_relocation(kind: String, index: int) -> bool:
 				art.storage_model(ghost, 0.0)
 			else:
 				_visual_box(ghost, Vector3(0,0.65,0), Vector3(2,1.3,1.6), Color(0.33,0.23,0.13))
-	_notify("Moving %s. LMB confirm, R rotate, Esc cancel (stays where it was)." % _structure_name(kind, index))
+	_notify("Moving %s. left click confirm, R rotate, Esc cancel (stays where it was)." % _structure_name(kind, index))
 	return true
 
 func _finish_relocation() -> void:
@@ -4308,14 +4336,49 @@ func _read_discovery(did: String) -> void:
 
 ## One line per production fact for the HUD (only what is really happening).
 ## The bottom key hint follows what the player is doing.
+## Structured controls for the bottom strip: [key, what it does], in plain words (Phase 8.4).
+func hud_hints() -> Array:
+	if driving:
+		var h := [["W A S D", "Drive"], ["SPACE", "Brake"]]
+		if driving.vkind == "loader":
+			h.append(["LEFT CLICK", "Scoop with the bucket"])
+			h.append(["RIGHT CLICK", "Dump the bucket"])
+		elif driving.vkind == "excavator":
+			h.append(["HOLD LEFT CLICK", "Dig the rock"])
+			h.append(["RIGHT CLICK", "Dump the bucket"])
+		else:
+			h.append(["RIGHT CLICK", "Raise the bed and unload"])
+		h += [["R", "Recover"], ["E", "Get out"]]
+		return h
+	if placement:
+		return [["LEFT CLICK", "Place"], ["R", "Rotate"], ["G", "Grid snap"], ["ESC", "Cancel"]]
+	if construction:
+		return [["LEFT CLICK", "Select a machine"], ["B", "Move it"], ["X", "Sell it"], ["ESC", "Leave build mode"]]
+	var mine := "HOLD LEFT CLICK" if prog.is_continuous() else "LEFT CLICK"
+	return [["W A S D", "Move"], ["SHIFT", "Sprint"], [mine, "Mine"], ["E", "Interact"], ["B", "Build mode"], ["M", "Management"], ["ESC", "Pause"]]
+
+## What the blueprint plate shows (empty while not building).
+func build_info() -> Dictionary:
+	if placement:
+		var name_k := placement_kind.replace("_", " ")
+		name_k = {"output": "output storage", "conveyor": "conveyor", "advanced crusher": "advanced crusher"}.get(placement_kind, name_k)
+		var price := 0 if placement_from_inventory else _placement_price(placement_kind)
+		return {"active": true, "title": name_k.capitalize(), "rotation": int(round(rad_to_deg(placement_yaw))) % 360, "grid": grid_snap, "valid": ghost_valid, "price": price, "hint": placement_hint}
+	if construction:
+		var t := _construction_target()
+		if t.is_empty():
+			return {"active": true, "title": "Build mode", "hint": "Aim at a crusher, conveyor, storage crate or output storage."}
+		return {"active": true, "title": _structure_name(str(t["kind"]), int(t["index"])), "hint": "Left click to move it, X to sell it."}
+	return {"active": false}
+
 func _hint_text() -> String:
 	if driving:
 		return "WASD drive  Mouse look  Space brake  R recover  E exit vehicle"
 	if placement:
-		return "LMB place  R rotate  G grid snap  Esc cancel"
+		return "Left click place  R rotate  G grid snap  Esc cancel"
 	if construction:
-		return "LMB select a machine  B move  X sell  Esc leave construction"
-	return "WASD move  SHIFT sprint  LMB mine  E use  M manage  B build  F5 save  ESC pause"
+		return "Left click select a machine  B move  X sell  Esc leave construction"
+	return "WASD move  SHIFT sprint  left click mine  E use  M manage  B build  F5 save  ESC pause"
 
 ## Small status lines under the clock: deliveries waiting in the construction inventory, vehicles on their way, belts
 ## that are not connected at both ends.

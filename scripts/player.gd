@@ -6,6 +6,7 @@ var pitch := 0.0
 var locked := false
 var drive_wish := Vector3.INF
 var tool_view: QuarryToolView
+var blueprint: QuarryBlueprintHands
 var pickaxe: Node3D # kept for older callers: the tool view node
 var shake := 0.0
 var kick := 0.0
@@ -28,6 +29,9 @@ func _ready() -> void:
 	tool_view = QuarryToolView.new()
 	camera.add_child(tool_view)
 	pickaxe = tool_view
+	blueprint = QuarryBlueprintHands.new()
+	blueprint.tool_view = tool_view
+	camera.add_child(blueprint)
 	floor_snap_length = 0.35
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 

@@ -453,7 +453,7 @@ func _equipment() -> void:
 		row.add_child(_label("%s   $%d   %s" % [spec["title"], spec["price"], ("owned: %d" % owned) if owned > 0 else ""], ACCENT))
 		var reason: String = f.buy_block_reason(type)
 		var t: String = type
-		row.add_child(_button("Buy" if reason == "" else reason, func(): _say(game.ui_buy_vehicle(t)), reason == ""))
+		row.add_child(_button("View and buy" if reason == "" else reason, func(): game.open_offer(PurchaseOffers.vehicle(game, t, func(): return game.ui_buy_vehicle(t)), func(msg): _say(str(msg))), reason == ""))
 		var kind := f.kind(type)
 		var desc := "Scoops rubble piles and loose rock; dumps into the storage crate, crusher hoppers, output storage or a truck."
 		if kind == "truck":

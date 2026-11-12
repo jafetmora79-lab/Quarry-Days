@@ -10,9 +10,19 @@ class_name QuarryHUD
 var game
 var time_label: Label
 var money_label: Label
+var time_icon: HudIcon
+var tool_icon: HudIcon
+var power_bar: ProgressBar
+var power_label: Label
+var hints: QuarryKeyHints
+var build_plate: QuarryPlate
+var build_lines: VBoxContainer
+var _obj_target := 0.0
+var _bag_target := 0.0
+var _pow_target := 0.0
 var income_label: Label
 var badge_label: Label
-var hint_text := "WASD move  SHIFT sprint  LMB mine  E use  M manage  B build  F5 save  ESC pause"
+var hint_text := "WASD move  SHIFT sprint  left click mine  E use  M manage  B build  F5 save  ESC pause"
 var _income_override := ""
 var stage_label: Label
 var objective_label: Label
@@ -63,9 +73,8 @@ func setup(main_node) -> void:
 	_build()
 	shown_money = float(game.state.money)
 
-func _panel(pos_preset: int) -> PanelContainer:
-	var p := PanelContainer.new()
-	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+func _panel(pos_preset: int, strip := Color(0, 0, 0, 0)) -> PanelContainer:
+	var p := QuarryPlate.new(8, strip)
 	add_child(p)
 	p.set_anchors_preset(pos_preset)
 	return p
@@ -90,29 +99,48 @@ func _bar(parent: Control, h: float, color: Color) -> ProgressBar:
 
 func _build() -> void:
 	# ---- top-left: time + money
-	var tl := _panel(Control.PRESET_TOP_LEFT)
+	var tl := _panel(Control.PRESET_TOP_LEFT, QuarryTheme.MONEY)
+	tl.name = "TopLeftPlate"
 	tl.position = Vector2(10, 10)
-	tl.custom_minimum_size = Vector2(190, 0)
-	var v := _vbox(tl, 0)
+	tl.custom_minimum_size = Vector2(200, 0)
+	tl.pivot_offset = Vector2(100, 20)
+	var v := _vbox(tl, 1)
+	var trow := HBoxContainer.new()
+	trow.add_theme_constant_override("separation", 5)
+	trow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(trow)
+	time_icon = HudIcon.new("sun", 13)
+	trow.add_child(time_icon)
 	time_label = QuarryTheme.label("DAY 1  08:00", 12, QuarryTheme.DIM, true)
-	v.add_child(time_label)
+	trow.add_child(time_label)
+	var mrow := HBoxContainer.new()
+	mrow.add_theme_constant_override("separation", 5)
+	mrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(mrow)
+	mrow.add_child(HudIcon.new("coin", 16))
 	money_label = QuarryTheme.label("$0", QuarryTheme.HERO, QuarryTheme.MONEY, false, true)
-	v.add_child(money_label)
+	mrow.add_child(money_label)
 	income_label = QuarryTheme.label("", QuarryTheme.BODY, QuarryTheme.GOOD)
 	v.add_child(income_label)
 	badge_label = QuarryTheme.label("", QuarryTheme.SMALL, QuarryTheme.DIM)   # deliveries waiting, unconnected belts
 	badge_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(badge_label)
 	# ---- top-right: objective
-	var tr := _panel(Control.PRESET_TOP_RIGHT)
+	var tr := _panel(Control.PRESET_TOP_RIGHT, QuarryTheme.GOOD)
+	tr.name = "ObjectivePlate"
 	tr.custom_minimum_size = Vector2(310, 0)
 	tr.set_anchor(SIDE_LEFT, 1.0)
 	tr.offset_left = -320
 	tr.offset_right = -10
 	tr.offset_top = 10
 	var v2 := _vbox(tr, 3)
+	var srow := HBoxContainer.new()
+	srow.add_theme_constant_override("separation", 5)
+	srow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v2.add_child(srow)
+	srow.add_child(HudIcon.new("flag", 13))
 	stage_label = QuarryTheme.label("STAGE 1", 12, QuarryTheme.ACCENT, true)
-	v2.add_child(stage_label)
+	srow.add_child(stage_label)
 	objective_label = QuarryTheme.label("", QuarryTheme.BODY)
 	objective_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	objective_label.custom_minimum_size = Vector2(286, 0)
@@ -142,31 +170,44 @@ func _build() -> void:
 	bottom.offset_top = -76
 	bottom.offset_bottom = -28
 	bottom.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	var tp := PanelContainer.new()
-	tp.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	tp.custom_minimum_size = Vector2(200, 0)
+	var tp := QuarryPlate.new(8, QuarryTheme.ACCENT)
+	tp.name = "ToolPlate"
+	tp.custom_minimum_size = Vector2(230, 0)
 	bottom.add_child(tp)
-	var tv := _vbox(tp, 0)
+	var tv := _vbox(tp, 1)
+	var tname := HBoxContainer.new()
+	tname.add_theme_constant_override("separation", 5)
+	tname.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tv.add_child(tname)
+	tool_icon = HudIcon.new("hammer", 14)
+	tname.add_child(tool_icon)
 	tool_label = QuarryTheme.label("ROCK HAMMER", 12, QuarryTheme.ACCENT, true)
-	tv.add_child(tool_label)
-	tool_pips = QuarryTheme.label("", QuarryTheme.BODY, QuarryTheme.INK)
+	tname.add_child(tool_label)
+	power_bar = _bar(tv, 5, QuarryTheme.ACCENT)
+	power_label = QuarryTheme.label("", QuarryTheme.SMALL, QuarryTheme.DIM)
+	tv.add_child(power_label)
+	tool_pips = QuarryTheme.label("", QuarryTheme.SMALL, QuarryTheme.DIM)
 	tv.add_child(tool_pips)
-	var bp := PanelContainer.new()
-	bp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var bp := QuarryPlate.new(8, QuarryTheme.GOOD)
+	bp.name = "BagPlate"
 	bp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bottom.add_child(bp)
 	var bv := _vbox(bp, 2)
+	var brow := HBoxContainer.new()
+	brow.add_theme_constant_override("separation", 5)
+	brow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bv.add_child(brow)
+	brow.add_child(HudIcon.new("bag", 14))
 	bag_label = QuarryTheme.label("BAG 0/18", 12, QuarryTheme.ACCENT, true)
-	bv.add_child(bag_label)
+	brow.add_child(bag_label)
 	bag_bar = _bar(bv, 6, QuarryTheme.GOOD)
 	bag_items = QuarryTheme.label("", QuarryTheme.SMALL, QuarryTheme.DIM)
 	bag_items.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	bag_items.custom_minimum_size = Vector2(150, 0)
 	bv.add_child(bag_items)
 	# ---- prompt + message above the bottom bar
-	prompt_panel = PanelContainer.new()
-	prompt_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	prompt_panel.add_theme_stylebox_override("panel", QuarryTheme.panel_box(QuarryTheme.BG_SOFT, QuarryTheme.BORDER, 7, 3))
+	prompt_panel = QuarryPlate.new(7)
+	prompt_panel.name = "PromptPlate"
 	add_child(prompt_panel)
 	prompt_panel.set_anchor(SIDE_LEFT, 0.5)
 	prompt_panel.set_anchor(SIDE_RIGHT, 0.5)
@@ -186,12 +227,31 @@ func _build() -> void:
 	message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	message_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	pv.add_child(message_label)
-	hint_label = QuarryTheme.label("WASD move  SHIFT sprint  LMB mine  E use  M manage  B build  F5 save  ESC pause", QuarryTheme.SMALL, Color(0.82, 0.76, 0.62))
+	hint_label = QuarryTheme.label("", QuarryTheme.SMALL, Color(0.82, 0.76, 0.62))
+	hint_label.visible = false
 	add_child(hint_label)
-	hint_label.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	hint_label.set_anchor(SIDE_TOP, 1.0)
-	hint_label.offset_left = 12
-	hint_label.offset_top = -24
+	hints = QuarryKeyHints.new()
+	hints.name = "KeyHints"
+	add_child(hints)
+	hints.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	hints.set_anchor(SIDE_TOP, 1.0)
+	hints.offset_top = -24
+	hints.offset_bottom = -4
+	hints.offset_left = 10
+	hints.offset_right = -10
+	# ---- build mode blueprint plate (left, mid-height)
+	build_plate = QuarryPlate.new(9, Color(0.45, 0.7, 1.0))
+	build_plate.name = "BlueprintPlate"
+	build_plate.visible = false
+	add_child(build_plate)
+	build_plate.set_anchors_preset(Control.PRESET_CENTER_LEFT)
+	build_plate.set_anchor(SIDE_TOP, 0.5)
+	build_plate.set_anchor(SIDE_BOTTOM, 0.5)
+	build_plate.offset_left = 10
+	build_plate.offset_right = 250
+	build_plate.offset_top = -80
+	build_plate.offset_bottom = 80
+	build_lines = _vbox(build_plate, 3)
 	# ---- crosshair + durability
 	var cross := Control.new()
 	cross.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -271,6 +331,15 @@ func _build() -> void:
 	card_hint.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
 	card_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cv.add_child(card_hint)
+
+## A short, restrained celebration when something is bought: the cash counter flashes and the top-left plate pulses once.
+func purchase_flourish() -> void:
+	money_pulse = 1.0
+	var tl := get_node_or_null("TopLeftPlate")
+	if tl:
+		var tw := create_tween()
+		tw.tween_property(tl, "scale", Vector2(1.04, 1.04), 0.08)
+		tw.tween_property(tl, "scale", Vector2.ONE, 0.14)
 
 # ------------------------------------------------------------------ public API
 
@@ -422,6 +491,7 @@ func _process(delta: float) -> void:
 	var phase_name := "NIGHT" if hr < 5 or hr >= 21 else "DAWN" if hr < 7 else "MORNING" if hr < 12 else "AFTERNOON" if hr < 17 else "EVENING"
 	time_label.text = "DAY %d   %02d:%02d   %s" % [clock / 1440 + 1, hr, clock % 60, phase_name]
 	time_label.add_theme_color_override("font_color", QuarryTheme.WARN if hr >= 20 or hr < 5 else QuarryTheme.DIM)
+	time_icon.set_kind("moon" if hr < 6 or hr >= 19 else "sun")
 	while not income_log.is_empty() and _now - float(income_log[0][0]) > 60.0:
 		income_log.pop_front()
 	var per_min := 0
@@ -433,7 +503,6 @@ func _process(delta: float) -> void:
 	else:
 		income_label.text = ("+%s / min" % QuarryTheme.money_text(per_min)) if per_min > 0 else "no sales yet" if st.earned <= 0 else ""
 		income_label.add_theme_color_override("font_color", QuarryTheme.GOOD)
-	hint_label.text = hint_text
 	# message fade
 	message_timer = maxf(0.0, message_timer - delta)
 	message_label.modulate.a = clampf(message_timer / 0.4, 0.0, 1.0)
@@ -446,7 +515,11 @@ func _process(delta: float) -> void:
 	var bar_top := bottom.get_global_rect().position.y
 	prompt_panel.offset_bottom = bar_top - size.y - 6.0
 	prompt_panel.offset_top = prompt_panel.offset_bottom - prompt_panel.get_combined_minimum_size().y
-	hint_label.visible = tutorial
+	hints.visible = tutorial
+	if tutorial:
+		hints.set_hints(game.hud_hints())
+	_update_build_plate(delta)
+	_ease_bars(delta)
 	# durability bar fade
 	dura_timer = maxf(0.0, dura_timer - delta)
 	dura_root.modulate.a = move_toward(dura_root.modulate.a, 1.0 if dura_timer > 0.0 else 0.0, delta * (8.0 if dura_timer > 0.0 else 3.0))
@@ -460,11 +533,18 @@ func refresh_panels() -> void:
 	var prog: QuarryProgression = game.prog
 	var t := prog.tool()
 	tool_label.text = str(t["title"]).to_upper()
-	tool_pips.text = "Tool %d/%d   %s" % [st.tool_tier + 1, prog.tools().size(), "hold LMB" if prog.is_continuous() else "LMB swing"]
+	var top_dps := 1.0
+	for ti in range(prog.tools().size()):
+		top_dps = maxf(top_dps, prog.tool_dps(ti))
+	_pow_target = prog.tool_dps() / top_dps
+	power_label.text = "Mining power %.0f a second" % prog.tool_dps()
+	tool_icon.set_kind("hammer" if st.tool_tier == 0 else "pick")
+	var hard: String = ["", "Stone and coal", "Up to iron", "Up to copper", "Anything, gold too"][clampi(int(t.get("max_hardness", 1)), 0, 4)]
+	tool_pips.text = "Tool %d of %d   %s" % [st.tool_tier + 1, prog.tools().size(), hard]
 	var used := st.total(st.inventory)
 	var cap := st.capacity()
 	bag_label.text = "BAG %d/%d" % [used, cap]
-	bag_bar.value = float(used) / float(maxi(1, cap))
+	_bag_target = float(used) / float(maxi(1, cap))
 	(bag_bar.get_theme_stylebox("fill") as StyleBoxFlat).bg_color = QuarryTheme.WARN if used >= cap else QuarryTheme.GOOD
 	var items := []
 	for k in QuarryState.RESOURCE_NAMES:
@@ -485,19 +565,19 @@ func refresh_panels() -> void:
 			# a full checklist: finished requirements stay visible and ticked, so progress is never a surprise
 			detail.append("%s %s%s" % ["[x]" if done_r else "[ ]", r[0], "" if done_r else "  (%s)" % _amount(r)])
 		objective_label.text = "Next: %s" % str(info["title"])
-		objective_bar.value = clampf(frac, 0.0, 1.0)
+		_obj_target = clampf(frac, 0.0, 1.0)
 		objective_detail.text = "\n".join(detail) if not detail.is_empty() else "Ready!"
 	else:
 		stage_label.text = "STAGE %d/%d  %s" % [prog.stage + 1, prog.stages().size(), str(prog.stage_info()["title"]).to_upper()]
 		# every business stage is done: the quarry itself is the goal
 		var ql: int = prog.quarry_level
 		objective_label.text = "Quarry level %d: %s" % [ql, str(prog.level_def(ql).get("title", ""))]
-		objective_bar.value = prog.level_cleared_fraction(ql) if prog.level_built(ql) else prog.cleared_fraction(prog.formation_ids())
+		_obj_target = prog.level_cleared_fraction(ql) if prog.level_built(ql) else prog.cleared_fraction(prog.formation_ids())
 		var nxt: Dictionary = prog.level_def(ql + 1)
 		var hint := ""
 		if not nxt.is_empty():
 			hint = "\nNext: %s - %s" % [str(nxt.get("title", "")), ("opens at %d%% cut" % int(float(nxt.get("unlock", 0.6)) * 100.0)) if prog.level_built(ql + 1) else "being surveyed"]
-		objective_detail.text = "Level cut: %d%%%s" % [int(objective_bar.value * 100.0), hint]
+		objective_detail.text = "Level cut: %d%%%s" % [int(_obj_target * 100.0), hint]
 	status_label.text = game.hud_status_text()
 	var badge_lines := []
 	var warn := false
@@ -586,3 +666,51 @@ func _make_toast(title: String, sub: String, kind: String) -> Control:
 	p.size = Vector2(w, p.get_combined_minimum_size().y)
 	p.position = Vector2(size.x * 0.5 - w * 0.5, -30)
 	return p
+
+
+## Bars ease toward their value instead of jumping.
+func _ease_bars(delta: float) -> void:
+	var k := minf(1.0, delta * 8.0)
+	objective_bar.value = lerpf(objective_bar.value, _obj_target, k)
+	bag_bar.value = lerpf(bag_bar.value, _bag_target, k)
+	power_bar.value = lerpf(power_bar.value, _pow_target, k)
+	if absf(objective_bar.value - _obj_target) < 0.002:
+		objective_bar.value = _obj_target
+
+## The blueprint plate shows while placing or moving a structure and in construction mode: what, how it is turned, whether the
+## ground is valid, what it costs and what it connects to.
+var _build_key := ""
+
+func _update_build_plate(delta: float) -> void:
+	var info: Dictionary = game.build_info()
+	var active: bool = bool(info.get("active", false))
+	if active != build_plate.visible and (active or build_plate.modulate.a <= 0.02):
+		build_plate.visible = active
+	build_plate.modulate.a = move_toward(build_plate.modulate.a, 1.0 if active else 0.0, delta * 6.0)
+	if build_plate.modulate.a <= 0.01 and not active:
+		build_plate.visible = false
+	if not active:
+		_build_key = ""
+		return
+	var key := JSON.stringify(info)
+	if key == _build_key:
+		return
+	_build_key = key
+	for c in build_lines.get_children():
+		build_lines.remove_child(c)
+		c.queue_free()
+	build_lines.add_child(QuarryTheme.label("BLUEPRINT", 12, Color(0.55, 0.78, 1.0), true))
+	build_lines.add_child(QuarryTheme.label(str(info.get("title", "")), QuarryTheme.BODY, QuarryTheme.INK, false, true))
+	if info.has("rotation"):
+		build_lines.add_child(QuarryTheme.label("Turned %d degrees" % int(info["rotation"]), QuarryTheme.BODY, QuarryTheme.DIM))
+	if info.has("grid"):
+		build_lines.add_child(QuarryTheme.label("Grid snap: %s" % ("ON" if info["grid"] else "OFF"), QuarryTheme.BODY, QuarryTheme.DIM))
+	if info.has("valid"):
+		build_lines.add_child(QuarryTheme.label("Ground: %s" % ("VALID" if info["valid"] else "BLOCKED"), QuarryTheme.BODY, QuarryTheme.GOOD if info["valid"] else QuarryTheme.WARN, false, true))
+	if info.has("price"):
+		build_lines.add_child(QuarryTheme.label("Cost: %s" % (QuarryTheme.money_text(int(info["price"])) if int(info["price"]) > 0 else "already paid"), QuarryTheme.BODY, QuarryTheme.MONEY))
+	if str(info.get("hint", "")) != "":
+		var hl := QuarryTheme.label(str(info["hint"]).strip_edges(), QuarryTheme.SMALL, QuarryTheme.DIM)
+		hl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		hl.custom_minimum_size = Vector2(210, 0)
+		build_lines.add_child(hl)
