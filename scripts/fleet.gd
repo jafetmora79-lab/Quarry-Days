@@ -4,7 +4,6 @@ class_name QuarryFleet
 ## rubble piles they work. Pure data (no nodes) so material handling is testable.
 ## Every transfer moves existing units; nothing is created except by pile regrowth.
 
-const TYPES := ["loader", "truck"]
 
 var business: QuarryBusiness
 var state: QuarryState
@@ -27,11 +26,25 @@ func _init(biz: QuarryBusiness, settings: Dictionary) -> void:
 func spec(type: String) -> Dictionary:
 	return cfg["vehicles"].get(type, {})
 
+## Vehicle types in shop order.
+func types() -> Array:
+	return cfg["vehicles"].keys()
+
+## The family a type belongs to: "loader" (bucket), "truck" (tipping bed) or "excavator" (digs rock and fills a bucket).
+func kind(type: String) -> String:
+	return str(spec(type).get("kind", type))
+
 func vehicle(id: int) -> Dictionary:
 	for v in vehicles:
 		if int(v["id"]) == id:
 			return v
 	return {}
+
+func owns_kind(k: String) -> bool:
+	for v in vehicles:
+		if kind(str(v["type"])) == k:
+			return true
+	return false
 
 func owns(type: String) -> bool:
 	for v in vehicles:
@@ -58,7 +71,11 @@ func buy(type: String, pos: Vector3, yaw := 0.0) -> Dictionary:
 	if buy_block_reason(type) != "":
 		return {}
 	state.money -= int(spec(type)["price"])
-	var v := {"id": next_id, "type": type, "position": [pos.x, pos.y, pos.z], "yaw": yaw, "cargo": {}}
+	var count := 1
+	for o in vehicles:
+		if str(o["type"]) == type:
+			count += 1
+	var v := {"id": next_id, "type": type, "position": [pos.x, pos.y, pos.z], "yaw": yaw, "cargo": {}, "name": "%s %d" % [spec(type)["title"], count]}
 	next_id += 1
 	vehicles.append(v)
 	return v
@@ -69,8 +86,8 @@ func upgrade_block_reason(key: String) -> String:
 		return "Unknown upgrade"
 	if upgrades[key]:
 		return "Installed"
-	if str(u.get("vehicle", "")) != "" and not owns(str(u["vehicle"])):
-		return "Buy the %s first" % spec(str(u["vehicle"]))["title"]
+	if str(u.get("vehicle", "")) != "" and not owns_kind(str(u["vehicle"])):
+		return "Buy a %s first" % str(u["vehicle"])
 	if str(u.get("vehicle", "")) == "" and vehicles.is_empty():
 		return "Buy a vehicle first"
 	if state.money < int(u["cost"]):
@@ -90,7 +107,7 @@ func capacity(v: Dictionary) -> int:
 	var c := int(spec(str(v["type"]))["capacity"])
 	for key in ["bucket", "cargo"]:
 		var u: Dictionary = cfg["upgrades"][key]
-		if upgrades[key] and str(u["vehicle"]) == str(v["type"]):
+		if upgrades[key] and str(u["vehicle"]) == kind(str(v["type"])):
 			c += int(u["capacity_add"])
 	return c
 
@@ -148,7 +165,7 @@ func pile_resource(id: String) -> String:
 
 ## Loader scoop from a rubble pile: removes exactly what enters the bucket.
 func scoop_pile(v: Dictionary, id: String) -> int:
-	if str(v["type"]) != "loader" or not piles.has(id) or not pile_active(id):
+	if kind(str(v["type"])) not in ["loader", "excavator"] or not piles.has(id) or not pile_active(id):
 		return 0
 	var n := mini(space(v), int(piles[id]["amount"]))
 	if n <= 0:
@@ -169,7 +186,7 @@ func dump_to(v: Dictionary, ep: Dictionary) -> int:
 
 ## Loader bucket -> truck bed.
 func transfer(from: Dictionary, to: Dictionary) -> int:
-	if from == to or str(to["type"]) != "truck":
+	if from == to or kind(str(to["type"])) != "truck":
 		return 0
 	var moved := 0
 	for res in from["cargo"].keys():
@@ -208,12 +225,17 @@ func snapshot() -> Dictionary:
 func restore(data: Dictionary) -> void:
 	vehicles.clear()
 	for raw in data.get("vehicles", []):
-		if raw is Dictionary and str(raw.get("type", "")) in TYPES and raw.get("position") is Array and raw["position"].size() == 3:
+		if raw is Dictionary and cfg["vehicles"].has(str(raw.get("type", ""))) and raw.get("position") is Array and raw["position"].size() == 3:
 			var cargo := {}
 			for k in raw.get("cargo", {}):
 				if state.inventory.has(k) and int(raw["cargo"][k]) > 0:
 					cargo[k] = int(raw["cargo"][k])
-			vehicles.append({"id": int(raw.get("id", 0)), "type": str(raw["type"]), "position": raw["position"].duplicate(), "yaw": float(raw.get("yaw", 0.0)), "cargo": cargo})
+			var same := 1
+			for o in vehicles:
+				if str(o["type"]) == str(raw["type"]):
+					same += 1
+			vehicles.append({"id": int(raw.get("id", 0)), "type": str(raw["type"]), "position": raw["position"].duplicate(), "yaw": float(raw.get("yaw", 0.0)), "cargo": cargo,
+				"name": str(raw.get("name", "%s %d" % [spec(str(raw["type"]))["title"], same]))})
 	next_id = int(data.get("next_id", 1))
 	for v in vehicles:
 		next_id = maxi(next_id, int(v["id"]) + 1)

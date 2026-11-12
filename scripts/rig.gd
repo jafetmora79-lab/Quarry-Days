@@ -11,6 +11,7 @@ var game
 var prog: QuarryProgression
 var index := 0
 var rtype := "drill_rig"
+var rkind := "drill"          ## "drill" (mast and rod) or "breaker" (hydraulic hammer arm); several machine types share each
 var turret: Node3D
 var boom: Node3D
 var stick: Node3D
@@ -41,6 +42,7 @@ func setup(main_node, p: QuarryProgression, i: int) -> void:
 	index = i
 	var r: Dictionary = prog.rigs[i]
 	rtype = str(r["type"])
+	rkind = str(prog.machine(rtype).get("kind", "drill" if rtype == "drill_rig" else "breaker"))
 	var pad := prog.pad(str(r["formation"]), int(r["pad"]))
 	name = "Rig_%d" % int(r["id"])
 	pad_pos = pad["pos"]
@@ -75,7 +77,7 @@ func setup(main_node, p: QuarryProgression, i: int) -> void:
 	audio.max_distance = 40.0
 	audio.volume_db = -8.0
 	add_child(audio)
-	if rtype == "rock_breaker":
+	if rkind == "breaker":
 		blow_audio = AudioStreamPlayer3D.new()
 		blow_audio.stream = load("res://audio/breaker_hit.wav")
 		blow_audio.unit_size = 5.0
@@ -95,7 +97,7 @@ func _emit(parent: Node3D, parts: Dictionary) -> void:
 			MeshKit.inst(parent, parts[k].mesh(), MeshKit.mat(k))
 
 func _build() -> void:
-	var paint := "PaintYellow" if rtype == "drill_rig" else "PaintRed"
+	var paint := str(prog.machine(rtype).get("paint", "PaintYellow" if rkind == "drill" else "PaintRed"))
 	var p := _soups(["Tire", "SteelPlate", "SteelGreen", paint, "Hazard"])
 	for x in [-0.72, 0.72]:
 		MeshKit.box_into(p["Tire"], Vector3(x, 0.22, 0.6), Vector3(0.38, 0.44, 2.7), Vector2(1.0, 0.92))     # crawler tracks
@@ -122,7 +124,7 @@ func _build() -> void:
 	boom = Node3D.new()
 	boom.position = Vector3(0, PIVOT_H - 0.75, 0)
 	turret.add_child(boom)
-	if rtype == "drill_rig":
+	if rkind == "drill":
 		# lattice mast along -Z with a feed beam; the rod rides on it
 		var m := _soups(["PaintYellow", "SteelPlate", "Hazard"])
 		for x in [-0.12, 0.12]:
@@ -228,7 +230,7 @@ func _process(delta: float) -> void:
 	turret.rotation.y = yaw
 	var horiz := Vector2(local.x, local.z).length()
 	var up := local.y - (PIVOT_H - 0.75)
-	if rtype == "drill_rig":
+	if rkind == "drill":
 		var want_p := atan2(up, horiz)
 		pitch_a = move_toward(pitch_a, clampf(want_p, -0.9, 0.5), delta * 0.6)
 		boom.rotation.x = pitch_a
@@ -259,7 +261,7 @@ func _process(delta: float) -> void:
 	# contact effects only while really extracting
 	_fx_t -= delta
 	if working and _fx_t <= 0.0 and game.fx:
-		_fx_t = 0.35 if rtype == "drill_rig" else 0.25
+		_fx_t = 0.35 if rkind == "drill" else 0.25
 		var res := str(prog.fdef(str(r["formation"]))["resource"])
 		game.fx.impact(tp, res, 0.9)
 	if working and not audio.playing:

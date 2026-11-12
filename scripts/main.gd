@@ -1216,6 +1216,11 @@ func _physics_process(delta: float) -> void:
 		w.step(delta)
 	if driving and not scripted_input:
 		driving.input = {"throttle": Input.get_axis("move_back", "move_forward"), "steer": Input.get_axis("move_left", "move_right"), "brake": Input.is_physical_key_pressed(KEY_SPACE)}
+		if driving.digging:
+			if not scripted_input and not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+				driving.digging = false
+			else:
+				_excavator_dig(driving, delta)
 	for v in vehicle_nodes.values():
 		v.control(delta)
 	_update_structures()
@@ -1275,7 +1280,7 @@ func _physics_process(delta: float) -> void:
 			"vehicle":
 				var vrec := fleet.vehicle(int(last_target.get_meta("vehicle_id")))
 				if not vrec.is_empty():
-					prompt = "E: drive %s (%d/%d %s)" % [fleet.spec(vrec["type"])["title"], fleet.cargo_total(vrec), fleet.capacity(vrec), "in bucket" if vrec["type"] == "loader" else "in bed"]
+					prompt = "E: drive %s (%d/%d %s)" % [fleet.spec(vrec["type"])["title"], fleet.cargo_total(vrec), fleet.capacity(vrec), "in bucket" if fleet.kind(str(vrec["type"])) != "truck" else "in bed"]
 			"pile":
 				prompt = "%s: %d units - scoop it with a front loader" % [fleet.cfg["piles"][str(last_target.get_meta("pile"))]["title"], int(fleet.piles[str(last_target.get_meta("pile"))]["amount"])]
 	if construction and not placement:
@@ -1598,7 +1603,7 @@ func _draw_shop(p: QuarryStationUI) -> void:
 	var adv_ok := prog.unlocked("advanced_crusher")
 	var am: Dictionary = prog.machine("advanced_crusher")
 	p.item("shop_advanced", "Advanced crusher", "Batches of %d stone, %.0f s a batch (%.0f%% of the normal time)." % [cl * int(am.get("capacity_mult", 2)), cs * float(am.get("speed_mult", 0.45)), float(am.get("speed_mult", 0.45)) * 100.0], int(am["price"]), _shop_tag("advanced_crusher", ""), _shop_button("advanced_crusher"), adv_ok, func(): menu_act("shop", 3, false), "" if adv_ok else "Unlocks at the %s stage" % prog.feature_stage_title("advanced_crusher"))
-	for pair in [["drill_rig", "Drilling rig", "Works stone, coal, iron and copper from a fixed pad.", 4], ["rock_breaker", "Rock breaker", "Breaks any rock, gold too.", 5]]:
+	for pair in [["drill_rig", "Drilling rig", "Works stone, coal, iron and copper from a fixed pad.", 4], ["improved_rig", "Improved drilling rig", "%.0f damage a second and hard enough for gold-bearing rock: for the deeper layers." % float(prog.machine("improved_rig").get("dps", 0)), 9], ["rock_breaker", "Rock breaker", "Breaks any rock, gold too.", 5], ["heavy_breaker", "Heavy-duty rock breaker", "%.0f damage a second: the strongest machine in the quarry." % float(prog.machine("heavy_breaker").get("dps", 0)), 10]]:
 		var t: String = pair[0]
 		var owned := 0
 		for r in prog.rigs:
@@ -1716,8 +1721,8 @@ func menu_act(kind: String, digit: int, shift: bool) -> void:
 				3: _shop_pick("advanced_crusher")
 				7: _shop_pick("conveyor_left")
 				8: _shop_pick("conveyor_right")
-				4, 5:
-					var t := "drill_rig" if digit == 4 else "rock_breaker"
+				4, 5, 9, 10:
+					var t: String = {4: "drill_rig", 5: "rock_breaker", 9: "improved_rig", 10: "heavy_breaker"}[digit]
 					if not prog.unlocked(t):
 						_notify("The %s unlocks at the %s stage." % [str(prog.machine(t)["title"]), prog.feature_stage_title(t)])
 					else:
@@ -2920,12 +2925,18 @@ func _driving_input(event: InputEvent) -> bool:
 		return true
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_LEFT:
-			if driving.vtype == "loader":
+			if driving.vkind == "excavator" and not excavator_target(driving).is_empty():
+				driving.digging = true            # held: dig the rock in reach (see _excavator_dig)
+				driving.bucket_target = 0.0
+			elif driving.has_bucket():
 				loader_primary(driving)
 			return true
 		if event.button_index == MOUSE_BUTTON_RIGHT:
 			vehicle_dump(driving)
 			return true
+	if event is InputEventMouseButton and not event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		driving.digging = false
+		return true
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.physical_keycode == KEY_R:
 			driving.recover()
@@ -2998,6 +3009,59 @@ func loader_primary(v: QuarryVehicle) -> int:
 		_notify("Nothing to scoop here. Lower the bucket at a rubble pile or loose rock.")
 	return got
 
+## The exposed rock an excavator can dig from where it stands: {"kind", "col", "res", "node"} or {}.
+func excavator_target(v: QuarryVehicle) -> Dictionary:
+	var s: Dictionary = fleet.spec(v.vtype)
+	var reach := float(s.get("dig_reach", 4.0))
+	var wp := v.work_point()
+	var best := {}
+	var best_d := reach
+	for id in formation_nodes:
+		if prog.formation_locked(id) != "":
+			continue
+		var c := prog.nearest_column(id, wp, true, reach)
+		if c < 0:
+			continue
+		var d := prog.column_pos(id, c).distance_to(wp)
+		if d < best_d:
+			best_d = d
+			best = {"kind": id, "col": c, "res": str(state.deposits[id]["resource"]), "node": formation_nodes[id]}
+	return best
+
+## One frame of digging: the excavator's dps goes into the same extraction rules as every other tool (hardness, exposure,
+## locked levels, nothing under anyone's feet). Rock goes into the bucket; what does not fit drops beside the column.
+func _excavator_dig(v: QuarryVehicle, delta: float) -> void:
+	var s: Dictionary = fleet.spec(v.vtype)
+	power_feedback_t = maxf(0.0, power_feedback_t - delta)
+	var t := excavator_target(v)
+	if t.is_empty():
+		v.digging = false
+		return
+	if prog.material(str(t["res"])).get("hardness", 1) > int(s.get("dig_hardness", 1)):
+		v.digging = false
+		_notify("The %s cannot break %s. A bigger machine or a drilling rig is needed." % [str(s["title"]).to_lower(), prog.display(str(t["res"]))])
+		return
+	var rec := fleet.vehicle(v.vehicle_id)
+	var kind: String = t["kind"]
+	var col: int = t["col"]
+	var room := maxi(0, fleet.space(rec)) + maxi(0, int(prog.cfg.get("loose_piece_cap", 36)) - loose_count(kind))
+	var ex := prog.extract(kind, col, float(s.get("dig_dps", 10.0)) * delta, room, "excavator")
+	var n := int(ex["units"])
+	var node: QuarryFormation = t["node"]
+	node.hit(col)
+	if power_feedback_t <= 0.0:
+		power_feedback_t = 0.18
+		fx.impact(node.column_top(col), str(t["res"]), 0.9)
+		_sfx_at("hit_pick", node.column_top(col), -3.0)
+	if n > 0:
+		var put := fleet.add_cargo(rec, str(t["res"]), n)
+		for i in range(n - put):
+			_spawn_formation_piece(kind, col, i)
+	if int(ex["chunks"]) > 0:
+		node.refresh()
+	else:
+		node.update_label()
+
 ## Nearest place a vehicle can deliver to around `point`.
 func dump_target(point: Vector3, radius: float, from: QuarryVehicle) -> Dictionary:
 	var best := {}
@@ -3012,9 +3076,9 @@ func dump_target(point: Vector3, radius: float, from: QuarryVehicle) -> Dictiona
 		if d < best_d:
 			best_d = d
 			best = {"ep": c[0]}
-	if from.vtype == "loader":
+	if from.has_bucket():
 		for other in vehicle_nodes.values():
-			if other != from and other.vtype == "truck":
+			if other != from and other.vkind == "truck":
 				var c: Vector3 = other.bed_center()
 				var d := Vector2(point.x, point.z).distance_to(Vector2(c.x, c.z))
 				if d < maxf(best_d, 3.2):
@@ -3035,9 +3099,9 @@ func vehicle_dump(v: QuarryVehicle) -> int:
 		return 0
 	var t := dump_target(v.work_point(), 3.0, v)
 	if t.is_empty():
-		_notify("Nothing to unload into here. Get close to a storage crate, crusher, output storage%s." % (" or truck" if v.vtype == "loader" else ""))
+		_notify("Nothing to unload into here. Get close to a storage crate, crusher, output storage%s." % (" or truck" if v.has_bucket() else ""))
 		return 0
-	if v.vtype == "truck":
+	if v.vkind == "truck":
 		if v.unload_timer > 0.0:
 			return 0
 		v.start_unload(t)
@@ -3071,7 +3135,7 @@ func _driving_hud() -> String:
 		cargo += " %s %d" % [str(k).replace("_", " "), rec["cargo"][k]]
 	var hint := ""
 	var point := driving.work_point()
-	if driving.vtype == "loader":
+	if driving.has_bucket():
 		var pile := _nearest_pile(point, 3.0)
 		if driving.bucket_target < 0.5 and pile != "":
 			hint = "  >> LMB scoop %s (%d)" % [fleet.cfg["piles"][pile]["title"], fleet.piles[pile]["amount"]]
@@ -3079,8 +3143,15 @@ func _driving_hud() -> String:
 		var t := dump_target(point, 3.0, driving)
 		if not t.is_empty():
 			hint = "  >> RMB unload into " + _target_name(t)
-	var load_label := "BUCKET" if driving.vtype == "loader" else "BED"
-	var controls := "WASD drive  Mouse look  %sRMB %s  Space brake  R recover  E exit" % ["LMB bucket %s  " % ("down" if driving.bucket_target > 0.5 else "up/scoop") if driving.vtype == "loader" else "", "dump bucket" if driving.vtype == "loader" else "raise bed / unload"]
+	var load_label := "BUCKET" if driving.has_bucket() else "BED"
+	var lmb := ""
+	if driving.vkind == "loader":
+		lmb = "LMB bucket %s  " % ("down" if driving.bucket_target > 0.5 else "up/scoop")
+	elif driving.vkind == "excavator":
+		lmb = "HOLD LMB dig the rock  LMB (no rock) scoop  "
+		if not excavator_target(driving).is_empty():
+			hint = "  >> HOLD LMB dig %s" % prog.display(str(excavator_target(driving)["res"]))
+	var controls := "WASD drive  Mouse look  %sRMB %s  Space brake  R recover  E exit" % [lmb, "dump bucket" if driving.has_bucket() else "raise bed / unload"]
 	return "%s  %.1f m/s   %s %d/%d%s%s\n%s" % [fleet.spec(driving.vtype)["title"].to_upper(), absf(driving.speed), load_label, fleet.cargo_total(rec), fleet.capacity(rec), cargo, hint, controls]
 
 func ui_buy_vehicle(type: String) -> String:
@@ -3917,6 +3988,11 @@ func _companion_tick(delta: float) -> void:
 	_companion_timer -= delta
 	if _companion_timer <= 0.0:
 		_companion_timer = 0.5
+		for mm in prog.check_quarry_milestones():
+			if hud:
+				hud.toast(str(mm["title"]), "%s Bonus %s." % [str(mm["text"]), QuarryTheme.money_text(int(mm["reward"]))], "milestone")
+				hud.popup_money(int(mm["reward"]))
+			_sfx_unlock()
 		for jid in prog.check_level_journal():
 			if hud:
 				hud.toast("Walter's journal", str(prog.journal_entry(jid).get("title", "")), "unlock")

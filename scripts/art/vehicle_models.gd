@@ -81,24 +81,24 @@ static func loader(v) -> void:
 	for x in [-0.98, 0.98]:
 		for z in [-0.85, 0.95]:
 			MeshKit.box_into(p["PaintYellow"], Vector3(x, 1.12, z), Vector3(0.48, 0.06, 1.15), Vector2(1.0, 0.85))
-	_emit(v, p)
+	_emit(v.model_root, p)
 	var glass := MeshKit.Soup.new()
 	MeshKit.box_into(glass, Vector3(0, 1.62, -0.56), Vector3(1.15, 1.1, 0.02))
 	MeshKit.box_into(glass, Vector3(0, 1.72, 0.36), Vector3(1.15, 0.9, 0.02))
 	for x in [-0.6, 0.6]:
 		MeshKit.box_into(glass, Vector3(x, 1.72, -0.1), Vector3(0.02, 0.9, 0.85))
-	MeshKit.inst(v, glass.mesh(), MeshKit.mat(GLASS))
+	MeshKit.inst(v.model_root, glass.mesh(), MeshKit.mat(GLASS))
 	var lamps := MeshKit.Soup.new()
 	for x in [-0.5, 0.5]:
 		MeshKit.box_into(lamps, Vector3(x, 2.2, -0.72), Vector3(0.16, 0.1, 0.06))
-	MeshKit.inst(v, lamps.mesh(), MeshKit.flat(Color(1.0, 0.92, 0.7), 0.8))
+	MeshKit.inst(v.model_root, lamps.mesh(), MeshKit.flat(Color(1.0, 0.92, 0.7), 0.8))
 	for x in [-0.98, 0.98]:
 		for z in [-0.85, 0.95]:
-			v.wheels.append(wheel(v, Vector3(x, 0.55, z), 0.55, 0.42, "PaintYellow"))
+			v.wheels.append(wheel(v.model_root, Vector3(x, 0.55, z), 0.55, 0.42, "PaintYellow"))
 	# lift arms + bucket (animated nodes used by QuarryVehicle)
 	v.arm = Node3D.new()
 	v.arm.position = Vector3(0, 1.15, -0.45)
-	v.add_child(v.arm)
+	v.model_root.add_child(v.arm)
 	var a := _soups(["PaintYellow", "SteelPlate"])
 	for x in [-0.66, 0.66]:
 		var beam := PackedVector2Array([Vector2(0.15, -0.08), Vector2(-1.55, -0.32), Vector2(-1.6, -0.12), Vector2(-0.6, 0.06), Vector2(0.15, 0.1)])
@@ -128,61 +128,63 @@ static func loader(v) -> void:
 # ------------------------------------------------------------------ dump truck (2.2 x 1.8 x 4.6)
 
 static func truck(v) -> void:
-	var p := _soups(["PaintRed", "SteelPlate", "Hazard"])
+	var cab_paint: String = v.paint_cab
+	var bed_paint: String = v.paint_bed
+	var p := _soups([cab_paint, "SteelPlate", "Hazard"])
 	for x in [-0.55, 0.55]:
 		MeshKit.box_into(p["SteelPlate"], Vector3(x, 0.62, 0.1), Vector3(0.16, 0.24, 4.4))          # chassis rails
 	# cab side profile: bumper, hood, sloped windscreen, roof, cab back
 	var cab := PackedVector2Array([Vector2(-2.32, 0.55), Vector2(-0.95, 0.55), Vector2(-0.95, 2.25), Vector2(-1.55, 2.25), Vector2(-1.82, 1.6), Vector2(-2.3, 1.42)])
-	MeshKit.extrude_into(p["PaintRed"], cab, 2.0)
+	MeshKit.extrude_into(p[cab_paint], cab, 2.0)
 	MeshKit.box_into(p["SteelPlate"], Vector3(0, 0.62, -2.36), Vector3(2.1, 0.22, 0.14))         # bumper
 	MeshKit.box_into(p["SteelPlate"], Vector3(0, 1.02, -2.33), Vector3(1.1, 0.5, 0.04))          # grille
 	for y in [0.86, 0.98, 1.1, 1.22]:
-		MeshKit.box_into(p["PaintRed"], Vector3(0, y, -2.36), Vector3(1.0, 0.03, 0.02))
+		MeshKit.box_into(p[cab_paint], Vector3(0, y, -2.36), Vector3(1.0, 0.03, 0.02))
 	MeshKit.frustum_into(p["SteelPlate"], Vector3(0.9, 1.4, -1.0), 0.07, 0.06, 1.1, 6)            # exhaust
 	for x in [-1.08, 1.08]:
 		MeshKit.box_into(p["SteelPlate"], Vector3(x, 1.85, -1.75), Vector3(0.04, 0.22, 0.14))      # mirrors
 	for z in [-1.6, 1.3]:
 		for x in [-1.0, 1.0]:
-			MeshKit.box_into(p["PaintRed" if z < 0 else "SteelPlate"], Vector3(x, 1.12, z), Vector3(0.52, 0.06, 1.15 if z < 0 else 1.9), Vector2(1.0, 0.85))
+			MeshKit.box_into(p[cab_paint if z < 0 else "SteelPlate"], Vector3(x, 1.12, z), Vector3(0.52, 0.06, 1.15 if z < 0 else 1.9), Vector2(1.0, 0.85))
 	MeshKit.box_into(p["SteelPlate"], Vector3(0, 0.95, 2.28), Vector3(0.6, 0.08, 0.08))           # rear hinge bar
-	_emit(v, p)
+	_emit(v.model_root, p)
 	var glass := MeshKit.Soup.new()
 	var ws := PackedVector2Array([Vector2(-1.8, 1.62), Vector2(-1.57, 2.2), Vector2(-1.55, 2.2), Vector2(-1.78, 1.62)])
 	MeshKit.extrude_into(glass, ws, 1.8, _xf(Vector3(0, 0, -0.012)))
 	for x in [-1.005, 1.005]:
 		MeshKit.box_into(glass, Vector3(x, 1.88, -1.25), Vector3(0.01, 0.55, 0.5))
-	MeshKit.inst(v, glass.mesh(), MeshKit.mat(GLASS))
+	MeshKit.inst(v.model_root, glass.mesh(), MeshKit.mat(GLASS))
 	var lamps := MeshKit.Soup.new()
 	for x in [-0.78, 0.78]:
 		MeshKit.box_into(lamps, Vector3(x, 1.05, -2.34), Vector3(0.2, 0.14, 0.04))
-	MeshKit.inst(v, lamps.mesh(), MeshKit.flat(Color(1.0, 0.92, 0.7), 0.8))
+	MeshKit.inst(v.model_root, lamps.mesh(), MeshKit.flat(Color(1.0, 0.92, 0.7), 0.8))
 	var tail := MeshKit.Soup.new()
 	for x in [-0.95, 0.95]:
 		MeshKit.box_into(tail, Vector3(x, 0.75, 2.3), Vector3(0.16, 0.1, 0.04))
-	MeshKit.inst(v, tail.mesh(), MeshKit.flat(Color(0.8, 0.12, 0.08), 0.6))
+	MeshKit.inst(v.model_root, tail.mesh(), MeshKit.flat(Color(0.8, 0.12, 0.08), 0.6))
 	for x in [-0.95, 0.95]:
 		for z in [-1.6, 0.9, 1.7]:
-			v.wheels.append(wheel(v, Vector3(x, 0.47, z), 0.47, 0.4 if z < 0 else 0.48, "SteelPlate"))
+			v.wheels.append(wheel(v.model_root, Vector3(x, 0.47, z), 0.47, 0.4 if z < 0 else 0.48, "SteelPlate"))
 	# tipping body: hinge at the rear axle line, front headboard with cab guard, ribbed tapered sides
 	v.bed = Node3D.new()
 	v.bed.position = Vector3(0, 0.75, 2.15)
-	v.add_child(v.bed)
-	var b := _soups(["PaintOrange", "SteelPlate", "Hazard"])
-	MeshKit.box_into(b["PaintOrange"], Vector3(0, 0.06, -1.4), Vector3(2.1, 0.12, 2.95))
+	v.model_root.add_child(v.bed)
+	var b := _soups([bed_paint, "SteelPlate", "Hazard"])
+	MeshKit.box_into(b[bed_paint], Vector3(0, 0.06, -1.4), Vector3(2.1, 0.12, 2.95))
 	var side := PackedVector2Array([Vector2(0.05, 0.1), Vector2(-2.85, 0.1), Vector2(-2.85, 0.95), Vector2(-0.3, 0.85), Vector2(0.05, 0.6)])
 	for x in [-1.03, 1.03]:
-		MeshKit.extrude_into(b["PaintOrange"], side, 0.08, _xf(Vector3(x, 0, 0)))
+		MeshKit.extrude_into(b[bed_paint], side, 0.08, _xf(Vector3(x, 0, 0)))
 		for z in [-0.6, -1.3, -2.0]:
 			MeshKit.box_into(b["SteelPlate"], Vector3(x * 1.04, 0.5, z), Vector3(0.05, 0.75, 0.08))    # side ribs
-	MeshKit.box_into(b["PaintOrange"], Vector3(0, 0.62, -2.86), Vector3(2.1, 1.1, 0.1))          # headboard
-	MeshKit.box_into(b["PaintOrange"], Vector3(0, 1.15, -3.05), Vector3(2.0, 0.06, 0.5))          # cab guard
+	MeshKit.box_into(b[bed_paint], Vector3(0, 0.62, -2.86), Vector3(2.1, 1.1, 0.1))          # headboard
+	MeshKit.box_into(b[bed_paint], Vector3(0, 1.15, -3.05), Vector3(2.0, 0.06, 0.5))          # cab guard
 	MeshKit.box_into(b["Hazard"], Vector3(0, 0.95, -0.02), Vector3(2.1, 0.08, 0.03))
 	for x in [-0.4, 0.4]:
 		MeshKit.drum_into(b["SteelPlate"], Vector3(x, 0.0, 0.0), 0.09, 0.22, 6)                   # rear hinges
 	_emit(v.bed, b)
 	v.bed_load = MeshKit.inst(v.bed, MeshKit.rock(Vector3(1.9, 0.6, 2.6), 42, 3, 8), MeshKit.mat("RockLimestone"), Vector3(0, 0.1, -1.4))
 	v.bed_load.visible = false
-	v.set_meta("ram", ram(v, Vector3(0, 0.72, 0.0), Vector3(0, 0.82, 0.05), 0.08))
+	v.set_meta("ram", ram(v.model_root, Vector3(0, 0.72, 0.0), Vector3(0, 0.82, 0.05), 0.08))
 
 ## Keep the tipping ram connected between the chassis and the underside of the bed.
 static func update_truck_ram(v) -> void:
@@ -194,3 +196,63 @@ static func update_truck_ram(v) -> void:
 	n.visible = v.bed_tilt > 0.02
 	if n.visible:
 		aim(n, anchor, top)
+
+# ------------------------------------------------------------------ excavator (2.0 x 2.2 x 3.4; the heavy one is the same model, larger)
+
+static func excavator(v) -> void:
+	var paint: String = v.paint_main
+	var p := _soups([paint, "SteelPlate", "Tire", "Hazard"])
+	for x in [-0.8, 0.8]:
+		MeshKit.box_into(p["Tire"], Vector3(x, 0.32, 0.0), Vector3(0.46, 0.6, 3.3), Vector2(1.0, 0.9))             # crawler tracks
+		for z in [-1.45, 1.45]:
+			MeshKit.drum_into(p["SteelPlate"], Vector3(x, 0.33, z), 0.3, 0.5, 8)                                    # idlers
+		for z in [-1.0, -0.33, 0.33, 1.0]:
+			MeshKit.drum_into(p["SteelPlate"], Vector3(x, 0.2, z), 0.14, 0.52, 6)                                   # road wheels
+	MeshKit.box_into(p[paint], Vector3(0, 0.68, 0.0), Vector3(1.7, 0.2, 2.6))                                       # undercarriage
+	MeshKit.drum_into(p["SteelPlate"], Vector3(0, 0.84, 0.0), 0.72, 0.18, 12)                                      # slewing ring
+	# upper body: engine hood and counterweight at the back, boom foot at the front
+	MeshKit.box_into(p[paint], Vector3(0.1, 1.2, 0.45), Vector3(1.7, 0.7, 1.7), Vector2(0.96, 0.9))
+	MeshKit.box_into(p["SteelPlate"], Vector3(0.1, 1.4, 1.45), Vector3(1.7, 0.78, 0.45))                           # counterweight
+	MeshKit.box_into(p["Hazard"], Vector3(0.1, 1.05, 1.69), Vector3(1.6, 0.1, 0.02))
+	MeshKit.frustum_into(p["SteelPlate"], Vector3(0.6, 1.62, 0.85), 0.07, 0.06, 0.65, 6)                           # exhaust
+	for z in [0.2, 0.55, 0.9]:
+		MeshKit.box_into(p["SteelPlate"], Vector3(0.1, 1.56, z), Vector3(1.1, 0.02, 0.08))                         # louvres
+	# cab on the left, glazed on three sides
+	for x in [-0.78, -0.12]:
+		for z in [-0.6, 0.15]:
+			MeshKit.box_into(p["SteelPlate"], Vector3(x, 1.9, z), Vector3(0.06, 0.95, 0.06))
+	MeshKit.box_into(p[paint], Vector3(-0.45, 2.4, -0.22), Vector3(0.82, 0.1, 0.9), Vector2(0.94, 0.92))
+	MeshKit.box_into(p["SteelPlate"], Vector3(-0.45, 1.55, -0.22), Vector3(0.8, 0.06, 0.8))
+	_emit(v.model_root, p)
+	var glass := MeshKit.Soup.new()
+	MeshKit.box_into(glass, Vector3(-0.45, 1.95, -0.62), Vector3(0.7, 0.8, 0.02))
+	MeshKit.box_into(glass, Vector3(-0.78, 1.95, -0.22), Vector3(0.02, 0.8, 0.68))
+	MeshKit.box_into(glass, Vector3(-0.12, 1.95, -0.22), Vector3(0.02, 0.8, 0.68))
+	MeshKit.inst(v.model_root, glass.mesh(), MeshKit.mat(GLASS))
+	var lamps := MeshKit.Soup.new()
+	MeshKit.box_into(lamps, Vector3(-0.45, 2.34, -0.66), Vector3(0.4, 0.07, 0.05))
+	MeshKit.inst(v.model_root, lamps.mesh(), MeshKit.flat(Color(1.0, 0.92, 0.7), 0.8))
+	# boom, stick and bucket: v.arm swings the whole assembly, v.bucket curls (QuarryVehicle animates both)
+	v.arm = Node3D.new()
+	v.arm.position = Vector3(0.55, 1.05, -0.5)
+	v.model_root.add_child(v.arm)
+	var a := _soups([paint, "SteelPlate"])
+	var boom := PackedVector2Array([Vector2(0.1, -0.15), Vector2(-0.9, 0.25), Vector2(-1.9, 0.0), Vector2(-1.95, -0.2), Vector2(-0.9, 0.05), Vector2(0.1, -0.4)])
+	MeshKit.extrude_into(a[paint], boom, 0.3)
+	MeshKit.drum_into(a["SteelPlate"], Vector3(0, -0.1, -1.95), 0.1, 0.34, 6)                                       # elbow pin
+	_emit(v.arm, a)
+	ram(v.arm, Vector3(0, -0.45, 0.4), Vector3(0, 0.1, -0.85), 0.08)                                                # boom cylinder
+	v.bucket = Node3D.new()
+	v.bucket.position = Vector3(0, -0.1, -1.95)
+	v.arm.add_child(v.bucket)
+	var b := _soups(["SteelPlate", "Hazard"])
+	var stick := PackedVector2Array([Vector2(0.08, 0.1), Vector2(-0.1, -0.7), Vector2(0.0, -0.75), Vector2(0.18, 0.1)])
+	MeshKit.extrude_into(b["SteelPlate"], stick, 0.2)
+	var shell := PackedVector2Array([Vector2(0.18, -0.55), Vector2(0.05, -0.8), Vector2(-0.3, -0.95), Vector2(-0.62, -0.78), Vector2(-0.64, -0.7), Vector2(-0.32, -0.8), Vector2(0.0, -0.66), Vector2(0.18, -0.45)])
+	MeshKit.extrude_into(b["SteelPlate"], shell, 0.8)
+	for k in range(4):
+		MeshKit.box_into(b["SteelPlate"], Vector3(-0.3 + k * 0.2, -0.96, -0.62), Vector3(0.08, 0.1, 0.14), Vector2(0.6, 0.6))       # teeth
+	_emit(v.bucket, b)
+	v.bucket_load = MeshKit.inst(v.bucket, MeshKit.rock(Vector3(0.7, 0.35, 0.5), 43, 3, 6), MeshKit.mat("RockLimestone"), Vector3(-0.28, -0.68, -0.58))
+	v.bucket_load.visible = false
+

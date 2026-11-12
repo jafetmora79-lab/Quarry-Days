@@ -1001,6 +1001,31 @@
           "mult": 1.5,
           "effect": "RIG OUTPUT +50%"
         }
+      ],
+      "kind": "drill"
+    },
+    "improved_rig": {
+      "title": "Improved Drilling Rig",
+      "kind": "drill",
+      "price": 9500,
+      "stage": 4,
+      "dps": 48.0,
+      "max_hardness": 4,
+      "cost_per_min": 1.6,
+      "bin": 60,
+      "reach": 8.0,
+      "paint": "PaintOrange",
+      "upgrades": [
+        {
+          "cost": 4200,
+          "mult": 1.4,
+          "effect": "RIG OUTPUT +40%"
+        },
+        {
+          "cost": 8800,
+          "mult": 1.4,
+          "effect": "RIG OUTPUT +40%"
+        }
       ]
     },
     "rock_breaker": {
@@ -1017,6 +1042,26 @@
           "cost": 7500,
           "mult": 1.4,
           "effect": "BREAKER OUTPUT +40%"
+        }
+      ],
+      "kind": "breaker"
+    },
+    "heavy_breaker": {
+      "title": "Heavy-Duty Rock Breaker",
+      "kind": "breaker",
+      "price": 26000,
+      "stage": 5,
+      "dps": 200.0,
+      "max_hardness": 4,
+      "cost_per_min": 4.0,
+      "bin": 90,
+      "reach": 8.0,
+      "paint": "PaintOrange",
+      "upgrades": [
+        {
+          "cost": 9000,
+          "mult": 1.35,
+          "effect": "BREAKER OUTPUT +35%"
         }
       ]
     },
@@ -1745,5 +1790,102 @@
         }
       ]
     }
-  }
+  },
+  "vehicle_gates": {
+    "loader": "industry",
+    "compact_truck": "industry",
+    "truck": "large",
+    "heavy_truck": "large",
+    "industrial_truck": "deep",
+    "compact_excavator": "large",
+    "heavy_excavator": "deep"
+  },
+  "quarry_milestones": [
+    {
+      "id": "l1_quarter",
+      "title": "A quarter of the surface",
+      "text": "A quarter of the surface quarry is cut away.",
+      "reward": 500,
+      "when": {
+        "cleared": {
+          "level": 1,
+          "fraction": 0.25
+        }
+      }
+    },
+    {
+      "id": "l1_half",
+      "title": "Half the surface",
+      "text": "Half of the surface quarry is gone.",
+      "reward": 1200,
+      "when": {
+        "cleared": {
+          "level": 1,
+          "fraction": 0.5
+        }
+      }
+    },
+    {
+      "id": "level2_open",
+      "title": "The first bench",
+      "text": "Quarry level 2 is open: coal and iron.",
+      "reward": 2500,
+      "when": {
+        "quarry_level": 2
+      }
+    },
+    {
+      "id": "l2_half",
+      "title": "Bench half cut",
+      "text": "Half of the first bench is excavated.",
+      "reward": 3500,
+      "when": {
+        "cleared": {
+          "level": 2,
+          "fraction": 0.5
+        }
+      }
+    },
+    {
+      "id": "level3_open",
+      "title": "The deep quarry",
+      "text": "Quarry level 3 is open: richer iron and copper.",
+      "reward": 6000,
+      "when": {
+        "quarry_level": 3
+      }
+    },
+    {
+      "id": "l3_half",
+      "title": "Deep bench half cut",
+      "text": "Half of the deep quarry is excavated.",
+      "reward": 9000,
+      "when": {
+        "cleared": {
+          "level": 3,
+          "fraction": 0.5
+        }
+      }
+    },
+    {
+      "id": "level4_open",
+      "title": "The lower quarry",
+      "text": "Quarry level 4 is open: copper and gold.",
+      "reward": 14000,
+      "when": {
+        "quarry_level": 4
+      }
+    },
+    {
+      "id": "first_gold",
+      "title": "Gold!",
+      "text": "The first gold-bearing rock is out of the ground.",
+      "reward": 5000,
+      "when": {
+        "mined": {
+          "formation": "bench_l4_gold"
+        }
+      }
+    }
+  ]
 }

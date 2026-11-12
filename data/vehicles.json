@@ -1,22 +1,260 @@
 {
-  "max_vehicles": 4,
+  "max_vehicles": 6,
   "load_penalty": 0.45,
-  "parking": [[-1.5, 0, 18.5], [3.0, 0, 18.5], [7.5, 0, 18.5], [12.0, 0, 18.5]],
+  "parking": [
+    [
+      -1.5,
+      0,
+      18.5
+    ],
+    [
+      3.0,
+      0,
+      18.5
+    ],
+    [
+      7.5,
+      0,
+      18.5
+    ],
+    [
+      12.0,
+      0,
+      18.5
+    ]
+  ],
   "vehicles": {
-    "loader": {"title": "Front Loader", "price": 3200, "requires": "mechanized", "capacity": 6, "accel": 3.2, "max_speed": 5.0, "reverse_speed": 2.5, "turn": 1.5, "brake": 9.0, "size": [2.0, 1.5, 3.0]},
-    "truck": {"title": "Dump Truck", "price": 6500, "requires": "automated", "capacity": 20, "accel": 2.6, "max_speed": 7.5, "reverse_speed": 3.0, "turn": 1.1, "brake": 8.0, "size": [2.2, 1.8, 4.6]}
+    "loader": {
+      "title": "Front Loader",
+      "price": 3200,
+      "requires": "mechanized",
+      "capacity": 6,
+      "accel": 3.2,
+      "max_speed": 5.0,
+      "reverse_speed": 2.5,
+      "turn": 1.5,
+      "brake": 9.0,
+      "size": [
+        2.0,
+        1.5,
+        3.0
+      ],
+      "kind": "loader",
+      "speed_label": "Medium",
+      "accel_label": "Good",
+      "best_use": "Scooping rubble, loose rock and rig bins; short hops",
+      "gate": "industry"
+    },
+    "compact_truck": {
+      "title": "Compact Haul Truck",
+      "kind": "truck",
+      "price": 4200,
+      "requires": "mechanized",
+      "gate": "industry",
+      "capacity": 12,
+      "accel": 3.0,
+      "max_speed": 6.5,
+      "reverse_speed": 3.0,
+      "turn": 1.5,
+      "brake": 8.0,
+      "size": [
+        1.8,
+        1.6,
+        3.8
+      ],
+      "speed_label": "Medium",
+      "accel_label": "High",
+      "best_use": "Small, affordable loads and tight yards",
+      "cab_paint": "PaintYellow",
+      "bed_paint": "PaintYellow"
+    },
+    "truck": {
+      "title": "Dump Truck",
+      "price": 6500,
+      "requires": "automated",
+      "capacity": 20,
+      "accel": 2.6,
+      "max_speed": 7.5,
+      "reverse_speed": 3.0,
+      "turn": 1.1,
+      "brake": 8.0,
+      "size": [
+        2.2,
+        1.8,
+        4.6
+      ],
+      "kind": "truck",
+      "speed_label": "Medium",
+      "accel_label": "Medium",
+      "best_use": "Everyday hauling between the pit, storage and the crushers",
+      "gate": "large"
+    },
+    "heavy_truck": {
+      "title": "Heavy Dump Truck",
+      "kind": "truck",
+      "price": 12500,
+      "requires": "automated",
+      "gate": "large",
+      "capacity": 44,
+      "accel": 1.8,
+      "max_speed": 6.0,
+      "reverse_speed": 2.6,
+      "turn": 0.85,
+      "brake": 7.0,
+      "size": [
+        2.5,
+        2.1,
+        5.0
+      ],
+      "speed_label": "Medium",
+      "accel_label": "Low",
+      "best_use": "Bulk material between the pit and the plant",
+      "cab_paint": "PaintRed",
+      "bed_paint": "PaintOrange"
+    },
+    "industrial_truck": {
+      "title": "Industrial Haul Truck",
+      "kind": "truck",
+      "price": 24000,
+      "requires": "automated",
+      "gate": "deep",
+      "capacity": 90,
+      "accel": 1.3,
+      "max_speed": 5.5,
+      "reverse_speed": 2.2,
+      "turn": 0.65,
+      "brake": 6.0,
+      "size": [
+        3.0,
+        2.6,
+        5.6
+      ],
+      "speed_label": "Slow",
+      "accel_label": "Very low",
+      "best_use": "Late-game bulk transport from the deepest levels",
+      "cab_paint": "PaintOrange",
+      "bed_paint": "PaintRed"
+    },
+    "compact_excavator": {
+      "title": "Compact Excavator",
+      "kind": "excavator",
+      "price": 7500,
+      "requires": "automated",
+      "gate": "large",
+      "capacity": 8,
+      "accel": 1.8,
+      "max_speed": 3.2,
+      "reverse_speed": 2.0,
+      "turn": 1.3,
+      "brake": 8.0,
+      "size": [
+        2.0,
+        2.2,
+        3.4
+      ],
+      "dig_dps": 20.0,
+      "dig_hardness": 2,
+      "dig_reach": 4.5,
+      "scoop_radius": 4.0,
+      "speed_label": "Slow",
+      "accel_label": "Medium",
+      "best_use": "Digging soft rock (limestone, coal, iron) and clearing loose rock fast",
+      "paint": "PaintYellow"
+    },
+    "heavy_excavator": {
+      "title": "Heavy Excavator",
+      "kind": "excavator",
+      "price": 32000,
+      "requires": "automated",
+      "gate": "deep",
+      "capacity": 20,
+      "accel": 1.4,
+      "max_speed": 2.6,
+      "reverse_speed": 1.6,
+      "turn": 0.9,
+      "brake": 7.0,
+      "size": [
+        3.0,
+        3.2,
+        4.4
+      ],
+      "dig_dps": 85.0,
+      "dig_hardness": 3,
+      "dig_reach": 6.0,
+      "scoop_radius": 5.0,
+      "speed_label": "Very slow",
+      "accel_label": "Low",
+      "best_use": "High-volume excavation, copper included",
+      "paint": "PaintOrange"
+    }
   },
   "upgrades": {
-    "bucket": {"title": "Loader Bucket Upgrade", "cost": 900, "vehicle": "loader", "capacity_add": 4, "effect": "Bucket holds 10 instead of 6"},
-    "cargo": {"title": "Truck Cargo Upgrade", "cost": 1400, "vehicle": "truck", "capacity_add": 12, "effect": "Truck bed holds 32 instead of 20"},
-    "engine": {"title": "Vehicle Engine Upgrade", "cost": 1200, "vehicle": "", "accel_mult": 1.4, "speed_mult": 1.2, "load_penalty_mult": 0.5, "effect": "+40% acceleration, +20% top speed, half the slowdown when loaded"}
+    "bucket": {
+      "title": "Loader Bucket Upgrade",
+      "cost": 900,
+      "vehicle": "loader",
+      "capacity_add": 4,
+      "effect": "Loader bucket holds 10 instead of 6"
+    },
+    "cargo": {
+      "title": "Truck Cargo Upgrade",
+      "cost": 1400,
+      "vehicle": "truck",
+      "capacity_add": 12,
+      "effect": "Every truck bed holds 12 more"
+    },
+    "engine": {
+      "title": "Vehicle Engine Upgrade",
+      "cost": 1200,
+      "vehicle": "",
+      "accel_mult": 1.4,
+      "speed_mult": 1.2,
+      "load_penalty_mult": 0.5,
+      "effect": "+40% acceleration, +20% top speed, half the slowdown when loaded"
+    }
   },
   "pile_max": 30,
   "pile_regen_minutes": 8,
   "piles": {
-    "limestone_rubble": {"title": "Limestone rubble", "resource": "limestone", "pos": [-5.5, 0, -1.5], "expansion": false},
-    "coal_rubble": {"title": "Coal rubble", "resource": "coal", "pos": [5.5, 0, -2.5], "expansion": false},
-    "limestone_rubble_east": {"title": "East limestone rubble", "resource": "limestone", "pos": [44, 0, 9], "expansion": true},
-    "iron_rubble_east": {"title": "East iron rubble", "resource": "iron_ore", "pos": [40, 0, -1], "expansion": true}
+    "limestone_rubble": {
+      "title": "Limestone rubble",
+      "resource": "limestone",
+      "pos": [
+        -5.5,
+        0,
+        -1.5
+      ],
+      "expansion": false
+    },
+    "coal_rubble": {
+      "title": "Coal rubble",
+      "resource": "coal",
+      "pos": [
+        5.5,
+        0,
+        -2.5
+      ],
+      "expansion": false
+    },
+    "limestone_rubble_east": {
+      "title": "East limestone rubble",
+      "resource": "limestone",
+      "pos": [
+        44,
+        0,
+        9
+      ],
+      "expansion": true
+    },
+    "iron_rubble_east": {
+      "title": "East iron rubble",
+      "resource": "iron_ore",
+      "pos": [
+        40,
+        0,
+        -1
+      ],
+      "expansion": true
+    }
   }
 }

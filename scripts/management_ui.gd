@@ -395,6 +395,12 @@ func _milestones(b: QuarryBusiness) -> void:
 		if i == prog.stage + 1:
 			for r in prog.requirement_progress(i):
 				sc.add_child(_label("      %s: %s" % [r[0], "done" if float(r[1]) >= float(r[2]) else "%d / %d" % [int(r[1] if not str(r[0]).begins_with("Clear") else float(r[1]) * 100.0), int(r[2] if not str(r[0]).begins_with("Clear") else float(r[2]) * 100.0)]], DIM, QuarryTheme.BODY))
+	var qc := _card()
+	qc.add_child(_label("QUARRY MILESTONES", ACCENT))
+	for qm in prog.milestone_defs():
+		var qdone: bool = prog.story["milestones"].get(str(qm["id"]), false)
+		qc.add_child(_label("%s %s  -  %s%s" % ["[x]" if qdone else "[ ]", str(qm["title"]).to_upper(), str(qm["text"]), "" if qdone else "   (%d%%)" % int(prog.milestone_progress(qm) * 100.0)], GOOD if qdone else INK, QuarryTheme.BODY))
+		qc.add_child(_label("      Bonus %s" % QuarryTheme.money_text(int(qm["reward"])), DIM, QuarryTheme.BODY))
 	var dc := _card()
 	dc.add_child(_label("DISCOVERIES", ACCENT))
 	var any := false
@@ -435,7 +441,7 @@ func _milestones(b: QuarryBusiness) -> void:
 func _equipment() -> void:
 	var f: QuarryFleet = game.fleet
 	content.add_child(_label("Heavy machinery is delivered to the equipment parking bays south of the yard. Walk up and press E to drive.", DIM))
-	for type in QuarryFleet.TYPES:
+	for type in f.types():
 		var spec: Dictionary = f.spec(type)
 		var card := _card()
 		var row := _row()
@@ -448,14 +454,22 @@ func _equipment() -> void:
 		var reason: String = f.buy_block_reason(type)
 		var t: String = type
 		row.add_child(_button("Buy" if reason == "" else reason, func(): _say(game.ui_buy_vehicle(t)), reason == ""))
-		var desc := "Scoops rubble piles and loose rock; dumps into the storage crate, crusher hoppers, output storage or a truck." if type == "loader" else "Hauls large loads from the loader to the storage crate, crusher hoppers or output storage. Bed tips to unload."
+		var kind := f.kind(type)
+		var desc := "Scoops rubble piles and loose rock; dumps into the storage crate, crusher hoppers, output storage or a truck."
+		if kind == "truck":
+			desc = "Hauls loads from the loader or excavator to the storage crate, crusher hoppers or output storage. Bed tips to unload."
+		elif kind == "excavator":
+			desc = "Digs exposed rock up to hardness %d (%.0f damage a second, reach %.1f m) straight into its bucket, and scoops loose rock." % [int(spec.get("dig_hardness", 1)), float(spec.get("dig_dps", 0)), float(spec.get("dig_reach", 0))]
 		card.add_child(_label(desc, DIM, QuarryTheme.BODY))
+		card.add_child(_label("Cargo %d   Top speed %s   Acceleration %s   Best use: %s" % [int(spec["capacity"]), str(spec.get("speed_label", "")), str(spec.get("accel_label", "")), str(spec.get("best_use", ""))], INK, QuarryTheme.BODY))
+		if not game.prog.unlocked(type):
+			card.add_child(_label("Unlocks at the %s stage" % game.prog.feature_stage_title(type), DIM, QuarryTheme.BODY))
 		for v in f.vehicles:
 			if str(v["type"]) == type:
 				var cargo := ""
 				for k in v["cargo"]:
 					cargo += " %s %d" % [str(k).replace("_", " "), v["cargo"][k]]
-				card.add_child(_label("  #%d  load %d/%d%s   top speed %.1f m/s   acceleration %.1f m/s2" % [v["id"], f.cargo_total(v), f.capacity(v), cargo, f.max_speed(v), f.accel(v)], INK, QuarryTheme.BODY))
+				card.add_child(_label("  %s  load %d/%d%s   top speed %.1f m/s   acceleration %.1f m/s2" % [str(v.get("name", "#%d" % int(v["id"]))), f.cargo_total(v), f.capacity(v), cargo, f.max_speed(v), f.accel(v)], INK, QuarryTheme.BODY))
 	var up := _card()
 	up.add_child(_label("EQUIPMENT UPGRADES", ACCENT))
 	for key in ["bucket", "cargo", "engine"]:

@@ -25,7 +25,7 @@ var quarry_level := 1                  ## Phase 7.1: the deepest of the four qua
 const SCHEMA := 2                      ## save schema of the progression block: 1 = before Phase 7.1 (no field), 2 = quarry levels
 var rigs: Array = []
 var next_rig_id := 1
-var story := {"intro_seen": false, "found": {}, "read": {}, "visits": {}, "journal": [], "fossil": "", "companion": {"state": "none"}}
+var story := {"intro_seen": false, "found": {}, "read": {}, "visits": {}, "journal": [], "fossil": "", "companion": {"state": "none"}, "milestones": {}}
 ## Phase 6.2 tutorial: weeds and rubble heaps still on the site. "cleared": id -> true, "units": heap id -> units
 ## left (heaps keep their remaining stone when saved), "done": the whole site is clean (hillside unlocked).
 var cleanup := {"cleared": {}, "units": {}, "done": false}
@@ -509,6 +509,9 @@ func implied_stage(vehicle_types: Array = []) -> int:
 		s = maxi(s, 3)
 	if "truck" in vehicle_types or (business and business.milestones.get("automated", false)) or rigs.size() > 0:
 		s = maxi(s, 4)
+	for vt in vehicle_types:                     # Phase 8.2: owning a machine implies the stage that unlocks it
+		if cfg.get("vehicle_gates", {}).has(str(vt)):
+			s = maxi(s, stage_index(str(cfg["vehicle_gates"][str(vt)])))
 	if level_unlocked >= 2:
 		s = maxi(s, 5)
 	return s
@@ -529,6 +532,8 @@ func unlocked(feature: String) -> bool:
 		"crusher", "output", "loader": return stage >= stage_index("industry")
 		"truck": return stage >= stage_index("large")
 		"permit": return stage >= stage_index("deep")
+	if cfg.get("vehicle_gates", {}).has(feature):
+		return stage >= stage_index(str(cfg["vehicle_gates"][feature]))
 	if cfg.get("machines", {}).has(feature):
 		return stage >= int(cfg["machines"][feature].get("stage", 0))
 	return true
@@ -539,6 +544,8 @@ func feature_stage_title(feature: String) -> String:
 		"crusher", "output", "loader": return str(stage_info(stage_index("industry"))["title"])
 		"truck": return str(stage_info(stage_index("large"))["title"])
 		"permit": return str(stage_info(stage_index("deep"))["title"])
+	if cfg.get("vehicle_gates", {}).has(feature):
+		return str(stage_info(stage_index(str(cfg["vehicle_gates"][feature])))["title"])
 	if cfg.get("machines", {}).has(feature):
 		return str(stage_info(int(cfg["machines"][feature].get("stage", 0)))["title"])
 	return ""
@@ -852,6 +859,48 @@ func fossil_choose(who: String) -> int:
 		story["companion"] = {"state": "pending", "ready_day": current_day + 1}
 	return price
 
+# ------------------------------------------------------------------ quarry milestones (Phase 8.2)
+
+func milestone_defs() -> Array:
+	return cfg.get("quarry_milestones", [])
+
+func milestone_met(m: Dictionary) -> bool:
+	var w: Dictionary = m.get("when", {})
+	if w.has("quarry_level") and quarry_level < int(w["quarry_level"]):
+		return false
+	if w.has("cleared"):
+		var c: Dictionary = w["cleared"]
+		if level_cleared_fraction(int(c["level"])) < float(c["fraction"]):
+			return false
+	if w.has("mined"):
+		var id := str(w["mined"]["formation"])
+		if not state.deposits.has(id) or int(state.deposits[id].get("mined", 0)) <= 0:
+			return false
+	return true
+
+## Pays each excavation milestone once (money only: it does not count as sales). Returns the newly reached ones.
+func check_quarry_milestones() -> Array:
+	var out := []
+	for m in milestone_defs():
+		var id := str(m["id"])
+		if story["milestones"].get(id, false) or not milestone_met(m):
+			continue
+		story["milestones"][id] = true
+		state.money += int(m.get("reward", 0))
+		out.append(m)
+	return out
+
+## Progress of one milestone for the UI: a 0..1 fraction (1 when done).
+func milestone_progress(m: Dictionary) -> float:
+	if story["milestones"].get(str(m["id"]), false):
+		return 1.0
+	var w: Dictionary = m.get("when", {})
+	if w.has("cleared"):
+		return clampf(level_cleared_fraction(int(w["cleared"]["level"])) / float(w["cleared"]["fraction"]), 0.0, 1.0)
+	if w.has("quarry_level"):
+		return clampf(float(quarry_level - 1) / float(maxi(1, int(w["quarry_level"]) - 1)), 0.0, 1.0)
+	return 0.0
+
 # ------------------------------------------------------------------ the companion (Phase 7.7)
 
 var current_day := 0          ## in-game day number, kept up to date by main
@@ -1031,8 +1080,10 @@ func restore(raw_data: Dictionary, vehicle_types: Array = []) -> void:
 		for k in cu.get("units", {}):
 			cleanup["units"][str(k)] = clampi(int(cu["units"][k]), 0, int(cleanup_cfg().get("heap_units", 5)))
 	var st = data.get("story", {})
-	story = {"intro_seen": bool(st.get("intro_seen", true)) if st is Dictionary else true, "found": {}, "read": {}, "visits": {}, "journal": [], "fossil": "", "companion": {"state": "none"}}
+	story = {"intro_seen": bool(st.get("intro_seen", true)) if st is Dictionary else true, "found": {}, "read": {}, "visits": {}, "journal": [], "fossil": "", "companion": {"state": "none"}, "milestones": {}}
 	if st is Dictionary:
+		for k in st.get("milestones", {}):
+			story["milestones"][str(k)] = true
 		var fs := str(st.get("fossil", ""))
 		story["fossil"] = fs if fs in ["found", "collector", "scientist"] else ""
 		if bool(st.get("fossil_egg", false)):
@@ -1064,6 +1115,11 @@ func restore(raw_data: Dictionary, vehicle_types: Array = []) -> void:
 		stats[k] = maxi(0, int(s.get(k, 0))) if s is Dictionary else 0
 	stage = maxi(clampi(int(data.get("stage", 0)), 0, stages().size() - 1), implied_stage(vehicle_types))
 	check_stages()
+	if not (st is Dictionary and st.has("milestones")):
+		# a save from before Phase 8.2: what it has already dug counts as reached, with no windfall
+		for m in milestone_defs():
+			if milestone_met(m):
+				story["milestones"][str(m["id"])] = true
 	if story["intro_seen"] and not (st is Dictionary and st.has("visits")):
 		# a save from before Phase 7.5: Walter does not come back for everything the player has already done
 		journal_add("handover")

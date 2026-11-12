@@ -11,6 +11,13 @@ var game
 var fleet: QuarryFleet
 var vehicle_id := 0
 var vtype := ""
+var vkind := "loader"          ## family: loader / truck / excavator (a type can be any of the vehicles in data/vehicles.json)
+var model_root: Node3D
+var paint_cab := "PaintRed"
+var paint_bed := "PaintOrange"
+var paint_main := "PaintYellow"
+var digging := false
+var dig_phase := 0.0
 var data: Dictionary
 var size := Vector3(2, 1.5, 3)
 
@@ -53,6 +60,11 @@ func setup(main_node, f: QuarryFleet, record: Dictionary) -> void:
 	data = record
 	vehicle_id = int(record["id"])
 	vtype = str(record["type"])
+	vkind = fleet.kind(vtype)
+	var sp: Dictionary = fleet.spec(vtype)
+	paint_cab = str(sp.get("cab_paint", paint_cab))
+	paint_bed = str(sp.get("bed_paint", paint_bed))
+	paint_main = str(sp.get("paint", paint_main))
 	name = "Vehicle_%d" % vehicle_id
 	var s: Array = fleet.spec(vtype)["size"]
 	size = Vector3(float(s[0]), float(s[1]), float(s[2]))
@@ -85,15 +97,20 @@ func setup(main_node, f: QuarryFleet, record: Dictionary) -> void:
 	hull_shape.name = "BodyHull"
 	hull_shape.shape = hull
 	add_child(hull_shape)
-	if vtype == "loader":
-		_build_loader()
-	else:
-		_build_truck()
+	model_root = Node3D.new()
+	model_root.name = "Model"
+	add_child(model_root)
+	var base := Vector3(2.0, 1.5, 3.0) if vkind == "loader" else (Vector3(2.2, 1.8, 4.6) if vkind == "truck" else Vector3(2.0, 2.2, 3.4))
+	model_root.scale = Vector3(size.x / base.x, size.y / base.y, size.z / base.z)    # bigger machines are the same build, larger
+	match vkind:
+		"loader": _build_loader()
+		"excavator": VehicleModels.excavator(self)
+		_: _build_truck()
 	cam_pivot = Node3D.new()
 	cam_pivot.position = Vector3(0, 2.0, 0)
 	add_child(cam_pivot)
 	camera = Camera3D.new()
-	camera.position = Vector3(0, 1.6, 7.5 if vtype == "truck" else 6.5)
+	camera.position = Vector3(0, 1.6, cam_distance())
 	camera.far = 700
 	cam_pivot.add_child(camera)
 	var p: Array = record["position"]
@@ -131,10 +148,18 @@ func _build_truck() -> void:
 func forward() -> Vector3:
 	return -global_transform.basis.z
 
+func has_bucket() -> bool:
+	return vkind == "loader" or vkind == "excavator"
+
+func cam_distance() -> float:
+	return 6.5 + maxf(0.0, size.z - 3.0) * (0.45 if vkind == "truck" else 1.0)
+
 ## Point in front of the loader bucket / behind the truck bed where material is handled.
 func work_point() -> Vector3:
-	if vtype == "loader":
+	if vkind == "loader":
 		return global_transform * Vector3(0, 0, -size.z * 0.5 - 1.1)
+	if vkind == "excavator":
+		return global_transform * Vector3(0, 0, -size.z * 0.5 - float(fleet.spec(vtype).get("dig_reach", 4.0)) * 0.55)
 	return global_transform * Vector3(0, 0, size.z * 0.5 + 1.0)
 
 func bed_center() -> Vector3:
@@ -223,7 +248,7 @@ func recover() -> void:
 ## Chase camera that never ends up behind a wall: a ray from the pivot toward the wanted spot stops it at the first
 ## solid thing (hangar back wall, building, rock), so you always see the vehicle, also inside the equipment garage.
 func _pull_camera_in() -> void:
-	var dist := 7.5 if vtype == "truck" else 6.5
+	var dist := cam_distance()
 	var want_local := Vector3(0, 1.6, dist)
 	var from := cam_pivot.global_position
 	var to := cam_pivot.to_global(want_local)
@@ -249,14 +274,20 @@ func _animate(delta: float) -> void:
 	var n := fleet.cargo_total(data)
 	# cargo visuals ease: material pours out over the dump instead of vanishing in one frame
 	shown_load = move_toward(shown_load, float(n), delta * maxf(4.0, absf(float(n) - shown_load) * 2.2))
-	if vtype == "loader":
+	if has_bucket():
 		bucket_lift = move_toward(bucket_lift, bucket_target, delta * 0.9)
 		dump_timer = maxf(0.0, dump_timer - delta)
 		curl_timer = maxf(0.0, curl_timer - delta)
 		var lift := smoothstep(0.0, 1.0, bucket_lift) # hydraulic arm accelerates and settles
+		var dig_curl := 0.0
+		if vkind == "excavator" and digging:
+			# digging: the boom lowers into the rock, the bucket bites and curls back, then the boom rises
+			dig_phase += delta * 2.4
+			lift = 0.5 + 0.5 * sin(dig_phase)
+			dig_curl = maxf(0.0, -cos(dig_phase)) * 0.6
 		arm.rotation.x = lerpf(-0.12, 0.75, lift)
 		var tilt := sin(clampf(dump_timer / 1.0, 0.0, 1.0) * PI) * 1.1
-		var curl := sin(clampf(curl_timer / 0.6, 0.0, 1.0) * PI) * 0.45
+		var curl := sin(clampf(curl_timer / 0.6, 0.0, 1.0) * PI) * 0.45 + dig_curl
 		bucket.rotation.x = -arm.rotation.x - tilt + curl # level while lifting, curls back to scoop
 		bucket_load.visible = shown_load > 0.2
 		if bucket_load.visible:
