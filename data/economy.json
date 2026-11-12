@@ -9,10 +9,10 @@
   "prices": {
     "limestone": 5,
     "coal": 12,
-    "iron_ore": 25,
+    "iron_ore": 28,
     "crushed_stone": 11,
-    "copper_ore": 45,
-    "gold_ore": 90
+    "copper_ore": 60,
+    "gold_ore": 140
   },
   "upgrades": {
     "reinforced_pickaxe": 45,

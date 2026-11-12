@@ -3,8 +3,8 @@
   "load_penalty": 0.45,
   "parking": [[-1.5, 0, 18.5], [3.0, 0, 18.5], [7.5, 0, 18.5], [12.0, 0, 18.5]],
   "vehicles": {
-    "loader": {"title": "Front Loader", "price": 2500, "requires": "mechanized", "capacity": 6, "accel": 3.2, "max_speed": 5.0, "reverse_speed": 2.5, "turn": 1.5, "brake": 9.0, "size": [2.0, 1.5, 3.0]},
-    "truck": {"title": "Dump Truck", "price": 5000, "requires": "automated", "capacity": 20, "accel": 2.6, "max_speed": 7.5, "reverse_speed": 3.0, "turn": 1.1, "brake": 8.0, "size": [2.2, 1.8, 4.6]}
+    "loader": {"title": "Front Loader", "price": 3200, "requires": "mechanized", "capacity": 6, "accel": 3.2, "max_speed": 5.0, "reverse_speed": 2.5, "turn": 1.5, "brake": 9.0, "size": [2.0, 1.5, 3.0]},
+    "truck": {"title": "Dump Truck", "price": 6500, "requires": "automated", "capacity": 20, "accel": 2.6, "max_speed": 7.5, "reverse_speed": 3.0, "turn": 1.1, "brake": 8.0, "size": [2.2, 1.8, 4.6]}
   },
   "upgrades": {
     "bucket": {"title": "Loader Bucket Upgrade", "cost": 900, "vehicle": "loader", "capacity_add": 4, "effect": "Bucket holds 10 instead of 6"},

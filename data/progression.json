@@ -58,7 +58,7 @@
       "id": "reinforced",
       "title": "Reinforced Pickaxe",
       "cost": 320,
-      "power": 16,
+      "power": 14,
       "interval": 0.5,
       "max_hardness": 2,
       "sound": "hit_reinforced",
@@ -69,7 +69,7 @@
       "id": "drill",
       "title": "Power Drill",
       "cost": 1600,
-      "dps": 55,
+      "dps": 36,
       "max_hardness": 3,
       "sound": "drill_loop",
       "continuous": true,
@@ -79,7 +79,7 @@
       "id": "jackhammer",
       "title": "Heavy Jackhammer",
       "cost": 4500,
-      "dps": 125,
+      "dps": 70,
       "max_hardness": 4,
       "sound": "jackhammer_loop",
       "continuous": true,
@@ -138,7 +138,7 @@
       "title": "First Employee",
       "goal": "Hire your first helper at the office desk.",
       "req": {
-        "earned": 350,
+        "earned": 400,
         "tool": 1
       }
     },
@@ -147,7 +147,7 @@
       "title": "Early Industrialization",
       "goal": "Order a crusher, output storage and a front loader, and cut into the quarry face.",
       "req": {
-        "earned": 1400,
+        "earned": 2500,
         "employees": 1,
         "excavated": {"level": 1, "fraction": 0.04}
       }
@@ -157,7 +157,7 @@
       "title": "Large-Scale Mining",
       "goal": "Install a drilling rig, buy the dump truck and open up the first bench of the quarry.",
       "req": {
-        "earned": 6000,
+        "earned": 18000,
         "crushers": 1,
         "quarry_level": 2
       }
@@ -167,7 +167,7 @@
       "title": "Deep Excavation",
       "goal": "Buy the excavation permit, open the lower level and carve out the surface quarry.",
       "req": {
-        "earned": 14000,
+        "earned": 60000,
         "cleared": 0.55,
         "quarry_level": 3
       }
@@ -936,7 +936,7 @@
     "iron_mountain"
   ],
   "excavation": {
-    "permit_cost": 5000,
+    "permit_cost": 12000,
     "depth": 3.5,
     "pit": [
       -5.0,
@@ -954,21 +954,21 @@
   "machines": {
     "drill_rig": {
       "title": "Drilling Rig",
-      "price": 3200,
+      "price": 4200,
       "stage": 4,
-      "dps": 9.0,
+      "dps": 26.0,
       "max_hardness": 3,
       "cost_per_min": 0.8,
       "bin": 40,
       "reach": 7.0,
       "upgrades": [
         {
-          "cost": 1800,
+          "cost": 2600,
           "mult": 1.5,
           "effect": "RIG OUTPUT +50%"
         },
         {
-          "cost": 4200,
+          "cost": 5800,
           "mult": 1.5,
           "effect": "RIG OUTPUT +50%"
         }
@@ -976,16 +976,16 @@
     },
     "rock_breaker": {
       "title": "Industrial Rock Breaker",
-      "price": 8500,
+      "price": 14000,
       "stage": 5,
-      "dps": 22.0,
+      "dps": 90.0,
       "max_hardness": 4,
       "cost_per_min": 2.0,
       "bin": 40,
       "reach": 7.0,
       "upgrades": [
         {
-          "cost": 4000,
+          "cost": 7500,
           "mult": 1.4,
           "effect": "BREAKER OUTPUT +40%"
         }
@@ -993,7 +993,7 @@
     },
     "advanced_crusher": {
       "title": "Advanced Crusher",
-      "price": 2600,
+      "price": 3600,
       "stage": 4,
       "speed_mult": 0.45,
       "capacity_mult": 2

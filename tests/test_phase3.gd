@@ -47,11 +47,11 @@ func test_fleet_logic() -> void:
 	gate.business.milestones["mechanized"] = true
 	check(not gate.buy("loader", Vector3.ZERO).is_empty() and gate.buy("truck", Vector3.ZERO).is_empty(), "truck still locked until Automated Business")
 	var poor := make(2499)
-	check(poor.buy("loader", Vector3.ZERO).is_empty() and poor.state.money == 2499, "cannot buy the loader without $2,500")
+	check(poor.buy("loader", Vector3.ZERO).is_empty() and poor.state.money == 3199, "cannot buy the loader without $3,200")
 	var f := make()
 	var loader := f.buy("loader", Vector3.ZERO)
 	var truck := f.buy("truck", Vector3(5, 0, 0))
-	check(f.state.money == 20000 - 2500 - 5000, "vehicle prices deducted exactly ($2,500 + $5,000)")
+	check(f.state.money == 20000 - 3200 - 6500, "vehicle prices deducted exactly ($3,200 + $6,500)")
 	var pile0 := int(f.piles["limestone_rubble"]["amount"])
 	var got := f.scoop_pile(loader, "limestone_rubble")
 	check(got == 6 and int(f.piles["limestone_rubble"]["amount"]) == pile0 - 6 and int(loader["cargo"]["limestone"]) == 6, "1 loader scoop removes exactly what enters the bucket")
@@ -199,7 +199,7 @@ func scene_tests() -> void:
 	game.delivery.finish_all()
 	check(game.ui_buy_vehicle("truck").ends_with("parking area."), "dump truck bought at the office")
 	game.delivery.finish_all()
-	check(game.state.money == 50000 - 7500, "office purchases charge $7,500 in total")
+	check(game.state.money == 50000 - 9700, "office purchases charge $9,700 in total")
 	var loader = null
 	var truck = null
 	for v in game.vehicle_nodes.values():

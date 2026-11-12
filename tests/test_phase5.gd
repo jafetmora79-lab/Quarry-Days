@@ -143,12 +143,12 @@ func test_balance() -> void:
 	var stone := float(p.max_units("stone_mountain"))
 	var manual := stone / (p.tool_dps(1) / hp) / 60.0
 	var jack := stone / (p.tool_dps(4) / hp) / 60.0
-	check(manual > 8.0 and jack < manual / 5.0, "12 the stone formation is ~%.0f min of pickaxe work but ~%.1f min with the jackhammer" % [manual, jack])
+	check(manual > 8.0 and jack < manual / 4.0, "12 the stone formation is ~%.0f min of pickaxe work but ~%.1f min with the jackhammer" % [manual, jack])
 	var value := 0.0
-	for id in p.cfg["starting_formations"]:
+	for id in p.cfg["formations"]:
 		value += float(p.max_units(id)) * float(p.state.config["prices"][str(p.fdef(id)["resource"])])
 	var deep_req := float(p.stage_info(p.stage_index("deep"))["req"]["earned"])
-	check(value > deep_req + p.permit_cost(), "12 the starting formations ($%d raw) fund the deep stage and permit" % int(value))
+	check(value > deep_req + p.permit_cost(), "12 all quarry formations ($%d raw) fund the deep stage and permit" % int(value))
 	var rig := p.machine("drill_rig")
 	var rig_income := float(rig["dps"]) / hp * price * 120.0 # per in-game hour (120 s)
 	var rig_cost := float(rig["cost_per_min"]) * 60.0
@@ -170,7 +170,7 @@ func test_stages() -> void:
 	check(p.stage == 2 and p.unlocked("hire") and not p.unlocked("crusher"), "12 First Employee stage unlocks hiring only")
 	p.state.money = 1000
 	p.business.hire("rosa")
-	p.state.add_income(1000, "sale")
+	p.state.add_income(2500, "sale")
 	p.check_stages()
 	check(p.stage == 2, "12 money and a crew alone no longer open Early Industrialization: the quarry face has to be cut too")
 	p.init_formation("hillside_face_01")
