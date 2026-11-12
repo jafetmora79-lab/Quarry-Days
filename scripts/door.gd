@@ -69,7 +69,7 @@ func _workers_near() -> bool:
 	if not game.driving and game.player and Vector2(game.player.global_position.x, game.player.global_position.z).distance_to(Vector2(c.x, c.z)) < 1.5:
 		return true   # walking up to a door opens it; E still opens and closes it by hand
 	for w in game.worker_nodes.values():
-		if Vector2(w.global_position.x, w.global_position.z).distance_to(Vector2(c.x, c.z)) < 1.9:
+		if w.visible and Vector2(w.global_position.x, w.global_position.z).distance_to(Vector2(c.x, c.z)) < 1.9:
 			return true
 	return false
 

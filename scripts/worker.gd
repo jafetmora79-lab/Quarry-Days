@@ -74,6 +74,8 @@ func setup(main_node, biz: QuarryBusiness, record: Dictionary) -> void:
 ## lowering the arms and measuring the hands there used stale numbers.
 func _ready() -> void:
 	_build_rig()
+	if bool(e.get("away", false)):
+		_set_away(true)                              # saved while at home: stay home until the next shift
 
 # ------------------------------------------------------------------ model
 
@@ -240,7 +242,7 @@ func travel(goal: Vector3, key: String, delta: float, arrive := 0.45) -> int:
 	var dir := Vector3(target.x - global_position.x, 0, target.z - global_position.z).normalized()
 	# Simple separation keeps the (max four) workers from walking through each other.
 	for other in game.worker_nodes.values():
-		if other != self:
+		if other != self and other.visible:
 			var away: Vector3 = global_position - other.global_position
 			away.y = 0
 			var dist: float = away.length()
@@ -347,6 +349,13 @@ func step(delta: float) -> void:
 		return
 	anim = "idle"
 	anim_phase = -1.0
+	if bool(e.get("away", false)):
+		if business.can_work(e):
+			_return_from_home()
+		else:
+			if not bool(e["suspended"]):
+				e["task"] = "At home - back at %s" % game.fmt_time(int(e["shift_start"]))
+			return                                   # at home: nothing to simulate
 	if not business.can_work(e):
 		_off_duty(delta)
 	else:
@@ -374,12 +383,34 @@ func _off_duty(delta: float) -> void:
 		e["task"] = "Off shift (%s-%s)" % [game.fmt_time(int(e["shift_start"])), game.fmt_time(int(e["shift_end"]))]
 		if str(e["warning"]).begins_with("Unpaid"):
 			e["warning"] = ""
+	# off shift (or unpaid): walk back out through the service gate and go home; they walk in again at their next shift
 	var spot: Vector3 = game.break_spot(business.employees.find(e))
-	if travel(spot, "break", delta, 0.6) == ARRIVED:
-		_face(spot + Vector3(0, 0, -3)) # toward the bench and the yard
-		anim = "rest"
+	e["task"] = "Heading home - back at %s" % game.fmt_time(int(e["shift_start"])) if not bool(e["suspended"]) else str(e["task"])
+	if travel(spot, "home", delta, 0.7) == ARRIVED:
+		_go_home()
 		if str(e["warning"]).begins_with("Route blocked"):
 			e["warning"] = ""
+
+## Out of sight at home: no body, no collision, no animation until the next shift.
+func _go_home() -> void:
+	e["away"] = true
+	_set_away(true)
+
+func _set_away(away: bool) -> void:
+	visible = not away
+	collision_layer = 0 if away else 4
+	velocity = Vector3.ZERO
+	if away and e.get("task", "") != "":
+		e["task"] = "At home - back at %s" % game.fmt_time(int(e["shift_start"])) if not bool(e.get("suspended", false)) else str(e["task"])
+
+## The shift starts: step out of the service gate again.
+func _return_from_home() -> void:
+	e["away"] = false
+	_set_away(false)
+	global_position = game.break_spot(business.employees.find(e)) + Vector3(0, 0.05, 0)
+	rotation.y = 0.0
+	facing = 0.0
+	path_key = ""
 
 const ACTION_ANIM := {"pickup": "pickup", "unload": "unload", "collect": "interact", "start": "interact", "strike": "work", "sell": "work"}
 

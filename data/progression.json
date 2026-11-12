@@ -857,6 +857,7 @@
   },
   "home": {
     "sleep_from_hour": 17.0,
+    "curfew_hour": 22.0,
     "wake_hour": 7.0
   }
 }

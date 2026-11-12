@@ -353,11 +353,14 @@ func scene_more() -> void:
 	check(stats["empty"] == 0, "8 no swinging at an empty column")
 	check(stats["max_dv"] < 12.0, "8 smooth acceleration: no velocity snaps (max %.1f m/s^2)" % stats["max_dv"])
 	check(stats["float"] < 0.04, "8 feet stay on the ground (max hip lift %.3f m)" % stats["float"])
-	# off shift -> resting at the break area
+	# off shift -> walks out through the service gate and goes home
 	game.business.set_shift(int(miner["id"]), 0, 30)
 	game.state.clock_minutes = 600.0
-	var rested := await frames(4000, func(): return w.anim == "rest")
-	check(rested < 4000 and w._flat(w.global_position, game.break_spot(0)) < 1.0, "8 off shift, the worker walks to the break area and rests")
+	var rested := await frames(5000, func(): return bool(w.e.get("away", false)))
+	check(rested < 5000 and not w.visible and w.collision_layer == 0, "8 off shift, the worker walks out through the gate and goes home (out of sight)")
+	game.business.set_shift(int(miner["id"]), 0, 1439)
+	var back := await frames(600, func(): return w.visible)
+	check(back < 600 and not bool(w.e.get("away", true)) and w.collision_layer == 4, "8 and walks in through the gate again when the shift starts")
 	Engine.time_scale = 1.0
 	# ---- 4/7 crusher: real processing drives the animation
 	game.state.new_crusher(Vector3(4, 0, 4), 0)

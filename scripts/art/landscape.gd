@@ -25,6 +25,8 @@ var forest: MultiMeshInstance3D
 var tree_count := 0
 var tree_positions: Array = []   # for tests (the headless renderer does not keep MultiMesh data)
 var day := 1.0
+var sun: MeshInstance3D
+var moon: MeshInstance3D
 
 const SKY_TOP := [Color(0.02, 0.04, 0.10), Color(0.27, 0.50, 0.82)]
 const SKY_HORIZON := [Color(0.05, 0.07, 0.13), Color(0.80, 0.88, 0.94)]
@@ -39,6 +41,7 @@ func build(main_node) -> void:
 	env = game.sky_light.environment
 	_sky()
 	_clouds()
+	_sun_moon()
 	for i in range(MTN_RADII.size()):
 		_mountains(i)
 	_forest()
@@ -76,6 +79,7 @@ func set_day(d: float) -> void:
 	env.fog_light_color = hor.lerp(Color(0.86, 0.84, 0.76), 0.25 * d)
 	if cloud_mat:
 		cloud_mat.albedo_color = Color(0.2, 0.22, 0.3).lerp(Color(0.97, 0.97, 1.0), d)
+		cloud_mat.emission_energy_multiplier = lerpf(0.25, 0.45, d)
 
 func _process(delta: float) -> void:
 	if clouds_root:
@@ -88,29 +92,77 @@ func _clouds() -> void:
 	clouds_root.name = "Clouds"
 	add_child(clouds_root)
 	cloud_mat = StandardMaterial3D.new()
-	cloud_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	cloud_mat.albedo_color = Color(0.97, 0.97, 1.0)
-	cloud_mat.disable_fog = true
+	cloud_mat.roughness = 1.0
 	cloud_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	cloud_mat.disable_fog = true
+	cloud_mat.emission_enabled = true                  # keeps the shapes readable in the dark
+	cloud_mat.emission = Color(0.50, 0.54, 0.64)
+	cloud_mat.emission_energy_multiplier = 0.45
+	# three cumulus shapes: flat-bottomed puffs grouped into banks, lit by the sun so the tops are bright and the
+	# undersides grey (the old single flat blobs read as white polygons)
 	var meshes := []
 	for k in range(3):
 		var s := MeshKit.Soup.new()
-		MeshKit.rock_into(s, Vector3.ZERO, Vector3(70.0 + 20.0 * k, 12.0 + 3.0 * k, 38.0 + 8.0 * k), 3100 + k, 3, 8, true, Vector2(-0.12, 0.2))
-		MeshKit.rock_into(s, Vector3(26.0, -1.0, 6.0), Vector3(40.0, 9.0, 26.0), 3120 + k, 3, 7, true, Vector2(-0.1, 0.2))
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 3100 + k * 17
+		for i in range(5 + k):
+			var off := Vector3(rng.randf_range(-1.0, 1.0) * (20.0 + 7.0 * k), rng.randf_range(-0.1, 0.9) * 5.0, rng.randf_range(-1.0, 1.0) * 8.0)
+			var r := rng.randf_range(9.0, 15.0)
+			MeshKit.rock_into(s, off, Vector3(r * 2.3, r * 1.15, r * 1.7), 3200 + k * 31 + i, 3, 8, true, Vector2(-0.1, 0.12))
 		var m := s.mesh()
 		m.surface_set_material(0, cloud_mat)
 		meshes.append(m)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 4242
-	for i in range(14):
-		var a := rng.randf() * TAU
-		var r := rng.randf_range(160.0, 430.0)
+	var rng2 := RandomNumberGenerator.new()
+	rng2.seed = 4242
+	for i in range(20):
+		var a := rng2.randf() * TAU
+		var r := rng2.randf_range(140.0, 440.0)
 		var mi := MeshInstance3D.new()
 		mi.mesh = meshes[i % 3]
-		mi.position = Vector3(cos(a) * r, rng.randf_range(95.0, 140.0), sin(a) * r)
-		mi.rotation.y = rng.randf() * TAU
+		mi.position = Vector3(cos(a) * r, rng2.randf_range(105.0, 150.0), sin(a) * r)
+		mi.rotation.y = rng2.randf() * TAU
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		clouds_root.add_child(mi)
+
+# ------------------------------------------------------------------ sun and moon
+
+func _sun_moon() -> void:
+	sun = _disc("Sun", 24.0, Color(1.0, 0.93, 0.62))
+	moon = _disc("Moon", 16.0, Color(0.86, 0.90, 1.0))
+
+func _disc(nm: String, radius: float, color: Color) -> MeshInstance3D:
+	var sm := SphereMesh.new()
+	sm.radius = radius
+	sm.height = radius * 2.0
+	sm.radial_segments = 10
+	sm.rings = 5
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_color = color
+	mat.disable_fog = true
+	var mi := MeshInstance3D.new()
+	mi.name = nm
+	mi.mesh = sm
+	mi.material_override = mat
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+	return mi
+
+## Sun and moon cross the sky with the clock: the sun rises in the east at 06:00, is highest at noon and sets in the
+## west at 18:00; the moon is on the opposite side. Each hides below the horizon.
+func set_time(minutes: float) -> void:
+	var phase := fposmod(minutes, 1440.0) / 1440.0
+	var al := (phase - 0.25) * TAU
+	if sun:
+		var d := Vector3(cos(al), sin(al), -0.30).normalized()
+		sun.position = d * 430.0
+		sun.visible = d.y > -0.06
+	if moon:
+		var d2 := Vector3(-cos(al), -sin(al), 0.25).normalized()
+		moon.position = d2 * 430.0
+		moon.visible = d2.y > -0.06
+		moon.rotation.y = al
 
 # ------------------------------------------------------------------ mountains
 

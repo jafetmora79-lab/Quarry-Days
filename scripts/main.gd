@@ -92,9 +92,11 @@ var sleeping := false
 var sleep_timer := 0.0
 var _late_day := -1             # day on which the "go home to sleep" hint was shown
 var landscape: QuarryLandscape  # sky, clouds, distant mountains and forest (no collision)
+var curfew_enabled := true                      ## tests switch it off when they run the clock past the curfew
 var autosave_enabled := DisplayServer.get_name() != "headless"   ## tests run headless and never touch the player's save
 var autosave_t := 0.0
 var _confirm_new := false
+var _forced_sleep := false
 var doors: Array = []            # QuarryDoor: the office and home doors (E to open / close)
 var delivery: QuarryDelivery    # service gate, garage door, delivery drivers and walk-in hires
 var pit_zone: QuarryPitZone     # Phase 6.3a: the new pit area behind the north-east gate
@@ -388,7 +390,28 @@ func _sleep_tick(delta: float) -> void:
 	var day := int(state.clock_minutes / 1440.0)
 	if h >= 20.0 and _late_day != day and menu == "" and not placement:
 		_late_day = day
-		hud.toast("It's getting late", "Your bed is in the little house by the garage (E).", "info")
+		hud.toast("It's getting late", "Your bed is in the little house by the garage (E). The day ends at %02d:00." % int(prog.cfg.get("home", {}).get("curfew_hour", 22.0)), "info")
+	# the working day has an end: at the curfew the player is too tired to go on and is sent to bed
+	if (h >= float(prog.cfg.get("home", {}).get("curfew_hour", 22.0)) or h < 5.0) and prog.story["intro_seen"] and curfew_enabled:
+		force_sleep()
+
+## Past the curfew you cannot keep working: whatever you are doing is put away and you go to bed.
+func force_sleep() -> void:
+	if sleeping:
+		return
+	if driving:
+		exit_vehicle()
+	if placement:
+		_cancel_placement()
+	construction = false
+	if menu != "":
+		_close_menu()
+	_forced_sleep = true
+	sleeping = true
+	player.locked = true
+	hud.fade_to(1.0, 0.9)
+	sleep_timer = 1.1
+	hud.toast("Time to turn in", "It is too late to keep working. You head to bed.", "info")
 
 func _hour() -> float:
 	return fposmod(state.clock_minutes, 1440.0) / 60.0
@@ -422,6 +445,10 @@ func sleep_now() -> void:
 	_update_light()
 	_late_day = -1
 	_save()
+	if _forced_sleep:
+		_forced_sleep = false
+		player.global_position = HOME_POS + Vector3(0.8, 0.25, 0.3)     # waking up at home, by the bed
+		player.velocity = Vector3.ZERO
 	hud.toast("Good morning", "Day %d. The game was saved." % (int(state.clock_minutes / 1440.0) + 1), "milestone")
 
 # ------------------------------------------------------------------ Phase 6.2: clean up Grandpa's site
@@ -1201,6 +1228,7 @@ func _update_light() -> void:
 		art.set_night(1.0 - day)
 	if landscape:
 		landscape.set_day(day)
+		landscape.set_time(state.clock_minutes)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if hud and hud.card_open():
@@ -1991,7 +2019,6 @@ func _build_phase2_area() -> void:
 	var desk := _solid(world, "Management desk", Vector3(OFFICE_POS.x,0.5,13.4), Vector3(1.8,1.0,0.8), Color(0.30,0.20,0.12))
 	desk.set_meta("kind", "office")
 	_visual_box(desk, Vector3(-0.4,0.62,0), Vector3(0.5,0.24,0.06), Color(0.12,0.2,0.16))
-	_solid(world, "Break bench", Vector3(-14.4,0.25,15.3), Vector3(2.6,0.5,0.6), Color(0.33,0.22,0.12))
 
 ## Shows or hides the east expansion. Locked: barrier + cliff in place, no deposits there.
 func _set_expansion(unlocked: bool) -> void:
@@ -2069,8 +2096,9 @@ func is_visible_to_player(pos: Vector3) -> bool:
 
 # --------------------------------------------------------------- worker services
 
+## Where off-duty workers leave the site and come back to work: the service gate (there is no break area any more).
 func break_spot(slot: int) -> Vector3:
-	return Vector3(-15.7 + 0.85 * clampi(slot, 0, 3), 0, 16.4)
+	return Vector3(0.5 + 0.9 * float(clampi(slot, 0, 3) % 3 - 1), 0, 26.9 - 0.9 * float(clampi(slot, 0, 3) / 3))
 
 ## Standing area for a workplace endpoint: centre, radius of reachable ring, preferred side.
 func workplace(ep: Dictionary) -> Dictionary:

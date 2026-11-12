@@ -224,7 +224,6 @@ func _ground() -> void:
 	quad_flat(M_CONCRETE, game.OFFICE_POS, Vector2(6.4, 6.4), 0.0, 0.075)        # office pad
 	quad_flat(M_CONCRETE, game.SHED_POS, Vector2(6.0, 6.0), 0.0, 0.075)         # shed pad
 	quad_flat(M_CONCRETE, Vector3(-7.0, 0, 10.6), Vector2(4.0, 3.2), 0.0, 0.095)         # sales booth
-	quad_flat(M_CONCRETE, Vector3(-14.4, 0, 15.7), Vector2(4.0, 2.2), 0.0, 0.095)         # break area
 	for slot in game.fleet.cfg.get("parking", []):                                        # painted bay lines
 		for side in [-1.4, 1.4]:
 			quad_flat("Hazard", Vector3(float(slot[0]) + side, 0, float(slot[2])), Vector2(0.12, 4.2), 0.0, 0.115)
@@ -369,8 +368,6 @@ func _office() -> void:
 	prop(P_WAITING, c + Vector3(1.85, 0.16, -0.6), -PI * 0.5)
 	solid("Office cabinets", c + Vector3(-1.95, 0.6, 1.4), Vector3(0.6, 1.2, 1.4))
 	# break area
-	prop(P_BENCH, Vector3(-14.4, 0, 15.3), PI)
-	prop(P_TRASH, Vector3(-16.4, 0, 15.6))
 
 ## The upgrade board: a whiteboard on the office's west wall (E to open the upgrades), with the price list scribbled
 ## in marker, a pen tray and a magnet or two.

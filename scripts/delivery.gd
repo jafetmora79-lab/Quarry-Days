@@ -138,7 +138,7 @@ func _anyone_near() -> bool:
 		if _near_door(j["vehicle"].global_position, 6.0):
 			return true
 	for w in game.worker_nodes.values():
-		if _near_door(w.global_position):
+		if w.visible and _near_door(w.global_position):
 			return true
 	return false
 

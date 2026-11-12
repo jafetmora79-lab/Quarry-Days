@@ -77,7 +77,7 @@ func setup(main_node, f: QuarryFleet, record: Dictionary) -> void:
 	add_child(cam_pivot)
 	camera = Camera3D.new()
 	camera.position = Vector3(0, 1.6, 7.5 if vtype == "truck" else 6.5)
-	camera.far = 200
+	camera.far = 700
 	cam_pivot.add_child(camera)
 	var p: Array = record["position"]
 	position = Vector3(float(p[0]), maxf(0.02, float(p[1])), float(p[2]))
