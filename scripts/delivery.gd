@@ -141,7 +141,9 @@ func is_open() -> bool:
 # --------------------------------------------------------------- deliveries
 
 ## Called right after fleet.buy: the new machine is put at the tunnel mouth and driven to its bay.
-func start(vehicle_id: int, slot: Vector3) -> bool:
+## `fallback` = no bay in the garage was free: the machine drives through the garage and out of its open front to a spot on
+## the apron road instead.
+func start(vehicle_id: int, slot: Vector3, fallback := false) -> bool:
 	var v = game.vehicle_nodes.get(vehicle_id)
 	if v == null:
 		return false
@@ -152,14 +154,51 @@ func start(vehicle_id: int, slot: Vector3) -> bool:
 	v.global_position = Vector3(DOOR_X, 0.05, GATE.z)
 	v.rotation.y = 0.0
 	var wps: Array = [Vector3(DOOR_X, 0.05, 24.8), Vector3(DOOR_X, 0.05, 21.0)]
-	if absf(slot.x - DOOR_X) > 1.2:
-		wps.append(Vector3(slot.x, 0.05, 21.0))
+	if fallback:
+		wps.append(Vector3(DOOR_X, 0.05, 15.6))
+		if absf(slot.x - DOOR_X) > 1.2:
+			wps.append(Vector3(slot.x, 0.05, 13.4))
+	else:
+		if absf(slot.x - DOOR_X) > 1.2:
+			wps.append(Vector3(slot.x, 0.05, 21.0))
 	wps.append(slot)
 	var driver := _make_driver()
 	v.add_child(driver)
 	driver.position = Vector3(0.0, 1.0, 0.3)
-	jobs.append({"vehicle": v, "driver": driver, "slot": slot, "stage": "drive", "wps": wps, "t": 0.0})
+	var job := {"vehicle": v, "driver": driver, "slot": slot, "stage": "drive", "wps": wps, "t": 0.0, "wait": 0.0}
+	if not entry_clear():
+		# never appear inside someone: the machine waits out of sight at the tunnel mouth until the way is clear
+		job["stage"] = "queue"
+		v.visible = false
+	jobs.append(job)
 	return true
+
+## True when nobody (player, worker, another machine) stands where a delivery appears.
+func entry_clear() -> bool:
+	var at := Vector3(DOOR_X, 0.0, GATE.z)
+	if game.player and not game.driving and Vector2(game.player.global_position.x, game.player.global_position.z).distance_to(Vector2(at.x, at.z)) < 3.4:
+		return false
+	for w in game.worker_nodes.values():
+		if w.visible and Vector2(w.global_position.x, w.global_position.z).distance_to(Vector2(at.x, at.z)) < 3.4:
+			return false
+	for v in game.vehicle_nodes.values():
+		if not v.has_meta("delivering") and Vector2(v.global_position.x, v.global_position.z).distance_to(Vector2(at.x, at.z)) < 4.5:
+			return false
+	for j in jobs:
+		if str(j["stage"]) == "drive" and Vector2(j["vehicle"].global_position.x, j["vehicle"].global_position.z).distance_to(Vector2(at.x, at.z)) < 5.0:
+			return false
+	return true
+
+## Someone in the way of a delivery truck (pedestrians only: it never drives through people).
+func _blocked_ahead(v: Node3D) -> bool:
+	var front := v.global_position + (-v.global_transform.basis.z) * 2.6
+	var f2 := Vector2(front.x, front.z)
+	if game.player and not game.driving and Vector2(game.player.global_position.x, game.player.global_position.z).distance_to(f2) < 1.9:
+		return true
+	for w in game.worker_nodes.values():
+		if w.visible and Vector2(w.global_position.x, w.global_position.z).distance_to(f2) < 1.9:
+			return true
+	return false
 
 func _make_driver() -> Node3D:
 	var d := Node3D.new()
@@ -182,6 +221,8 @@ func _make_driver() -> Node3D:
 
 func _physics_process(delta: float) -> void:
 	var want := 1.0 if _anyone_near() else 0.0
+	if want > 0.5 and open_amount < 0.02:
+		game._sfx_at("breaker_hit", Vector3(DOOR_X, 1.5, DOOR_Z), -9.0)   # the shutter starts to roll up
 	open_amount = move_toward(open_amount, want, delta * 0.9)
 	var e := smoothstep(0.0, 1.0, open_amount)
 	pivot.scale.y = lerpf(1.0, 0.06, e)
@@ -196,7 +237,16 @@ func _step_job(j: Dictionary, delta: float) -> void:
 		reserved.erase(j["slot"])
 		return
 	match str(j["stage"]):
+		"queue":
+			if entry_clear():
+				v.visible = true
+				j["stage"] = "drive"
+				game.hud.toast("Delivery arriving", "%s is coming in through the service gate." % game.fleet.spec(v.vtype)["title"], "info")
 		"drive":
+			if _blocked_ahead(v) and float(j["wait"]) < 15.0:
+				j["wait"] = float(j["wait"]) + delta   # stops for people, up to 15 s
+				v.speed = 0.0
+				return
 			if v.global_position.z < DOOR_Z + 1.0 and v.global_position.z > DOOR_Z - 1.0 and open_amount < 0.85:
 				v.speed = 0.0                   # waits for the shutter
 				return
@@ -266,6 +316,9 @@ func finish_all() -> void:
 	for j in jobs.duplicate():
 		var v: QuarryVehicle = j["vehicle"]
 		if is_instance_valid(v):
+			v.visible = true
+			if str(j["stage"]) == "queue":
+				j["stage"] = "drive"
 			v.global_position = j["slot"]
 			v.rotation.y = 0.0
 			v.speed = 0.0

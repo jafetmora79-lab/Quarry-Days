@@ -1,0 +1,104 @@
+extends PanelContainer
+class_name QuarryIntroDialog
+## The short, skippable first conversation with a new employee: they greet you, you confirm or change their name, they
+## answer in their own way. Lines come from the worker's personality (friendly, quiet, enthusiastic, serious, humorous);
+## personality only changes what they say, never their work, wages or speed.
+
+signal finished(name_text: String, skipped: bool)
+
+const LINES := {
+	"friendly": {
+		"greet": "Hey! I'm %s. Heard you're looking for another pair of hands - happy to be here!",
+		"ask": "Is %s alright, or would you rather call me something else?",
+		"after": "Great, %s it is. Let's get to work!"},
+	"quiet": {
+		"greet": "...Morning. I'm %s. The %s job, right?",
+		"ask": "%s is fine. Or pick another.",
+		"after": "Right. I'll get on with it."},
+	"enthusiastic": {
+		"greet": "Wow, so this is the quarry! I'm %s - I can't wait to see what we build here!",
+		"ask": "Keep %s, or give me a better name?",
+		"after": "Awesome! %s, reporting for work - and for every upgrade you buy!"},
+	"serious": {
+		"greet": "Good day. I'm %s. I'll take the %s work seriously.",
+		"ask": "You may keep %s, or enter another name.",
+		"after": "Understood, %s. I'll start at once."},
+	"humorous": {
+		"greet": "Hi, I'm %s. I dig the job - get it? ...I'll show myself in.",
+		"ask": "%s, or something catchier? I answer to anything, including 'hey you'.",
+		"after": "%s! Sounds like a name that gets promoted. Let's go!"},
+}
+
+var step := 0
+var name_edit: LineEdit
+var body: Label
+var title: Label
+var next_btn: Button
+var skip_btn: Button
+var suggested := ""
+var personality := "friendly"
+var job := "worker"
+
+func setup(suggest: String, pers: String, job_title: String) -> void:
+	suggested = suggest
+	personality = pers if LINES.has(pers) else "friendly"
+	job = job_title
+	name = "IntroDialog"
+	set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	custom_minimum_size = Vector2(560, 0)
+	add_theme_stylebox_override("panel", QuarryTheme.panel_box(QuarryTheme.BG, QuarryTheme.ACCENT, 12, 4))
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 6)
+	add_child(v)
+	title = QuarryTheme.label("", 12, QuarryTheme.ACCENT, true)
+	v.add_child(title)
+	body = QuarryTheme.label("", QuarryTheme.BODY)
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body.custom_minimum_size = Vector2(520, 0)
+	v.add_child(body)
+	name_edit = LineEdit.new()
+	name_edit.max_length = 20
+	name_edit.text = suggested
+	name_edit.visible = false
+	name_edit.select_all_on_focus = true
+	v.add_child(name_edit)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	v.add_child(row)
+	next_btn = Button.new()
+	next_btn.pressed.connect(_next)
+	row.add_child(next_btn)
+	skip_btn = Button.new()
+	skip_btn.text = "Skip"
+	skip_btn.pressed.connect(func(): finished.emit(suggested if name_edit.text.strip_edges() == "" else name_edit.text, true))
+	row.add_child(skip_btn)
+	_show_step()
+
+func _show_step() -> void:
+	var l: Dictionary = LINES[personality]
+	title.text = "%s  -  %s" % [suggested.to_upper(), job.to_upper()]
+	match step:
+		0:
+			body.text = '"%s"' % _fmt(str(l["greet"]), suggested)
+			next_btn.text = "Good to meet you."
+		1:
+			body.text = '"%s"' % _fmt(str(l["ask"]), suggested)
+			name_edit.visible = true
+			name_edit.grab_focus()
+			next_btn.text = "Welcome aboard"
+		2:
+			var chosen := name_edit.text.strip_edges() if name_edit.text.strip_edges() != "" else suggested
+			body.text = '"%s"' % _fmt(str(l["after"]), chosen)
+			name_edit.visible = false
+			next_btn.text = "Let's get to work"
+			skip_btn.visible = false
+
+func _fmt(line: String, who: String) -> String:
+	return line % [who, job] if line.count("%s") == 2 else line % who
+
+func _next() -> void:
+	if step >= 2:
+		finished.emit(name_edit.text if name_edit.text.strip_edges() != "" else suggested, false)
+		return
+	step += 1
+	_show_step()

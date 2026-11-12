@@ -233,11 +233,11 @@ static func cliff_into(s: Soup, length: float, height: float, depth: float, seed
 			# with protrusions and recesses instead of a straight, regular barrier
 			var swell := 1.0 + 0.16 * sin(float(k) * 0.45 + float(seed)) + 0.07 * sin(float(k) * 1.3 + float(seed) * 2.0)
 			var edge := 0.0 if (k == 0 or k == cols) else 1.0
-			var z := -depth * 0.5 + bench + rng.randf_range(-0.5, 0.5) * (0.0 if r == 0 else 1.0)
-			var yy := y * swell + (rng.randf_range(-0.35, 0.35) if r > 0 and r < rows else 0.0)
+			var z := -depth * 0.5 + bench + rng.randf_range(-0.14, 0.14) * (0.0 if r == 0 else 1.0)   # gentle relief: big jitter split the quads into huge shards
+			var yy := y * swell + (rng.randf_range(-0.12, 0.12) if r > 0 and r < rows else 0.0)
 			if r == rows:
-				yy += rng.randf_range(-0.7, 0.4) * edge   # ragged crest
-			row.append(xf * Vector3(x + rng.randf_range(-0.45, 0.45) * edge * (1.0 if r > 0 else 0.0), yy, z))
+				yy += rng.randf_range(-0.3, 0.2) * edge   # slightly ragged crest
+			row.append(xf * Vector3(x + rng.randf_range(-0.16, 0.16) * edge * (1.0 if r > 0 else 0.0), yy, z))
 		pts.append(row)
 	for r in range(rows):
 		for k in range(cols):

@@ -1,5 +1,14 @@
 # Changelog
 
+### Phase 6.3: living business
+- **Corner belts:** left and right 90 degree conveyor corners (`kind` on each belt; old saves load as straight). Belts, corners, crushers, outputs, the storage crate and rig bins all expose ports, and a new piece snaps end to end onto the nearest free port. Material moves round the bend (items follow the L) with no loss or duplication.
+- **Storage visuals:** the heap in the storage crate and in output bins shows the dominant stored material (coal charcoal, iron rust, copper orange, gold, stone grey) with a label listing the contents.
+- **Employees:** every hire gets a personality (friendly, quiet, enthusiastic, serious, humorous) and a look variant (hair, skin tone, height). They come in through the service gate, walk over to the player when the player is free, and a short skippable conversation lets you keep or change their name. A busy player is never interrupted. Name, personality, look and the introduction state are saved; older saves never replay it.
+- **Deliveries:** vehicles queue out of sight if someone stands at the gate, stop for people on the way, and fall back to a spot on the apron when every garage bay is blocked. Stationary machinery (crusher, output, belts, corners) is ordered at the kiosk and delivered to a construction inventory, then placed with the blueprint system; the order screen shows real stats and "PLACE (n)" for delivered items.
+- **Ground:** the pit zone floor no longer has hairline cracks between tiles (the pale lines), and the pit zone cliff walls are smoother and overlap at their corners.
+- Tests: `tests/test_belts.gd`, `tests/test_living.gd`.
+
+
 ### Character animation overhaul, phase 1
 - **Tool grips:** tools are attached through `VeilRig.add_tool()` with a per-tool config (`TOOL_CFG` in `worker.gd`). The grip is measured from the lowered arm pose that is actually animated, not the imported A-pose, which fixes the tilted, floating pickaxe. The rig is now built after the worker enters the scene tree, because a skeleton outside the tree gave stale bone numbers.
 - **Pickaxe:** both hands are solved onto the shaft with a light two-bone arm IK. The swing has a recovery spring, an anticipation draw-back, a fast strike and an impact pose on the exact frame the hit lands (`worker._act` sets `anim_phase = 1.0` as the strike fires). Timing and damage callbacks are unchanged.

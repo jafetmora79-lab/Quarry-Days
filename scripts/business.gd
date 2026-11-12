@@ -86,6 +86,28 @@ func hire_block_reason(candidate_id: String) -> String:
 		return "Need $%d hiring fee" % hire_fee(c)
 	return ""
 
+const PERSONALITIES := ["friendly", "quiet", "enthusiastic", "serious", "humorous"]
+const VARIANTS := 4
+
+## Older saves have no identity fields: a stable personality and look from the employee id, and no introduction to replay.
+static func ensure_identity(e: Dictionary) -> void:
+	var id := int(e.get("id", 0))
+	if not PERSONALITIES.has(str(e.get("personality", ""))):
+		e["personality"] = PERSONALITIES[(id * 7 + 3) % PERSONALITIES.size()]
+	e["variant"] = clampi(int(e.get("variant", id % VARIANTS)), 0, VARIANTS - 1)
+	if not e.has("intro_done"):
+		e["intro_done"] = true
+
+## Custom names: trimmed, 1-20 characters, no control characters. Returns the stored name.
+func rename_employee(id: int, new_name: String) -> String:
+	var e := employee(id)
+	if e.is_empty():
+		return ""
+	var n := new_name.strip_edges().replace("\n", " ").replace("\t", " ").substr(0, 20).strip_edges()
+	if n != "":
+		e["name"] = n
+	return str(e["name"])
+
 func hire(candidate_id: String) -> Dictionary:
 	if hire_block_reason(candidate_id) != "":
 		return {}
@@ -99,6 +121,7 @@ func hire(candidate_id: String) -> Dictionary:
 		"assignment": default_assignment(prof), "shift_start": int(shift[0]), "shift_end": int(shift[1]),
 		"owed": 0.0, "suspended": false, "carry": {}, "position": [], "yaw": 0.0,
 		"task": "Arriving", "warning": "",
+		"personality": PERSONALITIES[randi() % PERSONALITIES.size()], "variant": randi() % VARIANTS, "intro_done": false,
 		"stats": {"day": current_day(), "units_today": 0, "units_total": 0, "minutes_today": 0, "minutes_total": 0, "paid_today": 0, "paid_total": 0}
 	}
 	next_employee_id += 1
@@ -778,6 +801,7 @@ func restore(data: Dictionary) -> void:
 			for k in ["day", "units_today", "units_total", "minutes_today", "minutes_total", "paid_today", "paid_total"]:
 				s[k] = int(s.get(k, 0))
 			e["stats"] = s
+			ensure_identity(e)
 			employees.append(e)
 	next_employee_id = int(data.get("next_employee_id", 1))
 	for e in employees:

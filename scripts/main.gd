@@ -98,6 +98,8 @@ var curfew_enabled := true                      ## tests switch it off when they
 var autosave_enabled := DisplayServer.get_name() != "headless"   ## tests run headless and never touch the player's save
 var autosave_t := 0.0
 var _confirm_new := false
+var dialog: QuarryIntroDialog         # the introduction with a new employee, while it is open
+var dialog_worker: Node3D
 var _forced_sleep := false
 var doors: Array = []            # QuarryDoor: the office and home doors (E to open / close)
 var delivery: QuarryDelivery    # service gate, garage door, delivery drivers and walk-in hires
@@ -414,6 +416,49 @@ func force_sleep() -> void:
 	hud.fade_to(1.0, 0.9)
 	sleep_timer = 1.1
 	hud.toast("Time to turn in", "It is too late to keep working. You head to bed.", "info")
+
+## True when the player is not busy: no vehicle, menu, card, placement, sleep or other conversation.
+func player_free_for_intro() -> bool:
+	return player != null and not driving and menu == "" and not placement and not sleeping and not construction \
+		and not player.locked and dialog == null and not (hud and hud.card_open())
+
+## A new employee who has walked up to the player starts the introduction (never forced: busy players are left alone,
+## the employee just starts working and the conversation happens the next time they meet).
+func _check_introductions() -> void:
+	if dialog != null or not player_free_for_intro():
+		return
+	for w in worker_nodes.values():
+		if not w.visible or bool(w.e.get("away", false)) or bool(w.e.get("intro_done", true)):
+			continue
+		if w.global_position.distance_to(player.global_position) < 3.4:
+			_start_intro(w)
+			return
+
+func _start_intro(w: Node3D) -> void:
+	dialog_worker = w
+	dialog = QuarryIntroDialog.new()
+	dialog.setup(str(w.e["name"]), str(w.e.get("personality", "friendly")), str(business.profession(str(w.e["profession"]))["title"]))
+	ui.add_child(dialog)
+	dialog.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE)
+	dialog.offset_bottom = -150.0
+	dialog.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	dialog.finished.connect(_end_intro)
+	player.locked = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+func _end_intro(chosen: String, skipped: bool) -> void:
+	if dialog_worker != null and is_instance_valid(dialog_worker):
+		var e: Dictionary = dialog_worker.e
+		e["intro_done"] = true
+		if not skipped:
+			business.rename_employee(int(e["id"]), chosen)
+		hud.toast("Welcome, %s" % str(e["name"]), "%s joins the crew." % str(business.profession(str(e["profession"]))["title"]), "milestone")
+	dialog_worker = null
+	if dialog:
+		dialog.queue_free()
+	dialog = null
+	player.locked = false
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func _hour() -> float:
 	return fposmod(state.clock_minutes, 1440.0) / 60.0
@@ -1131,6 +1176,7 @@ func _physics_process(delta: float) -> void:
 		# the chase camera would sit inside the roof: take the roof off while a vehicle is driven under it
 		var inside := driving != null and driving.global_position.x > -6.5 and driving.global_position.x < 16.0 and driving.global_position.z > 12.5 and driving.global_position.z < 24.0
 		art.garage_roof.visible = not inside
+	_check_introductions()
 	if autosave_enabled:
 		autosave_t += delta
 		if autosave_t >= AUTOSAVE_SECONDS and not sleeping and not placement:
@@ -1233,6 +1279,11 @@ func _update_light() -> void:
 		landscape.set_time(state.clock_minutes)
 
 func _unhandled_input(event: InputEvent) -> void:
+	if dialog:
+		if event.is_action_pressed("ui_cancel"):
+			dialog.skip_btn.pressed.emit()          # Esc skips the conversation
+			get_viewport().set_input_as_handled()
+		return
 	if hud and hud.card_open():
 		if event.is_action_pressed("interact") or event.is_action_pressed("ui_cancel") or (event is InputEventMouseButton and event.pressed):
 			hud.close_card()
@@ -1495,12 +1546,19 @@ func _draw_shop(p: QuarryStationUI) -> void:
 	p.begin("MACHINERY ORDERS", state.money, "Optional keys: 1-7 order. Placement: R rotate, G grid snap, LMB place, Esc refund.")
 	var machines_ok := prog.unlocked("crusher")
 	var stage_note := "Unlocks at the %s stage" % prog.feature_stage_title("crusher")
-	p.item("shop_crusher", "Stone crusher", "Turns limestone into gravel. Place it on clear ground.", int(state.config["crusher_price"]), "Owned: %d" % state.crushers.size(), "ORDER", machines_ok, func(): menu_act("shop", 0, false), "" if machines_ok else stage_note)
-	p.item("shop_output", "Output storage", "Holds crushed stone from a crusher chute.", int(business.cfg["output_storage_price"]), "Owned: %d" % business.outputs.size(), "ORDER", machines_ok, func(): menu_act("shop", 1, false), "" if machines_ok else stage_note)
+	var cs := int(state.config.get("crusher_seconds", 18))
+	var cl := int(state.config.get("crusher_input_limit", 12))
+	p.item("shop_crusher", "Stone crusher", "Limestone to gravel: %d stone per batch, %d s a batch. Place it on clear ground." % [cl, cs], int(state.config["crusher_price"]), _shop_tag("crusher", "Owned: %d" % state.crushers.size()), _shop_button("crusher"), machines_ok, func(): menu_act("shop", 0, false), "" if machines_ok else stage_note)
+	p.item("shop_output", "Output storage", "Holds %d crushed stone from a crusher chute or a belt." % business.output_capacity(), int(business.cfg["output_storage_price"]), _shop_tag("output", "Owned: %d" % business.outputs.size()), _shop_button("output"), machines_ok, func(): menu_act("shop", 1, false), "" if machines_ok else stage_note)
 	var conv_ok := business.conveyors_unlocked()
-	p.item("shop_conveyor", "Conveyor section", "Carries material between machines.", int(business.cfg["conveyor_price"]), "Owned: %d" % business.conveyors.size(), "ORDER", conv_ok, func(): menu_act("shop", 2, false), "" if conv_ok else "Needs a crusher + operator")
+	var cr := float(business.cfg.get("conveyor_rate", 0.5))
+	var cc := int(business.cfg.get("conveyor_capacity", 3))
+	p.item("shop_conveyor", "Conveyor, straight", "2 m belt: %.1f items a second, holds %d. Snaps onto machine ports." % [cr, cc], int(business.cfg["conveyor_price"]), _shop_tag("conveyor", "Owned: %d" % business.conveyors.size()), _shop_button("conveyor"), conv_ok, func(): menu_act("shop", 2, false), "" if conv_ok else "Needs a crusher + operator")
+	p.item("shop_conveyor_left", "Conveyor, left corner", "Turns material 90 degrees to the left. Same speed and capacity.", int(business.cfg["conveyor_price"]), _shop_tag("conveyor_left", ""), _shop_button("conveyor_left"), conv_ok, func(): menu_act("shop", 7, false), "" if conv_ok else "Needs a crusher + operator")
+	p.item("shop_conveyor_right", "Conveyor, right corner", "Turns material 90 degrees to the right. Same speed and capacity.", int(business.cfg["conveyor_price"]), _shop_tag("conveyor_right", ""), _shop_button("conveyor_right"), conv_ok, func(): menu_act("shop", 8, false), "" if conv_ok else "Needs a crusher + operator")
 	var adv_ok := prog.unlocked("advanced_crusher")
-	p.item("shop_advanced", "Advanced crusher", "2x batch size and 2x speed.", int(prog.machine("advanced_crusher")["price"]), "", "ORDER", adv_ok, func(): menu_act("shop", 3, false), "" if adv_ok else "Unlocks at the %s stage" % prog.feature_stage_title("advanced_crusher"))
+	var am: Dictionary = prog.machine("advanced_crusher")
+	p.item("shop_advanced", "Advanced crusher", "Batches of %d stone, %.0f s a batch (%.0f%% of the normal time)." % [cl * int(am.get("capacity_mult", 2)), cs * float(am.get("speed_mult", 0.45)), float(am.get("speed_mult", 0.45)) * 100.0], int(am["price"]), _shop_tag("advanced_crusher", ""), _shop_button("advanced_crusher"), adv_ok, func(): menu_act("shop", 3, false), "" if adv_ok else "Unlocks at the %s stage" % prog.feature_stage_title("advanced_crusher"))
 	for pair in [["drill_rig", "Drilling rig", "Works stone, coal, iron and copper from a fixed pad.", 4], ["rock_breaker", "Rock breaker", "Breaks any rock, gold too.", 5]]:
 		var t: String = pair[0]
 		var owned := 0
@@ -1515,6 +1573,46 @@ func _draw_shop(p: QuarryStationUI) -> void:
 		var pok := prog.unlocked("permit")
 		p.item("shop_permit", "Excavation permit", "Opens a 3.5 m lower level with copper and gold.", prog.permit_cost(), "", "BUY", pok, func(): menu_act("shop", 6, false), "" if pok else "Unlocks at the %s stage" % prog.feature_stage_title("permit"))
 	p.text("Rigs work a formation from a drilling pad and fill their own output bin: collect it (E), send a hauler, a belt or the loader.")
+
+## "In inventory: n" once something has been delivered and not yet placed.
+func _shop_tag(key: String, owned: String) -> String:
+	var n := int(business.inventory.get(key, 0))
+	return ("In inventory: %d" % n) if n > 0 else owned
+
+func _shop_button(key: String) -> String:
+	return "PLACE (%d)" % int(business.inventory.get(key, 0)) if int(business.inventory.get(key, 0)) > 0 else "ORDER"
+
+## Orders a stationary machine: it is paid for and delivered straight to the construction inventory (no driving),
+## ready to be placed with the blueprint system.
+func order_machine(key: String) -> bool:
+	var kind := key
+	if key.begins_with("conveyor"):
+		kind = "conveyor"
+	if kind in ["crusher", "output", "advanced_crusher"] and not prog.unlocked("crusher"):
+		_notify("Machinery unlocks at the %s stage." % prog.feature_stage_title("crusher"))
+		return false
+	if kind == "advanced_crusher" and not prog.unlocked("advanced_crusher"):
+		_notify("The advanced crusher unlocks at the %s stage." % prog.feature_stage_title("advanced_crusher"))
+		return false
+	if kind == "conveyor" and not business.conveyors_unlocked():
+		_notify("Conveyors unlock with the Mechanized Quarry milestone.")
+		return false
+	var price := _placement_price(kind)
+	if not business.buy(price):
+		_notify("Need $%d" % price)
+		return false
+	business.inventory[key] = int(business.inventory.get(key, 0)) + 1
+	var titles := {"crusher": "Stone crusher", "output": "Output storage", "advanced_crusher": "Advanced crusher", "conveyor": "Straight conveyor",
+		"conveyor_left": "Left corner conveyor", "conveyor_right": "Right corner conveyor"}
+	hud.toast("Delivery confirmed", "%s is in your construction inventory - place it from the order screen or in construction mode." % titles.get(key, key), "unlock")
+	_sfx_unlock()
+	return true
+
+func _shop_pick(key: String) -> void:
+	if int(business.inventory.get(key, 0)) > 0:
+		_start_placement(key)
+	else:
+		order_machine(key)
 
 func _menu_key(event: InputEventKey) -> void:
 	if event.keycode == KEY_F5:
@@ -1573,10 +1671,12 @@ func menu_act(kind: String, digit: int, shift: bool) -> void:
 					items[key] -= taken
 		"shop":
 			match digit:
-				0: _start_placement("crusher")
-				1: _start_placement("output")
-				2: _start_placement("conveyor")
-				3: _start_placement("advanced_crusher")
+				0: _shop_pick("crusher")
+				1: _shop_pick("output")
+				2: _shop_pick("conveyor")
+				3: _shop_pick("advanced_crusher")
+				7: _shop_pick("conveyor_left")
+				8: _shop_pick("conveyor_right")
 				4, 5:
 					var t := "drill_rig" if digit == 4 else "rock_breaker"
 					if not prog.unlocked(t):
@@ -2385,7 +2485,7 @@ func _style_fill(host: Node3D, fill: MeshInstance3D, items: Dictionary, label_y:
 	host.set_meta("fill_key", key)
 	if best != "":
 		fill.material_override = MeshKit.mat(QuarryArt.ROCK_MAT.get(best, "RockLimestone"))
-	var lbl: Label3D = host.get_meta("fill_label", null)
+	var lbl: Label3D = host.get_meta("fill_label") if host.has_meta("fill_label") else null
 	if lbl == null:
 		lbl = Label3D.new()
 		lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
@@ -2673,6 +2773,22 @@ func free_parking_slot() -> Variant:
 			return pos
 	return null
 
+## Overflow parking when every garage bay is taken: a spot on the apron road in front of the garage, with room all round.
+func free_fallback_slot() -> Variant:
+	for sx in [0.5, 5.5, 10.5, -4.0]:
+		var pos := Vector3(sx, 0.05, 13.2)
+		if _near_vehicle(pos, 3.8) or (delivery and delivery.reserved.has(pos)):
+			continue
+		var shape := BoxShape3D.new()
+		shape.size = Vector3(2.8, 1.8, 5.0)
+		var q := PhysicsShapeQueryParameters3D.new()
+		q.shape = shape
+		q.transform = Transform3D(Basis(), pos + Vector3(0, 1.1, 0))
+		q.collision_mask = 1 | 4 | 8 | 16
+		if get_world_3d().direct_space_state.intersect_shape(q, 1).is_empty():
+			return pos
+	return null
+
 func enter_vehicle(v: QuarryVehicle) -> void:
 	if driving or v == null or v.has_meta("delivering"):
 		return
@@ -2920,12 +3036,19 @@ func ui_buy_vehicle(type: String) -> String:
 	if reason != "":
 		return reason
 	var slot = free_parking_slot()
+	var fallback := false
 	if slot == null:
-		return "Equipment parking is blocked - clear a parking bay south of the yard"
+		slot = free_fallback_slot()
+		fallback = true
+		if slot == null:
+			return "Equipment parking is blocked - clear a parking bay south of the yard"
 	var rec := fleet.buy(type, slot, 0.0)
 	_sync_vehicles()
 	nav_dirty = true
-	if delivery and not rec.is_empty() and delivery.start(int(rec["id"]), slot):
+	if delivery and not rec.is_empty() and delivery.start(int(rec["id"]), slot, fallback):
+		if fallback:
+			hud.toast("Garage is full", "The %s will be parked on the apron in front of it." % fleet.spec(type)["title"], "info")
+			return "%s is being driven in and will be parked on the apron in front of the garage." % fleet.spec(type)["title"]
 		return "%s is being driven in through the service door to the equipment parking area." % fleet.spec(type)["title"]
 	return "%s delivered to the equipment parking area." % fleet.spec(type)["title"]
 

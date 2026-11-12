@@ -245,9 +245,9 @@ func _build_art() -> void:
 	# basin walls (pale cut limestone), facing into the basin
 	var bw := MeshKit.Soup.new()
 	var hgt := -basin_y + 0.4
-	_wall(bw, basin_w, hgt, 0.8, 801, 2, PI, Vector3(0, basin_y, zn - 0.4))
-	_wall(bw, basin_d, hgt, 0.8, 802, 2, -PI * 0.5, Vector3(-hx - 0.4, basin_y, basin_zc()))
-	_wall(bw, basin_d, hgt, 0.8, 803, 2, PI * 0.5, Vector3(hx + 0.4, basin_y, basin_zc()))
+	_wall(bw, basin_w + 1.8, hgt, 0.8, 801, 2, PI, Vector3(0, basin_y, zn - 0.4))
+	_wall(bw, basin_d + 1.8, hgt, 0.8, 802, 2, -PI * 0.5, Vector3(-hx - 0.4, basin_y, basin_zc()))
+	_wall(bw, basin_d + 1.8, hgt, 0.8, 803, 2, PI * 0.5, Vector3(hx + 0.4, basin_y, basin_zc()))
 	var sl := hx - hw
 	_wall(bw, sl, hgt, 0.8, 804, 2, 0.0, Vector3(-hw - sl * 0.5, basin_y, zs + 0.4))
 	_wall(bw, sl, hgt, 0.8, 805, 2, 0.0, Vector3(hw + sl * 0.5, basin_y, zs + 0.4))
@@ -256,13 +256,13 @@ func _build_art() -> void:
 	var ow := MeshKit.Soup.new()
 	var oh := wall_h + 0.6
 	_wall(ow, plat_w + 6.0, oh, 3.0, 811, 4, PI, Vector3(0, 0, z1 - 1.5))
-	_wall(ow, plat_d, oh, 3.0, 812, 4, -PI * 0.5, Vector3(-plat_w * 0.5 - 1.5, 0, (z0 + z1) * 0.5))
-	_wall(ow, plat_d, oh, 3.0, 813, 4, PI * 0.5, Vector3(plat_w * 0.5 + 1.5, 0, (z0 + z1) * 0.5))
+	_wall(ow, plat_d + 3.0, oh, 3.0, 812, 4, -PI * 0.5, Vector3(-plat_w * 0.5 - 1.5, 0, (z0 + z1) * 0.5))
+	_wall(ow, plat_d + 3.0, oh, 3.0, 813, 4, PI * 0.5, Vector3(plat_w * 0.5 + 1.5, 0, (z0 + z1) * 0.5))
 	var seg := plat_w * 0.5 - corr_w * 0.5
 	_wall(ow, seg, oh, 3.0, 814, 4, 0.0, Vector3(-corr_w * 0.5 - seg * 0.5, 0, z0 + 1.5))
 	_wall(ow, seg, oh, 3.0, 815, 4, 0.0, Vector3(corr_w * 0.5 + seg * 0.5, 0, z0 + 1.5))
-	_wall(ow, corr_len, 6.4, 2.0, 816, 3, -PI * 0.5, Vector3(-corr_w * 0.5 - 1.0, 0, -corr_len * 0.5))
-	_wall(ow, corr_len, 6.4, 2.0, 817, 3, PI * 0.5, Vector3(corr_w * 0.5 + 1.0, 0, -corr_len * 0.5))
+	_wall(ow, corr_len + 2.0, 6.4, 2.0, 816, 3, -PI * 0.5, Vector3(-corr_w * 0.5 - 1.0, 0, -corr_len * 0.5))
+	_wall(ow, corr_len + 2.0, 6.4, 2.0, 817, 3, PI * 0.5, Vector3(corr_w * 0.5 + 1.0, 0, -corr_len * 0.5))
 	MeshKit.inst(vis, ow.mesh(), MeshKit.mat("CliffStrata"))
 	# railings along the basin rim, leaving the ramp mouth open
 	var x := -hx + 1.25

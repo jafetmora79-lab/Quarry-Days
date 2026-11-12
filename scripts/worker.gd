@@ -23,6 +23,7 @@ var anim_phase := -1.0      ## 0..1 progress of the current physical action (dri
 var anim_t := 0.0
 var duration := 1.0
 var anim_skip := 0
+var meet_t := 0.0            ## seconds spent walking over to the player for the first introduction
 var last_action_phase := 0.0   ## animation phase at the frame an action last completed (tests: impact sync)
 
 # navigation
@@ -101,6 +102,7 @@ func _build_rig() -> void:
 	model.add_child(body)
 	for gi in body.find_children("*", "GeometryInstance3D", true, false):
 		gi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_apply_variant(body)
 	var found := body.find_children("*", "Skeleton3D", true, false)
 	if found.is_empty():
 		return
@@ -115,6 +117,28 @@ func _build_rig() -> void:
 	carry_box.visible = false
 	found[0].add_child(carry_box)              # follows the chest through the rig, see VeilRig.carry_center()
 	rig.carry_node = carry_box
+
+## Look variants (same model, outfit and rig): hair colour, skin tone and a small height difference. The employee record
+## stores the variant, so a worker always looks the same.
+const HAIR_TINT := [Color(1, 1, 1), Color(0.55, 0.5, 0.48), Color(1.4, 1.2, 0.8), Color(0.8, 0.86, 1.0)]
+const SKIN_TINT := [Color(1, 1, 1), Color(0.78, 0.72, 0.7), Color(1.1, 1.05, 1.0), Color(0.92, 0.88, 0.84)]
+const HEIGHT_SCALE := [1.0, 0.97, 1.03, 0.99]
+
+func _apply_variant(body: Node3D) -> void:
+	var v := clampi(int(e.get("variant", employee_id % 4)), 0, 3)
+	for mi in body.find_children("*", "MeshInstance3D", true, false):
+		var tint := Color.WHITE
+		if str(mi.name).ends_with("_Hair"):
+			tint = HAIR_TINT[v]
+		elif str(mi.name).ends_with("_Head"):
+			tint = SKIN_TINT[v]
+		else:
+			continue
+		if tint != Color.WHITE and mi.mesh != null and mi.get_active_material(0) is BaseMaterial3D:
+			var m: BaseMaterial3D = mi.get_active_material(0).duplicate()
+			m.albedo_color = m.albedo_color * tint
+			mi.material_override = m
+	model.scale = Vector3.ONE * float(HEIGHT_SCALE[v])
 
 ## Per-tool grip configuration (VeilRig.add_tool): which hand, the point of the tool that sits in the palm, the
 ## relaxed hold (shaft direction / blade plane in rig components right, up, forward), the second grip for two-handed
@@ -356,6 +380,27 @@ func step(delta: float) -> void:
 			if not bool(e["suspended"]):
 				e["task"] = "At home - back at %s" % game.fmt_time(int(e["shift_start"]))
 			return                                   # at home: nothing to simulate
+	# the first meeting: a new employee comes over to say hello while the player is free; a busy player is left alone
+	if not bool(e.get("intro_done", true)) and not bool(e.get("away", false)):
+		if game.dialog_worker == self:
+			_halt(delta)
+			_face(game.player.global_position)
+			e["task"] = "Talking with you"
+			_after_step(delta)
+			return
+		if meet_t < 45.0 and game.player_free_for_intro():
+			var pd := _flat(global_position, game.player.global_position)
+			if pd < 60.0:
+				meet_t += delta
+				e["task"] = "Coming over to say hello"
+				if pd > 2.8:
+					var pp: Vector3 = game.player.global_position
+					travel(pp, "meet_%d_%d" % [int(pp.x / 3.0), int(pp.z / 3.0)], delta, 2.6)
+				else:
+					_halt(delta)
+					_face(game.player.global_position)
+				_after_step(delta)
+				return
 	if not business.can_work(e):
 		_off_duty(delta)
 	else:
@@ -366,6 +411,9 @@ func step(delta: float) -> void:
 			"operator": _operator(delta)
 			"hauler": _hauler(delta)
 			"clerk": _clerk(delta)
+	_after_step(delta)
+
+func _after_step(delta: float) -> void:
 	# Turn at a natural rate; a large turn while standing plays a stepping-in-place turn.
 	var diff := angle_difference(rotation.y, facing)
 	rotation.y += clampf(diff, -delta * 5.5, delta * 5.5)
