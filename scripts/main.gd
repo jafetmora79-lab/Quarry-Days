@@ -88,6 +88,7 @@ var sleeping := false
 var sleep_timer := 0.0
 var _late_day := -1             # day on which the "go home to sleep" hint was shown
 var landscape: QuarryLandscape  # sky, clouds, distant mountains and forest (no collision)
+var doors: Array = []            # QuarryDoor: the office and home doors (E to open / close)
 var delivery: QuarryDelivery    # service gate, garage door, delivery drivers and walk-in hires
 var pit_zone: QuarryPitZone     # Phase 6.3a: the new pit area behind the north-east gate
 var pit_retired: Array = []     # ring pieces retired to make the gate (for tests)
@@ -152,6 +153,10 @@ func _ready() -> void:
 	art.build_environment(self)
 	_carve_hillside_site()
 	_build_pit_zone()
+	for spec in [["Office door", Vector3(-14, 0, 12 - 2.35), -1.0], ["Home door", HOME_POS + Vector3(0, 0, -2.35), 1.0]]:
+		var dr := QuarryDoor.new()
+		dr.build(self, spec[1], spec[2], spec[0])
+		doors.append(dr)
 	delivery = QuarryDelivery.new()
 	delivery.build(self)
 	landscape = LandscapeScript.new()
@@ -1086,7 +1091,7 @@ func _physics_process(delta: float) -> void:
 		return
 	if art and art.garage_roof:
 		# the chase camera would sit inside the roof: take the roof off while a vehicle is driven under it
-		var inside := driving != null and driving.global_position.x > -6.5 and driving.global_position.x < 16.0 and driving.global_position.z > 14.0 and driving.global_position.z < 24.0
+		var inside := driving != null and driving.global_position.x > -6.5 and driving.global_position.x < 16.0 and driving.global_position.z > 12.5 and driving.global_position.z < 24.0
 		art.garage_roof.visible = not inside
 	state.tick(delta)
 	business.tick(delta)
@@ -1121,6 +1126,12 @@ func _physics_process(delta: float) -> void:
 			"debris":
 				var did := str(last_target.get_meta("debris_id", ""))
 				prompt = "LMB: cut the weeds" if did.begins_with("w") else "LMB: break the rubble heap (%d stone left)" % prog.heap_units_left(did)
+			"door":
+				var dn := str(last_target.get_meta("door"))
+				prompt = "E: use the door"
+				for dr in doors:
+					if str(dr.name) == dn:
+						prompt = "E: close the %s" % dn.to_lower() if dr.want_open else "E: open the %s" % dn.to_lower()
 			"bed": prompt = "E: sleep until morning" if can_sleep() else "Too early to sleep (rest after %02d:00)" % int(prog.cfg.get("home", {}).get("sleep_from_hour", 17.0))
 			"discovery": prompt = "E: open the old lockbox"
 			"rig":
@@ -1272,6 +1283,10 @@ func _interact(target: Node3D) -> void:
 			_open_menu("manage")
 		"bed":
 			try_sleep()
+		"door":
+			for dr in doors:
+				if str(dr.name) == str(target.get_meta("door")):
+					dr.toggle()
 		"discovery":
 			_read_discovery(str(target.get_meta("discovery")))
 		"rig":

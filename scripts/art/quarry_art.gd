@@ -215,19 +215,19 @@ func _ground() -> void:
 				dirt.quad(q[0], q[1], q[2], q[3])
 	pit_cap = MeshKit.inst(root, cap.mesh(), _material("ExcavatedDirt"))
 	# Haul roads (dirt), yard (gravel) and pads (concrete).
-	quad_flat("GroundRoad", Vector3(0, 0, 4.5), Vector2(7.0, 10.0), 0.0, 0.018)            # pit entrance ramp
-	quad_flat("GroundRoad", Vector3(19.5, 0, 7.5), Vector2(21.0, 4.0), 0.0, 0.02)         # road to the expansion
-	quad_flat("GroundRoad", Vector3(34.0, 0, 4.0), Vector2(10.0, 4.0), -0.35, 0.02)
-	quad_flat("GroundRoad", Vector3(5.5, 0, 13.0), Vector2(4.0, 6.0), 0.0, 0.022)         # garage apron road
-	quad_flat("GroundYard", Vector3(2.0, 0, 9.0), Vector2(26.0, 5.0), 0.0, 0.016)            # processing yard
-	quad_flat(M_CONCRETE, Vector3(5.0, 0, 19.2), Vector2(19.6, 6.6), 0.0, 0.024)         # garage slab
-	quad_flat(M_CONCRETE, Vector3(-14.0, 0, 12.0), Vector2(6.4, 6.4), 0.0, 0.024)        # office pad
-	quad_flat(M_CONCRETE, Vector3(14.0, 0, 12.0), Vector2(6.0, 6.0), 0.0, 0.024)         # shed pad
-	quad_flat(M_CONCRETE, Vector3(-7.0, 0, 10.6), Vector2(4.0, 3.2), 0.0, 0.026)         # sales booth
-	quad_flat(M_CONCRETE, Vector3(-9.6, 0, 15.7), Vector2(4.0, 2.2), 0.0, 0.026)         # break area
+	quad_flat("GroundRoad", Vector3(0, 0, 4.5), Vector2(7.0, 10.0), 0.0, 0.03)            # pit entrance ramp
+	quad_flat("GroundRoad", Vector3(19.5, 0, 7.5), Vector2(21.0, 4.0), 0.0, 0.035)         # road to the expansion
+	quad_flat("GroundRoad", Vector3(34.0, 0, 4.0), Vector2(10.0, 4.0), -0.35, 0.04)
+	quad_flat("GroundRoad", Vector3(5.5, 0, 13.0), Vector2(4.0, 6.0), 0.0, 0.045)         # garage apron road
+	quad_flat("GroundYard", Vector3(2.0, 0, 9.0), Vector2(26.0, 5.0), 0.0, 0.02)            # processing yard
+	quad_flat(M_CONCRETE, Vector3(5.0, 0, 18.7), Vector2(19.6, 7.6), 0.0, 0.075)         # garage slab
+	quad_flat(M_CONCRETE, Vector3(-14.0, 0, 12.0), Vector2(6.4, 6.4), 0.0, 0.075)        # office pad
+	quad_flat(M_CONCRETE, Vector3(14.0, 0, 12.0), Vector2(6.0, 6.0), 0.0, 0.075)         # shed pad
+	quad_flat(M_CONCRETE, Vector3(-7.0, 0, 10.6), Vector2(4.0, 3.2), 0.0, 0.095)         # sales booth
+	quad_flat(M_CONCRETE, Vector3(-9.6, 0, 15.7), Vector2(4.0, 2.2), 0.0, 0.095)         # break area
 	for slot in game.fleet.cfg.get("parking", []):                                        # painted bay lines
 		for side in [-1.4, 1.4]:
-			quad_flat("Hazard", Vector3(float(slot[0]) + side, 0, float(slot[2])), Vector2(0.12, 4.2), 0.0, 0.03)
+			quad_flat("Hazard", Vector3(float(slot[0]) + side, 0, float(slot[2])), Vector2(0.12, 4.2), 0.0, 0.115)
 	# Outer embankments: soil slopes rising behind the cliffs to close the horizon.
 	var e := soup(M_SOIL)
 	var seg := 28
@@ -323,7 +323,7 @@ func _walls(center: Vector3, ext_key: String, int_key: String, h := 2.8) -> void
 	bx(int_key, c + Vector3(-2.27, h * 0.5, 0), Vector3(0.02, h - 0.1, 4.5))
 	bx(int_key, c + Vector3(2.27, h * 0.5, 0), Vector3(0.02, h - 0.1, 4.5))
 	bx(int_key, c + Vector3(0, h * 0.5, 2.22), Vector3(4.5, h - 0.1, 0.02))
-	bx(M_FOUNDATION, c + Vector3(0, 0.08, 0), Vector3(5.24, 0.16, 5.04))
+	bx(M_FOUNDATION, c + Vector3(0, 0.05, 0), Vector3(5.24, 0.10, 5.04))
 	# Match the collision ramp from the yard to the raised office/shed floor.
 	MeshKit.box_into(soup(M_FOUNDATION), Vector3.ZERO, Vector3(1.42, 0.08, 1.0), Vector2.ONE,
 		Transform3D(Basis(Vector3.RIGHT, -atan(0.16)), c + Vector3(0, 0.04, -2.95)))
@@ -350,13 +350,12 @@ func _office() -> void:
 	var c := Vector3(-14, 0, 12)
 	_walls(c, M_SIDING, M_DRYWALL)
 	_gable_roof(c, "CorrugatedRed", 5.6, 5.6, 2.8, 1.1)
-	quad_flat(M_LINO, c, Vector2(4.6, 4.5), 0.0, 0.16)
+	quad_flat(M_LINO, c, Vector2(4.6, 4.5), 0.0, 0.165)
 	_sign(root, "Sign_Office", c + Vector3(0, 2.5, -2.62), Vector2(2.2, 0.55), PI)
 	for z in [-0.9, 1.0]:
 		prop(P_WINDOW, c + Vector3(-2.53, 1.05, z), -PI * 0.5)
 		prop(P_WINDOW, c + Vector3(2.53, 1.05, z), PI * 0.5)
 	prop(P_WINDOW_WIDE, c + Vector3(1.0, 1.0, 2.48), 0.0)
-	var door := prop(P_DOOR, c + Vector3(-0.72, 0.16, -2.3), PI * 0.5 + 0.35)              # open, swung inside
 	prop(P_WALL_LAMP, c + Vector3(1.0, 2.3, -2.5), PI)
 	light(c + Vector3(0, 2.4, 0.3), Color(1.0, 0.86, 0.62), 1.1, 6.0)
 	# interior: the management desk keeps its collision; the THE VEIL desk + computer sits on it
@@ -384,12 +383,11 @@ func _home() -> void:
 	var c: Vector3 = game.HOME_POS
 	_walls(c, M_SIDING, M_DRYWALL)
 	_gable_roof(c, "Corrugated", 5.6, 5.6, 2.8, 1.0)
-	quad_flat(M_LINO, c, Vector2(4.6, 4.5), 0.0, 0.16)
+	quad_flat(M_LINO, c, Vector2(4.6, 4.5), 0.0, 0.165)
 	_sign(root, "Sign_Home", c + Vector3(0, 2.5, -2.62), Vector2(1.4, 0.35), PI)
 	for z in [-0.9, 1.0]:
 		prop(P_WINDOW, c + Vector3(2.53, 1.05, z), PI * 0.5)
 	prop(P_WINDOW, c + Vector3(-2.53, 1.05, 0.0), -PI * 0.5)
-	prop(P_DOOR, c + Vector3(0.72, 0.16, -2.3), PI * 0.5 - 0.35)
 	prop(P_WALL_LAMP, c + Vector3(-1.0, 2.3, -2.5), PI)
 	light(c + Vector3(0, 2.4, 0.3), Color(1.0, 0.84, 0.58), 1.0, 6.0)
 	# bed in the back-left corner (collision body "Bed" is built by main), bedside table with a lamp
@@ -409,7 +407,7 @@ func _shed() -> void:
 	var c := Vector3(14, 0, 12)
 	_walls(c, "Corrugated", M_BASEMENT)
 	_gable_roof(c, "CorrugatedRed", 5.6, 5.6, 2.8, 0.7)
-	quad_flat(M_BASEMENT, c, Vector2(4.6, 4.5), 0.0, 0.16)
+	quad_flat(M_BASEMENT, c, Vector2(4.6, 4.5), 0.0, 0.165)
 	bx("Corrugated", c + Vector3(0, 2.45, -2.42), Vector3(1.5, 0.7, 0.06))                # rolled-up door
 	bx("SteelPlate", c + Vector3(0, 2.82, -2.45), Vector3(1.6, 0.14, 0.16))
 	_sign(root, "Sign_Storage", c + Vector3(1.6, 2.4, -2.48), Vector2(1.2, 0.3), PI)
@@ -428,7 +426,7 @@ var garage_roof: MeshInstance3D
 func _garage() -> void:
 	var x0 := -4.7
 	var x1 := 14.5
-	var z0 := 16.0
+	var z0 := 14.9
 	var z1 := 22.4
 	var cx := (x0 + x1) * 0.5
 	var w := x1 - x0
@@ -439,30 +437,30 @@ func _garage() -> void:
 		var sc: float = (float(seg[0]) + float(seg[1])) * 0.5
 		var sw: float = float(seg[1]) - float(seg[0])
 		solid("Garage back wall", Vector3(sc, 2.0, z1), Vector3(sw, 4.0, 0.25))
-		bx("Corrugated", Vector3(sc, 2.0, z1), Vector3(sw, 4.0, 0.2))
+		bx("Corrugated", Vector3(sc, 3.0, z1), Vector3(sw, 6.0, 0.2))
 		bx(M_FOUNDATION, Vector3(sc, 0.2, z1), Vector3(sw + 0.1, 0.4, 0.3))
-	bx("Corrugated", Vector3(QuarryDelivery.DOOR_X, 3.95, z1), Vector3(QuarryDelivery.DOOR_W + 0.4, 0.5, 0.2))   # header over the door
+	bx("Corrugated", Vector3(QuarryDelivery.DOOR_X, 5.0, z1), Vector3(QuarryDelivery.DOOR_W + 0.4, 2.0, 0.2))   # wall over the door
 	for dxp in [dx0 - 0.1, dx1 + 0.1]:
-		bx("SteelGreen", Vector3(dxp, 2.0, z1 + 0.02), Vector3(0.25, 4.0, 0.34))
+		bx("SteelGreen", Vector3(dxp, 3.0, z1 + 0.02), Vector3(0.25, 6.0, 0.34))
 	bx("Hazard", Vector3(QuarryDelivery.DOOR_X, 3.65, z1 - 0.12), Vector3(QuarryDelivery.DOOR_W, 0.16, 0.04))
 	solid("Garage wall", Vector3(x0, 2.0, (z0 + z1) * 0.5), Vector3(0.25, 4.0, z1 - z0))
 	solid("Garage wall", Vector3(x1, 2.0, (z0 + z1) * 0.5), Vector3(0.25, 4.0, z1 - z0))
-	bx("Corrugated", Vector3(x0, 2.0, (z0 + z1) * 0.5), Vector3(0.2, 4.0, z1 - z0))
-	bx("Corrugated", Vector3(x1, 2.0, (z0 + z1) * 0.5), Vector3(0.2, 4.0, z1 - z0))
+	bx("Corrugated", Vector3(x0, 3.0, (z0 + z1) * 0.5), Vector3(0.2, 6.0, z1 - z0))
+	bx("Corrugated", Vector3(x1, 3.0, (z0 + z1) * 0.5), Vector3(0.2, 6.0, z1 - z0))
 	for x in [x0, x1]:
 		bx(M_FOUNDATION, Vector3(x, 0.2, (z0 + z1) * 0.5), Vector3(0.3, 0.4, z1 - z0))
 	# steel frame: front columns, I-beam, roof trusses
 	for x in [x0, x0 + w / 3.0, x0 + 2.0 * w / 3.0, x1]:
-		bx("SteelGreen", Vector3(x, 2.25, z0 + 0.1), Vector3(0.22, 4.5, 0.22))
-		bx("SteelGreen", Vector3(x, 4.35, (z0 + z1) * 0.5), Vector3(0.18, 0.3, z1 - z0))   # truss
-	bx("SteelGreen", Vector3(cx, 4.45, z0 + 0.1), Vector3(w + 0.3, 0.35, 0.3))
-	var roof := PackedVector2Array([Vector2(z0 - 0.6, 4.6), Vector2(z1 + 0.3, 4.15), Vector2(z1 + 0.3, 4.27), Vector2(z0 - 0.6, 4.72)])
+		bx("SteelGreen", Vector3(x, 3.25, z0 + 0.1), Vector3(0.22, 6.5, 0.22))
+		bx("SteelGreen", Vector3(x, 6.35, (z0 + z1) * 0.5), Vector3(0.18, 0.3, z1 - z0))   # truss
+	bx("SteelGreen", Vector3(cx, 6.45, z0 + 0.1), Vector3(w + 0.3, 0.35, 0.3))
+	var roof := PackedVector2Array([Vector2(z0 - 0.6, 6.6), Vector2(z1 + 0.3, 6.15), Vector2(z1 + 0.3, 6.27), Vector2(z0 - 0.6, 6.72)])
 	var roof_soup := MeshKit.Soup.new()
 	MeshKit.extrude_into(roof_soup, roof, w + 0.6, Transform3D(Basis(), Vector3(cx, 0, 0)))
 	garage_roof = MeshKit.inst(root, roof_soup.mesh(), _material("Corrugated"))   # its own node: hidden while a vehicle is driven inside
-	bx("Hazard", Vector3(cx, 4.45, z0 - 0.07), Vector3(w + 0.3, 0.12, 0.02))
-	_sign(root, "Sign_Garage", Vector3(cx, 4.95, z0 - 0.02), Vector2(4.0, 0.5), PI)
-	_sign(root, "Sign_Safety", Vector3(x0 - 0.13, 2.6, z0 + 1.2), Vector2(1.5, 0.5), -PI * 0.5)
+	bx("Hazard", Vector3(cx, 6.45, z0 - 0.07), Vector3(w + 0.3, 0.12, 0.02))
+	_sign(root, "Sign_Garage", Vector3(cx, 6.95, z0 - 0.02), Vector2(4.0, 0.5), PI)
+	_sign(root, "Sign_Safety", Vector3(x0 - 0.13, 2.6, z0 + 1.6), Vector2(1.5, 0.5), -PI * 0.5)
 	# workshop along the walls
 	prop(P_WORKBENCH, Vector3(x0 + 0.55, 0.0, 19.6), PI * 0.5)
 	prop(P_TOOLBOX, Vector3(x0 + 0.5, 0.95, 19.2), PI * 0.5)
@@ -479,8 +477,8 @@ func _garage() -> void:
 	solid("Garage shelving", Vector3((dx1 + x1) * 0.5, 0.9, z1 - 0.45), Vector3(x1 - dx1 - 0.4, 1.8, 0.6))       # behind the bays, clear of the door
 	solid("Garage workbench", Vector3(x0 + 0.5, 0.5, 20.2), Vector3(0.75, 1.0, 3.6))
 	solid("Garage drums", Vector3(13.6, 0.45, 19.6), Vector3(0.9, 0.9, 1.9))
-	light(Vector3(cx - 5, 4.0, 19.5), Color(0.9, 0.95, 1.0), 1.2, 9.0)
-	light(Vector3(cx + 5, 4.0, 19.5), Color(0.9, 0.95, 1.0), 1.2, 9.0)
+	light(Vector3(cx - 5, 5.6, 19.0), Color(0.9, 0.95, 1.0), 1.2, 9.0)
+	light(Vector3(cx + 5, 5.6, 19.0), Color(0.9, 0.95, 1.0), 1.2, 9.0)
 
 func _stations() -> void:
 	# Sales booth on the selling-station footprint (2.2 x 1.7 x 1.25 at -7, 10).
