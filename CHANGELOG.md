@@ -1,5 +1,16 @@
 # Changelog
 
+### Character animation overhaul, phase 1
+- **Tool grips:** tools are attached through `VeilRig.add_tool()` with a per-tool config (`TOOL_CFG` in `worker.gd`). The grip is measured from the lowered arm pose that is actually animated, not the imported A-pose, which fixes the tilted, floating pickaxe. The rig is now built after the worker enters the scene tree, because a skeleton outside the tree gave stale bone numbers.
+- **Pickaxe:** both hands are solved onto the shaft with a light two-bone arm IK. The swing has a recovery spring, an anticipation draw-back, a fast strike and an impact pose on the exact frame the hit lands (`worker._act` sets `anim_phase = 1.0` as the strike fires). Timing and damage callbacks are unchanged.
+- **Walking:** a planted-foot leg cycle (near-linear stance, knee flexion, toe-off), a stride that grows with speed, hip and torso counter-rotation, head stabilisation, a lean into turns and a body-weight bounce. Walking only plays while the worker is actually moving.
+- **Carrying:** the load is parented to the skeleton, rides in front of the chest and is held by both arms with IK. It is visible exactly while the worker owns it.
+- **Stowing:** a miner slings the pickaxe on the back when carrying, resting, picking up or off shift, and takes it back with a smooth move (no teleport).
+- **Other workers:** the hauler reaches to the ground for pickups, and the operator puts both hands on the control panel and pulls the lever on the start action.
+- **First-person:** simple stylised hands and sleeves hold every tool (one hand on the hammer, two on the pickaxes, drill and jackhammer).
+- New test: `tests/test_animation.gd`.
+
+
 ### Service gate and deliveries
 - The garage has a big roll-up door in its back wall, opening onto a tunnel-mouth service gate in the south ring. The door rolls up by itself when anyone comes near.
 - New machinery is driven in through the gate by a delivery driver, who parks it in its bay, steps out and walks away. The machine cannot be entered until it is parked.
