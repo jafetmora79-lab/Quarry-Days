@@ -176,8 +176,11 @@ func scene_tests() -> void:
 	var tool_cost: int = int(prog.next_tool()["cost"])
 	game._click_ms.clear()
 	var b: Button = game.panel.buttons["tool"]
-	b.pressed.emit()
-	b.pressed.emit()
+	b.pressed.emit()                                   # the card opens the purchase window
+	await process_frame
+	var pd = game.purchase_dialog
+	pd.buy_btn.pressed.emit()
+	pd.buy_btn.pressed.emit()
 	check(st.money == 500 - tool_cost and st.tool_tier == 1, "4 two instant clicks on a Buy button charge once (tool tier %d)" % st.tool_tier)
 	var count := {"n": 0}
 	game._click_ms.clear()

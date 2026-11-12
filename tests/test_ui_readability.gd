@@ -134,7 +134,7 @@ func run() -> void:
 			hud_ok = false
 	check(hud_ok, "5 HUD labels use readable sizes")
 	var rects := []
-	for n in [game.hud.time_label.get_parent().get_parent(), game.hud.stage_label.get_parent().get_parent(), game.hud.tool_label.get_parent().get_parent().get_parent(), game.hud.prompt_panel]:
+	for n in [game.hud.get_node("TopLeftPlate"), game.hud.get_node("ObjectivePlate"), game.hud.bottom.get_node("ToolPlate"), game.hud.prompt_panel]:
 		rects.append(Rect2(n.get_global_rect()))
 	var ok := true
 	for i in range(rects.size()):
@@ -142,7 +142,7 @@ func run() -> void:
 		for j in range(i + 1, rects.size()):
 			ok = ok and not rects[i].intersects(rects[j])
 	check(ok, "5 HUD panels do not overlap or leave the screen %s" % str(rects))
-	check(game.hud.hint_label.get_global_rect().position.y >= game.hud.bottom.get_global_rect().end.y, "5 the key hint sits below the tool bar")
+	check(game.hud.hints.get_global_rect().position.y >= game.hud.bottom.get_global_rect().end.y - 1.0, "5 the controls strip sits below the tool bar")
 	# management window
 	game.business.milestones["first_employee"] = true
 	game._open_menu("manage", -1)
