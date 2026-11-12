@@ -1,2 +1,2 @@
-Quarry Days - Windows build (branch claude/quarry-master-overhaul, Phase 7.1).
+Quarry Days - Windows build (branch claude/quarry-master-overhaul, Phase 7.2).
 Unzip, keep QuarryDays.exe and QuarryDays.pck together, run the EXE.
