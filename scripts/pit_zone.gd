@@ -174,6 +174,9 @@ func _build_barrier() -> void:
 
 # ------------------------------------------------------------------ visuals
 
+func _wob(y: float, x: float, z: float) -> float:
+	return y + 0.02 * sin(x * 0.9 + z * 0.4)
+
 func _cell_quads(s: MeshKit.Soup, x0: float, x1: float, z0: float, z1: float, y: float, step: float, skip_hole := false) -> void:
 	var hx := basin_w * 0.5
 	var x := x0
@@ -184,8 +187,11 @@ func _cell_quads(s: MeshKit.Soup, x0: float, x1: float, z0: float, z1: float, y:
 			var cz := z + step * 0.5
 			var in_hole := skip_hole and absf(cx) < hx and cz > basin_zn() and cz < basin_zs()
 			if not in_hole:
-				var yy := y + 0.02 * sin(cx * 0.9 + cz * 0.4)
-				s.quad(Vector3(x, yy, z), Vector3(x, yy, z + step), Vector3(x + step, yy, z + step), Vector3(x + step, yy, z))
+				# heights are a function of the corner position, so neighbouring cells share their edges: no hairline cracks
+				# for the sky to show through (the old cells each had their own height)
+				var x2 := x + step
+				var z2 := z + step
+				s.quad(Vector3(x, _wob(y, x, z), z), Vector3(x, _wob(y, x, z2), z2), Vector3(x2, _wob(y, x2, z2), z2), Vector3(x2, _wob(y, x2, z), z))
 			z += step
 		x += step
 

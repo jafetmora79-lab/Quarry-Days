@@ -705,6 +705,7 @@ func dress_output(body: StaticBody3D) -> void:
 	var fill: MeshInstance3D = body.get_meta("fill")
 	_strip(body, [fill])
 	output_model(body, -(body.position.y - float(body.get_meta("ground_y", 0.0))))
+	body.set_meta("fill_key", "")
 	fill.mesh = MeshKit.rock(Vector3(1.22, 0.9, 1.22), 61, 3, 8)     # heaped inside the bin walls (floor at local y -0.07)
 	fill.material_override = _material("RockLimestone")
 
@@ -724,10 +725,37 @@ func conveyor_model(parent: Node3D, g: float) -> void:
 	if made.has("Belt"):
 		parent.set_meta("belt", made["Belt"])
 
+## A 90 degree belt corner (kind "left" or "right"): material enters at the back, leaves through the side. Two half belts
+## joined by a centre square, with an outer rail round the bend and an open inner corner, built from the same parts as the
+## straight belt. Forward is -Z; the exit side is -X for a left corner and +X for a right one.
+func conveyor_corner_model(parent: Node3D, g: float, kind: String) -> void:
+	var s := -1.0 if kind == "left" else 1.0
+	var p := {"SteelPlate": MeshKit.Soup.new(), "Belt": MeshKit.Soup.new(), "Hazard": MeshKit.Soup.new(), "SteelGreen": MeshKit.Soup.new()}
+	MeshKit.box_into(p["Belt"], Vector3(0, g + 0.25, 0.5), Vector3(0.74, 0.03, 1.0))              # entry half
+	MeshKit.box_into(p["Belt"], Vector3(s * 0.5, g + 0.25, 0), Vector3(1.0, 0.03, 0.74))          # exit half
+	MeshKit.box_into(p["Belt"], Vector3(0, g + 0.25, 0), Vector3(0.74, 0.03, 0.74))               # the bend itself
+	MeshKit.box_into(p["SteelGreen"], Vector3(-s * 0.42, g + 0.2, 0.29), Vector3(0.06, 0.14, 1.42))   # outer rail, entry side
+	MeshKit.box_into(p["SteelGreen"], Vector3(s * 0.29, g + 0.2, -0.42), Vector3(1.42, 0.14, 0.06))   # outer rail, exit side
+	MeshKit.box_into(p["SteelGreen"], Vector3(s * 0.42, g + 0.2, 0.71), Vector3(0.06, 0.14, 0.58))    # inner rails stop short of the bend
+	MeshKit.box_into(p["SteelGreen"], Vector3(s * 0.71, g + 0.2, 0.42), Vector3(0.58, 0.14, 0.06))
+	for leg in [Vector3(-0.42, 0, 0.8), Vector3(0.42, 0, 0.8), Vector3(s * 0.8, 0, -0.42), Vector3(s * 0.8, 0, 0.42), Vector3(-s * 0.42, 0, -0.42)]:
+		MeshKit.box_into(p["SteelPlate"], Vector3(leg.x, g + 0.07, leg.z), Vector3(0.06, 0.14, 0.06))
+	MeshKit.drum_into(p["SteelPlate"], Vector3(0, g + 0.22, 0.97), 0.07, 0.78, 6)                 # entry roller
+	MeshKit.box_into(p["SteelPlate"], Vector3(s * 0.97, g + 0.22, 0), Vector3(0.14, 0.14, 0.78))   # exit roller
+	MeshKit.box_into(p["Hazard"], Vector3(0, g + 0.02, 0.95), Vector3(1.0, 0.04, 0.08))
+	MeshKit.box_into(p["Hazard"], Vector3(s * 0.95, g + 0.02, 0), Vector3(0.08, 0.04, 1.0))
+	var made := _parts(parent, p)
+	if made.has("Belt"):
+		parent.set_meta("belt", made["Belt"])
+
 func dress_conveyor(body: StaticBody3D) -> void:
 	var items: Array = body.get_meta("items")
 	_strip(body, items)
-	conveyor_model(body, -(body.position.y - float(body.get_meta("ground_y", 0.0))))
+	var bk: String = str(body.get_meta("belt_kind", "straight"))
+	if bk == "straight":
+		conveyor_model(body, -(body.position.y - float(body.get_meta("ground_y", 0.0))))
+	else:
+		conveyor_corner_model(body, -(body.position.y - float(body.get_meta("ground_y", 0.0))), bk)
 	if not piece_meshes.has("belt_item"):
 		piece_meshes["belt_item"] = MeshKit.rock(Vector3(0.28, 0.2, 0.26), 55, 3, 5)
 	for it in items:
@@ -750,4 +778,5 @@ func dress_storage(body: StaticBody3D) -> void:
 	storage_model(body, -(body.position.y - float(body.get_meta("ground_y", 0.0))))
 	var fill := MeshKit.inst(body, MeshKit.rock(Vector3(1.76, 1.5, 1.36), 62, 3, 8), _material("RockLimestone"), Vector3(0, -0.5, 0))
 	body.set_meta("fill", fill)
+	body.set_meta("fill_key", "")
 	_sign(body, "Sign_Storage", Vector3(0, 0.45, -0.84), Vector2(1.0, 0.25), PI)

@@ -20,6 +20,7 @@ var employees: Array = []
 var next_employee_id := 1
 var outputs: Array = []
 var conveyors: Array = []
+var inventory := {}                    ## delivered, not yet placed: "crusher", "conveyor_left", ...
 var links: Array = []          # runtime, per conveyor: {"src": ep, "dst": ep, "resource": String}
 var crusher_outputs: Array = [] # runtime, per crusher: index of directly attached output storage or -1
 var authorized := {"limestone": false, "coal": false, "iron_ore": false, "crushed_stone": false, "copper_ore": false, "gold_ore": false}
@@ -551,8 +552,10 @@ func add_output(pos: Vector3, yaw: float) -> int:
 	compute_links()
 	return outputs.size() - 1
 
-func add_conveyor(pos: Vector3, yaw: float) -> int:
-	conveyors.append({"position": [pos.x, pos.y, pos.z], "yaw": yaw, "resource": "", "items": 0, "progress": 0.0, "pull": 0.0})
+## kind: "straight" (2 m, flows along its facing), "left" or "right" (a 90 degree corner: material enters at the back and
+## leaves through the left / right side, each half 1 m long).
+func add_conveyor(pos: Vector3, yaw: float, kind := "straight") -> int:
+	conveyors.append({"position": [pos.x, pos.y, pos.z], "yaw": yaw, "resource": "", "items": 0, "progress": 0.0, "pull": 0.0, "kind": kind})
 	compute_links()
 	return conveyors.size() - 1
 
@@ -570,9 +573,21 @@ func crusher_input_port(i: int) -> Vector3:
 	var c: Dictionary = state.crushers[i]
 	return v3(c["position"]) * Vector3(1, 0, 1) - forward(float(c["yaw"])) * 1.15
 
-func conveyor_ends(pos: Vector3, yaw: float) -> Array:
+func conveyor_ends(pos: Vector3, yaw: float, kind := "straight") -> Array:
 	var p := pos * Vector3(1, 0, 1)
+	if kind == "left":
+		return [p - forward(yaw), p + forward(yaw + PI * 0.5)]
+	if kind == "right":
+		return [p - forward(yaw), p + forward(yaw - PI * 0.5)]
 	return [p - forward(yaw), p + forward(yaw)]
+
+## Direction material travels as it leaves a belt piece through its far end.
+static func belt_out_dir(yaw: float, kind: String) -> Vector3:
+	if kind == "left":
+		return forward(yaw + PI * 0.5)
+	if kind == "right":
+		return forward(yaw - PI * 0.5)
+	return forward(yaw)
 
 func _flat(a: Vector3, b: Vector3) -> float:
 	return Vector2(a.x, a.z).distance_to(Vector2(b.x, b.z))
@@ -582,7 +597,7 @@ func _endpoint_near(point: Vector3, as_source: bool, skip_conveyor: int) -> Dict
 	for j in range(conveyors.size()):
 		if j == skip_conveyor:
 			continue
-		var ends := conveyor_ends(v3(conveyors[j]["position"]), float(conveyors[j]["yaw"]))
+		var ends := conveyor_ends(v3(conveyors[j]["position"]), float(conveyors[j]["yaw"]), str(conveyors[j].get("kind", "straight")))
 		if _flat(point, ends[1] if as_source else ends[0]) < 0.75:
 			return {"type": "conveyor", "index": j}
 	for i in range(state.crushers.size()):
@@ -600,14 +615,14 @@ func _endpoint_near(point: Vector3, as_source: bool, skip_conveyor: int) -> Dict
 	return {}
 
 ## Link description for a conveyor at pos/yaw (also used for the placement preview).
-func link_for(pos: Vector3, yaw: float, skip_conveyor := -1) -> Dictionary:
-	var ends := conveyor_ends(pos, yaw)
+func link_for(pos: Vector3, yaw: float, skip_conveyor := -1, kind := "straight") -> Dictionary:
+	var ends := conveyor_ends(pos, yaw, kind)
 	return {"src": _endpoint_near(ends[0], true, skip_conveyor), "dst": _endpoint_near(ends[1], false, skip_conveyor), "resource": ""}
 
 func compute_links() -> void:
 	links.clear()
 	for i in range(conveyors.size()):
-		links.append(link_for(v3(conveyors[i]["position"]), float(conveyors[i]["yaw"]), i))
+		links.append(link_for(v3(conveyors[i]["position"]), float(conveyors[i]["yaw"]), i, str(conveyors[i].get("kind", "straight"))))
 	for i in range(conveyors.size()):
 		links[i]["resource"] = _chain_resource(i)
 	crusher_outputs.clear()
@@ -733,7 +748,7 @@ func snapshot() -> Dictionary:
 		"authorized": authorized.duplicate(), "milestones": milestones.duplicate(), "chain": chain.duplicate(),
 		"expansion_unlocked": expansion_unlocked, "outstanding_debt": outstanding_debt,
 		"storage_pos": [storage_pos.x, storage_pos.y, storage_pos.z], "auto_crushed_sold": auto_crushed_sold,
-		"payroll_minute": payroll_minute, "daily": daily.duplicate(true)
+		"payroll_minute": payroll_minute, "daily": daily.duplicate(true), "inventory": inventory.duplicate()
 	}
 
 ## Restores Phase 2 data. An empty dictionary (Phase 1 save) yields a fresh business.
@@ -773,9 +788,14 @@ func restore(data: Dictionary) -> void:
 		for k in QuarryState.RESOURCE_NAMES:
 			items[k] = maxi(0, int(o.get("items", {}).get(k, 0)))
 		outputs.append({"position": o["position"].duplicate(), "yaw": float(o.get("yaw", 0.0)), "items": items})
+	inventory = {}
+	var inv = data.get("inventory", {})
+	if inv is Dictionary:
+		for k in inv:
+			inventory[str(k)] = maxi(0, int(inv[k]))
 	conveyors = []
 	for c in data.get("conveyors", []):
-		conveyors.append({"position": c["position"].duplicate(), "yaw": float(c.get("yaw", 0.0)), "resource": str(c.get("resource", "")), "items": maxi(0, int(c.get("items", 0))), "progress": float(c.get("progress", 0.0)), "pull": float(c.get("pull", 0.0))})
+		conveyors.append({"position": c["position"].duplicate(), "yaw": float(c.get("yaw", 0.0)), "resource": str(c.get("resource", "")), "items": maxi(0, int(c.get("items", 0))), "progress": float(c.get("progress", 0.0)), "pull": float(c.get("pull", 0.0)), "kind": str(c.get("kind", "straight"))})
 	for k in authorized:
 		authorized[k] = bool(data.get("authorized", {}).get(k, false))
 	for k in milestones:

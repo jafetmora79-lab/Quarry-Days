@@ -76,6 +76,8 @@ var expansion_gate := []
 var management: Control
 var milestone_label: Label
 var placement_kind := "crusher"
+var placement_from_inventory := false
+var placement_belt := "straight"   ## straight | left | right while a belt is being placed
 var grid_snap := true
 var placement_hint := ""
 # Phase 3
@@ -1684,7 +1686,7 @@ func _update_ghost() -> void:
 	else:
 		ghost.position = Vector3(point.x,point.y if point.y < -1.0 else 0.0,point.z)
 	if placement_kind == "conveyor" and grid_snap:
-		var snap := conveyor_snap(ghost.position)
+		var snap := conveyor_snap(ghost.position, placement_belt)
 		if not snap.is_empty():
 			ghost.position = Vector3(snap["pos"].x, ghost.position.y, snap["pos"].z)
 			placement_yaw = float(snap["yaw"])
@@ -1699,8 +1701,8 @@ func _update_ghost() -> void:
 	ghost.visible = true
 	placement_hint = ""
 	if placement_kind == "conveyor":
-		ghost_valid = conveyor_valid(ghost.position,placement_yaw)
-		var link := business.link_for(ghost.position,placement_yaw)
+		ghost_valid = conveyor_valid(ghost.position,placement_yaw,placement_belt)
+		var link := business.link_for(ghost.position,placement_yaw,-1,placement_belt)
 		placement_hint = "\nIN: %s  ->  OUT: %s%s" % [business.describe_ep(link["src"]), business.describe_ep(link["dst"]), "  |  CONNECTED" if not link["src"].is_empty() and not link["dst"].is_empty() else "  |  align both ends"]
 	else:
 		ghost_valid = placement_valid(ghost.position,placement_yaw)
@@ -1735,7 +1737,7 @@ func _place_ghost() -> void:
 			_create_output(business.add_output(ghost.position,placement_yaw))
 			_notify("Output storage placed. Place it beside a crusher's chute or at a conveyor end.")
 		"conveyor":
-			_create_conveyor(business.add_conveyor(ghost.position,placement_yaw))
+			_create_conveyor(business.add_conveyor(ghost.position,placement_yaw,placement_belt))
 			var link: Dictionary = business.links.back()
 			_notify("Conveyor: %s -> %s. B then LMB to move it if disconnected." % [business.describe_ep(link["src"]), business.describe_ep(link["dst"])])
 	business.compute_links()
@@ -1750,7 +1752,15 @@ func _placement_price(kind: String) -> int:
 		"conveyor": return int(business.cfg["conveyor_price"])
 	return int(state.config["crusher_price"])
 
+## Key of a placeable in the construction inventory.
+func inventory_key(kind: String, belt := "straight") -> String:
+	return "conveyor" if kind == "conveyor" and belt == "straight" else ("conveyor_" + belt if kind == "conveyor" else kind)
+
 func _start_placement(kind: String) -> void:
+	placement_belt = "straight"
+	if kind == "conveyor_left" or kind == "conveyor_right":
+		placement_belt = kind.substr(9)
+		kind = "conveyor"
 	if kind in ["crusher", "output", "advanced_crusher"] and not prog.unlocked("crusher"):
 		_notify("Machinery unlocks at the %s stage." % prog.feature_stage_title("crusher"))
 		return
@@ -1760,7 +1770,13 @@ func _start_placement(kind: String) -> void:
 	if kind == "conveyor" and not business.conveyors_unlocked():
 		_notify("Conveyors unlock with the Mechanized Quarry milestone.")
 		return
-	if not business.buy(_placement_price(kind)):
+	# an item already delivered to the construction inventory is used first; otherwise it is ordered and paid for now
+	var inv_key := inventory_key(kind, placement_belt)
+	placement_from_inventory = false
+	if int(business.inventory.get(inv_key, 0)) > 0:
+		business.inventory[inv_key] = int(business.inventory[inv_key]) - 1
+		placement_from_inventory = true
+	elif not business.buy(_placement_price(kind)):
 		_notify("Need $%d" % _placement_price(kind))
 		_draw_menu()
 		return
@@ -1774,7 +1790,7 @@ func _start_placement(kind: String) -> void:
 		"crusher": _crusher_visual(ghost,true)
 		"advanced_crusher": _crusher_visual(ghost,true,2)
 		"output": _output_visual(ghost,true)
-		"conveyor": _conveyor_visual(ghost,true)
+		"conveyor": _conveyor_visual(ghost,true,placement_belt)
 	_notify("Choose a clear patch of ground. R rotates, G toggles grid snap, LMB places.")
 
 func _cancel_placement(refund := true) -> void:
@@ -1782,7 +1798,12 @@ func _cancel_placement(refund := true) -> void:
 		_restore_relocated() # cancel a move: original spot, no money involved
 		refund = false
 	if refund:
-		state.money += _placement_price(placement_kind)
+		if placement_from_inventory:
+			var ik := inventory_key(placement_kind, placement_belt)
+			business.inventory[ik] = int(business.inventory.get(ik, 0)) + 1     # back into the construction inventory
+		else:
+			state.money += _placement_price(placement_kind)
+	placement_from_inventory = false
 	placement = false
 	if is_instance_valid(ghost):
 		ghost.queue_free()
@@ -2273,9 +2294,15 @@ func _output_visual(parent: Node3D, transparent := false) -> void:
 		for child in parent.get_children():
 			child.transparency = 0.45
 
-func _conveyor_visual(parent: Node3D, transparent := false) -> void:
+func _conveyor_visual(parent: Node3D, transparent := false, belt := "straight") -> void:
 	if art:
-		art.conveyor_model(parent, 0.0)
+		if belt == "straight":
+			art.conveyor_model(parent, 0.0)
+		else:
+			art.conveyor_corner_model(parent, 0.0, belt)
+		if transparent:
+			for child in parent.find_children("*", "MeshInstance3D", true, false):
+				child.transparency = 0.0
 		return
 	_visual_box(parent,Vector3(0,0.13,0),Vector3(0.9,0.26,2.0),Color(0.16,0.17,0.18))
 	_visual_box(parent,Vector3(0,0.27,0),Vector3(0.7,0.04,2.0),Color(0.07,0.07,0.07))
@@ -2303,12 +2330,27 @@ func _create_conveyor(index: int) -> void:
 	var p := Business.v3(data["position"])
 	# Phase 3: a low belt on its own collision layer (16). People step over it; vehicles,
 	# placement and interaction still see it. Small supports mark the crossing points.
+	var bk := str(data.get("kind", "straight"))
 	var body := _solid(world,"Conveyor",Vector3(p.x,p.y+0.13,p.z),Vector3(0.9,0.26,2.0),Color(0.16,0.17,0.18),float(data["yaw"]))
 	body.set_meta("ground_y", p.y)
 	body.collision_layer = 16
 	body.set_meta("kind","conveyor")
+	body.set_meta("belt_kind", bk)
 	body.set_meta("index",index)
-	_visual_box(body,Vector3(0,0.14,0),Vector3(0.7,0.04,2.0),Color(0.07,0.07,0.07))
+	if bk != "straight":
+		# an L: one box under each half (entry half behind the centre, exit half out to the side)
+		var sgn := -1.0 if bk == "left" else 1.0
+		for ch in body.get_children():
+			if ch is CollisionShape3D:
+				(ch.shape as BoxShape3D).size = Vector3(0.9, 0.26, 1.0)
+				ch.position = Vector3(0, 0, 0.5)
+		var cs2 := CollisionShape3D.new()
+		var bx2 := BoxShape3D.new()
+		bx2.size = Vector3(1.0, 0.26, 0.9)
+		cs2.shape = bx2
+		cs2.position = Vector3(sgn * 0.5, 0, 0)
+		body.add_child(cs2)
+	_visual_box(body,Vector3(0,0.14,0),Vector3(0.7,0.04,2.0 if bk == "straight" else 0.7),Color(0.07,0.07,0.07))
 	_visual_box(body,Vector3(0,0.17,-0.75),Vector3(0.2,0.02,0.32),Color(0.85,0.70,0.15))
 	for z in [-0.95, 0.95]:
 		_visual_box(body,Vector3(0,-0.02,z),Vector3(1.05,0.24,0.1),Color(0.85,0.70,0.15))
@@ -2323,6 +2365,42 @@ func _create_conveyor(index: int) -> void:
 	conveyor_nodes.append(body)
 
 ## Cheap per-frame visuals: belt items slide along, output storages show their fill level.
+## The heap in a bin or crate shows what is really inside: the dominant material's own rock material (coal is charcoal,
+## iron rusty brown, copper orange, gold gold, stone grey), and a small floating label lists the contents when it
+## changes. Nothing here depends on which kind of container it is.
+func _style_fill(host: Node3D, fill: MeshInstance3D, items: Dictionary, label_y: float) -> void:
+	var best := ""
+	var best_n := 0
+	var parts := []
+	for res in items:
+		var n := int(items[res])
+		if n > 0:
+			parts.append("%s %d" % [prog.display(str(res)), n])
+			if n > best_n:
+				best_n = n
+				best = str(res)
+	var key := best + "|" + ",".join(parts)
+	if str(host.get_meta("fill_key", "")) == key:
+		return
+	host.set_meta("fill_key", key)
+	if best != "":
+		fill.material_override = MeshKit.mat(QuarryArt.ROCK_MAT.get(best, "RockLimestone"))
+	var lbl: Label3D = host.get_meta("fill_label", null)
+	if lbl == null:
+		lbl = Label3D.new()
+		lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		lbl.pixel_size = 0.0035
+		lbl.font_size = 40
+		lbl.outline_size = 10
+		lbl.modulate = Color(1, 0.95, 0.8)
+		lbl.position = Vector3(0, label_y, 0)
+		lbl.no_depth_test = false
+		lbl.visibility_range_end = 14.0
+		host.add_child(lbl)
+		host.set_meta("fill_label", lbl)
+	lbl.text = "\n".join(parts)
+	lbl.visible = not parts.is_empty()
+
 func _update_structures() -> void:
 	for i in range(mini(conveyor_nodes.size(), business.conveyors.size())):
 		var c: Dictionary = business.conveyors[i]
@@ -2332,9 +2410,19 @@ func _update_structures() -> void:
 			var item: MeshInstance3D = items[k]
 			item.visible = k < n
 			if item.visible:
-				item.position.z = minf(0.75, 0.75 - 1.5 * float(c["progress"]) + 0.55 * k)
+				var zi := minf(0.75, 0.75 - 1.5 * float(c["progress"]) + 0.55 * k)
+				var bkind := str(c.get("kind", "straight"))
+				if bkind == "straight":
+					item.position.z = zi
+				else:
+					# along the L: back edge -> centre (1 m), then centre -> the exit side (1 m)
+					var d := (0.75 - zi) / 1.5 * 2.0
+					var sg := -1.0 if bkind == "left" else 1.0
+					item.position.x = 0.0 if d < 1.0 else sg * (d - 1.0)
+					item.position.z = 1.0 - d if d < 1.0 else 0.0
 				item.material_override = _mat(WorkerScript.RESOURCE_COLORS.get(str(c["resource"]), Color.GRAY))
 	if storage_body.has_meta("fill"):
+		_style_fill(storage_body, storage_body.get_meta("fill"), state.storage, 0.95)
 		var sf: MeshInstance3D = storage_body.get_meta("fill")
 		var sratio := float(state.total(state.storage)) / float(maxi(1, state.storage_capacity()))
 		sf.visible = sratio > 0.0
@@ -2342,6 +2430,7 @@ func _update_structures() -> void:
 		sf.position.y = -0.5                           # on the crate floor, heaping up inside the walls
 	for i in range(mini(output_nodes.size(), business.outputs.size())):
 		var fill: MeshInstance3D = output_nodes[i].get_meta("fill")
+		_style_fill(output_nodes[i], fill, business.outputs[i]["items"], 0.82)
 		var ratio := float(business.output_total(i)) / float(business.output_capacity())
 		fill.visible = ratio > 0.0
 		fill.scale.y = maxf(0.05, ratio)
@@ -2350,10 +2439,28 @@ func _update_structures() -> void:
 ## Magnetic placement for belts (grid snap on): within 2.6 m of a machine port or the end of another belt, the
 ## ghost jumps to the spot where its end touches the machine and faces along the flow, so it links with no
 ## fiddling. Returns {"pos", "yaw"} or {} when nothing is near. Press G to place freely.
-func conveyor_snap(at: Vector3) -> Dictionary:
+func conveyor_snap(at: Vector3, kind := "straight") -> Dictionary:
 	var best := {}
 	var best_d := 2.6
 	var cands := []
+	# Port based candidates (all belt kinds): a new piece starts where a source port leaves, or ends where a destination
+	# port takes material in. Corners turn 90 degrees to the right or left of the flow, so a corner snapped onto a
+	# straight belt, a crusher, a storage or another corner always lines up end to end.
+	for port in belt_ports():
+		var pd: Vector3 = port["dir"]
+		var pp: Vector3 = port["pos"]
+		var yd := atan2(-pd.x, -pd.z)
+		if str(port["io"]) == "out":
+			cands.append({"pos": pp + pd, "yaw": yd})
+		else:
+			if kind == "straight":
+				cands.append({"pos": pp - pd, "yaw": yd})
+			elif kind == "left":
+				cands.append({"pos": pp - pd, "yaw": yd - PI * 0.5})
+			else:
+				cands.append({"pos": pp - pd, "yaw": yd + PI * 0.5})
+	if kind != "straight":
+		return _pick_belt_snap(at, cands, kind)
 	for i in range(state.crushers.size()):
 		var c: Vector3 = Business.v3(state.crushers[i]["position"]) * Vector3(1, 0, 1)
 		var yc := float(state.crushers[i]["yaw"])
@@ -2377,12 +2484,52 @@ func conveyor_snap(at: Vector3) -> Dictionary:
 		var yj := float(business.conveyors[j]["yaw"])
 		cands.append({"pos": cp + Business.forward(yj) * 2.0, "yaw": yj})
 		cands.append({"pos": cp - Business.forward(yj) * 2.0, "yaw": yj})
+	return _pick_belt_snap(at, cands, kind)
+
+func _pick_belt_snap(at: Vector3, cands: Array, kind: String) -> Dictionary:
+	var best := {}
+	var best_d := 2.6
 	for cd in cands:
 		var d := Vector2(at.x, at.z).distance_to(Vector2(cd["pos"].x, cd["pos"].z))
-		if d < best_d and conveyor_valid(Vector3(cd["pos"].x, at.y, cd["pos"].z), float(cd["yaw"])):
+		if d < best_d and conveyor_valid(Vector3(cd["pos"].x, at.y, cd["pos"].z), float(cd["yaw"]), kind):
 			best_d = d
 			best = cd
 	return best
+
+## Every place a belt piece can start or end: machine ports, storage sides and the free ends of existing belts.
+## {"pos": where the belt end sits, "dir": the direction material flows there, "io": "out" (a belt may start here) or
+## "in" (a belt may end here)}.
+func belt_ports() -> Array:
+	var ports := []
+	for i in range(state.crushers.size()):
+		var c: Vector3 = Business.v3(state.crushers[i]["position"]) * Vector3(1, 0, 1)
+		var f := Business.forward(float(state.crushers[i]["yaw"]))
+		ports.append({"pos": c + f * 1.15, "dir": f, "io": "out"})
+		ports.append({"pos": c - f * 1.15, "dir": f, "io": "in"})
+	for o in business.outputs:
+		var op: Vector3 = Business.v3(o["position"]) * Vector3(1, 0, 1)
+		for k in range(4):
+			var d := Business.forward(float(k) * PI * 0.5)
+			ports.append({"pos": op - d * 0.9, "dir": d, "io": "in"})
+	var sp: Vector3 = business.storage_pos * Vector3(1, 0, 1)
+	for k in range(4):
+		var d2 := Business.forward(float(k) * PI * 0.5)
+		ports.append({"pos": sp - d2 * 1.2, "dir": d2, "io": "in"})
+		ports.append({"pos": sp + d2 * 1.2, "dir": d2, "io": "out"})
+	for r in prog.rigs:
+		for k in range(4):
+			var d3 := Business.forward(float(k) * PI * 0.5)
+			ports.append({"pos": prog.rig_bin_pos(r) * Vector3(1, 0, 1) + d3 * 0.9, "dir": d3, "io": "out"})
+	for j in range(business.conveyors.size()):
+		var cj: Dictionary = business.conveyors[j]
+		var kj := str(cj.get("kind", "straight"))
+		var ends := business.conveyor_ends(Business.v3(cj["position"]), float(cj["yaw"]), kj)
+		var link: Dictionary = business.links[j] if j < business.links.size() else {}
+		if link.get("dst", {}).is_empty():
+			ports.append({"pos": ends[1], "dir": Business.belt_out_dir(float(cj["yaw"]), kj), "io": "out"})
+		if link.get("src", {}).is_empty():
+			ports.append({"pos": ends[0], "dir": Business.forward(float(cj["yaw"])), "io": "in"})
+	return ports
 
 ## Magnetic placement for crushers and output storages: next to a belt end, a crusher chute or an output, the ghost
 ## jumps to the spot where the ports meet, facing along the flow, so the machine is connected the moment it is placed.
@@ -2424,7 +2571,7 @@ func machine_snap(kind: String, at: Vector3) -> Dictionary:
 			best = cd
 	return best
 
-func conveyor_valid(pos: Vector3, yaw: float) -> bool:
+func conveyor_valid(pos: Vector3, yaw: float, kind := "straight") -> bool:
 	if not in_build_area(pos) or not _on_ground(pos) or _near_vehicle(pos, 2.6):
 		return false
 	if player and Vector2(pos.x,pos.z).distance_to(Vector2(player.global_position.x,player.global_position.z)) < 1.3:
@@ -2432,6 +2579,9 @@ func conveyor_valid(pos: Vector3, yaw: float) -> bool:
 	var fwd := Business.forward(yaw)
 	var side := Vector3(fwd.z, 0, -fwd.x)
 	var points := [pos, pos + fwd * 0.85, pos - fwd * 0.85, pos + side * 0.4, pos - side * 0.4]
+	if kind != "straight":
+		var od := Business.belt_out_dir(yaw, kind)
+		points = [pos, pos - fwd * 0.85, pos + od * 0.85, pos - fwd * 0.4 + od * 0.4]
 	for body in world.get_children():
 		if body == ghost or not body is StaticBody3D or (body.collision_layer & (1 | 16)) == 0 or body.has_meta("ground") or body.name == "Quarry floor":
 			continue
@@ -2823,6 +2973,8 @@ func start_relocation(kind: String, index: int) -> bool:
 	if node == null or placement:
 		return false
 	relocating = {"kind": kind, "index": index, "layer": node.collision_layer}
+	if kind == "conveyor":
+		placement_belt = str(business.conveyors[index].get("kind", "straight"))
 	node.visible = false
 	node.collision_layer = 0
 	placement = true
@@ -2833,7 +2985,7 @@ func start_relocation(kind: String, index: int) -> bool:
 	match kind:
 		"crusher": _crusher_visual(ghost, true, int(state.crushers[index].get("tier", 1)))
 		"output": _output_visual(ghost, true)
-		"conveyor": _conveyor_visual(ghost, true)
+		"conveyor": _conveyor_visual(ghost, true, str(business.conveyors[index].get("kind", "straight")))
 		"storage":
 			if art:
 				art.storage_model(ghost, 0.0)
