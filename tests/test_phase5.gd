@@ -200,7 +200,7 @@ func scene_mining() -> void:
 	check(game.hud.card_open() and game.hud.card_title.text.contains("GRANDPA"), "11 a short introduction letter opens a new game")
 	game.hud.close_card()
 	check(game.prog.story["intro_seen"] and not game.hud.card_open(), "11 the letter closes and is remembered")
-	check(game.formation_nodes.size() == 4 and game.formation_nodes.has("hillside_face_01") and not game.formation_nodes.has("copper_vein"), "1 three starting formations plus the hillside are built; deep ones wait for the lower level")
+	check(game.formation_nodes.size() == 5 and game.formation_nodes.has("hillside_face_01") and not game.formation_nodes.has("copper_vein"), "1 three starting formations plus the hillside are built; deep ones wait for the lower level")
 	var node = game.formation_nodes["stone_mountain"]
 	var stone0: int = game.prog.units_left("stone_mountain")
 	# swing timing: damage only lands at the visible impact
@@ -287,14 +287,14 @@ func scene_mining() -> void:
 	game._load()
 	await process_frame
 	check(JSON.stringify(game.state.deposits["stone_mountain"]["columns"]) == cols_saved and game.state.tool_tier == 2 and game.prog.stage == 2, "14 excavation progress, tool and stage restored")
-	check(game.ground_pieces.size() == pieces_saved and game.formation_nodes.size() == 4, "14 loose pieces and formation nodes rebuilt once")
+	check(game.ground_pieces.size() == pieces_saved and game.formation_nodes.size() == 5, "14 loose pieces and formation nodes rebuilt once")
 	visible = 0
 	for mi in node.chunks[col]:
 		visible += 1 if mi.visible else 0
 	check(visible == 0 and node.shapes[col].disabled, "14 an emptied column stays gone after loading")
 	game._load()
 	await process_frame
-	check(game.ground_pieces.size() == pieces_saved and live(game, "QuarryFormation") == 4, "14 repeated loads do not duplicate pieces or formations")
+	check(game.ground_pieces.size() == pieces_saved and live(game, "QuarryFormation") == 4 and live(game, "QuarryArcFormation") == 1, "14 repeated loads do not duplicate pieces or formations")
 	game.queue_free()
 	await process_frame
 
@@ -540,7 +540,7 @@ func scene_deep() -> void:
 	check(int(reloaded[0]["bin"].get("limestone", 0)) == int(saved_r[0]["bin"].get("limestone", 0)), "14 rig bins restored exactly")
 	game._load()
 	await process_frame
-	check(live(game, "QuarryRig") == 2 and live(game, "QuarryFormation") == 6, "14 repeated loads do not duplicate machines or formations")
+	check(live(game, "QuarryRig") == 2 and live(game, "QuarryFormation") == 6 and live(game, "QuarryArcFormation") == 1, "14 repeated loads do not duplicate machines or formations")
 	game.queue_free()
 	await process_frame
 

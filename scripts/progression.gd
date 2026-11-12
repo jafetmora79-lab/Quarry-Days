@@ -136,13 +136,69 @@ func max_units(id: String) -> int:
 		n += column_max(id, i)
 	return n
 
-## Column centre at ground level (world space).
-func column_pos(id: String, i: int) -> Vector3:
+const PitZoneScript = preload("res://scripts/pit_zone.gd")
+
+## Phase 6.3b: a formation lives in a frame ("world" by default, or "pit": the pit zone's gate-local frame) and is laid
+## out either as a straight "grid" (sector x = world x, row y = world z) or as an "arc": columns are `sectors`
+## angular slices (x index) of `rows` concentric rings (y index; row 0 is the inner ring) around `center`.
+func formation_frame(id: String) -> Transform3D:
+	if str(fdef(id).get("frame", "")) == "pit":
+		return PitZoneScript.gate_transform(cfg.get("pit_zone", {}))
+	return Transform3D.IDENTITY
+
+func is_arc(id: String) -> bool:
+	return str(fdef(id).get("layout", "grid")) == "arc"
+
+## Angle (in the formation's own frame) of sector x's centre, arc layout only.
+func arc_angle(id: String, x: float) -> float:
+	var a: Array = fdef(id)["arc_deg"]
+	var a0 := deg_to_rad(float(a[0]))
+	var da := (deg_to_rad(float(a[1])) - a0) / float(dims(id).x)
+	return a0 + (x + 0.5) * da
+
+func arc_step(id: String) -> float:
+	var a: Array = fdef(id)["arc_deg"]
+	return (deg_to_rad(float(a[1])) - deg_to_rad(float(a[0]))) / float(dims(id).x)
+
+## Ground-level centre of cell (x, y), world space. Works for indices just outside the grid too (neighbours).
+func cell_pos(id: String, x: int, y: int) -> Vector3:
 	var f := fdef(id)
 	var d := dims(id)
 	var c: Array = f["center"]
 	var cell := float(f["cell"])
-	return Vector3(float(c[0]) + (float(i % d.x) - (d.x - 1) * 0.5) * cell, float(c[1]), float(c[2]) + (float(i / d.x) - (d.y - 1) * 0.5) * cell)
+	var l: Vector3
+	if is_arc(id):
+		var ang := arc_angle(id, float(x))
+		var r := float(f["r_inner"]) + (float(y) + 0.5) * cell
+		l = Vector3(float(c[0]) + r * cos(ang), float(c[1]), float(c[2]) + r * sin(ang))
+	else:
+		l = Vector3(float(c[0]) + (float(x) - (d.x - 1) * 0.5) * cell, float(c[1]), float(c[2]) + (float(y) - (d.y - 1) * 0.5) * cell)
+	return formation_frame(id) * l
+
+## Column centre at ground level (world space).
+func column_pos(id: String, i: int) -> Vector3:
+	var d := dims(id)
+	return cell_pos(id, i % d.x, i / d.x)
+
+## Rotation about Y (world) of a column's box: its local x runs along the radius (arc) or world x (grid).
+func column_yaw(id: String, i: int) -> float:
+	var fy := formation_frame(id).basis.get_euler().y
+	if is_arc(id):
+		return fy - arc_angle(id, float(i % dims(id).x))
+	return fy
+
+## Box footprint (local x, local z) of a column: (cell, cell) for grids; (radial, tangential) for arcs.
+func column_size(id: String, i: int) -> Vector2:
+	var cell := float(fdef(id)["cell"])
+	if is_arc(id):
+		var r := float(fdef(id)["r_inner"]) + (float(i / dims(id).x) + 0.5) * cell
+		return Vector2(cell, r * arc_step(id))
+	return Vector2(cell, cell)
+
+## Where the formation's centre is in the world (labels, discoveries, default positions).
+func formation_origin_world(id: String) -> Vector3:
+	var c: Array = fdef(id)["center"]
+	return formation_frame(id) * Vector3(float(c[0]), float(c[1]), float(c[2]))
 
 ## Creates or migrates a formation record. Saves that already hold its columns keep them exactly.
 func init_formation(id: String) -> Dictionary:
@@ -226,14 +282,17 @@ func column_open_dir(id: String, i: int, from: Vector3) -> Vector3:
 	var d := dims(id)
 	var x := i % d.x
 	var y := i / d.x
+	var here := cell_pos(id, x, y)
 	var best := Vector3.ZERO
 	var best_d := INF
 	for o in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
 		var nx: int = x + o.x
 		var ny: int = y + o.y
 		if _open_neighbour(id, d, nx, ny):
-			var dir := Vector3(o.x, 0, o.y)
-			var dist := (column_pos(id, i) + dir * 2.0).distance_squared_to(from)
+			var dir := (cell_pos(id, nx, ny) - here)
+			dir.y = 0.0
+			dir = dir.normalized()
+			var dist := (here + dir * 2.0).distance_squared_to(from)
 			if dist < best_d:
 				best_d = dist
 				best = dir

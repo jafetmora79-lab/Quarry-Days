@@ -13,6 +13,7 @@ const FormationScript = preload("res://scripts/formation.gd")
 const FXScript = preload("res://scripts/fx.gd")
 const HUDScript = preload("res://scripts/hud.gd")
 const PitZoneScript = preload("res://scripts/pit_zone.gd")
+const ArcFormationScript = preload("res://scripts/arc_formation.gd")
 const TouchScript = preload("res://scripts/touch_controls.gd")
 const ExcavationScript = preload("res://scripts/excavation.gd")
 const RigScript = preload("res://scripts/rig.gd")
@@ -520,6 +521,10 @@ func _build_pit_zone() -> void:
 	if not pit_zone.setup(self):
 		pit_zone.free()
 		pit_zone = null
+		return
+	for id in prog.formation_ids():
+		if prog.formation_active(id) and str(prog.fdef(id).get("frame", "")) == "pit":
+			_build_formation(id)
 
 ## The gate opens with the cleanup tutorial (saves from before it are already open).
 func _sync_pit_gate() -> void:
@@ -600,8 +605,7 @@ func _deposit_info(kind: String) -> Dictionary:
 	if DEPOSIT_INFO.has(kind):
 		return DEPOSIT_INFO[kind]
 	if prog and prog.is_formation(kind):
-		var c: Array = prog.fdef(kind)["center"]
-		return {"pos": Vector3(float(c[0]), float(c[1]), float(c[2])), "resource": str(prog.fdef(kind)["resource"]), "pieces": 0, "formation": true, "color": WorkerScript.RESOURCE_COLORS.get(str(prog.fdef(kind)["resource"]), Color.GRAY)}
+		return {"pos": prog.formation_origin_world(kind), "resource": str(prog.fdef(kind)["resource"]), "pieces": 0, "formation": true, "color": WorkerScript.RESOURCE_COLORS.get(str(prog.fdef(kind)["resource"]), Color.GRAY)}
 	return EXPANSION_DEPOSITS.get(kind, {})
 
 func is_formation(kind: String) -> bool:
@@ -611,10 +615,15 @@ func is_formation(kind: String) -> bool:
 func _build_formation(id: String) -> void:
 	if formation_nodes.has(id):
 		return
+	var pit_frame := str(prog.fdef(id).get("frame", "")) == "pit"
+	if pit_frame and pit_zone == null:
+		return # built once the pit zone exists (see _build_pit_zone)
 	prog.init_formation(id)
-	var node = FormationScript.new()
+	var node = (ArcFormationScript if prog.is_arc(id) else FormationScript).new()
 	node.setup(self, prog, id)
 	world.add_child(node)
+	if pit_frame:
+		pit_zone.formations.append(node)
 	formation_nodes[id] = node
 	deposit_nodes[id] = node
 
@@ -1856,6 +1865,8 @@ func _rebake_nav() -> void:
 			continue
 		for child in body.get_children():
 			if child is CollisionShape3D and child.shape is BoxShape3D:
+				if body is QuarryFormation and child.has_meta("column") and bool(prog.fdef(body.fid).get("strict", false)) and not prog.column_exposed(body.fid, int(child.get_meta("column"))):
+					continue # buried hillside columns are not part of any walkable surface or obstacle edge
 				source.add_faces(_box_faces(child.shape.size), body.global_transform * child.transform)
 	for v in vehicle_nodes.values():
 		if v != driving and not v.is_queued_for_deletion():
@@ -2750,8 +2761,8 @@ func _on_formation_cleared(id: String) -> void:
 func _spawn_discovery(did: String, formation: String) -> void:
 	if discovery_nodes.has(did) or not prog.is_formation(formation):
 		return
-	var c: Array = prog.fdef(formation)["center"]
-	var body := _solid(world, "Lockbox", Vector3(float(c[0]), float(c[1]) + 0.25, float(c[2])), Vector3(0.7, 0.5, 0.45), Color(0.32, 0.22, 0.14), 0.4)
+	var c: Vector3 = prog.formation_origin_world(formation)
+	var body := _solid(world, "Lockbox", Vector3(c.x, c.y + 0.25, c.z), Vector3(0.7, 0.5, 0.45), Color(0.32, 0.22, 0.14), 0.4)
 	body.set_meta("kind", "discovery")
 	body.set_meta("discovery", did)
 	var mi: MeshInstance3D = body.get_child(0)

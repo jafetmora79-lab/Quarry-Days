@@ -1,5 +1,18 @@
 # Changelog
 
+## Quarry Days — Phase 6.3b: curved benches (arc formations) and MultiMesh chunks
+
+- **Arc layout** (`progression.gd`): a formation can have `layout: "arc"` and `frame: "pit"`. Columns are angular slices (x index) of concentric rings (y index, row 0 = inner ring) around a centre, in the pit zone's frame. `cell_pos`, `column_pos`, `column_yaw`, `column_size` and `column_open_dir` are generic, so exposure, staff standing spots, saves and the rest of the column logic are reused unchanged. Grid formations behave exactly as before.
+- **New bench `pit_band_01`** ("Basin Bench"): 16 slices x 6 rings x 3 tiers of cut limestone inside the starting basin, with the tops flush with the plateau. Only the inner ring (the working face) is exposed, so mining pushes the face outward toward the basin wall. It follows the cleanup lock (nothing to cut before the site is clean).
+- **MultiMesh chunks** (`scripts/arc_formation.gd`): the whole bench is drawn by 5 MultiMeshes (about 288 chunks) instead of one node per chunk.
+  - Hidden or crumbling chunks are zero-scale instances. Hit, shake and crumble only rewrite the chunks involved.
+  - Weathered vs. freshly cut tints and course shading are per-instance colours.
+  - Crack decals come from a pool of 3 overlays shared by the most recently damaged columns.
+  - Physics is still one tangentially rotated box per column.
+- **Navigation:** the pit region bakes from exposed columns only (plus the shell), in the background and rate-limited. The yard's synchronous rebuild now also skips buried hillside columns (it was the slowest part).
+- **Staff:** a miner walks out through the gate, along the corridor and down to the bench, and cuts real stone (tested end to end). Rigs have no pads there yet.
+- **Tests:** `tests/test_phase6_3b.gd` (30 checks). Counts of formations in older tests were updated. Note that the headless renderer does not store MultiMesh instance data, so those tests check chunk state, not instance transforms.
+
 ## Quarry Days — Phase 6.3a: the pit zone behind the north-east gate
 
 - **The gate:** at 306 degrees on the cliff ring, the cliff filler and two low rim walls in its mouth are retired. A rockfall barrier closes it until the site cleanup tutorial is done (old saves are already open). The ring has no gaps while it is closed, and the gate is the only opening once it is open (both tested).

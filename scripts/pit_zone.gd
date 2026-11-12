@@ -15,6 +15,8 @@ var barrier: StaticBody3D
 var nav_region: NavigationRegion3D
 var nav_link: NavigationLink3D
 var nav_ready := false
+var formations: Array = []     # curved bench formations of this zone (their exposed columns are nav sources)
+var last_source_boxes := 0
 var bake_count := 0
 var bake_ms := 0.0            # main-thread time spent collecting the last bake's source geometry
 var _bake_dirty := false
@@ -337,6 +339,15 @@ func _collect_sources() -> NavigationMeshSourceGeometryData3D:
 		for c in b.get_children():
 			if c is CollisionShape3D and c.shape is BoxShape3D:
 				src.add_faces(game._box_faces((c.shape as BoxShape3D).size), b.global_transform * c.transform)
+	var n := 0
+	for f in formations:
+		if not is_instance_valid(f):
+			continue
+		for c in f.get_children():
+			if c is CollisionShape3D and c.has_meta("column") and not c.disabled and game.prog.column_exposed(f.fid, int(c.get_meta("column"))):
+				src.add_faces(game._box_faces((c.shape as BoxShape3D).size), f.global_transform * c.transform)
+				n += 1
+	last_source_boxes = n
 	return src
 
 func _start_bake() -> void:
