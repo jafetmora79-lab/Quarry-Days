@@ -25,7 +25,7 @@ var quarry_level := 1                  ## Phase 7.1: the deepest of the four qua
 const SCHEMA := 2                      ## save schema of the progression block: 1 = before Phase 7.1 (no field), 2 = quarry levels
 var rigs: Array = []
 var next_rig_id := 1
-var story := {"intro_seen": false, "found": {}, "read": {}, "visits": {}, "journal": [], "fossil": ""}
+var story := {"intro_seen": false, "found": {}, "read": {}, "visits": {}, "journal": [], "fossil": "", "companion": {"state": "none"}}
 ## Phase 6.2 tutorial: weeds and rubble heaps still on the site. "cleared": id -> true, "units": heap id -> units
 ## left (heaps keep their remaining stone when saved), "done": the whole site is clean (hillside unlocked).
 var cleanup := {"cleared": {}, "units": {}, "done": false}
@@ -842,8 +842,67 @@ func fossil_choose(who: String) -> int:
 	state.add_income(price, "fossil")
 	journal_add(str(b.get("journal", "")))
 	if who == "scientist":
-		story["fossil_egg"] = true       # Phase 7.7: Dr. Marsh's team brings the egg
+		story["fossil_egg"] = true       # Phase 7.7: Dr. Marsh's team brings the egg the next day
+		story["companion"] = {"state": "pending", "ready_day": current_day + 1}
 	return price
+
+# ------------------------------------------------------------------ the companion (Phase 7.7)
+
+var current_day := 0          ## in-game day number, kept up to date by main
+
+func companion_cfg() -> Dictionary:
+	return cfg.get("companion", {})
+
+func companion() -> Dictionary:
+	return story["companion"]
+
+## "" (none yet), "egg", "hatchling", "juvenile" or "adult" for the given in-game day.
+func companion_stage(day: int) -> String:
+	var c: Dictionary = story["companion"]
+	var st := str(c.get("state", "none"))
+	if st == "egg":
+		var hatch := int(c.get("egg_day", 0)) + int(companion_cfg().get("egg_days", 2))
+		return "egg" if day < hatch else "hatchling"
+	if st == "alive":
+		var born := int(c.get("born_day", 0))
+		var cc := companion_cfg()
+		var j := born + int(cc.get("hatchling_days", 3))
+		var a := j + int(cc.get("juvenile_days", 4))
+		return "hatchling" if day < j else ("juvenile" if day < a else "adult")
+	return ""
+
+## The egg is on the porch waiting to be picked up.
+func companion_egg_waiting(day: int) -> bool:
+	var c: Dictionary = story["companion"]
+	return str(c.get("state", "")) == "pending" and day >= int(c.get("ready_day", 0))
+
+func companion_take_egg(day: int) -> bool:
+	if not companion_egg_waiting(day):
+		return false
+	story["companion"] = {"state": "egg", "egg_day": day}
+	journal_add("companion_egg")
+	return true
+
+## Called when the egg has hatched: the companion is alive from this day on.
+func companion_hatch(day: int, name_text: String) -> void:
+	var c: Dictionary = story["companion"]
+	if str(c.get("state", "")) != "egg":
+		return
+	var names: Array = companion_cfg().get("default_names", ["Pebble"])
+	story["companion"] = {"state": "alive", "born_day": int(c.get("egg_day", 0)) + int(companion_cfg().get("egg_days", 2)),
+		"name": name_text.strip_edges() if name_text.strip_edges() != "" else str(names[0]), "stage_seen": "hatchling"}
+
+func companion_rename(name_text: String) -> void:
+	if str(story["companion"].get("state", "")) == "alive" and name_text.strip_edges() != "":
+		story["companion"]["name"] = name_text.strip_edges().substr(0, 16)
+
+func companion_stage_def(day: int) -> Dictionary:
+	return companion_cfg().get("stages", {}).get(companion_stage(day), {})
+
+## Can the companion break this resource with its tail? Same hardness rule as the player's tools.
+func companion_can_break(res: String, day: int) -> bool:
+	var sd := companion_stage_def(day)
+	return bool(sd.get("smash", false)) and int(material(res).get("hardness", 1)) <= int(sd.get("max_hardness", 0))
 
 # ------------------------------------------------------------------ Walter (Phase 7.5)
 
@@ -883,6 +942,8 @@ func visit_condition_met(v: Dictionary) -> bool:
 	if bool(w.get("cleaned", false)) and not bool(cleanup.get("done", false)):
 		return false
 	if w.has("fossil") and str(story.get("fossil", "")) != str(w["fossil"]):
+		return false
+	if w.has("companion") and not (companion_stage(current_day) in w["companion"]):
 		return false
 	return true
 
@@ -946,12 +1007,21 @@ func restore(raw_data: Dictionary, vehicle_types: Array = []) -> void:
 		for k in cu.get("units", {}):
 			cleanup["units"][str(k)] = clampi(int(cu["units"][k]), 0, int(cleanup_cfg().get("heap_units", 5)))
 	var st = data.get("story", {})
-	story = {"intro_seen": bool(st.get("intro_seen", true)) if st is Dictionary else true, "found": {}, "read": {}, "visits": {}, "journal": [], "fossil": ""}
+	story = {"intro_seen": bool(st.get("intro_seen", true)) if st is Dictionary else true, "found": {}, "read": {}, "visits": {}, "journal": [], "fossil": "", "companion": {"state": "none"}}
 	if st is Dictionary:
 		var fs := str(st.get("fossil", ""))
 		story["fossil"] = fs if fs in ["found", "collector", "scientist"] else ""
 		if bool(st.get("fossil_egg", false)):
 			story["fossil_egg"] = true
+		var cs = st.get("companion", {})
+		if cs is Dictionary and str(cs.get("state", "none")) in ["pending", "egg", "alive"]:
+			story["companion"] = {"state": str(cs["state"])}
+			for k in ["ready_day", "egg_day", "born_day"]:
+				if cs.has(k):
+					story["companion"][k] = int(cs[k])
+			for k in ["name", "stage_seen"]:
+				if cs.has(k):
+					story["companion"][k] = str(cs[k]).substr(0, 16)
 		for k in st.get("visits", {}):
 			story["visits"][str(k)] = true
 		for k in st.get("journal", []):

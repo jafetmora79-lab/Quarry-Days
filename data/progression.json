@@ -1136,6 +1136,18 @@
       "fossil_scientist": {
         "title": "Given to the scientist",
         "text": "Dr. Marsh and her team took the skeleton for the university. I got $2,000 and the feeling of having done something right."
+      },
+      "companion_egg": {
+        "title": "The egg",
+        "text": "Dr. Marsh left an egg on the porch. It is warm and it moves a little. It should hatch in a couple of days."
+      },
+      "companion_born": {
+        "title": "A new family member",
+        "text": "The egg hatched. I have a dinosaur. Walter says he has never seen anything like it."
+      },
+      "companion_adult": {
+        "title": "All grown up",
+        "text": "My dinosaur is fully grown. It can break rock with its tail."
       }
     },
     "visits": [
@@ -1234,6 +1246,50 @@
         "lines": [
           "Two thousand dollars and a whole university at your door. I like that.",
           "You did right by it, kiddo. Whatever happens next, that skeleton is where it belongs."
+        ]
+      },
+      {
+        "id": "companion_egg",
+        "when": {
+          "companion": [
+            "egg"
+          ]
+        },
+        "title": "WALTER DROPS BY",
+        "journal": "",
+        "lines": [
+          "Is that an egg on the porch? Dr. Marsh left it for you?",
+          "Well, I never. Keep it warm and dry. I raised chickens once, how hard can it be?"
+        ]
+      },
+      {
+        "id": "companion_born",
+        "when": {
+          "companion": [
+            "hatchling",
+            "juvenile",
+            "adult"
+          ]
+        },
+        "title": "WALTER DROPS BY",
+        "journal": "companion_born",
+        "lines": [
+          "It hatched! Look at that little face.",
+          "You are going to have to feed it. Or at least be nice to it. It will follow you around the quarry like a puppy."
+        ]
+      },
+      {
+        "id": "companion_adult",
+        "when": {
+          "companion": [
+            "adult"
+          ]
+        },
+        "title": "WALTER DROPS BY",
+        "journal": "companion_adult",
+        "lines": [
+          "Would you look at the size of it. And it can break rock with its tail!",
+          "In fifty years of working this quarry I never had a helper like that. Look after it, kiddo."
         ]
       }
     ]
@@ -1498,5 +1554,52 @@
     "sleep_from_hour": 17.0,
     "curfew_hour": 22.0,
     "wake_hour": 7.0
+  },
+  "companion": {
+    "_comment": "Phase 7.7: Dr. Marsh's team leaves the egg (scientist route only). Days are in-game days. Stages: egg -> hatchling -> juvenile -> adult. Tail smash: damage per hit and the hardest rock the companion can break (the same hardness rule as the player's tools).",
+    "egg_pos": [
+      -1.0,
+      0,
+      9.5
+    ],
+    "default_names": [
+      "Pebble",
+      "Rocky",
+      "Dusty",
+      "Flint"
+    ],
+    "egg_days": 2,
+    "hatchling_days": 3,
+    "juvenile_days": 4,
+    "stages": {
+      "hatchling": {
+        "scale": 0.35,
+        "speed": 3.2,
+        "smash": false,
+        "damage": 0.0,
+        "max_hardness": 0
+      },
+      "juvenile": {
+        "scale": 0.75,
+        "speed": 4.2,
+        "smash": true,
+        "damage": 14.0,
+        "max_hardness": 2
+      },
+      "adult": {
+        "scale": 1.25,
+        "speed": 4.8,
+        "smash": true,
+        "damage": 34.0,
+        "max_hardness": 3
+      }
+    },
+    "smash_hits": 6,
+    "smash_interval": 1.1,
+    "reach": 14.0,
+    "arrival_text": "A crate sits on the porch with a note: 'Keep it warm and dry. It should hatch in a couple of days. Please look after it. - Dr. Evelyn Marsh'. Inside is an egg the size of a watermelon, warm to the touch.",
+    "hatch_text": "The egg cracks, wobbles, and a small, wet, very serious head pokes out. It looks at you and decides you are its family.",
+    "adult_text": "%s has grown into a full-size dinosaur. It can smash open hard rock with its tail now.",
+    "juvenile_text": "%s is growing fast. It is big enough to smash soft rock with its tail now (press T while looking at rock)."
   }
 }

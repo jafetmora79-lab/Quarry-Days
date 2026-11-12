@@ -1182,6 +1182,7 @@ func _physics_process(delta: float) -> void:
 	_check_walter_visit()
 	_walter_idle(delta)
 	_fossil_tick(delta)
+	_companion_tick(delta)
 	if autosave_enabled:
 		autosave_t += delta
 		if autosave_t >= AUTOSAVE_SECONDS and not sleeping and not placement:
@@ -1229,6 +1230,7 @@ func _physics_process(delta: float) -> void:
 			"bed": prompt = "E: sleep until morning" if can_sleep() else "Too early to sleep (rest after %02d:00)" % int(prog.cfg.get("home", {}).get("sleep_from_hour", 17.0))
 			"discovery": prompt = "E: open the old lockbox"
 			"fossil": prompt = "E: examine the fossil"
+			"egg": prompt = "E: pick up the egg" if prog.companion_egg_waiting(prog.current_day) else "The egg is warm. It will hatch soon."
 			"walter": prompt = "E: talk to Grandpa Walt" if walter_visit != "" else "Grandpa Walt"
 			"rig":
 				var ri := int(last_target.get_meta("index"))
@@ -1351,6 +1353,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			elif event.button_index == MOUSE_BUTTON_LEFT:
 				_place_ghost()
 		return
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_T and not placement and name_dialog == null:
+		_companion_command()
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_B:
 		construction = not construction
 		sell_confirm = ""
@@ -1398,6 +1402,8 @@ func _interact(target: Node3D) -> void:
 			_talk_to_walter()
 		"fossil":
 			_talk_to_fossil()
+		"egg":
+			_take_egg()
 		"rig":
 			_open_menu("rig", int(target.get_meta("index")))
 		"vehicle":
@@ -2094,6 +2100,7 @@ func _load(quiet := false) -> void:
 	_restore_legacy_pieces(legacy_pieces)
 	_remove_walter()
 	_remove_fossil()
+	_remove_companion()
 	if fossil_dialog:
 		fossil_dialog.queue_free()
 		fossil_dialog = null
@@ -3562,6 +3569,202 @@ func _fossil_chosen(who: String) -> void:
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
 	_sfx_unlock()
 	_notify("The fossil went to %s." % str(prog.fossil_cfg()["buyers"][who]["who"]))
+
+# ------------------------------------------------------------------ Phase 7.7: the dinosaur companion
+
+var companion_node: QuarryCompanion
+var egg_node: Node3D
+var name_dialog: PanelContainer
+var _companion_timer := 0.0
+
+func _sim_day() -> int:
+	return int(floorf(state.clock_minutes / 1440.0))
+
+func _spawn_egg() -> void:
+	if egg_node != null and is_instance_valid(egg_node):
+		return
+	var p: Array = prog.companion_cfg().get("egg_pos", [-1.0, 0, 9.5])
+	var root := StaticBody3D.new()
+	root.name = "DinoEgg"
+	root.position = Vector3(float(p[0]), float(p[1]), float(p[2]))
+	root.set_meta("kind", "egg")
+	var cs := CollisionShape3D.new()
+	var sh := SphereShape3D.new()
+	sh.radius = 0.4
+	cs.shape = sh
+	cs.position.y = 0.4
+	root.add_child(cs)
+	var mi := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = 0.32
+	sm.height = 0.8
+	mi.mesh = sm
+	mi.material_override = _mat(Color(0.82, 0.78, 0.62))
+	mi.position.y = 0.4
+	root.add_child(mi)
+	_solid(root, "Nest", Vector3(0, 0.05, 0), Vector3(1.0, 0.1, 1.0), Color(0.42, 0.30, 0.16))
+	world.add_child(root)
+	egg_node = root
+
+func _remove_egg() -> void:
+	if egg_node != null and is_instance_valid(egg_node):
+		egg_node.queue_free()
+	egg_node = null
+
+func _remove_companion() -> void:
+	if companion_node != null and is_instance_valid(companion_node):
+		companion_node.queue_free()
+	companion_node = null
+	_remove_egg()
+	if name_dialog:
+		name_dialog.queue_free()
+		name_dialog = null
+
+func _spawn_companion() -> void:
+	if companion_node != null and is_instance_valid(companion_node):
+		return
+	companion_node = QuarryCompanion.new()
+	world.add_child(companion_node)
+	companion_node.setup(self, prog.companion_stage(prog.current_day))
+	var at := player.global_position + Vector3(1.5, 0, 1.5)
+	companion_node.global_position = Vector3(at.x, companion_node.ground_y(at), at.z)
+
+## Egg delivery, hatching, growth and the companion's movement, driven from the physics tick.
+func _companion_tick(delta: float) -> void:
+	prog.current_day = _sim_day()
+	var c := prog.companion()
+	var st := str(c.get("state", "none"))
+	_companion_timer -= delta
+	if _companion_timer <= 0.0:
+		_companion_timer = 0.5
+		if prog.companion_egg_waiting(prog.current_day) and egg_node == null and not sleeping:
+			_spawn_egg()
+			if hud:
+				hud.toast("A crate on the porch", "Dr. Marsh left something for you by the yard (E).", "milestone")
+		elif st == "egg":
+			if egg_node == null:
+				_spawn_egg()
+			if prog.companion_stage(prog.current_day) != "egg" and name_dialog == null:
+				_hatch_egg()
+		elif st == "alive":
+			if companion_node == null:
+				_spawn_companion()
+			var now_stage := prog.companion_stage(prog.current_day)
+			if now_stage != companion_node.stage:
+				companion_node.set_stage(now_stage)
+				var key := "adult_text" if now_stage == "adult" else ("juvenile_text" if now_stage == "juvenile" else "")
+				if key != "" and hud:
+					hud.toast("%s grew up" % str(c.get("name", "Your dinosaur")), str(prog.companion_cfg().get(key, "")) % str(c.get("name", "Your dinosaur")), "milestone")
+				if now_stage == "adult":
+					prog.journal_add("companion_adult")
+	if companion_node != null and is_instance_valid(companion_node) and not sleeping:
+		companion_node.step(delta, player.global_position)
+
+func _hatch_egg() -> void:
+	prog.companion_hatch(prog.current_day, "")
+	_remove_egg()
+	_spawn_companion()
+	prog.journal_add("companion_born")
+	if hud:
+		hud.show_card("IT HATCHED", str(prog.companion_cfg().get("hatch_text", "")), func(): _open_name_dialog())
+		player.locked = true
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+func _open_name_dialog() -> void:
+	if name_dialog != null:
+		return
+	var pc := PanelContainer.new()
+	pc.name = "NameDialog"
+	pc.custom_minimum_size = Vector2(420, 0)
+	pc.add_theme_stylebox_override("panel", QuarryTheme.panel_box(QuarryTheme.BG, QuarryTheme.ACCENT, 14, 4))
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 8)
+	pc.add_child(v)
+	v.add_child(QuarryTheme.label("NAME YOUR DINOSAUR", 12, QuarryTheme.ACCENT, true))
+	var le := LineEdit.new()
+	le.name = "NameEdit"
+	le.max_length = 16
+	var names: Array = prog.companion_cfg().get("default_names", ["Pebble"])
+	le.text = str(names[randi() % names.size()])
+	le.select_all_on_focus = true
+	v.add_child(le)
+	var ok := Button.new()
+	ok.text = "That's its name"
+	ok.pressed.connect(func(): _finish_naming(le.text))
+	v.add_child(ok)
+	ui.add_child(pc)
+	pc.set_anchors_and_offsets_preset(Control.PRESET_CENTER, Control.PRESET_MODE_MINSIZE)
+	name_dialog = pc
+	le.grab_focus()
+
+func _finish_naming(text: String) -> void:
+	prog.companion_rename(text)
+	if name_dialog:
+		name_dialog.queue_free()
+	name_dialog = null
+	player.locked = false
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	if hud:
+		hud.toast(str(prog.companion().get("name", "")), "is part of the family now.", "unlock")
+
+func _take_egg() -> void:
+	if prog.companion_take_egg(prog.current_day):
+		if hud:
+			hud.show_card("A GIFT FROM DR. MARSH", str(prog.companion_cfg().get("arrival_text", "")))
+		_notify("You take care of the egg. It should hatch in a couple of days.")
+
+## T: the companion walks up to the rock you are looking at and smashes it with its tail.
+func _companion_command() -> void:
+	if companion_node == null or not is_instance_valid(companion_node) or sleeping or driving or menu != "":
+		return
+	var nm := str(prog.companion().get("name", "Your dinosaur"))
+	if companion_node.busy():
+		companion_node.cancel_smash()
+		_notify("%s stops." % nm)
+		return
+	var hit := _mining_ray()
+	if hit.is_empty() or str(hit["node"].get_meta("kind", "")) != "deposit":
+		_notify("Look at exposed rock and press T to send %s to smash it." % nm)
+		return
+	var kind := str(hit["node"].get_meta("deposit"))
+	if not formation_nodes.has(kind) or prog.formation_locked(kind) != "":
+		_notify(prog.formation_locked(kind) if formation_nodes.has(kind) else "Nothing to smash here.")
+		return
+	var col := int(hit["column"])
+	if col < 0 or prog.column_units(kind, col) <= 0 or not prog.column_minable(kind, col):
+		col = prog.nearest_column(kind, hit["point"], true, 2.6)
+	if col < 0:
+		_notify("%s can only smash exposed rock." % nm)
+		return
+	var msg := companion_node.command_smash(kind, col)
+	if msg != "":
+		_notify(msg)
+	else:
+		_notify("%s goes to smash the rock." % nm)
+
+## One tail hit on a column. Same rules as every other tool: hardness, exposure, unlock. Units fall as loose pieces.
+func companion_strike(kind: String, col: int, damage: float, who: Node3D) -> void:
+	if not formation_nodes.has(kind) or prog.formation_locked(kind) != "":
+		return
+	var res := str(state.deposits[kind]["resource"])
+	if not prog.companion_can_break(res, prog.current_day):
+		return
+	if col < 0 or prog.column_units(kind, col) <= 0 or not prog.column_minable(kind, col):
+		return
+	var node: QuarryFormation = formation_nodes[kind]
+	var room := maxi(0, int(prog.cfg.get("loose_piece_cap", 36)) - loose_count(kind))
+	var ex := prog.extract(kind, col, damage, room, "companion")
+	for i in range(int(ex["units"])):
+		_spawn_formation_piece(kind, col, i)
+	node.hit(col)
+	if int(ex["chunks"]) > 0:
+		node.refresh()
+	else:
+		node.update_label()
+	var at := node.column_top(col)
+	if player and player.global_position.distance_to(at) < 24.0:
+		fx.impact(at, res, 1.2)
+		_sfx_at("hit_pick", at, -2.0)
 
 func _spawn_discovery(did: String, formation: String) -> void:
 	if discovery_nodes.has(did) or not prog.is_formation(formation):
