@@ -1,5 +1,18 @@
 # Changelog
 
+## Quarry Days — Phase 6.2: clean up Grandpa's site (tutorial)
+
+- **New first step:** the old quarry is overgrown. 18 weed clumps and 8 rubble heaps are scattered over the open ground (`data/progression.json` → `cleanup`; positions are fixed, chosen so none touches a building, formation, the pit or the hillside).
+  - **Weeds** fall to two hammer swings (`weed_hp` 6). They pay nothing but count toward the site.
+  - **Rubble heaps** give 5 stone each into the bag, 1 per 10 damage. A full bag takes nothing and loses nothing, and the heap shrinks as it empties.
+  - **Tools:** drills and jackhammers work on both.
+  - **Movement:** people and vehicles walk and drive through them. Only the mining ray and the look-at prompt see them. Machinery placement is still blocked by them.
+- **HUD:** "Site cleanup x/26" in the status panel, prompts for each item, and the stage 1 goal text and Grandpa's intro letter now describe the cleanup.
+- **Gate:** the hillside, its staff mining and rig installs stay locked ("Clear the weeds and rubble first (n left)") until the site is clean. Its label says so too.
+- **Walt's letter:** clearing the last item opens a letter from Grandpa Walt with `gift` ($600) paid once, and unlocks the hillside. It is earmarked for the first drill, which comes in a later phase.
+- **Saves:** the cleanup state (cleared items and the stone left in each heap) is stored in the `phase5` block. Saves from before this phase have no cleanup block, so they load as already clean (no debris, hillside open, no gift).
+- **Tests:** `tests/test_phase6_2.gd` (25 checks). The Phase 3 and 6.1 tests now start from a cleaned site.
+
 ## Quarry Days — Phase 6.1: The First Real Quarry (hillside)
 
 - **New formation `hillside_face_01`** (`data/progression.json`): a 6-deep x 12-wide grid of 1.9 m columns, 1-4 tiers high (1.2 m each), cut into the west rim at x -28..-16.6, z -22..0.8. It is built on the existing `QuarryFormation` column system: shared meshes, one box collider per column, cracks, crumble and dust.

@@ -177,6 +177,8 @@ func place(v, pos: Vector3, yaw: float) -> void:
 func scene_tests() -> void:
 	var game = load("res://Main.tscn").instantiate()
 	root.add_child(game)
+	game.prog.cleanup["done"] = true # Phase 6.2: these tests place machinery on a cleaned site
+	game._spawn_cleanup()
 	game.prog.stage = game.prog.stage_index("large") # Phase 5 stage gates (tested in test_phase5)
 	await process_frame
 	await physics_frame

@@ -11,6 +11,7 @@ class_name QuarryProgression
 
 signal stage_reached(index: int)
 signal formation_cleared(id: String)
+signal site_cleared
 
 const MIN_PER_SECOND := 0.5 # in-game minutes per real second (48-minute day)
 
@@ -22,6 +23,9 @@ var level_unlocked := 1
 var rigs: Array = []
 var next_rig_id := 1
 var story := {"intro_seen": false, "found": {}, "read": {}}
+## Phase 6.2 tutorial: weeds and rubble heaps still on the site. "cleared": id -> true, "units": heap id -> units
+## left (heaps keep their remaining stone when saved), "done": the whole site is clean (hillside unlocked).
+var cleanup := {"cleared": {}, "units": {}, "done": false}
 var stats := {"hand": 0, "crew": 0, "rigs": 0, "chunks": 0, "best_tool": 0}
 
 func _init(s: QuarryState, biz, settings: Dictionary) -> void:
@@ -434,6 +438,8 @@ func rig_block_reason(type: String, formation: String) -> String:
 		return "Unlocks at the %s stage" % feature_stage_title(type)
 	if not formation_active(formation):
 		return "That formation is not reachable yet"
+	if formation_locked(formation) != "":
+		return formation_locked(formation)
 	if units_left(formation) <= 0:
 		return "That formation is cleared"
 	if int(material(str(fdef(formation)["resource"]))["hardness"]) > int(m["max_hardness"]):
@@ -563,6 +569,56 @@ func rig_take(r: Dictionary, res: String, n: int) -> int:
 func rig_resource(r: Dictionary) -> String:
 	return str(r["bin"].keys()[0]) if not r["bin"].is_empty() else str(fdef(str(r["formation"]))["resource"])
 
+# ------------------------------------------------------------------ site cleanup (Phase 6.2)
+
+func cleanup_cfg() -> Dictionary:
+	return cfg.get("cleanup", {})
+
+## Item ids: "w0".. for weed clumps, "h0".. for rubble heaps.
+func cleanup_ids() -> Array:
+	var out := []
+	for i in range(cleanup_cfg().get("weeds", []).size()):
+		out.append("w%d" % i)
+	for i in range(cleanup_cfg().get("heaps", []).size()):
+		out.append("h%d" % i)
+	return out
+
+func cleanup_pos(id: String) -> Vector2:
+	var key := "weeds" if id.begins_with("w") else "heaps"
+	var a: Array = cleanup_cfg().get(key, [])[int(id.substr(1))]
+	return Vector2(float(a[0]), float(a[1]))
+
+func cleanup_total() -> int:
+	return cleanup_ids().size()
+
+func cleanup_left() -> int:
+	var n := 0
+	for id in cleanup_ids():
+		if not cleanup["cleared"].get(id, false):
+			n += 1
+	return n
+
+func heap_units_left(id: String) -> int:
+	return int(cleanup["units"].get(id, int(cleanup_cfg().get("heap_units", 5))))
+
+func cleanup_active() -> bool:
+	return not bool(cleanup["done"]) and cleanup_total() > 0
+
+## Marks one item cleared. Returns true when this was the last one (the site is now clean).
+func clear_cleanup_item(id: String) -> bool:
+	cleanup["cleared"][id] = true
+	if not bool(cleanup["done"]) and cleanup_left() == 0:
+		cleanup["done"] = true
+		site_cleared.emit()
+		return true
+	return false
+
+## Empty string = open. Formations flagged "requires_cleanup" stay closed until the site is clean.
+func formation_locked(id: String) -> String:
+	if bool(fdef(id).get("requires_cleanup", false)) and cleanup_active():
+		return "Clear the weeds and rubble first (%d left)" % cleanup_left()
+	return ""
+
 # ------------------------------------------------------------------ story
 
 func discovery(id: String) -> Dictionary:
@@ -584,7 +640,7 @@ func read_discovery(id: String) -> int:
 
 func snapshot() -> Dictionary:
 	return {"stage": stage, "level_unlocked": level_unlocked, "rigs": rigs.duplicate(true), "next_rig_id": next_rig_id,
-		"story": story.duplicate(true), "stats": stats.duplicate(true)}
+		"story": story.duplicate(true), "stats": stats.duplicate(true), "cleanup": cleanup.duplicate(true)}
 
 ## Empty dictionary = Phase 1-4 save: stage derived from what is owned, never lower than earned.
 func restore(data: Dictionary, vehicle_types: Array = []) -> void:
@@ -612,6 +668,15 @@ func restore(data: Dictionary, vehicle_types: Array = []) -> void:
 	next_rig_id = int(data.get("next_rig_id", 1))
 	for r in rigs:
 		next_rig_id = maxi(next_rig_id, int(r["id"]) + 1)
+	# Phase 6.2: saves from before the cleanup tutorial have nothing to clean (the hillside is simply open)
+	var cu = data.get("cleanup", null)
+	cleanup = {"cleared": {}, "units": {}, "done": true}
+	if cu is Dictionary:
+		cleanup["done"] = bool(cu.get("done", false)) or cleanup_total() == 0
+		for k in cu.get("cleared", {}):
+			cleanup["cleared"][str(k)] = true
+		for k in cu.get("units", {}):
+			cleanup["units"][str(k)] = clampi(int(cu["units"][k]), 0, int(cleanup_cfg().get("heap_units", 5)))
 	var st = data.get("story", {})
 	story = {"intro_seen": bool(st.get("intro_seen", true)) if st is Dictionary else true, "found": {}, "read": {}}
 	if st is Dictionary:

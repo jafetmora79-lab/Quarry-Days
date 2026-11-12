@@ -126,6 +126,7 @@ func scene() -> void:
 	game.tutorial_visible = false
 	var st: QuarryState = game.state
 	var prog: QuarryProgression = game.prog
+	prog.cleanup["done"] = true # Phase 6.2: these tests are about cutting, so the site is already clean
 	var node: QuarryFormation = game.formation_nodes.get(HID)
 	check(node != null and node.cut and game.deposit_nodes.has(HID), "A new game builds the hillside as a cut-stone formation")
 	var total_chunks := 0

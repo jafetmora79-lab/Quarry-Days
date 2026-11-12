@@ -164,6 +164,10 @@ func refresh(instant := false) -> void:
 func update_label() -> void:
 	var left := prog.units_left(fid)
 	var total := prog.max_units(fid)
+	if prog.formation_locked(fid) != "":
+		label.text = "%s\nCLEAR THE SITE FIRST" % str(prog.fdef(fid)["title"]).to_upper()
+		label.modulate = Color(1.0, 0.7, 0.5)
+		return
 	if left <= 0:
 		label.text = "%s\nCLEARED" % str(prog.fdef(fid)["title"]).to_upper()
 		label.modulate = Color(0.75, 0.95, 0.7)

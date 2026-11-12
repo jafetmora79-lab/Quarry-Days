@@ -80,6 +80,10 @@ var pile_nodes := {}
 var construction := false
 var relocating := {}
 var sell_confirm := ""
+var cleanup_nodes := {}      # Phase 6.2: weed clumps and rubble heaps still on the site (id -> body)
+var debris_dmg := {}         # id -> damage dealt so far
+var _weed_mesh: ArrayMesh
+var _heap_mesh: ArrayMesh
 var touch_mode := false      # on-screen controls (Android / --touch)
 var touch_mine := false      # MINE button held
 var hillside_retired: Array = [] # rim / cliff bodies the hillside replaced (for tests)
@@ -125,6 +129,7 @@ func _ready() -> void:
 	state.money_earned.connect(_on_income)
 	prog.stage_reached.connect(_on_stage)
 	prog.formation_cleared.connect(_on_formation_cleared)
+	prog.site_cleared.connect(_on_site_cleared)
 	fx = FXScript.new()
 	add_child(fx)
 	fx.game_audio_break = func(at: Vector3): _sfx_at("rock_break", at, -6.0)
@@ -135,6 +140,7 @@ func _ready() -> void:
 	art = ArtScript.new()
 	art.build_environment(self)
 	_carve_hillside_site()
+	_spawn_cleanup()
 	art.dress_storage(storage_body)
 	for kind in deposit_nodes:
 		_dress_deposit(kind)
@@ -329,6 +335,140 @@ func _building(label: String, pos: Vector3, color: Color) -> void:
 	_solid(world,label+" front left",pos+Vector3(-1.6,1.4,-2.35),Vector3(1.8,2.8,0.22),color)
 	_solid(world,label+" front right",pos+Vector3(1.6,1.4,-2.35),Vector3(1.8,2.8,0.22),color)
 	_solid(world,label+" roof",pos+Vector3(0,2.92,0),Vector3(5.4,0.27,5.2),Color(0.24,0.25,0.26))
+
+# ------------------------------------------------------------------ Phase 6.2: clean up Grandpa's site
+
+func _debris_meshes() -> void:
+	if _weed_mesh != null:
+		return
+	var w := MeshKit.Soup.new()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 62
+	for k in range(9):
+		var a := TAU * float(k) / 9.0 + rng.randf_range(-0.3, 0.3)
+		var h := rng.randf_range(0.5, 0.95)
+		var tilt := rng.randf_range(0.15, 0.5)
+		var basis := Basis(Vector3.UP, a) * Basis(Vector3.RIGHT, tilt)
+		MeshKit.box_into(w, Vector3(0, h * 0.5, 0), Vector3(0.07, h, 0.045), Vector2(0.15, 0.4), Transform3D(basis, Vector3(cos(a) * 0.12, 0, sin(a) * 0.12)))
+	_weed_mesh = w.mesh()
+	_weed_mesh.surface_set_material(0, MeshKit.flat(Color(0.36, 0.52, 0.2)))
+	var r := MeshKit.Soup.new()
+	MeshKit.rock_into(r, Vector3(0, 0, 0), Vector3(1.3, 0.8, 1.2), 621, 3, 6)
+	MeshKit.rock_into(r, Vector3(0.55, 0, 0.3), Vector3(0.8, 0.55, 0.8), 622, 3, 6)
+	MeshKit.rock_into(r, Vector3(-0.5, 0, 0.35), Vector3(0.7, 0.5, 0.7), 623, 3, 6)
+	MeshKit.rock_into(r, Vector3(0.1, 0, -0.5), Vector3(0.8, 0.6, 0.7), 624, 3, 6)
+	MeshKit.rock_into(r, Vector3(0.15, 0.55, 0.0), Vector3(0.7, 0.45, 0.65), 625, 3, 6)
+	_heap_mesh = r.mesh()
+	_heap_mesh.surface_set_material(0, MeshKit.mat("RockLimestone"))
+
+## (Re)builds the weeds and rubble heaps still on the site (none once it is clean).
+func _spawn_cleanup() -> void:
+	for n in cleanup_nodes.values():
+		if is_instance_valid(n):
+			n.queue_free()
+	cleanup_nodes.clear()
+	if not prog.cleanup_active():
+		return
+	_debris_meshes()
+	for id in prog.cleanup_ids():
+		if prog.cleanup["cleared"].get(id, false):
+			continue
+		var weed: bool = str(id).begins_with("w")
+		var p2: Vector2 = prog.cleanup_pos(str(id))
+		var body := StaticBody3D.new()
+		body.name = "Debris_" + str(id)
+		body.position = Vector3(p2.x, 0.0, p2.y)
+		body.rotation.y = float(hash(str(id)) % 628) / 100.0
+		body.set_meta("kind", "debris")
+		body.set_meta("debris_id", str(id))
+		body.set_meta("nav_skip", true)
+		body.collision_layer = 32 # only mining rays and look-at see it: people and vehicles walk and drive through
+		var cs := CollisionShape3D.new()
+		var box := BoxShape3D.new()
+		box.size = Vector3(0.9, 0.9, 0.9) if weed else Vector3(1.5, 0.95, 1.4)
+		cs.shape = box
+		cs.position.y = box.size.y * 0.5
+		body.add_child(cs)
+		var vis := MeshKit.inst(body, _weed_mesh if weed else _heap_mesh, null)
+		vis.material_override = null
+		vis.name = "Visual"
+		if not weed:
+			var left: int = prog.heap_units_left(str(id))
+			vis.scale = Vector3.ONE * lerpf(0.5, 1.0, float(left) / float(maxi(1, int(prog.cleanup_cfg().get("heap_units", 5)))))
+		world.add_child(body)
+		cleanup_nodes[id] = body
+
+## One strike on a weed clump or rubble heap. Weeds fall after `weed_hp` damage; a heap gives one stone (into the
+## bag) per `heap_unit_hp` damage and is gone when its stone is used up. Nothing is lost when the bag is full.
+func hit_debris(node: Node3D, damage: float, point: Vector3, continuous := false) -> void:
+	var id := str(node.get_meta("debris_id", ""))
+	if id == "" or prog.cleanup["cleared"].get(id, false):
+		return
+	var cfg: Dictionary = prog.cleanup_cfg()
+	var weed := id.begins_with("w")
+	if not continuous:
+		_play_tool_hit()
+		player.impact_feedback(0.4)
+		fx.impact(point, "copper_ore" if weed else "limestone", 0.8, mine_normal)
+	elif power_feedback_t <= 0.0:
+		power_feedback_t = 0.12
+		fx.impact(point, "copper_ore" if weed else "limestone", 0.6, mine_normal)
+	debris_dmg[id] = float(debris_dmg.get(id, 0.0)) + damage
+	var vis: Node3D = node.get_node_or_null("Visual")
+	if weed:
+		if float(debris_dmg[id]) >= float(cfg.get("weed_hp", 6.0)):
+			_finish_debris(id, node, "weeds")
+		elif vis:
+			vis.scale = Vector3.ONE * lerpf(1.0, 0.55, float(debris_dmg[id]) / float(cfg.get("weed_hp", 6.0)))
+		return
+	var unit_hp := float(cfg.get("heap_unit_hp", 10.0))
+	while float(debris_dmg[id]) >= unit_hp and prog.heap_units_left(id) > 0:
+		if state.total(state.inventory) >= state.capacity():
+			debris_dmg[id] = unit_hp * 0.999
+			_bag_full_notice()
+			break
+		state.add_item("limestone", 1)
+		prog.cleanup["units"][id] = prog.heap_units_left(id) - 1
+		debris_dmg[id] = float(debris_dmg[id]) - unit_hp
+		_reward_popup("limestone", 1)
+	var total := float(maxi(1, int(cfg.get("heap_units", 5))))
+	if prog.heap_units_left(id) <= 0:
+		_finish_debris(id, node, "rubble")
+	elif vis:
+		vis.scale = Vector3.ONE * lerpf(0.5, 1.0, float(prog.heap_units_left(id)) / total)
+
+func _finish_debris(id: String, node: Node3D, what: String) -> void:
+	node.collision_layer = 0
+	for c in node.get_children():
+		if c is CollisionShape3D:
+			c.disabled = true
+	cleanup_nodes.erase(id)
+	debris_dmg.erase(id)
+	var tw := create_tween()
+	var vis: Node3D = node.get_node_or_null("Visual")
+	if vis:
+		tw.tween_property(vis, "scale", Vector3.ONE * 0.05, 0.25)
+	tw.tween_callback(node.queue_free)
+	if what == "weeds" and hud:
+		hud.popup_resource("copper_ore", 1, "Weeds cut")
+	var last := prog.clear_cleanup_item(id)
+	if not last:
+		_notify("Site cleanup: %d left." % prog.cleanup_left())
+
+## The whole site is clean: Walt's letter arrives with money, and the hillside opens.
+func _on_site_cleared() -> void:
+	var cu: Dictionary = prog.cleanup_cfg()
+	var gift := int(cu.get("gift", 0))
+	state.money += gift
+	if hud:
+		hud.popup_money(gift)
+		hud.toast("Site cleared!", "The hillside is open. Walt sent $%d." % gift, "milestone")
+		player.locked = true
+		hud.show_card(str(cu.get("gift_title", "A LETTER")), str(cu.get("gift_text", "")), func(): player.locked = false)
+	_sfx_unlock()
+	if formation_nodes.has(HILLSIDE_ID):
+		formation_nodes[HILLSIDE_ID].update_label()
+	_notify("Walt's gift: $%d. The hillside is open." % gift)
 
 ## Footprint of the Phase 6.1 hillside (world xz), from its formation data. Empty rect when the data has none.
 func hillside_rect() -> Rect2:
@@ -650,6 +790,9 @@ func loose_count(kind: String) -> int:
 func player_mine(kind: String, col: int, damage: float, point := Vector3.INF, continuous := false) -> int:
 	if not formation_nodes.has(kind):
 		return 0
+	if prog.formation_locked(kind) != "":
+		_notify(prog.formation_locked(kind))
+		return 0
 	var node: QuarryFormation = formation_nodes[kind]
 	var res := str(state.deposits[kind]["resource"])
 	if not prog.can_mine(res):
@@ -725,7 +868,9 @@ func _player_mining(delta: float) -> void:
 			if not power_audio.playing:
 				power_audio.play()
 			var hit := _mining_ray()
-			if not hit.is_empty() and str(hit["node"].get_meta("kind", "")) == "deposit":
+			if not hit.is_empty() and str(hit["node"].get_meta("kind", "")) == "debris":
+				hit_debris(hit["node"], prog.tool_dps() * delta, hit["point"], true)
+			elif not hit.is_empty() and str(hit["node"].get_meta("kind", "")) == "deposit":
 				var kind := str(hit["node"].get_meta("deposit"))
 				if formation_nodes.has(kind):
 					player_mine(kind, int(hit["column"]), prog.tool_dps() * delta, hit["point"], true)
@@ -751,6 +896,9 @@ func _on_swing_impact() -> void:
 	if hit.is_empty():
 		return
 	var node: Node3D = hit["node"]
+	if str(node.get_meta("kind", "")) == "debris":
+		hit_debris(node, prog.tool_power(), hit["point"])
+		return
 	if str(node.get_meta("kind", "")) != "deposit":
 		return
 	var kind := str(node.get_meta("deposit"))
@@ -829,6 +977,9 @@ func _physics_process(delta: float) -> void:
 	if last_target:
 		match str(last_target.get_meta("kind","")):
 			"deposit": prompt = "%s %s  -  %s" % ["Hold LMB: drill" if prog.is_continuous() else "LMB: mine", prog.display(str(last_target.get_meta("resource"))), _deposit_status(str(last_target.get_meta("deposit")))]
+			"debris":
+				var did := str(last_target.get_meta("debris_id", ""))
+				prompt = "LMB: cut the weeds" if did.begins_with("w") else "LMB: break the rubble heap (%d stone left)" % prog.heap_units_left(did)
 			"discovery": prompt = "E: open the old lockbox"
 			"rig":
 				var ri := int(last_target.get_meta("index"))
@@ -1491,6 +1642,8 @@ func _load() -> void:
 	for v in fleet.vehicles:
 		vtypes.append(str(v["type"]))
 	prog.restore(phase5 if phase5 is Dictionary else {}, vtypes)
+	debris_dmg.clear()
+	_spawn_cleanup()
 	if not data.has("phase5") and not data.has("earned"):
 		# Phase 1-4 save: count what the business has already sold toward the stages.
 		var rev := 0
@@ -1736,8 +1889,8 @@ func nearest_deposit(res: String, from: Vector3) -> String:
 	for kind in deposit_nodes:
 		if str(_deposit_info(kind)["resource"]) != res or bool(state.deposits[kind]["broken"]) or bool(_deposit_info(kind).get("infinite", false)):
 			continue # the quarry face is reserved for hand mining
-		if not prog.can_mine(res):
-			continue # staff carry company tools: nothing harder than the best owned tool
+		if not prog.can_mine(res) or prog.formation_locked(kind) != "":
+			continue # staff carry company tools: nothing harder than the best owned tool; locked faces stay closed
 		var p: Vector3 = deposit_nodes[kind].global_position
 		if formation_nodes.has(kind):
 			var col := prog.nearest_column(kind, from, true)
@@ -2573,6 +2726,8 @@ func _read_discovery(did: String) -> void:
 ## One line per production fact for the HUD (only what is really happening).
 func hud_status_text() -> String:
 	var lines := []
+	if prog.cleanup_active():
+		lines.append("Site cleanup %d/%d" % [prog.cleanup_total() - prog.cleanup_left(), prog.cleanup_total()])
 	var done := 0
 	for id in Business.MILESTONES:
 		if business.milestones[id]:

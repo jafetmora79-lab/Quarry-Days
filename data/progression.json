@@ -122,7 +122,7 @@
     {
       "id": "manual",
       "title": "Manual Labor",
-      "goal": "Break rock with the hammer and sell it at the sales booth.",
+      "goal": "Clear Grandpa's overgrown site: cut the weeds, break the rubble heaps and sell the stone.",
       "req": {}
     },
     {
@@ -365,11 +365,140 @@
         ]
       ]
     },
-    "hillside_face_01": {"title": "Hillside Face", "resource": "limestone", "center": [-22.3, 0, -10.6], "cell": 1.9, "tier_h": 1.2, "chunk_units": 30, "level": 1,
-      "style": "cut", "closed": ["W", "N", "S"], "strict": true,
+    "hillside_face_01": {
+      "title": "Hillside Face",
+      "resource": "limestone",
+      "center": [
+        -22.3,
+        0,
+        -10.6
+      ],
+      "cell": 1.9,
+      "tier_h": 1.2,
+      "chunk_units": 30,
+      "level": 1,
+      "style": "cut",
+      "closed": [
+        "W",
+        "N",
+        "S"
+      ],
+      "strict": true,
       "_comment": "Phase 6.1: first excavatable hillside, cut into the west rim. 6 columns deep (x, back wall at the west) by 12 wide (z). Only the east face is open; the other sides are solid hill, so rock is mined from the front and the cut deepens. Never resize an existing formation: saves store columns by count.",
-      "tiers": [[3, 3, 3, 2, 2, 1], [4, 4, 4, 3, 2, 1], [4, 4, 4, 3, 3, 2], [4, 4, 4, 3, 3, 2], [4, 4, 4, 3, 3, 2], [4, 4, 4, 3, 3, 2], [4, 4, 4, 3, 3, 2], [4, 4, 4, 3, 3, 2], [4, 4, 4, 3, 3, 2], [4, 4, 4, 3, 3, 2], [4, 4, 4, 3, 2, 1], [3, 3, 3, 2, 2, 1]],
-      "pads": [[-14.4, 0, -4.0, 1.5708], [-14.4, 0, -1.0, 1.5708]]}
+      "tiers": [
+        [
+          3,
+          3,
+          3,
+          2,
+          2,
+          1
+        ],
+        [
+          4,
+          4,
+          4,
+          3,
+          2,
+          1
+        ],
+        [
+          4,
+          4,
+          4,
+          3,
+          3,
+          2
+        ],
+        [
+          4,
+          4,
+          4,
+          3,
+          3,
+          2
+        ],
+        [
+          4,
+          4,
+          4,
+          3,
+          3,
+          2
+        ],
+        [
+          4,
+          4,
+          4,
+          3,
+          3,
+          2
+        ],
+        [
+          4,
+          4,
+          4,
+          3,
+          3,
+          2
+        ],
+        [
+          4,
+          4,
+          4,
+          3,
+          3,
+          2
+        ],
+        [
+          4,
+          4,
+          4,
+          3,
+          3,
+          2
+        ],
+        [
+          4,
+          4,
+          4,
+          3,
+          3,
+          2
+        ],
+        [
+          4,
+          4,
+          4,
+          3,
+          2,
+          1
+        ],
+        [
+          3,
+          3,
+          3,
+          2,
+          2,
+          1
+        ]
+      ],
+      "pads": [
+        [
+          -14.4,
+          0,
+          -4.0,
+          1.5708
+        ],
+        [
+          -14.4,
+          0,
+          -1.0,
+          1.5708
+        ]
+      ],
+      "requires_cleanup": true
+    }
   },
   "starting_formations": [
     "stone_mountain",
@@ -442,7 +571,7 @@
   },
   "story": {
     "intro_title": "A LETTER FROM GRANDPA",
-    "intro": "Kiddo,\n\nIf you're reading this, the quarry is yours now. The bank says it's worth nothing. The town says it never made a cent.\n\nThey're wrong. There's good rock in those hills, and better rock under them. I just got too old to dig.\n\nStart small. Use my hammer. Sell what you break. The rest will come.\n\n- Grandpa Walt",
+    "intro": "Kiddo,\n\nIf you're reading this, the quarry is yours now. The bank says it's worth nothing. The town says it never made a cent.\n\nThey're wrong. There's good rock in those hills, and better rock under them. I just got too old to dig.\n\nThe place is overgrown and buried in rubble. Start small: use my hammer, cut the weeds, break the old heaps and sell the stone. Clean the whole site and I'll see to the rest.\n\n- Grandpa Walt",
     "discoveries": {
       "first_clear": {
         "title": "GRANDPA'S LOCKBOX",
@@ -451,5 +580,122 @@
         "reward": 400
       }
     }
+  },
+  "cleanup": {
+    "_comment": "Phase 6.2 tutorial: clear Grandpa's overgrown site (weeds and rubble heaps). Positions are fixed so saves can store what is left. Clearing everything unlocks the hillside and brings Walt's letter with the gift.",
+    "gift": 600,
+    "weed_hp": 6,
+    "heap_units": 5,
+    "heap_unit_hp": 10,
+    "weeds": [
+      [
+        -5,
+        5.5
+      ],
+      [
+        8.5,
+        13.5
+      ],
+      [
+        5.5,
+        4
+      ],
+      [
+        18,
+        7.5
+      ],
+      [
+        21,
+        3.5
+      ],
+      [
+        -15,
+        5
+      ],
+      [
+        5,
+        0
+      ],
+      [
+        -10.5,
+        17.5
+      ],
+      [
+        8,
+        7
+      ],
+      [
+        -3,
+        -3.5
+      ],
+      [
+        -5,
+        1
+      ],
+      [
+        -7.5,
+        13
+      ],
+      [
+        11,
+        5
+      ],
+      [
+        -12.5,
+        3.5
+      ],
+      [
+        20.5,
+        6.5
+      ],
+      [
+        -10,
+        7
+      ],
+      [
+        -7,
+        -16
+      ],
+      [
+        6.5,
+        9.5
+      ]
+    ],
+    "heaps": [
+      [
+        2.5,
+        -4
+      ],
+      [
+        5.5,
+        16
+      ],
+      [
+        -0.5,
+        -2.5
+      ],
+      [
+        4.5,
+        11.5
+      ],
+      [
+        8.5,
+        3
+      ],
+      [
+        6.5,
+        -5
+      ],
+      [
+        12,
+        -17.5
+      ],
+      [
+        13,
+        -1
+      ]
+    ],
+    "gift_title": "A LETTER FROM GRANDPA WALT",
+    "gift_text": "Kiddo,\n\nI heard you cleaned the old place up. I knew you would.\n\nNow the real rock is open to you: the hillside behind the yard. Cut it from the front, one section at a time, and it will give up good stone.\n\nI'm sending what I had put away. Spend it on a drill when you are ready. Machines are how we cut the big blocks.\n\n- Grandpa Walt"
   }
 }
