@@ -172,7 +172,7 @@ func scene_world() -> void:
 	# 7 building interactions still reachable through the new geometry
 	check(aim(game, Vector3(-15.5, 0.05, 11.4), PI, -0.5) == "office", "7 management desk inside the office is interactable")
 	check(aim(game, Vector3(-7, 0.05, 7.6), PI, -0.3) == "sell", "7 sales booth counter is interactable")
-	check(aim(game, Vector3(-15.5, 0.05, 6.6), PI, 0.0) == "upgrades", "7 upgrade notice board is interactable")
+	check(aim(game, Vector3(-14.7, 0.2, 11.6), PI * 0.5, 0.0) == "upgrades", "7 the upgrade whiteboard inside the office is interactable")
 	check(aim(game, Vector3(-2, 0.05, 7.8), PI, -0.3) == "shop", "7 machinery order kiosk is interactable")
 	check(aim(game, Vector3(10, 0.05, 7.6), PI, -0.3) == "storage", "7 storage bin is interactable")
 	# 8 worker navigation through the dressed quarry

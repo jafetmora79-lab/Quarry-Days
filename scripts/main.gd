@@ -312,7 +312,7 @@ func _build_quarry() -> void:
 	bed.set_meta("kind", "bed")
 	var sell := _solid(world,"Selling station",Vector3(-7,0.85,10),Vector3(2.2,1.7,1.25),Color(0.37,0.26,0.14))
 	sell.set_meta("kind","sell")
-	var shop := _solid(world,"Upgrade board",Vector3(OFFICE_POS.x,1.2,7.8),Vector3(2.1,1.4,0.25),Color(0.15,0.26,0.27))
+	var shop := _solid(world,"Upgrade board",OFFICE_POS + Vector3(-2.2, 1.45, -0.4),Vector3(0.14,1.2,2.0),Color(0.15,0.26,0.27))   # the whiteboard inside the office
 	shop.set_meta("kind","upgrades")
 	var storage := _solid(world,"Storage crate",Vector3(10,0.65,10),Vector3(2,1.3,1.6),Color(0.33,0.23,0.13))
 	storage.set_meta("kind","storage")
@@ -1591,6 +1591,10 @@ func placement_valid(pos: Vector3, yaw: float) -> bool:
 		if not body.collision_layer:
 			continue
 		var d: Vector3 = body.position - pos
+		if str(body.get_meta("kind", "")) == "conveyor":
+			if Vector2(d.x, d.z).length() < 1.7:     # a belt end may touch a machine's port: only the belt body itself blocks
+				return false
+			continue
 		if absf(d.x)<2.1 and absf(d.z)<2.1:
 			return false
 	for i in range(state.crushers.size()):
@@ -1656,6 +1660,13 @@ func _update_ghost() -> void:
 		if not snap.is_empty():
 			ghost.position = Vector3(snap["pos"].x, ghost.position.y, snap["pos"].z)
 			placement_yaw = float(snap["yaw"])
+	var snap_note := ""
+	if placement_kind in ["crusher", "advanced_crusher", "output"] and grid_snap:
+		var ms := machine_snap(placement_kind, ghost.position)
+		if not ms.is_empty():
+			ghost.position = Vector3(ms["pos"].x, ghost.position.y, ms["pos"].z)
+			placement_yaw = float(ms["yaw"])
+			snap_note = str(ms["note"])
 	ghost.rotation.y = placement_yaw
 	ghost.visible = true
 	placement_hint = ""
@@ -1665,6 +1676,10 @@ func _update_ghost() -> void:
 		placement_hint = "\nIN: %s  ->  OUT: %s%s" % [business.describe_ep(link["src"]), business.describe_ep(link["dst"]), "  |  CONNECTED" if not link["src"].is_empty() and not link["dst"].is_empty() else "  |  align both ends"]
 	else:
 		ghost_valid = placement_valid(ghost.position,placement_yaw)
+		if snap_note != "":
+			placement_hint = "\nCONNECTS: " + snap_note + "  (G = place freely)"
+		elif grid_snap:
+			placement_hint = "\nMove next to a belt end or machine and it snaps into place"
 	if ghost_ok_mat == null:
 		ghost_ok_mat = StandardMaterial3D.new()
 		ghost_ok_mat.albedo_color = Color(0.35, 0.95, 0.4, 0.5)
@@ -2323,6 +2338,12 @@ func conveyor_snap(at: Vector3) -> Dictionary:
 		for k in range(4):
 			var yk := float(k) * PI * 0.5
 			cands.append({"pos": op - Business.forward(yk) * 1.75, "yaw": yk})
+	for k in range(4):
+		var yk := float(k) * PI * 0.5
+		cands.append({"pos": business.storage_pos * Vector3(1, 0, 1) - Business.forward(yk) * 2.0, "yaw": yk})   # delivers into the storage crate
+		cands.append({"pos": business.storage_pos * Vector3(1, 0, 1) + Business.forward(yk) * 2.0, "yaw": yk})   # carries away from it
+		for ri in range(prog.rigs.size()):
+			cands.append({"pos": prog.rig_bin_pos(prog.rigs[ri]) * Vector3(1, 0, 1) + Business.forward(yk) * 1.0, "yaw": yk})   # takes from a rig's bin
 	for j in range(business.conveyors.size()):
 		var cp: Vector3 = Business.v3(business.conveyors[j]["position"]) * Vector3(1, 0, 1)
 		var yj := float(business.conveyors[j]["yaw"])
@@ -2331,6 +2352,46 @@ func conveyor_snap(at: Vector3) -> Dictionary:
 	for cd in cands:
 		var d := Vector2(at.x, at.z).distance_to(Vector2(cd["pos"].x, cd["pos"].z))
 		if d < best_d and conveyor_valid(Vector3(cd["pos"].x, at.y, cd["pos"].z), float(cd["yaw"])):
+			best_d = d
+			best = cd
+	return best
+
+## Magnetic placement for crushers and output storages: next to a belt end, a crusher chute or an output, the ghost
+## jumps to the spot where the ports meet, facing along the flow, so the machine is connected the moment it is placed.
+## Returns {"pos", "yaw", "note"} or {} when nothing is near (or the connecting spot is blocked).
+func machine_snap(kind: String, at: Vector3) -> Dictionary:
+	var adv := kind == "advanced_crusher"
+	var cands := []
+	for j in range(business.conveyors.size()):
+		var cp: Vector3 = Business.v3(business.conveyors[j]["position"]) * Vector3(1, 0, 1)
+		var yj := float(business.conveyors[j]["yaw"])
+		var fj := Business.forward(yj)
+		var link: Dictionary = business.links[j] if j < business.links.size() else {}
+		if kind == "output":
+			if link.get("dst", {}).is_empty():
+				cands.append({"pos": cp + fj * 1.75, "yaw": yj, "note": "end of conveyor #%d" % (j + 1)})
+		else:
+			if link.get("dst", {}).is_empty():
+				cands.append({"pos": cp + fj * (2.2 if adv else 2.0), "yaw": yj, "note": "feeds from conveyor #%d" % (j + 1)})
+			if link.get("src", {}).is_empty():
+				cands.append({"pos": cp - fj * (2.2 if adv else 2.0), "yaw": yj, "note": "its chute starts conveyor #%d" % (j + 1)})
+	if kind == "output":
+		for i in range(state.crushers.size()):
+			var c: Vector3 = Business.v3(state.crushers[i]["position"]) * Vector3(1, 0, 1)
+			var yc := float(state.crushers[i]["yaw"])
+			cands.append({"pos": c + Business.forward(yc) * (2.8 if int(state.crushers[i].get("tier", 1)) >= 2 else 2.6), "yaw": yc, "note": "crusher #%d chute" % (i + 1)})
+	else:
+		for o in range(business.outputs.size()):
+			var op: Vector3 = Business.v3(business.outputs[o]["position"]) * Vector3(1, 0, 1)
+			for k in range(4):
+				var yk := float(k) * PI * 0.5
+				cands.append({"pos": op - Business.forward(yk) * (2.4 if adv else 2.2), "yaw": yk, "note": "its chute drops into output storage #%d" % (o + 1)})
+	var best := {}
+	var best_d := 3.2
+	for cd in cands:
+		var d := Vector2(at.x, at.z).distance_to(Vector2(cd["pos"].x, cd["pos"].z))
+		var pos := Vector3(cd["pos"].x, at.y, cd["pos"].z)
+		if d < best_d and placement_valid(pos, float(cd["yaw"])):
 			best_d = d
 			best = cd
 	return best

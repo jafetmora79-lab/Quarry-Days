@@ -363,20 +363,31 @@ func _office() -> void:
 	prop(P_CHAIR, c + Vector3(0.1, 0.16, 1.95), PI)
 	prop(P_FILING, c + Vector3(-1.95, 0.16, 1.85), PI * 0.5)
 	prop(P_DOCS, c + Vector3(-1.95, 0.16, 0.9), PI * 0.5)
-	prop(P_NOTICE, c + Vector3(-2.22, 1.0, -0.6), PI * 0.5)
+	_whiteboard(c + Vector3(-2.23, 1.45, -0.4))
 	prop(P_CLOCK, c + Vector3(1.4, 2.1, 2.2), PI)
 	prop(P_CALENDAR, c + Vector3(2.22, 1.4, 1.2), -PI * 0.5)
 	prop(P_WAITING, c + Vector3(1.85, 0.16, -0.6), -PI * 0.5)
 	solid("Office cabinets", c + Vector3(-1.95, 0.6, 1.4), Vector3(0.6, 1.2, 1.4))
-	# upgrade board outside the door: THE VEIL notice board on two posts
-	var ub := Vector3(game.OFFICE_POS.x, 0, 7.8)
-	prop(P_NOTICE, ub + Vector3(0, 0.55, 0.05), PI)
-	for x in [-0.95, 0.95]:
-		bx(M_WOOD, ub + Vector3(x, 0.95, 0.1), Vector3(0.1, 1.9, 0.1))
-	_sign(root, "Sign_Upgrades", ub + Vector3(0, 2.05, -0.06), Vector2(1.2, 0.3), PI)
 	# break area
 	prop(P_BENCH, Vector3(-14.4, 0, 15.3), PI)
 	prop(P_TRASH, Vector3(-16.4, 0, 15.6))
+
+## The upgrade board: a whiteboard on the office's west wall (E to open the upgrades), with the price list scribbled
+## in marker, a pen tray and a magnet or two.
+func _whiteboard(at: Vector3) -> void:
+	bx("SteelPlate", at, Vector3(0.05, 1.18, 1.98))                                    # aluminium frame
+	MeshKit.inst(root, MeshKit.box(Vector3(0.03, 1.06, 1.86)), MeshKit.flat(Color(0.95, 0.96, 0.94)), at + Vector3(0.025, 0, 0))   # board face
+	bx("SteelPlate", at + Vector3(0.06, -0.58, 0), Vector3(0.1, 0.04, 1.2))            # marker tray
+	for k in range(4):
+		var col: Color = [Color(0.80, 0.18, 0.15), Color(0.18, 0.35, 0.75), Color(0.12, 0.12, 0.14), Color(0.20, 0.55, 0.25)][k]
+		MeshKit.inst(root, MeshKit.box(Vector3(0.02, 0.025, 0.14)), MeshKit.flat(col), at + Vector3(0.09, -0.555, -0.35 + k * 0.22))   # markers
+	for row in range(6):                                                              # scribbled price list
+		var w := 0.9 + 0.12 * float((row * 5) % 4)
+		var col2 := Color(0.14, 0.2, 0.45) if row % 2 == 0 else Color(0.12, 0.12, 0.14)
+		MeshKit.inst(root, MeshKit.box(Vector3(0.012, 0.035, w)), MeshKit.flat(col2), at + Vector3(0.045, 0.18 - row * 0.12, -0.3 + (w - 0.9) * 0.2))
+	_sign(root, "Sign_Upgrades", at + Vector3(0.05, 0.42, 0.0), Vector2(1.1, 0.27), PI * 0.5)
+	for z in [-0.78, 0.78]:
+		MeshKit.inst(root, MeshKit.box(Vector3(0.03, 0.06, 0.06)), MeshKit.flat(Color(0.80, 0.18, 0.15)), at + Vector3(0.055, 0.4, z))   # magnets
 
 ## The player's small house by the garage: a bed to sleep in once the day is done (see main.try_sleep).
 func _home() -> void:

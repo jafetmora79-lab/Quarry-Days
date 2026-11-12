@@ -251,12 +251,12 @@ func _build(t: int) -> Node3D:
 ## the screen edge (camera space, -Z is forward). Hands and sleeves are children of the model, so they swing, bob and
 ## vibrate with it and the tool is always visibly held. Single grip on the hammer; two hands on the pickaxes, the drill
 ## (pistol grip + body) and the jackhammer (T-handle).
-const HAND_R_DIR := Vector3(0.40, -0.53, 0.74)
-const HAND_L_DIR := Vector3(-0.45, -0.45, 0.77)
+const HAND_R_DIR := Vector3(0.62, -0.50, 0.60)
+const HAND_L_DIR := Vector3(-0.70, -0.38, 0.60)
 const HANDS := {
-	0: [["R", Vector3(0, 0.09, 0)]],
-	1: [["R", Vector3(0, 0.10, 0)], ["L", Vector3(0, 0.33, 0)]],
-	2: [["R", Vector3(0, 0.12, 0)], ["L", Vector3(0, 0.37, 0)]],
+	0: [["R", Vector3(0, 0.15, 0)]],
+	1: [["R", Vector3(0, 0.17, 0)], ["L", Vector3(0, 0.37, 0)]],
+	2: [["R", Vector3(0, 0.20, 0)], ["L", Vector3(0, 0.41, 0)]],
 	3: [["R", Vector3(0, 0.0, 0.05)], ["L", Vector3(-0.065, 0.12, -0.1)]],
 	4: [["R", Vector3(0.15, 0.0, 0)], ["L", Vector3(-0.15, 0.0, 0)]],
 }
