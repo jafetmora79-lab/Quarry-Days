@@ -232,19 +232,24 @@ func run() -> void:
 	prog.state.gear.append("air_compressor")
 	game._refresh_workbench()
 	await frames(2)
-	check(game.gear_props.size() == 4, "E bought items appear in the yard as props (%d)" % game.gear_props.size())
-	game.state.inventory["limestone"] = 0
+	check(game.cart_nodes.size() == 3 and game.gear_props.size() == 1, "E bought items appear in the yard: three carts and the compressor")
+	var rw_id := "reinforced_wheelbarrow"
+	game.state.cart_load[rw_id] = {}
 	game._update_cart_load()
-	var load: Node3D = game.gear_props["reinforced_wheelbarrow"].get_child(0).get_node("Load")
+	var load: Node3D = game.cart_nodes[rw_id].model.get_node("Load")
 	var empty_visible: bool = load.visible
-	game.state.inventory["limestone"] = game.state.capacity() / 2
+	game.state.cart_load[rw_id] = {"limestone": 35}
 	game._update_cart_load()
 	var half_scale: float = load.scale.y
-	game.state.inventory["limestone"] = game.state.capacity()
+	game.state.cart_load[rw_id] = {"limestone": 70}
 	game._update_cart_load()
-	check(not empty_visible and load.visible and load.scale.y > half_scale, "E the best cart visibly carries what the bag holds (empty, half, full)")
-	check(game.gear_props["hand_cart"].get_child(0).get_node("Load").visible == false, "E the cart that is not in use stays empty")
+	check(not empty_visible and load.visible and load.scale.y > half_scale, "E a cart visibly carries what it holds (empty, half, full)")
+	check(game.cart_nodes["hand_cart"].model.get_node("Load").visible == false, "E a cart with nothing in it stays empty")
 	var colliders := 0
+	for id in game.cart_nodes:
+		for c in game.cart_nodes[id].get_children():
+			if c is CollisionShape3D:
+				colliders += 1
 	for id in game.gear_props:
 		for c in game.gear_props[id].get_children():
 			if c is CollisionShape3D:

@@ -86,6 +86,7 @@ var vehicles_root: Node3D
 var vehicle_nodes := {}
 var driving: QuarryVehicle
 var storage_body: StaticBody3D
+var sell_body: StaticBody3D
 var pile_nodes := {}
 var construction := false
 var relocating := {}
@@ -326,6 +327,7 @@ func _build_quarry() -> void:
 	bed.set_meta("kind", "bed")
 	var sell := _solid(world,"Selling station",Vector3(-7,0.85,10),Vector3(2.2,1.7,1.25),Color(0.37,0.26,0.14))
 	sell.set_meta("kind","sell")
+	sell_body = sell
 	var shop := _solid(world,"Upgrade board",OFFICE_POS + Vector3(-2.2, 1.45, -0.4),Vector3(0.14,1.2,2.0),Color(0.15,0.26,0.27))   # the whiteboard inside the office
 	shop.set_meta("kind","upgrades")
 	_build_workbench()
@@ -487,6 +489,7 @@ func can_sleep() -> bool:
 	return h >= float(prog.cfg.get("home", {}).get("sleep_from_hour", 17.0)) or h < float(prog.cfg.get("home", {}).get("wake_hour", 7.0)) - 1.0
 
 func try_sleep() -> void:
+	release_cart()
 	if sleeping:
 		return
 	if not can_sleep():
@@ -1210,7 +1213,7 @@ func _notify(s: String) -> void:
 ## Interaction highlight (Phase 8.5): a thin warm outline on the one thing you could press E on. Only real interactables get it
 ## (never terrain, rock, loose pieces or weeds), it is removed the moment you look away, open a menu, drive or build, and it is
 ## never used for construction ghosts, which have their own blueprint look.
-const HIGHLIGHT_KINDS := ["door", "bed", "sell", "upgrades", "storage", "crusher", "output", "shop", "office", "rig", "vehicle", "worker", "discovery", "walter", "fossil", "egg", "conveyor", "gate"]
+const HIGHLIGHT_KINDS := ["cart", "door", "bed", "sell", "upgrades", "storage", "crusher", "output", "shop", "office", "rig", "vehicle", "worker", "discovery", "walter", "fossil", "egg", "conveyor", "gate"]
 var highlight_node: Node3D
 var highlight_meshes: Array = []
 var _hl_mat: StandardMaterial3D
@@ -1267,11 +1270,8 @@ func _look_target() -> Node3D:
 	return null
 
 func _physics_process(delta: float) -> void:
-	_gear_timer += delta
-	if _gear_timer > 0.6:
-		_gear_timer = 0.0
-		if not gear_props.is_empty():
-			_update_cart_load()
+	if held_cart != null:
+		_cart_follow(delta)
 	if menu != "":
 		return
 	_sleep_tick(delta)
@@ -1364,6 +1364,9 @@ func _physics_process(delta: float) -> void:
 				var who := business.employee(int(last_target.get_meta("employee")))
 				if not who.is_empty():
 					prompt = "%s (%s): %s" % [who["name"], business.profession(who["profession"])["title"], who["task"]]
+			"cart":
+				var cid := str(last_target.get_meta("cart"))
+				prompt = "E: %s  (%d / %d)" % [str(prog.gear_def(cid).get("title", cid)), state.cart_total(cid), state.cart_cap(cid)]
 			"upgrades": prompt = "E: use the workbench and tools"
 			"storage": prompt = "E: storage"
 			"vehicle":
@@ -1466,6 +1469,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			elif event.button_index == MOUSE_BUTTON_LEFT:
 				_place_ghost()
 		return
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_F and held_cart != null and menu == "":
+		release_cart()
+		_notify("You let go of the cart.")
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_Q and not placement and not driving and menu == "" and name_dialog == null:
 		cycle_tool()
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_U and not placement and not driving and menu == "":
@@ -1505,6 +1511,8 @@ func _interact(target: Node3D) -> void:
 				_notify("Backpack full")
 		"sell", "upgrades", "storage", "crusher", "output", "shop":
 			_open_menu(str(target.get_meta("kind")),int(target.get_meta("index",-1)))
+		"cart":
+			_open_menu("cart", state.carts.find(str(target.get_meta("cart"))))
 		"office":
 			_open_menu("manage")
 		"bed":
@@ -1597,6 +1605,7 @@ func _draw_menu() -> void:
 						_draw_menu()]])
 		"sell": _draw_sell(p)
 		"upgrades": _draw_upgrades(p)
+		"cart": _draw_cart(p, idx)
 		"storage":
 			p.begin("STORAGE   %d / %d" % [state.total(state.storage), state.storage_capacity()], -1, "Optional keys: 1-6 store all, Shift+1-6 take all")
 			for i in range(RESOURCE_ORDER.size()):
@@ -1644,6 +1653,38 @@ func _draw_menu() -> void:
 					p.item("upgrade", "Upgrade", str(up["effect"]), int(up["cost"]), "Level %d" % (int(r["level"]) + 1), "UPGRADE", true, func(): menu_act("rig", 2, false))
 				else:
 					p.text("Fully upgraded.", QuarryTheme.GOOD)
+
+func _draw_cart(p: QuarryStationUI, idx: int) -> void:
+	if idx < 0 or idx >= state.carts.size():
+		p.begin("CART", -1, "")
+		return
+	var id := str(state.carts[idx])
+	var title := str(prog.gear_def(id).get("title", id)).to_upper()
+	var near_store := cart_near(id, storage_body)
+	var near_sell := cart_near(id, sell_body)
+	p.begin("%s   %d / %d" % [title, state.cart_total(id), state.cart_cap(id)], state.money, "Load it from your bag, push it (E to let go), unload at the storage crate or sell from it at the selling station.")
+	for i in range(RESOURCE_ORDER.size()):
+		var key: String = RESOURCE_ORDER[i]
+		var buttons := [["cl_" + key, "LOAD", int(state.inventory[key]) > 0 and state.cart_space(id) > 0, func(): cart_move("load", id, key)],
+			["cu_" + key, "UNLOAD", state.cart_units(id, key) > 0, func(): cart_move("unload", id, key)]]
+		if near_store:
+			buttons.append(["cs_" + key, "TO CRATE", state.cart_units(id, key) > 0, func(): cart_move("store", id, key)])
+			buttons.append(["ct_" + key, "FROM CRATE", int(state.storage[key]) > 0 and state.cart_space(id) > 0, func(): cart_move("take", id, key)])
+		if near_sell:
+			buttons.append(["cx_" + key, "SELL", state.cart_units(id, key) > 0, func(): cart_move("sell", id, key)])
+		p.row([[prog.display(key), QuarryTheme.INK, 110], ["cart %d" % state.cart_units(id, key), QuarryTheme.DIM, 80], ["bag %d" % int(state.inventory[key]), QuarryTheme.DIM, 70]], buttons, QuarryTheme.RES_COLORS.get(key, Color.WHITE))
+	var held := held_cart != null and held_cart.cart_id == id
+	var bar := [["grab", ("LET GO" if held else ("PULL IT" if QuarryCart.mode_of(id) == "pull" else "PUSH IT")), true, func():
+		if held_cart != null and held_cart.cart_id == id:
+			release_cart()
+		else:
+			hold_cart(id)]]
+	if near_sell:
+		bar.append(["sell_all", "SELL ALL", state.cart_total(id) > 0, func(): cart_move_all("sell", id)])
+	if near_store:
+		bar.append(["store_all", "STORE ALL", state.cart_total(id) > 0, func(): cart_move_all("store", id)])
+	p.button_bar(bar)
+	p.text("The crate and the selling station are %s." % ("in reach of this cart" if (near_store or near_sell) else "too far away: push the cart close to one"), QuarryTheme.DIM)
 
 func _draw_sell(p: QuarryStationUI) -> void:
 	var bag_value := 0
@@ -1843,57 +1884,130 @@ func _refresh_workbench() -> void:
 # ------------------------------------------------------------------ hauling aids and compressor standing in the yard (Phase 9)
 
 const GEAR_PROP_SPOTS := {"hand_cart": Vector3(-19.2, 0, 9.4), "wheelbarrow": Vector3(-19.2, 0, 11.4), "reinforced_wheelbarrow": Vector3(-19.2, 0, 13.4), "air_compressor": Vector3(-21.5, 0, 10.0)}
-var gear_props := {}
-var _gear_timer := 0.0
+const CART_IDS := ["hand_cart", "wheelbarrow", "reinforced_wheelbarrow"]
+var gear_props := {}          ## the compressor (a fixed prop)
+var cart_nodes := {}          ## cart id -> QuarryCart
+var held_cart: QuarryCart
+var _cart_save_t := 0.0
 
-## Standing beside the office once owned. Each has a small collider so it is a real object in the yard.
+## Bought carts stand in the yard (where they were left), the compressor beside the office.
 func _refresh_gear_props() -> void:
-	for id in GEAR_PROP_SPOTS:
-		var owned: bool = (id in state.carts) or (id in state.gear)
-		if owned and not gear_props.has(id):
-			var body := StaticBody3D.new()
-			body.name = "Prop_" + id
-			body.position = GEAR_PROP_SPOTS[id]
-			body.rotation.y = PI * 0.5 if id != "air_compressor" else PI
-			body.set_meta("gear_prop", id)
-			var prop := GearModels.build_prop(id)
-			body.add_child(prop)
-			var cs := CollisionShape3D.new()
-			var box := BoxShape3D.new()
-			box.size = Vector3(0.9, 0.9, 1.5) if id != "air_compressor" else Vector3(0.7, 1.0, 1.0)
-			cs.shape = box
-			cs.position = Vector3(0, 0.45, 0.2 if id != "air_compressor" else 0.15)
-			body.add_child(cs)
-			world.add_child(body)
-			gear_props[id] = body
+	for id in CART_IDS:
+		var owned: bool = id in state.carts
+		if owned and not cart_nodes.has(id):
+			var cart := QuarryCart.new()
+			cart.setup(id)
+			world.add_child(cart)
+			cart_nodes[id] = cart
+		elif not owned and cart_nodes.has(id):
+			if held_cart == cart_nodes[id]:
+				held_cart = null
+				player.speed_mult = 1.0
+			cart_nodes[id].queue_free()
+			cart_nodes.erase(id)
+		if cart_nodes.has(id) and cart_nodes[id] != held_cart:
+			var cp: Array = state.cart_pos.get(id, [])
+			var spot: Vector3 = GEAR_PROP_SPOTS[id]
+			cart_nodes[id].global_position = Vector3(float(cp[0]), float(cp[1]), float(cp[2])) if cp.size() >= 4 else spot
+			cart_nodes[id].rotation.y = float(cp[3]) if cp.size() >= 4 else PI * 0.5
+			cart_nodes[id].velocity = Vector3.ZERO
+	if "air_compressor" in state.gear and not gear_props.has("air_compressor"):
+		var body := StaticBody3D.new()
+		body.name = "Prop_air_compressor"
+		body.position = GEAR_PROP_SPOTS["air_compressor"]
+		body.rotation.y = PI
+		body.set_meta("gear_prop", "air_compressor")
+		body.add_child(GearModels.build_prop("air_compressor"))
+		var cs := CollisionShape3D.new()
+		var box := BoxShape3D.new()
+		box.size = Vector3(0.7, 1.0, 1.0)
+		cs.shape = box
+		cs.position = Vector3(0, 0.5, 0.15)
+		body.add_child(cs)
+		world.add_child(body)
+		gear_props["air_compressor"] = body
 	_update_cart_load()
 
-## The cart that is in use shows what the bag holds: the pile grows with the load and takes the colour of the main rock.
 func _update_cart_load() -> void:
-	var best := ""
-	for id in ["reinforced_wheelbarrow", "wheelbarrow", "hand_cart"]:
-		if gear_props.has(id):
-			best = id
-			break
-	var total := state.total(state.inventory)
-	var cap := maxi(1, state.capacity())
-	var top_res := "limestone"
-	var top_n := -1
-	for k in state.inventory:
-		if int(state.inventory[k]) > top_n:
-			top_n = int(state.inventory[k])
-			top_res = str(k)
-	for id in ["hand_cart", "wheelbarrow", "reinforced_wheelbarrow"]:
-		if not gear_props.has(id):
-			continue
-		var load: Node3D = gear_props[id].get_child(0).get_node_or_null("Load")
-		if load == null:
-			continue
-		var fill := clampf(float(total) / float(cap), 0.0, 1.0) if id == best else 0.0
-		load.visible = fill > 0.02
-		load.scale = Vector3(1.0, 0.25 + 0.9 * fill, 1.0)
-		var mi: MeshInstance3D = load.get_meta("pile")
-		mi.material_override = MeshKit.mat(QuarryArt.ROCK_MAT.get(top_res, "RockLimestone"))
+	for id in cart_nodes:
+		cart_nodes[id].show_load(state.cart_load.get(id, {}), state.cart_cap(id))
+
+# ------------------------------------------------------------------ pushing and pulling a cart, loading and unloading it
+
+func hold_cart(id: String) -> void:
+	if not cart_nodes.has(id):
+		return
+	if held_cart and held_cart != cart_nodes[id]:
+		release_cart()
+	held_cart = cart_nodes[id]
+	held_cart.held = true
+	player.speed_mult = 0.8
+	_notify("%s %s. Move to take it along. F or E lets go." % ["Pulling" if QuarryCart.mode_of(id) == "pull" else "Pushing", str(prog.gear_def(id).get("title", id)).to_lower()])
+
+func release_cart() -> void:
+	if held_cart and is_instance_valid(held_cart):
+		held_cart.held = false
+		held_cart.velocity = Vector3.ZERO
+		var id := held_cart.cart_id
+		state.cart_pos[id] = [held_cart.global_position.x, held_cart.global_position.y, held_cart.global_position.z, held_cart.rotation.y]
+	held_cart = null
+	if player:
+		player.speed_mult = 1.0
+
+func _cart_follow(delta: float) -> void:
+	if held_cart == null or not is_instance_valid(held_cart) or driving != null or sleeping:
+		release_cart()
+		return
+	var fwd := -player.global_transform.basis.z
+	fwd.y = 0.0
+	fwd = fwd.normalized()
+	var id := held_cart.cart_id
+	var target := player.global_position + fwd * QuarryCart.offset_of(id)
+	target.y = held_cart.global_position.y
+	var gap := held_cart.follow(target, player.rotation.y, delta)
+	if gap > 2.2:
+		release_cart()
+		_notify("The cart is stuck: you let go of it.")
+		return
+	_cart_save_t += delta
+	if _cart_save_t > 0.4:
+		_cart_save_t = 0.0
+		state.cart_pos[id] = [held_cart.global_position.x, held_cart.global_position.y, held_cart.global_position.z, held_cart.rotation.y]
+
+## The cart stands close enough to a station (the storage crate, the selling station) to be unloaded there.
+func cart_near(id: String, station: Node3D, radius := 6.5) -> bool:
+	if not cart_nodes.has(id) or station == null:
+		return false
+	return Vector2(cart_nodes[id].global_position.x - station.global_position.x, cart_nodes[id].global_position.z - station.global_position.z).length() <= radius
+
+## One transfer of the cart menu. op: load (bag -> cart), unload (cart -> bag), store (cart -> crate), take (crate -> cart), sell (cart -> money).
+func cart_move(op: String, id: String, key: String, n := 9999) -> int:
+	var moved := 0
+	match op:
+		"load": moved = state.cart_load_from_bag(id, key, n)
+		"unload": moved = state.cart_unload_to_bag(id, key, n)
+		"store":
+			if cart_near(id, storage_body):
+				moved = state.cart_store(id, key, n)
+		"take":
+			if cart_near(id, storage_body):
+				moved = state.cart_take(id, key, n)
+		"sell":
+			if cart_near(id, sell_body):
+				var before := state.money
+				moved = state.cart_sell(id, key, n)
+				if moved > 0:
+					sfx["coin"].play()
+					_notify("Sold %d %s for %s" % [moved, prog.display(key).to_lower(), QuarryTheme.money_text(state.money - before)])
+	_update_cart_load()
+	return moved
+
+## All of one cart's contents through one transfer type; returns units moved.
+func cart_move_all(op: String, id: String) -> int:
+	var total := 0
+	for key in RESOURCE_ORDER:
+		total += cart_move(op, id, str(key))
+	return total
 
 func _draw_shop(p: QuarryStationUI) -> void:
 	p.begin("MACHINERY ORDERS", state.money, "Click an item to see it turn, then BUY. Placement: R rotate, G grid snap, left click place, Esc refund.")
@@ -2379,6 +2493,7 @@ func new_game() -> void:
 	get_tree().reload_current_scene()
 
 func _load(quiet := false) -> void:
+	release_cart()
 	var data = _read_save()
 	if data == null:
 		if not quiet:
@@ -3194,6 +3309,7 @@ func free_fallback_slot(type := "loader") -> Variant:
 	return _find_parking(type, true)
 
 func enter_vehicle(v: QuarryVehicle) -> void:
+	release_cart()
 	if driving or v == null or v.has_meta("delivering"):
 		return
 	driving = v

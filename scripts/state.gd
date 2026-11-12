@@ -21,7 +21,9 @@ var lifetime := {"mined": {}, "sold": {}}   ## units collected / sold per resour
 var gear: Array = []                         ## ids of the extra tools bought beyond the five-tool ladder (see progression "gear")
 var equipped := ""                           ## "" = the ladder tool of tool_tier, else the id of an owned extra tool in hand
 var price_mult := 1.0                        ## buyers' pay factor of the current progression stage (see progression "price_mult")
-var carts: Array = []                        ## ids of hauling aids owned (hand_cart, wheelbarrow, ...)
+var carts: Array = []
+var cart_load := {}                          ## cart id -> {resource: units}: what each cart carries (Phase 9.6)
+var cart_pos := {}                           ## cart id -> [x, y, z, yaw]: where each cart stands                        ## ids of hauling aids owned (hand_cart, wheelbarrow, ...)
 signal money_earned(amount: int, source: String)
 
 func _init(settings: Dictionary = {}) -> void:
@@ -31,14 +33,97 @@ func _init(settings: Dictionary = {}) -> void:
 		upgrades[key] = false
 
 func capacity() -> int:
-	return int(config.get("backpack_capacity", 18)) + (16 if upgrades["larger_backpack"] else 0) + (30 if upgrades.get("hauling_harness", false) else 0) + cart_capacity()
+	return int(config.get("backpack_capacity", 18)) + (16 if upgrades["larger_backpack"] else 0) + (30 if upgrades.get("hauling_harness", false) else 0)
 
-## Extra carrying capacity of the hauling aids owned (only the best cart counts: you push one at a time).
+## Capacity of the best hauling aid owned (the load per trip is the bag plus one cart; you push one at a time).
 func cart_capacity() -> int:
 	var best := 0
 	for id in carts:
 		best = maxi(best, int(config.get("cart_capacity", {}).get(str(id), 0)))
 	return best
+
+# ------------------------------------------------------------------ carts (Phase 9.6): real containers, moved unit by unit
+
+func cart_cap(id: String) -> int:
+	return int(config.get("cart_capacity", {}).get(id, 0))
+
+func cart_total(id: String) -> int:
+	return total(cart_load.get(id, {}))
+
+func cart_space(id: String) -> int:
+	return maxi(0, cart_cap(id) - cart_total(id))
+
+func cart_units(id: String, key: String) -> int:
+	return int(cart_load.get(id, {}).get(key, 0))
+
+func _cart_put(id: String, key: String, n: int) -> void:
+	if not cart_load.has(id):
+		cart_load[id] = {}
+	cart_load[id][key] = int(cart_load[id].get(key, 0)) + n
+
+func _cart_pull(id: String, key: String, n: int) -> void:
+	cart_load[id][key] = int(cart_load[id].get(key, 0)) - n
+	if int(cart_load[id][key]) <= 0:
+		cart_load[id].erase(key)
+
+## Bag -> cart. Every transfer moves what both sides can take, never more: nothing is created or lost.
+func cart_load_from_bag(id: String, key: String, n: int) -> int:
+	if not id in carts or not inventory.has(key) or n <= 0:
+		return 0
+	var m := mini(mini(n, int(inventory[key])), cart_space(id))
+	if m <= 0:
+		return 0
+	inventory[key] -= m
+	_cart_put(id, key, m)
+	return m
+
+func cart_unload_to_bag(id: String, key: String, n: int) -> int:
+	if not id in carts or n <= 0:
+		return 0
+	var m := mini(mini(n, cart_units(id, key)), capacity() - total(inventory))
+	if m <= 0:
+		return 0
+	_cart_pull(id, key, m)
+	inventory[key] += m
+	return m
+
+func cart_store(id: String, key: String, n: int) -> int:
+	if not id in carts or n <= 0:
+		return 0
+	var m := mini(mini(n, cart_units(id, key)), storage_capacity() - total(storage))
+	if m <= 0:
+		return 0
+	_cart_pull(id, key, m)
+	storage[key] += m
+	return m
+
+func cart_take(id: String, key: String, n: int) -> int:
+	if not id in carts or not storage.has(key) or n <= 0:
+		return 0
+	var m := mini(mini(n, int(storage[key])), cart_space(id))
+	if m <= 0:
+		return 0
+	storage[key] -= m
+	_cart_put(id, key, m)
+	return m
+
+func cart_sell(id: String, key: String, n: int) -> int:
+	if not id in carts or n <= 0:
+		return 0
+	var m := mini(n, cart_units(id, key))
+	if m <= 0:
+		return 0
+	_cart_pull(id, key, m)
+	note_lifetime("sold", key, m)
+	add_income(int(round(float(m) * unit_price(key))), "sale")
+	return m
+
+## Every unit the player owns in any container (bag, storage, carts): the conserved quantity in transfers.
+func all_units() -> int:
+	var n := total(inventory) + total(storage)
+	for id in cart_load:
+		n += total(cart_load[id])
+	return n
 
 func note_lifetime(kind: String, key: String, amount: int) -> void:
 	if amount > 0:
@@ -264,7 +349,7 @@ func regrow_eta(kind: String) -> float:
 	return maxf(0.0, float(d["regrow_at"]) - clock_minutes)
 
 func snapshot() -> Dictionary:
-	return {"version": 2, "tool_tier": tool_tier, "earned": earned, "money": money, "inventory": inventory.duplicate(true), "storage": storage.duplicate(true), "upgrades": upgrades.duplicate(true), "clock_minutes": clock_minutes, "player_position": player_position.duplicate(), "player_yaw": player_yaw, "deposits": deposits.duplicate(true), "crushers": crushers.duplicate(true), "lifetime": lifetime.duplicate(true), "gear": gear.duplicate(), "equipped": equipped, "carts": carts.duplicate()}
+	return {"version": 2, "tool_tier": tool_tier, "earned": earned, "money": money, "inventory": inventory.duplicate(true), "storage": storage.duplicate(true), "upgrades": upgrades.duplicate(true), "clock_minutes": clock_minutes, "player_position": player_position.duplicate(), "player_yaw": player_yaw, "deposits": deposits.duplicate(true), "crushers": crushers.duplicate(true), "lifetime": lifetime.duplicate(true), "gear": gear.duplicate(), "equipped": equipped, "carts": carts.duplicate(), "cart_load": cart_load.duplicate(true), "cart_pos": cart_pos.duplicate(true)}
 
 func restore(data: Dictionary) -> bool:
 	# Version 1 = Phase 1 saves; version 2 adds Phase 2 business data stored beside this snapshot.
@@ -304,6 +389,24 @@ func restore(data: Dictionary) -> bool:
 		if not str(g) in carts:
 			carts.append(str(g))
 	equipped = str(data.get("equipped", ""))
+	cart_load = {}
+	var cl = data.get("cart_load", {})
+	if cl is Dictionary:
+		for id in cl:
+			if str(id) in carts and cl[id] is Dictionary:
+				var room := cart_cap(str(id))
+				for k in cl[id]:
+					if str(k) in RESOURCE_NAMES:
+						var n := mini(maxi(0, int(cl[id][k])), room)
+						room -= n
+						if n > 0:
+							_cart_put(str(id), str(k), n)
+	cart_pos = {}
+	var cp = data.get("cart_pos", {})
+	if cp is Dictionary:
+		for id in cp:
+			if str(id) in carts and cp[id] is Array and cp[id].size() >= 4:
+				cart_pos[str(id)] = [float(cp[id][0]), float(cp[id][1]), float(cp[id][2]), float(cp[id][3])]
 	clock_minutes = maxf(0.0, float(data["clock_minutes"]))
 	player_position = data["player_position"].duplicate()
 	player_yaw = float(data["player_yaw"])
