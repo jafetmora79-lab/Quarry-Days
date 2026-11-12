@@ -1,0 +1,68 @@
+extends PanelContainer
+class_name QuarryWalterDialog
+## Phase 7.5: Walter talking. A short run of lines (the intro scene and every visit) shown one at a time at the bottom
+## of the screen. Always skippable; the owner decides what happens when it finishes.
+
+signal finished(skipped: bool)
+
+var lines: Array = []       ## [{speaker, text}]
+var index := 0
+var speaker_label: Label
+var body: Label
+var next_btn: Button
+var skip_btn: Button
+
+func setup(entries: Array) -> void:
+	lines = entries
+	name = "WalterDialog"
+	set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	custom_minimum_size = Vector2(620, 0)
+	add_theme_stylebox_override("panel", QuarryTheme.panel_box(QuarryTheme.BG, QuarryTheme.ACCENT, 12, 4))
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 6)
+	add_child(v)
+	speaker_label = QuarryTheme.label("", 12, QuarryTheme.ACCENT, true)
+	v.add_child(speaker_label)
+	body = QuarryTheme.label("", QuarryTheme.BODY)
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	body.custom_minimum_size = Vector2(580, 0)
+	v.add_child(body)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	v.add_child(row)
+	next_btn = Button.new()
+	next_btn.pressed.connect(advance)
+	row.add_child(next_btn)
+	skip_btn = Button.new()
+	skip_btn.text = "Skip"
+	skip_btn.pressed.connect(skip)
+	row.add_child(skip_btn)
+	_show()
+
+func _show() -> void:
+	var l: Dictionary = lines[index]
+	speaker_label.text = str(l.get("speaker", "WALTER"))
+	body.text = '"%s"' % str(l.get("text", ""))
+	next_btn.text = "Continue" if index < lines.size() - 1 else "Done"
+
+func advance() -> void:
+	if index >= lines.size() - 1:
+		finished.emit(false)
+		return
+	index += 1
+	_show()
+
+func skip() -> void:
+	finished.emit(true)
+
+## Keyboard: E / Enter / Space continue, Esc skips.
+func _unhandled_key_input(event: InputEvent) -> void:
+	if not (event is InputEventKey) or not event.pressed or event.echo:
+		return
+	match event.keycode:
+		KEY_E, KEY_ENTER, KEY_SPACE:
+			advance()
+			get_viewport().set_input_as_handled()
+		KEY_ESCAPE:
+			skip()
+			get_viewport().set_input_as_handled()

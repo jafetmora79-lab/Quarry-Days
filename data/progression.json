@@ -999,9 +999,132 @@
       "capacity_mult": 2
     }
   },
+  "walter": {
+    "_comment": "Phase 7.5: Walter is alive and retiring, not dead. Intro scene, timed visits and journal. Conditions: stage (id), quarry_level, cleaned (site cleanup done). Visits show once, in the morning/afternoon, when the player talks to him.",
+    "pos": [
+      -3.0,
+      0,
+      6.0
+    ],
+    "intro": [
+      {
+        "speaker": "GRANDPA WALTER",
+        "text": "There you are, kiddo. Come on over - I won't bite, I haven't got the teeth for it."
+      },
+      {
+        "speaker": "GRANDPA WALTER",
+        "text": "Fifty years I've worked this quarry. My knees say that is forty-nine too many. The bank says the place is worth nothing, and the town says it never made a cent."
+      },
+      {
+        "speaker": "GRANDPA WALTER",
+        "text": "They're wrong. There's good rock in these hills, and better rock under them. I just never had the machines - or the back - to dig it out."
+      },
+      {
+        "speaker": "GRANDPA WALTER",
+        "text": "So I'm retiring, and I'm handing you the keys. The yard is overgrown and buried in rubble. Start small: take my old hammer, cut the weeds, break the heaps and sell the stone."
+      },
+      {
+        "speaker": "GRANDPA WALTER",
+        "text": "The little house by the garage is yours too. Sleep there when the day is done - a rested miner is a careful miner."
+      },
+      {
+        "speaker": "GRANDPA WALTER",
+        "text": "I'm only down the road. I'll come by now and then to see how the old place is doing. Don't let me catch you making a mess of it, hm?"
+      }
+    ],
+    "journal": {
+      "lockbox": {"title": "The lockbox", "text": "Under the first rock I cleared there was Walter's old lockbox: a photo of the 1971 crew, notes about copper and gold below the north bench, and a savings bond."},
+      "handover": {
+        "title": "The handover",
+        "text": "Walter handed me the quarry and his old hammer. He is retiring, but he lives down the road and says he will look in on the place."
+      },
+      "first_crew": {
+        "title": "A helping hand",
+        "text": "Walter says a quarry is a team sport: a good crew works while you rest. Pay them fairly and they will stay."
+      },
+      "machines": {
+        "title": "Machines",
+        "text": "Walter admits he never owned a proper crusher or loader. 'Muscle gets you started. Machines get you finished.'"
+      },
+      "first_bench": {
+        "title": "The first bench",
+        "text": "The surface is opening up. Walter remembers the old crew standing on a floor much lower than this, and he says the stone down there looks different."
+      },
+      "deep_dig": {
+        "title": "Going deep",
+        "text": "Walter keeps looking at the lower levels. 'My father said the oldest things lie at the bottom. I never got far enough to see.'"
+      },
+      "big_dig": {
+        "title": "A real quarry",
+        "text": "Walter walked the rim for a long while. 'It's what I always wanted it to be.'"
+      }
+    },
+    "visits": [
+      {
+        "id": "first_crew",
+        "when": {
+          "stage": "crew"
+        },
+        "title": "WALTER DROPS BY",
+        "journal": "first_crew",
+        "lines": [
+          "Heard you're thinking about hiring. Good. One pair of hands only goes so far.",
+          "Treat them well, learn what they're good at, and let them get on with it. A crew that is respected works twice as hard."
+        ]
+      },
+      {
+        "id": "machines",
+        "when": {
+          "stage": "industry"
+        },
+        "title": "WALTER DROPS BY",
+        "journal": "machines",
+        "lines": [
+          "A crusher and a loader! In my day we had a mule and a bad attitude.",
+          "Cut into the hillside from the front and work down, one bench at a time. And keep your crew fed with something to haul - idle machines eat money."
+        ]
+      },
+      {
+        "id": "first_bench",
+        "when": {
+          "quarry_level": 2
+        },
+        "title": "WALTER DROPS BY",
+        "journal": "first_bench",
+        "lines": [
+          "You opened the first bench. I stood about there, forty years ago, and thought I'd never get any lower.",
+          "Go on down the ramp if you like. The coal and iron are better the deeper you go. And rock down there is older than anything in town."
+        ]
+      },
+      {
+        "id": "deep_dig",
+        "when": {
+          "quarry_level": 3
+        },
+        "title": "WALTER DROPS BY",
+        "journal": "deep_dig",
+        "lines": [
+          "Copper and iron on level three. Now you are cutting where I only ever dreamed.",
+          "My father used to say the oldest things in this hill lie right at the bottom. Mind the walls, and take your time."
+        ]
+      },
+      {
+        "id": "big_dig",
+        "when": {
+          "stage": "deep"
+        },
+        "title": "WALTER DROPS BY",
+        "journal": "big_dig",
+        "lines": [
+          "Look at this. Look at all of it.",
+          "I thought I'd be too old to see it. I'm glad I wasn't. This is a real quarry now, kiddo."
+        ]
+      }
+    ]
+  },
   "story": {
-    "intro_title": "A LETTER FROM GRANDPA",
-    "intro": "Kiddo,\n\nIf you're reading this, the quarry is yours now. The bank says it's worth nothing. The town says it never made a cent.\n\nThey're wrong. There's good rock in those hills, and better rock under them. I just got too old to dig.\n\nThe place is overgrown and buried in rubble. Start small: use my hammer, cut the weeds, break the old heaps and sell the stone. Clean the whole site and I'll see to the rest.\n\nThe little house by the garage is yours too. Sleep there when the day is done; a rested miner is a careful miner.\n\n- Grandpa Walt",
+    "intro_title": "GRANDPA WALTER",
+    "intro": "(the handover - see \"walter\" scenes)",
     "discoveries": {
       "first_clear": {
         "title": "GRANDPA'S LOCKBOX",

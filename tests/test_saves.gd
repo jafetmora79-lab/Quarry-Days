@@ -58,7 +58,7 @@ func run() -> void:
 	check(absi(b.state.money - money_a) <= 2 and b.state.tool_tier == 1, "B a new launch continues: money $%d (saved $%d), tool %d" % [b.state.money, money_a, b.state.tool_tier])
 	check(b.business.employees.size() == staff_a and b.worker_nodes.size() == staff_a, "B the hired worker is back in the world")
 	check(b.player.global_position.distance_to(Vector3(3.5, 0.2, 6.0)) < 0.6, "B and the player stands where they left off")
-	check(b.prog.story["intro_seen"] and not b.hud.card_open(), "B the intro letter is not shown again")
+	check(b.prog.story["intro_seen"] and not b.hud.card_open() and b.walter_dialog == null and b.walter_node == null, "B the intro letter is not shown again")
 	check(b.player.tool_view.tier == 1, "B the pickaxe is in hand")
 	# ---- autosave
 	b.state.money = 7777

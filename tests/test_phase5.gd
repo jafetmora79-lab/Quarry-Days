@@ -209,10 +209,10 @@ func scene_mining() -> void:
 	await physics_frame
 	game.tutorial_visible = false
 	check(game.state.money == 10 and game.state.tool_tier == 0, "1 new game: $10 and the rock hammer")
-	check(game.hud.card_open() and game.hud.card_title.text.contains("GRANDPA"), "11 a short introduction letter opens a new game")
-	game.hud.close_card()
+	check(game.walter_dialog != null, "11 Walter's handover scene opens a new game")
+	game.walter_dialog.skip()
 	await process_frame
-	game.hud.close_card() # Phase 6.x: a second card ("your first day") follows the letter
+	game.hud.close_card() # the "your first day" card follows the scene
 	check(game.prog.story["intro_seen"] and not game.hud.card_open(), "11 the letter closes and is remembered")
 	check(game.formation_nodes.size() == 11 and game.formation_nodes.has("hillside_face_01") and game.formation_nodes.has("bench_l2_coal") and not game.formation_nodes.has("copper_vein"), "1 three starting formations, the hillside, the basin bench and the six level 2-4 benches are built; the legacy deep pit waits for its permit")
 	var node = game.formation_nodes["stone_mountain"]

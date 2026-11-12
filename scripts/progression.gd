@@ -25,7 +25,7 @@ var quarry_level := 1                  ## Phase 7.1: the deepest of the four qua
 const SCHEMA := 2                      ## save schema of the progression block: 1 = before Phase 7.1 (no field), 2 = quarry levels
 var rigs: Array = []
 var next_rig_id := 1
-var story := {"intro_seen": false, "found": {}, "read": {}}
+var story := {"intro_seen": false, "found": {}, "read": {}, "visits": {}, "journal": []}
 ## Phase 6.2 tutorial: weeds and rubble heaps still on the site. "cleared": id -> true, "units": heap id -> units
 ## left (heaps keep their remaining stone when saved), "done": the whole site is clean (hillside unlocked).
 var cleanup := {"cleared": {}, "units": {}, "done": false}
@@ -793,6 +793,61 @@ func read_discovery(id: String) -> int:
 	state.add_income(reward, "discovery")
 	return reward
 
+# ------------------------------------------------------------------ Walter (Phase 7.5)
+
+func walter_cfg() -> Dictionary:
+	return cfg.get("walter", {})
+
+func journal_entry(id: String) -> Dictionary:
+	return walter_cfg().get("journal", {}).get(id, {})
+
+## Adds a journal entry once. Returns true when it is new.
+func journal_add(id: String) -> bool:
+	if id in story["journal"] or journal_entry(id).is_empty():
+		return false
+	story["journal"].append(id)
+	return true
+
+func journal_entries() -> Array:
+	var out := []
+	for id in story["journal"]:
+		var e := journal_entry(str(id))
+		if not e.is_empty():
+			out.append({"id": str(id), "title": str(e.get("title", "")), "text": str(e.get("text", ""))})
+	return out
+
+func visit_def(id: String) -> Dictionary:
+	for v in walter_cfg().get("visits", []):
+		if str(v["id"]) == id:
+			return v
+	return {}
+
+func visit_condition_met(v: Dictionary) -> bool:
+	var w: Dictionary = v.get("when", {})
+	if w.has("stage") and stage < stage_index(str(w["stage"])):
+		return false
+	if w.has("quarry_level") and quarry_level < int(w["quarry_level"]):
+		return false
+	if bool(w.get("cleaned", false)) and not bool(cleanup.get("done", false)):
+		return false
+	return true
+
+## The first visit whose condition is met and which Walter has not made yet ("" when none).
+func due_visit() -> String:
+	if not bool(story["intro_seen"]):
+		return ""
+	for v in walter_cfg().get("visits", []):
+		if not story["visits"].get(str(v["id"]), false) and visit_condition_met(v):
+			return str(v["id"])
+	return ""
+
+## Walter has said his piece: the visit never repeats and its journal entry is kept.
+func complete_visit(id: String) -> void:
+	if story["visits"].get(id, false):
+		return
+	story["visits"][id] = true
+	journal_add(str(visit_def(id).get("journal", "")))
+
 # ------------------------------------------------------------------ save / load
 
 func snapshot() -> Dictionary:
@@ -837,8 +892,13 @@ func restore(raw_data: Dictionary, vehicle_types: Array = []) -> void:
 		for k in cu.get("units", {}):
 			cleanup["units"][str(k)] = clampi(int(cu["units"][k]), 0, int(cleanup_cfg().get("heap_units", 5)))
 	var st = data.get("story", {})
-	story = {"intro_seen": bool(st.get("intro_seen", true)) if st is Dictionary else true, "found": {}, "read": {}}
+	story = {"intro_seen": bool(st.get("intro_seen", true)) if st is Dictionary else true, "found": {}, "read": {}, "visits": {}, "journal": []}
 	if st is Dictionary:
+		for k in st.get("visits", {}):
+			story["visits"][str(k)] = true
+		for k in st.get("journal", []):
+			if not str(k) in story["journal"]:
+				story["journal"].append(str(k))
 		for k in st.get("found", {}):
 			story["found"][str(k)] = true
 		for k in st.get("read", {}):
@@ -848,3 +908,9 @@ func restore(raw_data: Dictionary, vehicle_types: Array = []) -> void:
 		stats[k] = maxi(0, int(s.get(k, 0))) if s is Dictionary else 0
 	stage = maxi(clampi(int(data.get("stage", 0)), 0, stages().size() - 1), implied_stage(vehicle_types))
 	check_stages()
+	if story["intro_seen"] and not (st is Dictionary and st.has("visits")):
+		# a save from before Phase 7.5: Walter does not come back for everything the player has already done
+		journal_add("handover")
+		for v in walter_cfg().get("visits", []):
+			if visit_condition_met(v):
+				complete_visit(str(v["id"]))

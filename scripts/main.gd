@@ -1179,6 +1179,8 @@ func _physics_process(delta: float) -> void:
 		var inside := driving != null and driving.global_position.x > -6.5 and driving.global_position.x < 16.0 and driving.global_position.z > 12.5 and driving.global_position.z < 24.0
 		art.garage_roof.visible = not inside
 	_check_introductions()
+	_check_walter_visit()
+	_walter_idle(delta)
 	if autosave_enabled:
 		autosave_t += delta
 		if autosave_t >= AUTOSAVE_SECONDS and not sleeping and not placement:
@@ -1225,6 +1227,7 @@ func _physics_process(delta: float) -> void:
 						prompt = "E: close the %s" % dn.to_lower() if dr.want_open else "E: open the %s" % dn.to_lower()
 			"bed": prompt = "E: sleep until morning" if can_sleep() else "Too early to sleep (rest after %02d:00)" % int(prog.cfg.get("home", {}).get("sleep_from_hour", 17.0))
 			"discovery": prompt = "E: open the old lockbox"
+			"walter": prompt = "E: talk to Grandpa Walt" if walter_visit != "" else "Grandpa Walt"
 			"rig":
 				var ri := int(last_target.get_meta("index"))
 				if ri < prog.rigs.size():
@@ -1389,6 +1392,8 @@ func _interact(target: Node3D) -> void:
 					dr.toggle()
 		"discovery":
 			_read_discovery(str(target.get_meta("discovery")))
+		"walter":
+			_talk_to_walter()
 		"rig":
 			_open_menu("rig", int(target.get_meta("index")))
 		"vehicle":
@@ -2083,6 +2088,12 @@ func _load(quiet := false) -> void:
 			elif LEGACY_DEPOSITS.has(kind):
 				legacy_pieces[kind] = int(legacy_pieces.get(kind, 0)) + 1
 	_restore_legacy_pieces(legacy_pieces)
+	_remove_walter()
+	walter_visit = ""
+	walter_intro_running = false
+	if walter_dialog:
+		walter_dialog.queue_free()
+		walter_dialog = null
 	for did in discovery_nodes.keys():
 		discovery_nodes[did].queue_free()
 	discovery_nodes.clear()
@@ -3270,17 +3281,151 @@ func _sfx_unlock() -> void:
 	if sfx.has("unlock"):
 		sfx["unlock"].play()
 
+# ------------------------------------------------------------------ Phase 7.5: Walter (alive, retiring, visiting)
+
+var walter_node: Node3D
+var walter_dialog: QuarryWalterDialog
+var walter_visit := ""        ## visit id Walter has come for ("" while he is not around)
+var walter_intro_running := false
+
+func walter_pos() -> Vector3:
+	var p: Array = prog.walter_cfg().get("pos", [-3.0, 0, 6.0])
+	return Vector3(float(p[0]), float(p[1]), float(p[2]))
+
+## Walter: the miner model with white hair, standing in the yard. Anyone can talk to him with E.
+func _spawn_walter(face_to := Vector3.ZERO) -> void:
+	if walter_node != null and is_instance_valid(walter_node):
+		return
+	var root := StaticBody3D.new()
+	root.name = "Walter"
+	root.position = walter_pos()
+	root.set_meta("kind", "walter")
+	var cs := CollisionShape3D.new()
+	var cap := CapsuleShape3D.new()
+	cap.radius = 0.35
+	cap.height = 1.8
+	cs.shape = cap
+	cs.position.y = 0.9
+	root.add_child(cs)
+	var model := Node3D.new()
+	model.name = "Model"
+	root.add_child(model)
+	var path := "res://assets/characters/CHR_QD_Miner.glb"
+	var body: Node3D = (load(path) as PackedScene).instantiate()
+	model.add_child(body)
+	for gi in body.find_children("*", "GeometryInstance3D", true, false):
+		gi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for mi in body.find_children("*_Hair", "MeshInstance3D", true, false):
+		if mi.mesh != null and mi.get_active_material(0) is BaseMaterial3D:
+			var m: BaseMaterial3D = mi.get_active_material(0).duplicate()
+			m.albedo_color = Color(0.92, 0.92, 0.9)
+			mi.material_override = m
+	body.scale = Vector3.ONE * 0.96
+	var found := body.find_children("*", "Skeleton3D", true, false)
+	if not found.is_empty():
+		var r := VeilRig.new()
+		r.setup(found[0], 3.3)
+		root.set_meta("rig", r)
+	world.add_child(root)
+	walter_node = root
+	if face_to != Vector3.ZERO:
+		root.rotation.y = atan2(-(face_to.x - root.position.x), -(face_to.z - root.position.z))
+
+func _remove_walter() -> void:
+	if walter_node != null and is_instance_valid(walter_node):
+		walter_node.queue_free()
+	walter_node = null
+
+func _walter_idle(delta: float) -> void:
+	if walter_node != null and is_instance_valid(walter_node) and walter_node.has_meta("rig"):
+		walter_node.get_meta("rig").pose(delta, "idle", 0.0, "miner", false)
+
+func _face_player_at(point: Vector3) -> void:
+	var d := point - player.global_position
+	player.rotation.y = atan2(-d.x, -d.z)
+	player.pitch = 0.0
+	player.camera.rotation.x = 0.0
+
+## The opening scene of a new game: Walter hands over the quarry. Skippable; never plays again once seen.
 func _show_intro() -> void:
+	if not hud or prog.story["intro_seen"]:
+		return
+	player.locked = true
+	walter_intro_running = true
+	_spawn_walter(player.global_position)
+	_face_player_at(walter_pos() + Vector3(0, 1.5, 0))
+	_open_walter_dialog(prog.walter_cfg().get("intro", []), _end_walter_intro)
+
+func _open_walter_dialog(lines: Array, on_done: Callable) -> void:
+	if walter_dialog != null or lines.is_empty():
+		return
+	walter_dialog = QuarryWalterDialog.new()
+	walter_dialog.setup(lines)
+	ui.add_child(walter_dialog)
+	walter_dialog.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE)
+	walter_dialog.offset_bottom = -150.0
+	walter_dialog.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	walter_dialog.finished.connect(func(skipped: bool):
+		var d := walter_dialog
+		walter_dialog = null
+		if d:
+			d.queue_free()
+		on_done.call(skipped))
+	player.locked = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+func _end_walter_intro(_skipped: bool) -> void:
+	walter_intro_running = false
+	prog.journal_add("handover")
 	var st: Dictionary = prog.cfg.get("story", {})
-	if hud and not prog.story["intro_seen"]:
-		player.locked = true
-		# two cards: Grandpa's letter, then a short "how to start" so the first day is clear
-		hud.show_card(str(st.get("intro_title", "")), str(st.get("intro", "")), func():
-			if str(st.get("intro2", "")) != "":
-				hud.show_card(str(st.get("intro2_title", "YOUR FIRST DAY")), str(st.get("intro2", "")), func(): prog.story["intro_seen"] = true; player.locked = false)
-			else:
-				prog.story["intro_seen"] = true
-				player.locked = false)
+	if str(st.get("intro2", "")) != "":
+		hud.show_card(str(st.get("intro2_title", "YOUR FIRST DAY")), str(st.get("intro2", "")), func(): _finish_intro())
+	else:
+		_finish_intro()
+
+func _finish_intro() -> void:
+	prog.story["intro_seen"] = true
+	_remove_walter()           # he heads home; he comes back for visits
+	player.locked = false
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+## Walter comes by in the day when something new has happened at the quarry.
+func _check_walter_visit() -> void:
+	if walter_intro_running or walter_dialog != null:
+		return
+	var h := _hour()
+	if walter_visit != "":
+		if h >= 18.0 or h < 8.0:                 # he has gone home for the night
+			walter_visit = ""
+			_remove_walter()
+		return
+	if h < 8.0 or h >= 17.0 or not player_free_for_intro():
+		return
+	var due := prog.due_visit()
+	if due == "":
+		return
+	walter_visit = due
+	_spawn_walter()
+	if hud:
+		hud.toast("Walter is here", "Grandpa Walt dropped by the yard. Go and say hello (E).", "milestone")
+
+func _talk_to_walter() -> void:
+	if walter_visit == "" or walter_dialog != null:
+		return
+	var v := prog.visit_def(walter_visit)
+	var lines := []
+	for t in v.get("lines", []):
+		lines.append({"speaker": "GRANDPA WALTER", "text": str(t)})
+	var id := walter_visit
+	_face_player_at(walter_node.global_position + Vector3(0, 1.5, 0))
+	_open_walter_dialog(lines, func(_skipped: bool):
+		prog.complete_visit(id)
+		walter_visit = ""
+		_remove_walter()
+		player.locked = false
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		if hud:
+			hud.toast("Journal updated", "Walter's journal has a new entry (press M, Milestones).", "unlock"))
 
 ## First formation fully cleared: grandpa's lockbox appears where the rock stood.
 func _on_formation_cleared(id: String) -> void:
@@ -3317,6 +3462,7 @@ func _spawn_discovery(did: String, formation: String) -> void:
 func _read_discovery(did: String) -> void:
 	var info := prog.discovery(did)
 	var reward := prog.read_discovery(did)
+	prog.journal_add("lockbox")
 	if discovery_nodes.has(did):
 		discovery_nodes[did].queue_free()
 		discovery_nodes.erase(did)

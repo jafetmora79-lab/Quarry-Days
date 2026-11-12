@@ -404,6 +404,14 @@ func _milestones(b: QuarryBusiness) -> void:
 			dc.add_child(_label("%s  %s" % [str(prog.discovery(did)["title"]), "(read)" if prog.story["read"].get(did, false) else "(waiting where the rock stood - press E on it)"], INK, QuarryTheme.BODY))
 	if not any:
 		dc.add_child(_label("Nothing yet. Grandpa always said the good stuff is under the rock.", DIM, QuarryTheme.BODY))
+	var jc := _card()
+	jc.add_child(_label("WALTER'S JOURNAL", ACCENT))
+	var entries: Array = prog.journal_entries()
+	if entries.is_empty():
+		jc.add_child(_label("Empty. Walter will write in it as the quarry grows.", DIM, QuarryTheme.BODY))
+	for je in entries:
+		jc.add_child(_label(str(je["title"]).to_upper(), GOOD, QuarryTheme.BODY))
+		jc.add_child(_label(str(je["text"]), INK, QuarryTheme.BODY))
 	var info := [
 		["first_employee", "1. FIRST EMPLOYEE", "Hire your first worker.", "Remote management with M anywhere and +5% staff productivity."],
 		["mechanized", "2. MECHANIZED QUARRY", "Own a crusher and employ a machine operator.", "Conveyor belts at the machinery kiosk and the Front Loader in EQUIPMENT."],
