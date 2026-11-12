@@ -2563,6 +2563,8 @@ func _rebake_nav() -> void:
 			continue # loose pieces and low conveyor belts can be stepped over
 		if body.collision_layer == 0 and kind != "deposit":
 			continue
+		if body is QuarryFormation and str(prog.fdef(body.fid).get("frame", "")) == "pit":
+			continue # the pit's benches are baked by the pit zone's own region (and lie outside this baking box)
 		for child in body.get_children():
 			if child is CollisionShape3D and child.shape is BoxShape3D:
 				if body is QuarryFormation and child.has_meta("column") and bool(prog.fdef(body.fid).get("strict", false)) and not prog.column_exposed(body.fid, int(child.get_meta("column"))):
