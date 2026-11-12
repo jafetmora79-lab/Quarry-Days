@@ -172,6 +172,18 @@ func test_stages() -> void:
 	p.business.hire("rosa")
 	p.state.add_income(1000, "sale")
 	p.check_stages()
+	check(p.stage == 2, "12 money and a crew alone no longer open Early Industrialization: the quarry face has to be cut too")
+	p.init_formation("hillside_face_01")
+	var hcols: Array = p.state.deposits["hillside_face_01"]["columns"]
+	var want := int(float(p.max_units("hillside_face_01") + p.max_units("pit_band_01")) * 0.05)
+	for ci in range(hcols.size()):
+		if want <= 0:
+			break
+		var tk := mini(int(hcols[ci]), want)
+		hcols[ci] = int(hcols[ci]) - tk
+		want -= tk
+	p._sync_stock(p.state.deposits["hillside_face_01"])
+	p.check_stages()
 	check(p.stage == 3 and p.unlocked("crusher") and p.unlocked("loader") and not p.unlocked("drill_rig"), "12 Early Industrialization unlocks crusher, storage and loader")
 	check(p.business.hire_fee(p.business.candidate("rosa")) == 75 and is_equal_approx(p.business.wage(p.business.employees[0]), 18.0), "12 staff costs scale with the quarry (fee $75, wage $18/h)")
 	var old := fresh()

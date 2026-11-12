@@ -122,6 +122,7 @@ func run() -> void:
 	var m1 := QuarryProgression.migrate(old)
 	check(int(m1.get("stage", -1)) == 5 and m1["rigs"] == old["rigs"], "E migration never changes what the old save recorded")
 	# ---- F: the HUD shows the quarry once the business stages are done
+	prog.cleanup["done"] = true
 	prog.stage = prog.stages().size() - 1
 	game.hud.refresh_panels()
 	check(game.hud.objective_label.text.contains("Quarry level"), "F at the last stage the HUD goal is the quarry (%s)" % game.hud.objective_label.text)
