@@ -930,7 +930,9 @@ func restore(data: Dictionary) -> void:
 			var_name = "output"
 		var sorted := {}
 		for k in SORTABLE:
-			sorted[k] = mini(maxi(0, int(o.get("sorted", {}).get(k, 0))), int(items[k])) if var_name == "sorter" else 0
+			var sn := mini(maxi(0, int(o.get("sorted", {}).get(k, 0))), int(items[k])) if var_name == "sorter" else 0
+			if sn > 0:
+				sorted[k] = sn
 		var job := {}
 		for k in o.get("sort_job", {}):
 			if str(k) in SORTABLE and var_name == "sorter":

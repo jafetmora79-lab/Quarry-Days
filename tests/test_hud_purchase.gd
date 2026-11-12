@@ -115,7 +115,7 @@ func run() -> void:
 	game._open_menu("shop", -1)
 	await frames(3)
 	var p2: QuarryOfferPane = game.panel.pane
-	check(p2.visible and p2.title_l.text == "STONE CRUSHER", "5 the first machine is shown at once")
+	check(p2.visible and p2.title_l.text == "SMALL JAW CRUSHER", "5 the first machine is shown at once")
 	var crushers_before: int = game.state.crushers.size()
 	game.panel.buttons["pick_shop_output"].pressed.emit()
 	await frames(3)
