@@ -517,7 +517,7 @@ def main():
     save("T_QD_RockLimestone", natural_strata(128, rock_lime, 11))
     save("T_QD_RockCoal", natural_strata(128, [ink[0], tar[1], tar[2], tar[3], conc[1], conc[2]], 12, seams=(ink, 0), veins=(metal, 3, 10)))
     save("T_QD_RockIron", natural_strata(128, [rust[0], rust[1], soil[2], rust[2], soil[3], rust[3]], 13, veins=(rust, 4, 14)))
-    save("T_QD_CutLimestone", natural_strata(128, rock_lime, 15, cracks=5))
+    save("T_QD_CutLimestone", natural_strata(128, [conc[3], stone[2], conc[4], stone[3], conc[5], stone[4]], 15, cracks=5))
     save("T_QD_CliffStrata", natural_strata(128, [conc[2], stone[2], conc[3], stone[3], conc[4], stone[4]], 14, cracks=6))
     save("T_QD_QuarryFloor", calm_ground(256, soil, 21, base=3))
     save("T_QD_ExcavatedDirt", calm_ground(128, soil, 22, base=3))

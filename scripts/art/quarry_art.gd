@@ -214,11 +214,11 @@ func _ground() -> void:
 				dirt.quad(q[0], q[1], q[2], q[3])
 	pit_cap = MeshKit.inst(root, cap.mesh(), _material("ExcavatedDirt"))
 	# Haul roads (dirt), yard (gravel) and pads (concrete).
-	quad_flat(M_DIRT_ROAD, Vector3(0, 0, 4.5), Vector2(7.0, 10.0), 0.0, 0.018)            # pit entrance ramp
-	quad_flat(M_DIRT_ROAD, Vector3(19.5, 0, 7.5), Vector2(21.0, 4.0), 0.0, 0.02)         # road to the expansion
-	quad_flat(M_DIRT_ROAD, Vector3(34.0, 0, 4.0), Vector2(10.0, 4.0), -0.35, 0.02)
-	quad_flat(M_DIRT_ROAD, Vector3(5.5, 0, 13.0), Vector2(4.0, 6.0), 0.0, 0.022)         # garage apron road
-	quad_flat(M_GRAVEL, Vector3(2.0, 0, 9.0), Vector2(26.0, 5.0), 0.0, 0.016)            # processing yard
+	quad_flat("GroundRoad", Vector3(0, 0, 4.5), Vector2(7.0, 10.0), 0.0, 0.018)            # pit entrance ramp
+	quad_flat("GroundRoad", Vector3(19.5, 0, 7.5), Vector2(21.0, 4.0), 0.0, 0.02)         # road to the expansion
+	quad_flat("GroundRoad", Vector3(34.0, 0, 4.0), Vector2(10.0, 4.0), -0.35, 0.02)
+	quad_flat("GroundRoad", Vector3(5.5, 0, 13.0), Vector2(4.0, 6.0), 0.0, 0.022)         # garage apron road
+	quad_flat("GroundYard", Vector3(2.0, 0, 9.0), Vector2(26.0, 5.0), 0.0, 0.016)            # processing yard
 	quad_flat(M_CONCRETE, Vector3(5.0, 0, 19.2), Vector2(19.6, 6.6), 0.0, 0.024)         # garage slab
 	quad_flat(M_CONCRETE, Vector3(-14.0, 0, 12.0), Vector2(6.4, 6.4), 0.0, 0.024)        # office pad
 	quad_flat(M_CONCRETE, Vector3(14.0, 0, 12.0), Vector2(6.0, 6.0), 0.0, 0.024)         # shed pad
@@ -263,15 +263,21 @@ func _cliffs() -> void:
 		if cs == null or not cs.shape is BoxShape3D:
 			continue
 		var size: Vector3 = cs.shape.size
-		if nm.begins_with("Cliff") or nm.begins_with("Expansion cliff") or nm.begins_with("Excavated rim"):
+		# Duplicate names are auto-renamed by the engine, so the name only identifies the first piece of each kind.
+		# Classify by the collision box instead: tall long blocks are cliffs, low long blocks are rims.
+		var long_side := maxf(size.x, size.z)
+		var is_rim: bool = absf(size.y - 2.2) < 0.05 and long_side >= 8.0 and n.collision_layer == 1 and not n.has_meta("ground")
+		var is_cliff: bool = absf(size.y - 6.0) < 0.05 and long_side >= 8.0 and n.collision_layer == 1 and not n.has_meta("ground")
+		var is_exp: bool = is_cliff and n.position.x > 28.0
+		if is_rim or is_cliff:
 			_hide(n)
 			seed += 1
 			var mesh := MeshKit.Soup.new()
-			var low := nm.begins_with("Excavated rim")
+			var low := is_rim
 			var length := maxf(size.x, size.z) + (0.8 if low else 1.6)
 			var depth := minf(size.x, size.z) + (0.4 if low else 0.8)
 			var turn := PI if size.x >= size.z else PI * 0.5
-			if nm.begins_with("Expansion cliff") and n.position.z > 0.0:
+			if is_exp and n.position.z > 0.0:
 				turn = 0.0 # south wall of the expansion faces north (-Z)
 			MeshKit.cliff_into(mesh, length, size.y + (0.3 if low else 0.9), depth, seed, 2 if low else 4,
 				Transform3D(Basis(Vector3.UP, turn), Vector3(0, -size.y * 0.5, 0)))

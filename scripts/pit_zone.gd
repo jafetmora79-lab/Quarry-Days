@@ -204,7 +204,7 @@ func _build_art() -> void:
 	# ground
 	var road := MeshKit.Soup.new()
 	_cell_quads(road, -corr_w * 0.5, corr_w * 0.5, -corr_len, 3.0, 0.015, 1.0)
-	MeshKit.inst(vis, road.mesh(), MeshKit.mat(QuarryArt.M_DIRT_ROAD))
+	MeshKit.inst(vis, road.mesh(), MeshKit.mat("GroundRoad"))
 	var plat := MeshKit.Soup.new()
 	_cell_quads(plat, -plat_w * 0.5, plat_w * 0.5, z1, z0, 0.01, 3.0, true)
 	MeshKit.inst(vis, plat.mesh(), MeshKit.mat("ExcavatedDirt"))
@@ -220,7 +220,7 @@ func _build_art() -> void:
 	var hw := ramp_w * 0.5
 	var hl := length * 0.5 + 0.1
 	rs.quad(rxf * Vector3(-hw, 0, -hl), rxf * Vector3(-hw, 0, hl), rxf * Vector3(hw, 0, hl), rxf * Vector3(hw, 0, -hl))
-	MeshKit.inst(vis, rs.mesh(), MeshKit.mat(QuarryArt.M_DIRT_ROAD))
+	MeshKit.inst(vis, rs.mesh(), MeshKit.mat("GroundRoad"))
 	var wedge := MeshKit.Soup.new()   # side faces of the ramp's solid fill (right triangles)
 	for side in [-1.0, 1.0]:
 		var xw: float = side * hw

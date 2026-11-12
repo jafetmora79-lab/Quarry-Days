@@ -121,7 +121,7 @@ func _build_visuals(rx0: float, rx1: float, rz_top: float, rz_bot: float, ang: f
 	var hw := (rx1 - rx0) * 0.5
 	var hl := length * 0.5 + 0.15
 	rs.quad(xf * Vector3(-hw, 0, -hl), xf * Vector3(-hw, 0, hl), xf * Vector3(hw, 0, hl), xf * Vector3(hw, 0, -hl))
-	MeshKit.inst(visuals, rs.mesh(), MeshKit.mat(QuarryArt.M_DIRT_ROAD))
+	MeshKit.inst(visuals, rs.mesh(), MeshKit.mat("GroundRoad"))
 	var curb := MeshKit.Soup.new()
 	MeshKit.box_into(curb, Vector3.ZERO, Vector3(0.25, 0.35, length - 0.6), Vector2.ONE, Transform3D(Basis(Vector3.RIGHT, -ang), Vector3(rx1 + 0.15, -depth * 0.5 + 0.17, (rz_top + rz_bot) * 0.5)))
 	MeshKit.inst(visuals, curb.mesh(), MeshKit.mat("Hazard"))
