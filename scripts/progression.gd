@@ -12,6 +12,7 @@ class_name QuarryProgression
 signal stage_reached(index: int)
 signal formation_cleared(id: String)
 signal site_cleared
+signal quarry_level_reached(level: int)
 
 const MIN_PER_SECOND := 0.5 # in-game minutes per real second (48-minute day)
 
@@ -19,7 +20,9 @@ var state: QuarryState
 var business # QuarryBusiness (untyped: avoids a cyclic class dependency in tests)
 var cfg: Dictionary
 var stage := 0
-var level_unlocked := 1
+var level_unlocked := 1                ## legacy: the small lower pit behind the $5,000 permit (1 = closed, 2 = open)
+var quarry_level := 1                  ## Phase 7.1: the deepest of the four quarry levels reached so far (1..4)
+const SCHEMA := 2                      ## save schema of the progression block: 1 = before Phase 7.1 (no field), 2 = quarry levels
 var rigs: Array = []
 var next_rig_id := 1
 var story := {"intro_seen": false, "found": {}, "read": {}}
@@ -113,7 +116,7 @@ func is_formation(id: String) -> bool:
 	return cfg.get("formations", {}).has(id)
 
 func formation_active(id: String) -> bool:
-	return is_formation(id) and int(fdef(id).get("level", 1)) <= level_unlocked
+	return is_formation(id) and int(fdef(id).get("level", 1)) <= level_unlocked and int(fdef(id).get("quarry_level", 1)) <= quarry_level
 
 func dims(id: String) -> Vector2i:
 	var tiers: Array = fdef(id)["tiers"]
@@ -386,6 +389,9 @@ func requirement_progress(i: int) -> Array:
 			"employees": out.append(["Hire %d worker" % int(target), float(business.employees.size() if business else 0), float(target)])
 			"crushers": out.append(["Own %d crusher" % int(target), float(state.crushers.size()), float(target)])
 			"cleared": out.append(["Clear %d%% of the first deposits" % int(float(target) * 100.0), cleared_fraction(), float(target)])
+			"excavated":
+				var lv := int(target.get("level", 1))
+				out.append(["Clear %d%% of quarry level %d" % [int(float(target.get("fraction", 0.5)) * 100.0), lv], level_cleared_fraction(lv), float(target.get("fraction", 0.5))])
 	return out
 
 func requirements_met(i: int) -> bool:
@@ -398,6 +404,58 @@ func check_stages() -> void:
 	while stage + 1 < stages().size() and requirements_met(stage + 1):
 		stage += 1
 		stage_reached.emit(stage)
+	check_levels()
+
+# ------------------------------------------------------------------ quarry levels (Phase 7.1)
+
+func levels() -> Array:
+	return cfg.get("quarry_levels", [])
+
+## 1-based level definition ({} when it does not exist).
+func level_def(n: int) -> Dictionary:
+	return levels()[n - 1] if n >= 1 and n <= levels().size() else {}
+
+func level_formations(n: int) -> Array:
+	var out := []
+	for id in level_def(n).get("formations", []):
+		if is_formation(str(id)):
+			out.append(str(id))
+	return out
+
+## A level exists in the game once it is marked built and its formations are defined.
+func level_built(n: int) -> bool:
+	var d := level_def(n)
+	return not d.is_empty() and bool(d.get("built", false)) and not level_formations(n).is_empty()
+
+## Share (0..1) of a level's rock that has been excavated; 0 for a level that has no formations yet.
+func level_cleared_fraction(n: int) -> float:
+	var ids := level_formations(n)
+	if ids.is_empty():
+		return 0.0
+	return cleared_fraction(ids)
+
+## Level n can be entered: it is built, every level above it is reached, and the previous level is cut far enough.
+func level_unlock_met(n: int) -> bool:
+	if n <= 1:
+		return true
+	return level_built(n) and level_cleared_fraction(n - 1) >= float(level_def(n).get("unlock", 0.6)) - 0.00001
+
+## Opens the next quarry level when the level above it has been excavated enough (never closes one).
+func check_levels() -> void:
+	while quarry_level < levels().size() and level_unlock_met(quarry_level + 1):
+		quarry_level += 1
+		quarry_level_reached.emit(quarry_level)
+
+## Brings a progression save block up to the current schema. Each step only adds what the older format lacked; nothing
+## in the old data is changed or dropped, so mined rock, stages, machines and rigs carry over untouched.
+static func migrate(data: Dictionary) -> Dictionary:
+	var d := data.duplicate(true)
+	var v := int(d.get("schema", 1))
+	if v < 2:
+		d["quarry_level"] = clampi(int(d.get("quarry_level", 1)), 1, 4)
+		v = 2
+	d["schema"] = v
+	return d
 
 ## Lowest stage consistent with what an older save already owns (nothing is ever taken away).
 func implied_stage(vehicle_types: Array = []) -> int:
@@ -698,11 +756,13 @@ func read_discovery(id: String) -> int:
 # ------------------------------------------------------------------ save / load
 
 func snapshot() -> Dictionary:
-	return {"stage": stage, "level_unlocked": level_unlocked, "rigs": rigs.duplicate(true), "next_rig_id": next_rig_id,
+	return {"schema": SCHEMA, "quarry_level": quarry_level, "stage": stage, "level_unlocked": level_unlocked, "rigs": rigs.duplicate(true), "next_rig_id": next_rig_id,
 		"story": story.duplicate(true), "stats": stats.duplicate(true), "cleanup": cleanup.duplicate(true)}
 
 ## Empty dictionary = Phase 1-4 save: stage derived from what is owned, never lower than earned.
-func restore(data: Dictionary, vehicle_types: Array = []) -> void:
+func restore(raw_data: Dictionary, vehicle_types: Array = []) -> void:
+	var data := QuarryProgression.migrate(raw_data)
+	quarry_level = clampi(int(data.get("quarry_level", 1)), 1, maxi(1, levels().size()))
 	level_unlocked = clampi(int(data.get("level_unlocked", 1)), 1, 2)
 	rigs = []
 	for raw in data.get("rigs", []):

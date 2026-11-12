@@ -482,9 +482,15 @@ func refresh_panels() -> void:
 		objective_detail.text = "\n".join(detail) if not detail.is_empty() else "Ready!"
 	else:
 		stage_label.text = "STAGE %d/%d  %s" % [prog.stage + 1, prog.stages().size(), str(prog.stage_info()["title"]).to_upper()]
-		objective_label.text = str(prog.stage_info()["goal"])
-		objective_bar.value = prog.cleared_fraction(prog.formation_ids())
-		objective_detail.text = "Quarry excavated: %d%%" % int(objective_bar.value * 100.0)
+		# every business stage is done: the quarry itself is the goal
+		var ql: int = prog.quarry_level
+		objective_label.text = "Quarry level %d: %s" % [ql, str(prog.level_def(ql).get("title", ""))]
+		objective_bar.value = prog.level_cleared_fraction(ql) if prog.level_built(ql) else prog.cleared_fraction(prog.formation_ids())
+		var nxt: Dictionary = prog.level_def(ql + 1)
+		var hint := ""
+		if not nxt.is_empty():
+			hint = "\nNext: %s - %s" % [str(nxt.get("title", "")), ("opens at %d%% cut" % int(float(nxt.get("unlock", 0.6)) * 100.0)) if prog.level_built(ql + 1) else "being surveyed"]
+		objective_detail.text = "Level cut: %d%%%s" % [int(objective_bar.value * 100.0), hint]
 	status_label.text = game.hud_status_text()
 	var badge_lines := []
 	var warn := false

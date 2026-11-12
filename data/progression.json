@@ -145,28 +145,31 @@
     {
       "id": "industry",
       "title": "Early Industrialization",
-      "goal": "Order a crusher, output storage and a front loader.",
+      "goal": "Order a crusher, output storage and a front loader, and cut into the quarry face.",
       "req": {
         "earned": 1400,
-        "employees": 1
+        "employees": 1,
+        "excavated": {"level": 1, "fraction": 0.04}
       }
     },
     {
       "id": "large",
       "title": "Large-Scale Mining",
-      "goal": "Install a drilling rig and buy the dump truck.",
+      "goal": "Install a drilling rig, buy the dump truck and open up the first bench of the quarry.",
       "req": {
         "earned": 6000,
-        "crushers": 1
+        "crushers": 1,
+        "excavated": {"level": 1, "fraction": 0.25}
       }
     },
     {
       "id": "deep",
       "title": "Deep Excavation",
-      "goal": "Buy the excavation permit and open the lower level.",
+      "goal": "Buy the excavation permit, open the lower level and carve out the surface quarry.",
       "req": {
         "earned": 14000,
-        "cleared": 0.55
+        "cleared": 0.55,
+        "excavated": {"level": 1, "fraction": 0.5}
       }
     }
   ],
@@ -855,6 +858,18 @@
     "wall_height": 8.0,
     "build_margin": 3.0
   },
+  "world": {
+    "_comment": "Phase 7.1. The industrial hub is the yard inside the cliff ring (x -23.5..23.5, z -6..23.5, plus the east expansion); it is the permanent business area and is never excavated. The main quarry is the pit zone reached through the north-east gate (see pit_zone), where all four levels are cut.",
+    "hub": {"x": [-23.5, 23.5], "z": [-6.0, 23.5]},
+    "quarry": {"frame": "pit", "gate_angle_deg": 306.0}
+  },
+  "quarry_levels": [
+    {"_comment": "Four levels of ONE continuous quarry. 'formations' are the ids cut in that level; 'built' is true once the level's geometry and formations exist (levels 2-4 are added in Phase 7.2); 'unlock' is the share of the PREVIOUS level that must be excavated before this one can be reached; 'materials' is the planned distribution by depth.",
+     "id": "surface", "title": "Surface Operations", "floor_y": -3.6, "materials": ["limestone"], "formations": ["hillside_face_01", "pit_band_01"], "built": true, "unlock": 0.0},
+    {"id": "bench", "title": "First Excavation Bench", "floor_y": -7.2, "materials": ["limestone", "coal", "iron_ore"], "formations": [], "built": false, "unlock": 0.6},
+    {"id": "deep", "title": "Deep Quarry", "floor_y": -10.8, "materials": ["iron_ore", "copper_ore"], "formations": [], "built": false, "unlock": 0.6},
+    {"id": "lower", "title": "Lower Quarry", "floor_y": -14.4, "materials": ["copper_ore", "gold_ore"], "formations": [], "built": false, "unlock": 0.6}
+  ],
   "home": {
     "sleep_from_hour": 17.0,
     "curfew_hour": 22.0,

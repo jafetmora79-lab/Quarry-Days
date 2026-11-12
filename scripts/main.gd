@@ -156,6 +156,7 @@ func _ready() -> void:
 	prog.stage_reached.connect(_on_stage)
 	prog.formation_cleared.connect(_on_formation_cleared)
 	prog.site_cleared.connect(_on_site_cleared)
+	prog.quarry_level_reached.connect(_on_quarry_level)
 	fx = FXScript.new()
 	add_child(fx)
 	fx.game_audio_break = func(at: Vector3): _sfx_at("rock_break", at, -6.0)
@@ -1745,7 +1746,8 @@ func in_build_area(pos: Vector3, margin := 0.0) -> bool:
 		return true
 	if pos.y < -0.5:
 		return false
-	if absf(pos.x) <= 23.5 - margin and absf(pos.z) <= 23.5 - margin and pos.z >= -6.0:
+	var hub := hub_rect()
+	if pos.x >= hub.position.x + margin and pos.x <= hub.end.x - margin and pos.z >= hub.position.y and pos.z <= hub.end.y - margin:
 		return true
 	return business.expansion_unlocked and pos.x >= 31.0 + margin and pos.x <= 47.5 - margin and absf(pos.z) <= 11.5 - margin
 
@@ -3358,6 +3360,18 @@ func hud_badges() -> Array:
 		lines.append(["%d belt%s not connected at both ends" % [loose, "" if loose == 1 else "s"], true])
 	return lines
 
+func _on_quarry_level(n: int) -> void:
+	if hud:
+		hud.toast("Quarry level %d reached" % n, str(prog.level_def(n).get("title", "")), "milestone")
+		_sfx_unlock()
+
+## The industrial hub's boundary (data/progression.json "world"): the permanent business yard, never excavated.
+func hub_rect() -> Rect2:
+	var h: Dictionary = prog.cfg.get("world", {}).get("hub", {})
+	var xs: Array = h.get("x", [-23.5, 23.5])
+	var zs: Array = h.get("z", [-6.0, 23.5])
+	return Rect2(float(xs[0]), float(zs[0]), float(xs[1]) - float(xs[0]), float(zs[1]) - float(zs[0]))
+
 func hud_status_text() -> String:
 	var lines := []
 	if prog.cleanup_active():
@@ -3367,6 +3381,8 @@ func hud_status_text() -> String:
 		if business.milestones[id]:
 			done += 1
 	lines.append("Milestones %d/3" % done)
+	if prog.level_built(prog.quarry_level) and not prog.cleanup_active():
+		lines.append("Quarry level %d: %d%% cut" % [prog.quarry_level, int(prog.level_cleared_fraction(prog.quarry_level) * 100.0)])
 	var running := 0
 	for c in state.crushers:
 		if bool(c["running"]):
