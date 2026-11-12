@@ -408,7 +408,7 @@ func scene_tests() -> void:
 	game.business.auto_crushed_sold = game.business.sales_goal() # Phase 3 pacing goal
 	game.business.check_milestones()
 	check(game.business.milestones["automated"] and game.business.expansion_unlocked and game.deposit_nodes.has("limestone_east"), "milestone 3 opens the expansion with new deposits")
-	check(game.expansion_gate[1].collision_layer == 0 and game.deposit_nodes.size() == 10, "expansion barrier removed; only the three existing minerals (+ quarry face + hillside)")
+	check(game.expansion_gate[1].collision_layer == 0 and game.deposit_nodes.size() == 16, "expansion barrier removed; only the three existing minerals (+ quarry face, hillside, basin bench and the six level benches)")
 	await frames(game, 3)
 	var pth: PackedVector3Array = NavigationServer3D.map_get_path(game.nav_map, Vector3(0, 0, 0), Vector3(38, 0, 0), true)
 	check(pth.size() > 0 and Vector2(pth[pth.size() - 1].x, pth[pth.size() - 1].z).distance_to(Vector2(38, 0)) < 1.0, "expansion area is walkable for workers")
