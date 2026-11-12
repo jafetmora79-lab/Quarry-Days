@@ -14,7 +14,7 @@ func run() -> void:
 	game.hud.close_card()
 	game.scripted_input = true
 	var failures := 0
-	for x in [-14.0, 14.0]:
+	for x in [-15.5, 15.5]:
 		game.player.global_position = Vector3(x, 0.05, 8.4)
 		game.player.rotation.y = PI
 		game.player.velocity = Vector3.ZERO

@@ -221,10 +221,10 @@ func _ground() -> void:
 	quad_flat("GroundRoad", Vector3(5.5, 0, 13.0), Vector2(4.0, 6.0), 0.0, 0.045)         # garage apron road
 	quad_flat("GroundYard", Vector3(2.0, 0, 9.0), Vector2(26.0, 5.0), 0.0, 0.02)            # processing yard
 	quad_flat(M_CONCRETE, Vector3(5.0, 0, 18.7), Vector2(19.6, 7.6), 0.0, 0.075)         # garage slab
-	quad_flat(M_CONCRETE, Vector3(-14.0, 0, 12.0), Vector2(6.4, 6.4), 0.0, 0.075)        # office pad
-	quad_flat(M_CONCRETE, Vector3(14.0, 0, 12.0), Vector2(6.0, 6.0), 0.0, 0.075)         # shed pad
+	quad_flat(M_CONCRETE, game.OFFICE_POS, Vector2(6.4, 6.4), 0.0, 0.075)        # office pad
+	quad_flat(M_CONCRETE, game.SHED_POS, Vector2(6.0, 6.0), 0.0, 0.075)         # shed pad
 	quad_flat(M_CONCRETE, Vector3(-7.0, 0, 10.6), Vector2(4.0, 3.2), 0.0, 0.095)         # sales booth
-	quad_flat(M_CONCRETE, Vector3(-9.6, 0, 15.7), Vector2(4.0, 2.2), 0.0, 0.095)         # break area
+	quad_flat(M_CONCRETE, Vector3(-14.4, 0, 15.7), Vector2(4.0, 2.2), 0.0, 0.095)         # break area
 	for slot in game.fleet.cfg.get("parking", []):                                        # painted bay lines
 		for side in [-1.4, 1.4]:
 			quad_flat("Hazard", Vector3(float(slot[0]) + side, 0, float(slot[2])), Vector2(0.12, 4.2), 0.0, 0.115)
@@ -347,7 +347,7 @@ func _sign(parent: Node3D, tex_key: String, pos: Vector3, size: Vector2, yaw := 
 	mi.set_meta("art", true)
 
 func _office() -> void:
-	var c := Vector3(-14, 0, 12)
+	var c: Vector3 = game.OFFICE_POS
 	_walls(c, M_SIDING, M_DRYWALL)
 	_gable_roof(c, "CorrugatedRed", 5.6, 5.6, 2.8, 1.1)
 	quad_flat(M_LINO, c, Vector2(4.6, 4.5), 0.0, 0.165)
@@ -369,14 +369,14 @@ func _office() -> void:
 	prop(P_WAITING, c + Vector3(1.85, 0.16, -0.6), -PI * 0.5)
 	solid("Office cabinets", c + Vector3(-1.95, 0.6, 1.4), Vector3(0.6, 1.2, 1.4))
 	# upgrade board outside the door: THE VEIL notice board on two posts
-	var ub := Vector3(-14, 0, 7.8)
+	var ub := Vector3(game.OFFICE_POS.x, 0, 7.8)
 	prop(P_NOTICE, ub + Vector3(0, 0.55, 0.05), PI)
 	for x in [-0.95, 0.95]:
 		bx(M_WOOD, ub + Vector3(x, 0.95, 0.1), Vector3(0.1, 1.9, 0.1))
 	_sign(root, "Sign_Upgrades", ub + Vector3(0, 2.05, -0.06), Vector2(1.2, 0.3), PI)
 	# break area
-	prop(P_BENCH, Vector3(-9.6, 0, 15.3), PI)
-	prop(P_TRASH, Vector3(-11.6, 0, 15.6))
+	prop(P_BENCH, Vector3(-14.4, 0, 15.3), PI)
+	prop(P_TRASH, Vector3(-16.4, 0, 15.6))
 
 ## The player's small house by the garage: a bed to sleep in once the day is done (see main.try_sleep).
 func _home() -> void:
@@ -404,7 +404,7 @@ func _home() -> void:
 	prop(P_BOXES, c + Vector3(1.6, 0.16, -1.2), 0.4)
 
 func _shed() -> void:
-	var c := Vector3(14, 0, 12)
+	var c: Vector3 = game.SHED_POS
 	_walls(c, "Corrugated", M_BASEMENT)
 	_gable_roof(c, "CorrugatedRed", 5.6, 5.6, 2.8, 0.7)
 	quad_flat(M_BASEMENT, c, Vector2(4.6, 4.5), 0.0, 0.165)

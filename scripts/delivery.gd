@@ -9,7 +9,7 @@ const DOOR_X := 0.5
 const DOOR_Z := 22.4
 const DOOR_W := 5.4
 const DOOR_H := 3.7
-const GATE := Vector3(0.5, 0.05, 28.3)     ## where drivers and new hires step out of the tunnel mouth
+const GATE := Vector3(0.5, 0.05, 26.9)     ## where drivers and new hires step out of the tunnel mouth
 const VEHICLE_SPEED := 3.6
 const WALK_SPEED := 2.4
 
@@ -260,7 +260,7 @@ func _unload_driver(j: Dictionary) -> void:
 	game.nav_dirty = true
 	var slot: Vector3 = j["slot"]
 	j["stage"] = "walk"
-	j["wps"] = [Vector3(minf(slot.x + 2.0, 13.4), 0, 21.0), Vector3(DOOR_X + 0.8, 0, 21.0), Vector3(DOOR_X + 0.8, 0, 24.8), Vector3(DOOR_X, 0, GATE.z + 0.6)]
+	j["wps"] = [Vector3(minf(slot.x + 2.0, 13.4), 0, 21.0), Vector3(DOOR_X + 0.8, 0, 21.0), Vector3(DOOR_X + 0.8, 0, 24.8), Vector3(DOOR_X, 0, GATE.z)]
 	from = from # (kept for clarity: the driver steps out beside the cab)
 
 func _finish(j: Dictionary) -> void:

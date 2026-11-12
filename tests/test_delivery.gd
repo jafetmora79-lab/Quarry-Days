@@ -46,7 +46,7 @@ func run() -> void:
 	check(d.jobs.size() == 1, "B a delivery job started")
 	var v = d.jobs[0]["vehicle"]
 	var slot: Vector3 = d.jobs[0]["slot"]
-	check(v.global_position.z > 27.0, "B the machine starts at the tunnel mouth in the south")
+	check(v.global_position.z > 26.0, "B the machine starts at the tunnel mouth in the south")
 	check(v.has_meta("delivering") and v.collision_layer == 0, "B it is not drivable while being delivered")
 	check(d.jobs[0]["driver"].get_parent() == v, "B a driver sits in the cab")
 	game.enter_vehicle(v)

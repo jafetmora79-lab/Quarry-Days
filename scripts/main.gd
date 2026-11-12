@@ -20,7 +20,9 @@ const ExcavationScript = preload("res://scripts/excavation.gd")
 const RigScript = preload("res://scripts/rig.gd")
 const MINE_REACH := 2.6 # tools reach a little past the visual lunge (QuarryToolView.REACH_MAX)
 const HILLSIDE_ID := "hillside_face_01"
-const HOME_POS := Vector3(-7.3, 0, 19.6)
+const HOME_POS := Vector3(-8.6, 0, 18.9)
+const OFFICE_POS := Vector3(-15.5, 0, 12)
+const SHED_POS := Vector3(15.5, 0, 12)
 const SAVE_PATH := "user://quarry_save.json"
 const RESOURCE_ORDER := ["limestone", "coal", "iron_ore", "crushed_stone", "copper_ore", "gold_ore"]
 # Phase 5: the three small starting rocks are replaced by enormous finite formations (data/progression.json).
@@ -153,7 +155,7 @@ func _ready() -> void:
 	art.build_environment(self)
 	_carve_hillside_site()
 	_build_pit_zone()
-	for spec in [["Office door", Vector3(-14, 0, 12 - 2.35), -1.0], ["Home door", HOME_POS + Vector3(0, 0, -2.35), 1.0]]:
+	for spec in [["Office door", OFFICE_POS + Vector3(0, 0, -2.35), -1.0], ["Home door", HOME_POS + Vector3(0, 0, -2.35), 1.0]]:
 		var dr := QuarryDoor.new()
 		dr.build(self, spec[1], spec[2], spec[0])
 		doors.append(dr)
@@ -296,14 +298,14 @@ func _build_quarry() -> void:
 				continue # the hillside replaces this corner of the rim
 			_solid(world,"Tree trunk",Vector3(x,1.1,z),Vector3(0.5,2.2,0.5),Color(0.24,0.18,0.12))
 			_visual_box(world,Vector3(x,2.85,z),Vector3(2.1,2.5,2.1),Color(0.13,0.24,0.16))
-	_building("Office", Vector3(-14,0,12), Color(0.48,0.42,0.31))
-	_building("Storage shed", Vector3(14,0,12), Color(0.38,0.37,0.31))
+	_building("Office", OFFICE_POS, Color(0.48,0.42,0.31))
+	_building("Storage shed", SHED_POS, Color(0.38,0.37,0.31))
 	_building("Home", HOME_POS, Color(0.46,0.38,0.28))
 	var bed := _solid(world, "Bed", HOME_POS + Vector3(-1.3, 0.35, 1.3), Vector3(1.0, 0.7, 2.0), Color(0.45,0.3,0.22))
 	bed.set_meta("kind", "bed")
 	var sell := _solid(world,"Selling station",Vector3(-7,0.85,10),Vector3(2.2,1.7,1.25),Color(0.37,0.26,0.14))
 	sell.set_meta("kind","sell")
-	var shop := _solid(world,"Upgrade board",Vector3(-14,1.2,7.8),Vector3(2.1,1.4,0.25),Color(0.15,0.26,0.27))
+	var shop := _solid(world,"Upgrade board",Vector3(OFFICE_POS.x,1.2,7.8),Vector3(2.1,1.4,0.25),Color(0.15,0.26,0.27))
 	shop.set_meta("kind","upgrades")
 	var storage := _solid(world,"Storage crate",Vector3(10,0.65,10),Vector3(2,1.3,1.6),Color(0.33,0.23,0.13))
 	storage.set_meta("kind","storage")
@@ -1911,10 +1913,10 @@ func _build_phase2_area() -> void:
 	_solid(world, "Expansion cliff", Vector3(50,3,0), Vector3(2,6,30), Color(0.32,0.31,0.28))
 	var barrier := _solid(world, "Rockfall barrier", Vector3(29.6,2.0,0), Vector3(1.2,4.0,26), Color(0.42,0.37,0.31))
 	expansion_gate.append(barrier)
-	var desk := _solid(world, "Management desk", Vector3(-14,0.5,13.4), Vector3(1.8,1.0,0.8), Color(0.30,0.20,0.12))
+	var desk := _solid(world, "Management desk", Vector3(OFFICE_POS.x,0.5,13.4), Vector3(1.8,1.0,0.8), Color(0.30,0.20,0.12))
 	desk.set_meta("kind", "office")
 	_visual_box(desk, Vector3(-0.4,0.62,0), Vector3(0.5,0.24,0.06), Color(0.12,0.2,0.16))
-	_solid(world, "Break bench", Vector3(-9.6,0.25,15.3), Vector3(2.6,0.5,0.6), Color(0.33,0.22,0.12))
+	_solid(world, "Break bench", Vector3(-14.4,0.25,15.3), Vector3(2.6,0.5,0.6), Color(0.33,0.22,0.12))
 
 ## Shows or hides the east expansion. Locked: barrier + cliff in place, no deposits there.
 func _set_expansion(unlocked: bool) -> void:
@@ -1993,7 +1995,7 @@ func is_visible_to_player(pos: Vector3) -> bool:
 # --------------------------------------------------------------- worker services
 
 func break_spot(slot: int) -> Vector3:
-	return Vector3(-10.9 + 0.85 * clampi(slot, 0, 3), 0, 16.4)
+	return Vector3(-15.7 + 0.85 * clampi(slot, 0, 3), 0, 16.4)
 
 ## Standing area for a workplace endpoint: centre, radius of reachable ring, preferred side.
 func workplace(ep: Dictionary) -> Dictionary:

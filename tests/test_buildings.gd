@@ -80,5 +80,18 @@ func run() -> void:
 		if ch is CollisionShape3D:
 			depth = ch.shape.size.z
 	check(depth > 7.4, "D the hangar is deeper than before (%.1f m, was 6.4)" % depth)
+	# layout: every building inside the cliff ring, none overlapping another or the garage
+	var spots := {"office": game.OFFICE_POS, "shed": game.SHED_POS, "home": game.HOME_POS}
+	for sk in spots:
+		var p: Vector3 = spots[sk]
+		var inside := true
+		for dx in [-2.7, 2.7]:
+			for dz in [-2.6, 2.6]:
+				inside = inside and Vector2(p.x + dx, p.z + dz).length() < 24.6
+		check(inside, "F the %s stands inside the cliff ring" % sk)
+	check(game.HOME_POS.x + 2.7 < -4.7 - 1.0, "F the home has a lane (>1 m) to the garage wall")
+	check(absf(game.OFFICE_POS.x + game.SHED_POS.x) < 0.01 and game.OFFICE_POS.z == game.SHED_POS.z, "F office and shed mirror each other across the yard")
+	var spot: Vector3 = game.break_spot(0)
+	check(absf(spot.x - game.HOME_POS.x) > 3.5 or absf(spot.z - game.HOME_POS.z) > 4.5, "F the break area is not in front of the home door")
 	print("RESULT: %d checks, %d failures" % [checks, failures.size()])
 	quit(1 if failures.size() > 0 else 0)
