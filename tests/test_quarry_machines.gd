@@ -54,7 +54,7 @@ func run() -> void:
 	var pad: Dictionary = prog.pad("bench_l2_coal", 0)
 	var bench_c: Vector3 = prog.column_pos("bench_l2_coal", 0)
 	check(not pad.is_empty() and absf(pad["pos"].y + 3.6) < 0.01, "A the first bench has drilling pads on the basin floor")
-	check(pz.to_loc(pad["pos"]).x > -9.0 and pz.to_loc(pad["pos"]).x < -5.0, "A in the pit frame, east of the bench (%s)" % str(pz.to_loc(pad["pos"])))
+	check(pz.to_loc(pad["pos"]).x > -4.0 and pz.to_loc(pad["pos"]).x < 0.0, "A in the pit frame, east of the bench (%s)" % str(pz.to_loc(pad["pos"])))
 	check(prog.free_pad("bench_l3_iron") == -1, "A deeper benches have no rig pads (they are mined by hand and by crews)")
 	# ---- B: rigs follow the level rules
 	check(prog.rig_block_reason("drill_rig", "bench_l2_coal").contains("Quarry level"), "B a rig cannot be installed on a bench whose level is closed")
@@ -79,21 +79,21 @@ func run() -> void:
 	for v in [loader, truck]:
 		var title: String = game.fleet.spec(v.vtype)["title"]
 		game.scripted_input = true
-		v.global_position = pz.to_world(Vector3(-25.0, -3.5, -49.0))
+		v.global_position = pz.to_world(Vector3(-54.5, -3.5, -58.0))
 		v.rotation.y = pz.global_rotation.y
 		v.speed = 0.0
 		v.velocity = Vector3.ZERO
 		game.enter_vehicle(v)
 		await frames(10)
-		await drive(game, v, pz, 1.0, func(): return pz.to_loc(v.global_position).z < -63.5, 1800)
+		await drive(game, v, pz, 1.0, func(): return pz.to_loc(v.global_position).z < -93.0, 2400)
 		var lp: Vector3 = pz.to_loc(v.global_position)
-		check(lp.z < -62.0 and lp.y < -6.3 and absf(lp.x + 25.0) < 2.0, "C the %s drives down the level 2 ramp (%s)" % [title, str(lp)])
+		check(lp.z < -91.0 and lp.y < -6.8 and absf(lp.x + 54.5) < 2.5, "C the %s drives down the level 2 ramp (%s)" % [title, str(lp)])
 		v.rotation.y += PI          # turn round at the bottom (the cleared floor gives room) and drive back up forwards
 		v.speed = 0.0
 		await frames(10)
-		await drive(game, v, pz, 1.0, func(): return pz.to_loc(v.global_position).z > -50.5, 2400)
+		await drive(game, v, pz, 1.0, func(): return pz.to_loc(v.global_position).z > -62.0, 3600)
 		lp = pz.to_loc(v.global_position)
-		check(lp.z > -52.0 and lp.y > -4.5, "C and back up it (%s)" % str(lp))
+		check(lp.z > -64.0 and lp.y > -4.5, "C and back up it (%s)" % str(lp))
 		game._reset_driving()        # (the exit spot at the ramp foot can be tight: just release the vehicle)
 		game.driving = null
 		await frames(5)

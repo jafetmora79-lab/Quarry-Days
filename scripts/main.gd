@@ -2659,7 +2659,7 @@ func nearest_deposit(res: String, from: Vector3) -> String:
 	for kind in deposit_nodes:
 		if str(_deposit_info(kind)["resource"]) != res or bool(state.deposits[kind]["broken"]) or bool(_deposit_info(kind).get("infinite", false)):
 			continue # the quarry face is reserved for hand mining
-		if not prog.can_mine(res) or prog.formation_locked(kind) != "":
+		if not prog.crew_can_mine(res) or prog.formation_locked(kind) != "":
 			continue # staff carry company tools: nothing harder than the best owned tool; locked faces stay closed
 		var p: Vector3 = deposit_nodes[kind].global_position
 		if formation_nodes.has(kind):
@@ -4618,6 +4618,11 @@ func hud_badges() -> Array:
 	return lines
 
 func _on_quarry_level(n: int) -> void:
+	# Phase 8.7: the level's haul road was cut out of its rock (progression.open_roads): show it, and let the crews find the way
+	for fid in prog.level_formations(n):
+		_refresh_deposit(fid)
+	if pit_zone:
+		pit_zone.request_bake()
 	if hud:
 		hud.toast("Quarry level %d reached" % n, str(prog.level_def(n).get("title", "")), "milestone")
 		_sfx_unlock()

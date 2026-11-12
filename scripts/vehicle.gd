@@ -86,10 +86,14 @@ func setup(main_node, f: QuarryFleet, record: Dictionary) -> void:
 	var hx := size.x * 0.5
 	var hz := size.z * 0.5
 	var pts := PackedVector3Array()
+	# Phase 8.7: the nose and tail are chamfered at about 20 degrees (a real approach angle), so the machine rolls onto and over
+	# the crest of a ramp or a small lip as a floor instead of catching on it as a wall.
+	var ramp_len := minf(0.9, hz * 0.4)
 	for sx in [-1.0, 1.0]:
 		for sz in [-1.0, 1.0]:
-			pts.append(Vector3(sx * (hx - 0.14), 0.05, sz * (hz - 0.14)))
-			pts.append(Vector3(sx * hx, 0.05 + 0.14, sz * hz))
+			pts.append(Vector3(sx * (hx - 0.14), 0.05, sz * (hz - ramp_len)))
+			pts.append(Vector3(sx * hx, 0.05 + 0.14, sz * (hz - ramp_len)))
+			pts.append(Vector3(sx * hx, 0.05 + ramp_len * 0.36, sz * hz))
 			pts.append(Vector3(sx * hx, 0.05 + size.y, sz * hz))
 	var hull := ConvexPolygonShape3D.new()
 	hull.points = pts
@@ -226,7 +230,8 @@ func control(delta: float) -> void:
 	_animate(delta)
 
 func _track_safety(delta: float) -> void:
-	if global_position.y < -8.0:
+	var void_y: float = (game.pit_zone.deepest_y - 3.0) if game and game.pit_zone else -8.0   # below the deepest quarry floor
+	if global_position.y < void_y:
 		recover() # fell out of the world: never leave it lost
 		return
 	safe_timer += delta

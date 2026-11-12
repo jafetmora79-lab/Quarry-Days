@@ -643,9 +643,9 @@
    "frame": "pit",
    "layout": "arc",
    "center": [
-    0.0,
+    34.0,
     -3.6,
-    -75.0
+    -122.0
    ],
    "r_inner": 6.0,
    "arc_deg": [
@@ -777,35 +777,22 @@
    ]
   },
   "bench_l2_coal": {
-   "pads": [
-    [
-     -7.0,
-     -3.6,
-     -61.0,
-     1.5708
-    ],
-    [
-     -7.0,
-     -3.6,
-     -64.0,
-     1.5708
-    ]
-   ],
    "title": "Coal Bench",
    "resource": "coal",
    "frame": "pit",
    "layout": "grid",
    "center": [
-    -16.0,
+    -27.5,
     -7.2,
-    -62.0
+    -88.5
    ],
-   "cell": 2.0,
+   "cell": 3.0,
    "tier_h": 1.2,
-   "chunk_units": 70,
+   "chunk_units": 13,
    "level": 1,
    "quarry_level": 2,
    "style": "cut",
+   "skin": true,
    "strict": true,
    "requires_cleanup": true,
    "tiers": [
@@ -816,18 +803,8 @@
      3,
      3,
      3,
-     3
-    ],
-    [
      3,
      3,
-     3,
-     3,
-     3,
-     3,
-     3
-    ],
-    [
      3,
      3,
      3,
@@ -843,6 +820,14 @@
      3,
      3,
      3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
      3
     ],
     [
@@ -852,40 +837,228 @@
      3,
      3,
      3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
      3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ]
+   ],
+   "closed": [
+    "N"
+   ],
+   "pads": [
+    [
+     -2.0,
+     -3.6,
+     -75.0,
+     1.5708
+    ],
+    [
+     -2.0,
+     -3.6,
+     -81.0,
+     1.5708
+    ],
+    [
+     -2.0,
+     -3.6,
+     -87.0,
+     1.5708
     ]
    ]
   },
   "bench_l2_iron": {
-   "pads": [
-    [
-     -7.0,
-     -3.6,
-     -52.0,
-     1.5708
-    ],
-    [
-     -7.0,
-     -3.6,
-     -55.0,
-     1.5708
-    ]
-   ],
    "title": "Iron Bench",
    "resource": "iron_ore",
    "frame": "pit",
    "layout": "grid",
    "center": [
-    -16.0,
+    -27.5,
     -7.2,
-    -53.0
+    -129.0
    ],
-   "cell": 2.0,
+   "cell": 3.0,
    "tier_h": 1.2,
-   "chunk_units": 70,
+   "chunk_units": 9,
    "level": 1,
    "quarry_level": 2,
    "style": "cut",
+   "skin": true,
    "strict": true,
    "requires_cleanup": true,
    "tiers": [
@@ -896,18 +1069,8 @@
      3,
      3,
      3,
-     3
-    ],
-    [
      3,
      3,
-     3,
-     3,
-     3,
-     3,
-     3
-    ],
-    [
      3,
      3,
      3,
@@ -923,7 +1086,242 @@
      3,
      3,
      3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
      3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ]
+   ],
+   "closed": [
+    "S"
+   ],
+   "pads": [
+    [
+     -2.0,
+     -3.6,
+     -114.0,
+     1.5708
+    ],
+    [
+     -2.0,
+     -3.6,
+     -120.0,
+     1.5708
+    ],
+    [
+     -2.0,
+     -3.6,
+     -126.0,
+     1.5708
     ]
    ]
   },
@@ -933,35 +1331,96 @@
    "frame": "pit",
    "layout": "grid",
    "center": [
-    -14.0,
+    -32.0,
     -10.8,
-    -61.0
+    -99.0
    ],
-   "cell": 2.0,
+   "cell": 3.0,
    "tier_h": 1.2,
-   "chunk_units": 70,
+   "chunk_units": 13,
    "level": 1,
    "quarry_level": 3,
    "style": "cut",
+   "skin": true,
    "strict": true,
    "requires_cleanup": true,
    "tiers": [
     [
      3,
      3,
-     3
-    ],
-    [
      3,
      3,
-     3
-    ],
-    [
+     3,
      3,
      3,
      3
     ],
     [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
      3,
      3,
      3
@@ -970,6 +1429,9 @@
    "cover": [
     "bench_l2_coal",
     "bench_l2_iron"
+   ],
+   "closed": [
+    "N"
    ]
   },
   "bench_l3_copper": {
@@ -978,30 +1440,96 @@
    "frame": "pit",
    "layout": "grid",
    "center": [
-    -14.0,
+    -32.0,
     -10.8,
-    -54.0
+    -123.0
    ],
-   "cell": 2.0,
+   "cell": 3.0,
    "tier_h": 1.2,
-   "chunk_units": 70,
+   "chunk_units": 10,
    "level": 1,
    "quarry_level": 3,
    "style": "cut",
+   "skin": true,
    "strict": true,
    "requires_cleanup": true,
    "tiers": [
     [
      3,
      3,
+     3,
+     3,
+     3,
+     3,
+     3,
      3
     ],
     [
      3,
      3,
+     3,
+     3,
+     3,
+     3,
+     3,
      3
     ],
     [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3,
+     3,
      3,
      3,
      3
@@ -1010,6 +1538,9 @@
    "cover": [
     "bench_l2_coal",
     "bench_l2_iron"
+   ],
+   "closed": [
+    "S"
    ]
   },
   "bench_l4_copper": {
@@ -1018,32 +1549,53 @@
    "frame": "pit",
    "layout": "grid",
    "center": [
-    -12.5,
+    -26.0,
     -14.4,
-    -60.0
+    -105.0
    ],
-   "cell": 1.5,
+   "cell": 3.0,
    "tier_h": 1.2,
-   "chunk_units": 60,
+   "chunk_units": 20,
    "level": 1,
    "quarry_level": 4,
    "style": "cut",
+   "skin": true,
    "strict": true,
    "requires_cleanup": true,
    "tiers": [
     [
      3,
-     3
-    ],
-    [
+     3,
      3,
      3
     ],
     [
      3,
+     3,
+     3,
      3
     ],
     [
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
      3,
      3
     ]
@@ -1051,6 +1603,9 @@
    "cover": [
     "bench_l3_iron",
     "bench_l3_copper"
+   ],
+   "closed": [
+    "N"
    ]
   },
   "bench_l4_gold": {
@@ -1059,28 +1614,59 @@
    "frame": "pit",
    "layout": "grid",
    "center": [
-    -12.5,
+    -26.0,
     -14.4,
-    -54.75
+    -124.5
    ],
-   "cell": 1.5,
+   "cell": 3.0,
    "tier_h": 1.2,
-   "chunk_units": 60,
+   "chunk_units": 13,
    "level": 1,
    "quarry_level": 4,
    "style": "cut",
+   "skin": true,
    "strict": true,
    "requires_cleanup": true,
    "tiers": [
     [
      3,
-     3
-    ],
-    [
+     3,
      3,
      3
     ],
     [
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
+     3,
+     3
+    ],
+    [
+     3,
+     3,
      3,
      3
     ]
@@ -1088,6 +1674,9 @@
    "cover": [
     "bench_l3_iron",
     "bench_l3_copper"
+   ],
+   "closed": [
+    "S"
    ]
   }
  },
@@ -1214,8 +1803,8 @@
   "_comment": "Phase 7.6: a fossil is buried in the gold bench of the lowest level. It is exposed only when the listed columns have really been mined out. The choice between the two buyers is final.",
   "formation": "bench_l4_gold",
   "columns": [
-   2,
-   3
+   13,
+   14
   ],
   "found_title": "SOMETHING IN THE ROCK",
   "found_text": "The last of the stone falls away and there it is: a spine as long as a truck, ribs curving out of the rock like the hull of an old boat, and a skull with teeth the size of your hand. It is not stone. It is a skeleton, and it is enormous.\n\nNobody has stood here and seen this for millions of years.",
@@ -1719,19 +2308,19 @@
   "gift_text": "Kiddo,\n\nI heard you cleaned the old place up. I knew you would.\n\nNow the real rock is open to you: the hillside behind the yard. Cut it from the front, one section at a time, and it will give up good stone.\n\nI'm sending what I had put away. Spend it on a drill when you are ready. Machines are how we cut the big blocks.\n\n- Grandpa Walt"
  },
  "pit_zone": {
-  "_comment": "Phase 6.3a: the pit area north-east of the yard, entered through a gate in the cliff ring. Local frame: origin at the gate, -Z points out of the quarry. The yard keeps its coordinates.",
+  "_comment": "Phase 8.7: a 160 x 156 m plateau (rim at 0) with the 128 x 120 m starting basin (floor -3.6). Four working levels are cut into the basin floor as nested terraced pits (see quarry_levels).",
   "angle_deg": 306,
   "gate_radius": 28.0,
   "corridor_length": 30.0,
   "corridor_width": 8.0,
-  "plateau_width": 90.0,
-  "plateau_depth": 90.0,
-  "basin_width": 56.0,
-  "basin_depth": 56.0,
+  "plateau_width": 160.0,
+  "plateau_depth": 156.0,
+  "basin_width": 128.0,
+  "basin_depth": 120.0,
   "basin_floor": -3.6,
   "ramp_width": 8.0,
   "ramp_run": 20.0,
-  "wall_height": 8.0,
+  "wall_height": 4.0,
   "build_margin": 3.0
  },
  "world": {
@@ -1753,7 +2342,7 @@
  },
  "quarry_levels": [
   {
-   "_comment": "Four levels of ONE continuous quarry (Phase 7.2). 'formations' are cut in that level; 'unlock' is the share of the PREVIOUS level that must be excavated before the level's rock can be mined (the shell, ramp and walls are always there, under the flush columns). 'pit' (pit frame): rect = [x0, z0, x1, z1] of the whole pit including its ramp strip on the west side; ramp_w = width of that strip; the ramp runs along z from the south end (z1, previous floor) down to the north end (z0, this floor); the columns fill the rest of the rectangle.",
+   "_comment": "Four levels of ONE continuous quarry (Phase 7.2). 'formations' are cut in that level; 'unlock' is the share of the PREVIOUS level that must be excavated before the level's rock can be mined (the shell, ramp and walls are always there, under the flush columns). 'pit' (pit frame): rect = [x0, z0, x1, z1] of the whole pit including its ramp strip on the west side; ramp_w = width of that strip; the ramp runs along z from the south end (z1, previous floor) down to the north end (z0, this floor); the columns fill the rest of the rectangle. Phase 8.7: pit = rect [x0,z0,x1,z1] with a haul-road strip of ramp_w on `side` (W/E): the ramp starts at the `ramp_top` end (south/north) and falls ramp_run metres to the level floor, the rest of the strip is flat road. `roads` = rects of this level's own rock that are cut away the moment the level opens, so the haul road is never blocked. Phase 8.7: pit = rect [x0,z0,x1,z1] with a haul-road strip of ramp_w on `side` (W/E): the ramp starts at the `ramp_top` end (south/north) and falls ramp_run metres to the level floor, the rest of the strip is flat road. `roads` = rects of this level's own rock that are cut away the moment the level opens, so the haul road is never blocked.",
    "id": "surface",
    "title": "Surface Operations",
    "floor_y": -3.6,
@@ -1783,14 +2372,31 @@
    "unlock": 0.6,
    "pit": {
     "rect": [
-     -27.0,
-     -67.0,
-     -9.0,
-     -49.0
+     -59,
+     -150,
+     -5,
+     -69
     ],
-    "ramp_w": 4.0,
+    "ramp_w": 9,
+    "side": "W",
+    "ramp_top": "south",
+    "ramp_run": 21,
     "y_top": -3.6
-   }
+   },
+   "roads": [
+    [
+     -50,
+     -150,
+     -5,
+     -135
+    ],
+    [
+     -20,
+     -135,
+     -11,
+     -87
+    ]
+   ]
   },
   {
    "id": "deep",
@@ -1808,14 +2414,31 @@
    "unlock": 0.6,
    "pit": {
     "rect": [
-     -21.0,
-     -65.0,
-     -11.0,
-     -51.0
+     -44,
+     -135,
+     -11,
+     -87
     ],
-    "ramp_w": 4.0,
+    "ramp_w": 9,
+    "side": "E",
+    "ramp_top": "north",
+    "ramp_run": 21,
     "y_top": -7.2
-   }
+   },
+   "roads": [
+    [
+     -44,
+     -102,
+     -20,
+     -87
+    ],
+    [
+     -41,
+     -135,
+     -32,
+     -96
+    ]
+   ]
   },
   {
    "id": "lower",
@@ -1833,15 +2456,18 @@
    "unlock": 0.6,
    "pit": {
     "rect": [
-     -17.0,
-     -63.0,
-     -11.0,
-     -52.5
+     -41,
+     -135,
+     -20,
+     -96
     ],
-    "ramp_w": 3.0,
-    "y_top": -10.8,
-    "ramp_top": "north"
-   }
+    "ramp_w": 9,
+    "side": "W",
+    "ramp_top": "south",
+    "ramp_run": 21,
+    "y_top": -10.8
+   },
+   "roads": []
   }
  ],
  "home": {
@@ -2319,5 +2945,56 @@
    "capacity": 70
   }
  },
- "gear_comment": "Phase 9.2: extra tools and hauling aids beyond the five-tool ladder (saves keep their tier). class: precision / general / impact / equipment / cart. affinity = damage multiplier per mineral; aoe = neighbouring exposed blocks hit at aoe_frac; powered = gets the compressor bonus; model = the ladder tool whose existing 3D model is shown (no unique models yet)."
+ "gear_comment": "Phase 9.2: extra tools and hauling aids beyond the five-tool ladder (saves keep their tier). class: precision / general / impact / equipment / cart. affinity = damage multiplier per mineral; aoe = neighbouring exposed blocks hit at aoe_frac; powered = gets the compressor bonus; model = the ladder tool whose existing 3D model is shown (no unique models yet).",
+ "legacy_formations": {
+  "bench_l2_coal": {
+   "columns": 35,
+   "dims": [
+    7,
+    5
+   ],
+   "units": 7350
+  },
+  "bench_l2_iron": {
+   "columns": 28,
+   "dims": [
+    7,
+    4
+   ],
+   "units": 5880
+  },
+  "bench_l3_iron": {
+   "columns": 12,
+   "dims": [
+    3,
+    4
+   ],
+   "units": 2520
+  },
+  "bench_l3_copper": {
+   "columns": 9,
+   "dims": [
+    3,
+    3
+   ],
+   "units": 1890
+  },
+  "bench_l4_copper": {
+   "columns": 8,
+   "dims": [
+    2,
+    4
+   ],
+   "units": 1440
+  },
+  "bench_l4_gold": {
+   "columns": 6,
+   "dims": [
+    2,
+    3
+   ],
+   "units": 1080
+  }
+ },
+ "legacy_formations_comment": "Phase 8.7 save migration: the old column layout of each re-laid formation (column count and total units). Saves written with that layout are converted by cleared fraction, never reset."
 }

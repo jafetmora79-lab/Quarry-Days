@@ -66,13 +66,13 @@ func run() -> void:
 	# ---- B: physical shell
 	var floor_l1: float = ground_y(game, 20.0, -60.0)
 	check(absf(floor_l1 + 3.6) < 0.1, "B the basin floor is at -3.6 (%.2f)" % floor_l1)
-	var col_top: float = ground_y(game, -16.0, -62.0)
+	var col_top: float = ground_y(game, -30.0, -90.0)
 	check(absf(col_top + 3.6) < 0.1, "B the level 2 rock is flush with the basin floor (%.2f)" % col_top)
-	var r_top: float = ground_y(game, -25.0, -50.0)
-	var r_mid: float = ground_y(game, -25.0, -58.0)
-	var r_end: float = ground_y(game, -25.0, -66.0)
-	check(absf(r_top + 3.6) < 0.4 and r_mid < r_top - 1.0 and absf(r_end + 7.2) < 0.4, "B the level 2 ramp descends from -3.6 to -7.2 (%.2f, %.2f, %.2f)" % [r_top, r_mid, r_end])
-	var r3_top: float = ground_y(game, -19.0, -52.0, -5.0)
+	var r_top: float = ground_y(game, -54.5, -70.0)
+	var r_mid: float = ground_y(game, -54.5, -80.0)
+	var r_end: float = ground_y(game, -54.5, -92.0)
+	check(absf(r_top + 3.6) < 0.5 and r_mid < r_top - 0.8 and absf(r_end + 7.2) < 0.4, "B the level 2 ramp descends from -3.6 to -7.2 (%.2f, %.2f, %.2f)" % [r_top, r_mid, r_end])
+	var r3_top: float = ground_y(game, -15.5, -133.0, -5.0)
 	check(r3_top < -7.0 and r3_top > -8.0, "B the level 3 ramp starts at the level 2 floor (%.2f)" % r3_top)
 	# ---- C: locking and exposure
 	check(prog.formation_locked("bench_l2_coal") != "" and prog.formation_locked("bench_l4_gold") != "", "C deeper rock is locked until its level is open")
@@ -96,10 +96,10 @@ func run() -> void:
 	empty_formation(game, "bench_l2_coal")
 	empty_formation(game, "bench_l2_iron")
 	await frames(3)
-	var floor_l2: float = ground_y(game, -16.0, -62.0)
+	var floor_l2: float = ground_y(game, -30.0, -80.0)
 	check(absf(floor_l2 + 7.2) < 0.15, "D with the rock gone the floor is the level 2 floor, -7.2 (%.2f)" % floor_l2)
 	check(not prog.column_covered("bench_l3_iron", 0) and prog.column_exposed("bench_l3_iron", 0), "D and the level 3 rock under it is uncovered and exposed")
-	var f3: float = ground_y(game, -14.0, -62.0)
+	var f3: float = ground_y(game, -26.0, -120.0)
 	check(absf(f3 + 7.2) < 0.15, "D level 3 rock is flush with the level 2 floor (%.2f)" % f3)
 	# ---- E: progression
 	prog.state.deposits.erase("hillside_face_01")
@@ -127,8 +127,8 @@ func run() -> void:
 		await physics_frame
 		waited += 1
 	await frames(5)
-	var start_w: Vector3 = pz.to_world(Vector3(-25.0, -3.6, -50.5))
-	var goal_w: Vector3 = pz.to_world(Vector3(-25.0, -7.2, -65.5))
+	var start_w: Vector3 = pz.to_world(Vector3(-54.5, -3.6, -66.0))
+	var goal_w: Vector3 = pz.to_world(Vector3(-54.5, -7.2, -100.0))
 	var path: PackedVector3Array = NavigationServer3D.map_get_path(game.nav_map, start_w, goal_w, true)
 	var ok_path := path.size() > 1 and path[path.size() - 1].distance_to(goal_w) < 1.2
 	check(ok_path, "F a walkable path leads down the level 2 ramp (baked after %d frames, %d points)" % [waited, path.size()])

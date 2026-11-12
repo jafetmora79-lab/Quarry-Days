@@ -40,6 +40,9 @@ var mat_new: StandardMaterial3D
 var mat_old2: StandardMaterial3D
 var mat_new2: StandardMaterial3D
 var cut := false              # style "cut" (quarry-wall blocks)
+var skin := false             # Phase 8.7: one continuous rock surface over all columns instead of a mesh per block
+var skin_mi: MeshInstance3D
+var _skin_sig := []
 var label: Label3D
 
 func setup(main_node, p: QuarryProgression, id: String) -> void:
@@ -52,7 +55,8 @@ func setup(main_node, p: QuarryProgression, id: String) -> void:
 	tier_h = float(f["tier_h"])
 	name = id
 	var c: Array = f["center"]
-	position = Vector3(float(c[0]), float(c[1]), float(c[2]))
+	# Phase 8.7: a formation in the pit frame is rotated with it, so its axis-aligned column boxes tile the (rotated) grid exactly
+	transform = prog.formation_frame(id) * Transform3D(Basis.IDENTITY, Vector3(float(c[0]), float(c[1]), float(c[2])))
 	set_meta("kind", "deposit")
 	set_meta("deposit", id)
 	set_meta("resource", res)
@@ -68,7 +72,19 @@ func setup(main_node, p: QuarryProgression, id: String) -> void:
 	(mat as BaseMaterial3D).uv1_triplanar_sharpness = 6.0
 	# Phase 6.1: style "cut" = quarry-wall blocks (flat faces, chamfered corners, bedded strata) instead of boulders.
 	cut = str(f.get("style", "")) == "cut"
-	if cut:
+	skin = bool(f.get("skin", false)) and cut and not prog.is_arc(id)
+	if skin:
+		mat = MeshKit.mat(QuarryArt.ROCK_MAT.get(res, "RockLimestone")).duplicate()
+		(mat as BaseMaterial3D).cull_mode = BaseMaterial3D.CULL_DISABLED
+		(mat as BaseMaterial3D).uv1_triplanar = true
+		(mat as BaseMaterial3D).uv1_world_triplanar = true
+		(mat as BaseMaterial3D).uv1_scale = Vector3(0.5, 0.5, 0.5)
+		(mat as BaseMaterial3D).uv1_triplanar_sharpness = 6.0
+		skin_mi = MeshInstance3D.new()
+		skin_mi.name = "RockSkin"
+		skin_mi.material_override = mat
+		add_child(skin_mi)
+	elif cut:
 		# One continuous rock surface: world-space triplanar mapping, so the strata run unbroken across block seams.
 		# The original surface is only slightly darker than freshly cut stone (swapped per column in refresh()).
 		mat_old = QuarryFormation.rock_material(Color(0.88, 0.86, 0.82))
@@ -77,7 +93,7 @@ func setup(main_node, p: QuarryProgression, id: String) -> void:
 		mat_new2 = mat_new
 		mat = mat_old
 	var variants := []
-	for k in range(5 if cut else 4):
+	for k in range(0 if skin else (5 if cut else 4)):
 		var s := MeshKit.Soup.new()
 		if cut:
 			MeshKit.cut_block_into(s, Vector3.ZERO, Vector3(cell * 1.02, tier_h * 1.01, cell * 1.02), 900 + k * 17 + id.length())
@@ -87,8 +103,7 @@ func setup(main_node, p: QuarryProgression, id: String) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(id)
 	for i in range(prog.column_count(id)):
-		var local := prog.column_pos(id, i) - position
-		local.y = 0.0
+		var local := _local(i)
 		var cs := CollisionShape3D.new()
 		var box := BoxShape3D.new()
 		cs.shape = box
@@ -96,7 +111,7 @@ func setup(main_node, p: QuarryProgression, id: String) -> void:
 		add_child(cs)
 		shapes.append(cs)
 		var stack := []
-		for t in range(prog.column_tiers(id, i)):
+		for t in range(0 if skin else prog.column_tiers(id, i)):
 			var mi := MeshKit.inst(self, variants[rng.randi() % variants.size()], mat)
 			if cut:
 				# flush courses: blocks sit exactly on the one below with no wobble, so faces stay coplanar
@@ -112,7 +127,7 @@ func setup(main_node, p: QuarryProgression, id: String) -> void:
 			mi.visibility_range_end = 120.0
 			stack.append(mi)
 		chunks.append(stack)
-		shown.append(stack.size())
+		shown.append(prog.column_tiers(id, i) if skin else stack.size())
 	label = Label3D.new()
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	label.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
@@ -140,9 +155,14 @@ static func crack_material(stage: int) -> Material:
 func refresh(instant := false) -> void:
 	var nav_changed := false
 	var top_y := 0.0
+	var sig := []
 	for i in range(chunks.size()):
 		var want := prog.chunks_left(fid, i)
 		var stack: Array = chunks[i]
+		if skin:
+			sig.append(want)
+			if not instant and want < int(shown[i]) and game and game.fx:
+				game.fx.chunk_break(column_top(i) + Vector3(0, tier_h * 0.5, 0), res)
 		for t in range(stack.size()):
 			var mi: MeshInstance3D = stack[t]
 			if t < want:
@@ -163,7 +183,7 @@ func refresh(instant := false) -> void:
 		var h := float(want) * tier_h
 		cs.disabled = want <= 0
 		(cs.shape as BoxShape3D).size = Vector3(cell, maxf(0.2, h), cell)
-		var lp := prog.column_pos(fid, i) - position
+		var lp := _local(i)
 		cs.position = Vector3(lp.x, maxf(0.2, h) * 0.5, lp.z)
 		top_y = maxf(top_y, h)
 		if cut and want > 0:
@@ -171,10 +191,97 @@ func refresh(instant := false) -> void:
 			for t in range(stack.size()):
 				stack[t].material_override = (mat_new if t % 2 == 0 else mat_new2) if fresh else (mat_old if t % 2 == 0 else mat_old2)
 		_update_cracks(i)
+	if skin and sig != _skin_sig:
+		_skin_sig = sig
+		_rebuild_skin(sig)
 	label.position = Vector3(0, top_y + 0.7, 0)
 	update_label()
 	if nav_changed and not instant and game:
 		game.nav_dirty = true
+
+## Deterministic per-corner noise in [0, 1): shared by every column that touches the corner, so the surface has no cracks.
+func _corner_noise(gx: int, gy: int, salt: int) -> float:
+	return float(abs(hash(Vector3i(gx, gy, salt + fid.length() * 31))) % 1000) / 1000.0
+
+## Phase 8.7: the standing rock as ONE continuous surface. Every column that still has rock gets a slightly uneven top at its
+## height; wherever a neighbour is lower (mined out, or the edge of the grid) the cliff face drops from the top down to the
+## neighbour's height. All corners are shared, so the surface is watertight, and mining simply changes the heights.
+func _rebuild_skin(heights: Array) -> void:
+	var d := prog.dims(fid)
+	var s := MeshKit.Soup.new()
+	var half := cell * 0.5
+	var jit := cell * 0.16
+	var origin := Vector3.ZERO
+	var c0 := _local(0)
+	origin = Vector3(c0.x, 0, c0.z)
+	# corner (gx, gy) is the lower-left corner of column (gx, gy) in grid space (gx in 0..d.x, gy in 0..d.y)
+	var corner := func(gx: int, gy: int, h: float) -> Vector3:
+		var base := origin + Vector3((float(gx) - 0.5) * cell, 0, (float(gy) - 0.5) * cell)
+		var jx := (_corner_noise(gx, gy, 1) - 0.5) * 2.0 * jit
+		var jz := (_corner_noise(gx, gy, 2) - 0.5) * 2.0 * jit
+		var jy := -_corner_noise(gx, gy, 3) * 0.10
+		if h <= 0.0:
+			return Vector3(base.x + jx, 0.0, base.z + jz)
+		return Vector3(base.x + jx, h + jy, base.z + jz)
+	for gy in range(d.y):
+		for gx in range(d.x):
+			var h := float(int(heights[gy * d.x + gx])) * tier_h
+			if h <= 0.0:
+				continue
+			var a: Vector3 = corner.call(gx, gy, h)
+			var b: Vector3 = corner.call(gx + 1, gy, h)
+			var c: Vector3 = corner.call(gx + 1, gy + 1, h)
+			var e: Vector3 = corner.call(gx, gy + 1, h)
+			var mid := (a + b + c + e) * 0.25
+			mid.y += (_corner_noise(gx, gy, 4) - 0.6) * 0.14
+			_tri_out(s, a, e, mid, Vector3.UP)
+			_tri_out(s, e, c, mid, Vector3.UP)
+			_tri_out(s, c, b, mid, Vector3.UP)
+			_tri_out(s, b, a, mid, Vector3.UP)
+			# cliff faces: toward -x, +x, -z, +z
+			var dirs := [Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(0, 1)]
+			for o in dirs:
+				var nx: int = gx + o.x
+				var ny: int = gy + o.y
+				var nh := 0.0
+				if nx >= 0 and ny >= 0 and nx < d.x and ny < d.y:
+					nh = float(int(heights[ny * d.x + nx])) * tier_h
+				if nh >= h - 0.001:
+					continue
+				var k0: Vector2i
+				var k1: Vector2i
+				var out_dir := Vector3(o.x, 0, o.y)
+				if o == Vector2i(-1, 0):
+					k0 = Vector2i(gx, gy + 1); k1 = Vector2i(gx, gy)
+				elif o == Vector2i(1, 0):
+					k0 = Vector2i(gx + 1, gy); k1 = Vector2i(gx + 1, gy + 1)
+				elif o == Vector2i(0, -1):
+					k0 = Vector2i(gx, gy); k1 = Vector2i(gx + 1, gy)
+				else:
+					k0 = Vector2i(gx + 1, gy + 1); k1 = Vector2i(gx, gy + 1)
+				var p0: Vector3 = corner.call(k0.x, k0.y, h)
+				var p1: Vector3 = corner.call(k1.x, k1.y, h)
+				# bottom edge of the face: the neighbour's top (same corners), or the floor where nothing stands
+				var q0: Vector3 = corner.call(k0.x, k0.y, nh)
+				var q1: Vector3 = corner.call(k1.x, k1.y, nh)
+				_quad_out(s, q0, q1, p1, p0, out_dir)
+	skin_mi.mesh = s.mesh()
+
+func _tri_out(s: MeshKit.Soup, a: Vector3, b: Vector3, c: Vector3, hint: Vector3) -> void:
+	if (b - a).cross(c - a).dot(hint) < 0.0:
+		s.tri(a, c, b)
+	else:
+		s.tri(a, b, c)
+
+func _quad_out(s: MeshKit.Soup, a: Vector3, b: Vector3, c: Vector3, e: Vector3, hint: Vector3) -> void:
+	_tri_out(s, a, b, c, hint)
+	_tri_out(s, a, c, e, hint)
+
+## A column's centre in this node's own frame, at floor level.
+func _local(i: int) -> Vector3:
+	var l := transform.affine_inverse() * prog.column_pos(fid, i)
+	l.y = 0.0
+	return l
 
 func update_label() -> void:
 	var left := prog.units_left(fid)
@@ -191,6 +298,8 @@ func update_label() -> void:
 		label.modulate = Color(0.98, 0.9, 0.72)
 
 func _update_cracks(i: int) -> void:
+	if skin:
+		return
 	var want := prog.chunks_left(fid, i)
 	var stack: Array = chunks[i]
 	for t in range(stack.size()):
@@ -212,7 +321,7 @@ func hit(i: int) -> void:
 	if i < 0 or i >= chunks.size():
 		return
 	var want := prog.chunks_left(fid, i)
-	if want > 0:
+	if want > 0 and not skin:
 		jiggle[chunks[i][want - 1]] = 0.16
 	_update_cracks(i)
 

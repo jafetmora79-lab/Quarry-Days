@@ -94,7 +94,7 @@ func run() -> void:
 	check(Vector2(e3.x, e3.z).distance_to(Vector2(plateau.x, plateau.z)) < 2.5, "D staff can path onto the plateau")
 	# ---- build zones
 	check(game.in_build_area(pz.to_world(Vector3(25, 0, -45))) and game.in_build_area(pz.to_world(Vector3(0, -3.6, -80))), "E the plateau and the basin floor are build areas once open")
-	check(not game.in_build_area(pz.to_world(Vector3(0, 0, -60))) and not game.in_build_area(pz.to_world(Vector3(0, 0, -15))) and not game.in_build_area(pz.to_world(Vector3(44, 0, -45))), "E the basin rim, the corridor and the wall edges are not")
+	check(not game.in_build_area(pz.to_world(Vector3(0, 0, -60))) and not game.in_build_area(pz.to_world(Vector3(0, 0, -15))) and not game.in_build_area(pz.to_world(Vector3(79, 0, -45))), "E the basin rim, the corridor and the wall edges are not")
 	check(game.in_build_area(Vector3(0, 0, 10)) and not game.in_build_area(Vector3(0, 0, -10)), "E yard zones behave as before")
 	# ---- a loader drives through the gate and down the ramp
 	game.business.milestones["mechanized"] = true
