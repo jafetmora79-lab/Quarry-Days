@@ -207,7 +207,9 @@ func scene_tests() -> void:
 			loader = v
 		else:
 			truck = v
-	check(loader.global_position.distance_to(truck.global_position) > 3.0, "vehicles spawn in separate parking bays")
+	var ea: Vector2 = game._vehicle_extent(loader.size, loader.rotation.y)
+	var eb: Vector2 = game._vehicle_extent(truck.size, truck.rotation.y)
+	check(absf(loader.global_position.x - truck.global_position.x) >= ea.x + eb.x or absf(loader.global_position.z - truck.global_position.z) >= ea.y + eb.y, "vehicles spawn in separate parking bays (footprints do not overlap)")
 	await frames(10)
 	check(loader.global_position.y > -0.2 and loader.global_position.y < 0.5 and loader.is_on_floor(), "parked loader rests on the ground")
 	# --- enter, scoop, capacity
