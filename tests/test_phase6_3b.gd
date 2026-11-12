@@ -41,10 +41,10 @@ func nav_end(game, from: Vector3, to: Vector3) -> Vector3:
 	var p: PackedVector3Array = NavigationServer3D.map_get_path(game.nav_map, from, to, true)
 	return p[p.size() - 1] if p.size() > 0 else Vector3(1e6, 1e6, 1e6)
 
-func exposed_count(prog: QuarryProgression) -> int:
+func exposed_count(prog: QuarryProgression, all_pit := false) -> int:
 	var n := 0
-	for id in prog.formation_ids():          # every formation of the pit zone: the basin bench and the level 2-4 benches
-		if str(prog.fdef(id).get("frame", "")) != "pit":
+	for id in prog.formation_ids():          # the basin bench, or (all_pit) every formation of the pit zone incl. the level 2-4 benches
+		if str(prog.fdef(id).get("frame", "")) != "pit" or (not all_pit and id != BID):
 			continue
 		for i in range(prog.column_count(id)):
 			if prog.column_exposed(id, i) and prog.column_units(id, i) > 0:
@@ -170,7 +170,7 @@ func run() -> void:
 	await frames(400, func(): return not pz.is_baking())
 	var new_bakes: int = pz.bake_count - bakes0
 	check(new_bakes >= 1 and new_bakes <= 5, "E cutting 4 columns triggered %d background rebuilds of the pit region (at most one per second)" % new_bakes)
-	check(pz.last_source_boxes == exposed_count(prog) and pz.last_source_boxes < 96 + 63 + 21 + 14, "E navigation uses only the exposed columns (%d of %d)" % [pz.last_source_boxes, 96 + 63 + 21 + 14])
+	check(pz.last_source_boxes == exposed_count(prog, true) and pz.last_source_boxes < 96 + 63 + 21 + 14, "E navigation uses only the exposed columns (%d of %d)" % [pz.last_source_boxes, 96 + 63 + 21 + 14])
 	check(pz.bake_ms < 30.0, "E collecting the sources takes %.1f ms on the main thread" % pz.bake_ms)
 	var front := prog.column_pos(BID, 9) + (center - prog.column_pos(BID, 9)).normalized() * 2.5
 	front.y = -3.6
