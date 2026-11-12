@@ -124,7 +124,19 @@ A small starting basin (Grandpa's old workings, floor at -3.6) gives the first o
 - Old saves: never resize existing formations or reuse their ids; `level_unlocked` clamp must be widened carefully.
 - Test fixtures hard-code coordinates around the yard; the yard must not move.
 
-## 8. Decisions needed from the designer
+## 8. Decisions
+
+Settled by the designer:
+- Pit entrance: a **gate in the north cliff ring** (same pattern as the east expansion barrier).
+- Trucks: player-driven first; **NPC drivers come later** (keep the haul road, truck API and `fleet` data free of
+  player-only assumptions so haulers can drive them in a later phase).
+- The drill-and-saw block-cutting pipeline is its **own phase after the benches** are finished.
+
+Defaults assumed unless the designer says otherwise:
+- Keep the Phase 5 lower pit and permit unchanged for now; fold them into the level system in a later phase.
+- Bench height 3.6 m (3 tiers of 1.2 m).
+
+## 9. Original open questions (for reference)
 
 1. Keep the Phase 5 lower pit and the permit as they are, or fold them into the new level system later?
 2. Pit entrance: a gate in the north ring (recommended) or a ramp through the existing rim?
