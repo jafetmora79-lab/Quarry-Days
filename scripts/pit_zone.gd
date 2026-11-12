@@ -172,7 +172,7 @@ func _read_levels() -> void:
 		var r: Array = pit["rect"]
 		var rw := float(pit.get("ramp_w", 4.0))
 		var rect := Rect2(float(r[0]), float(r[1]), float(r[2]) - float(r[0]), float(r[3]) - float(r[1]))
-		level_pits.append({"n": n, "rect": rect, "rw": rw, "y_top": float(pit["y_top"]), "y_bot": float(d["floor_y"]),
+		level_pits.append({"n": n, "rect": rect, "rw": rw, "y_top": float(pit["y_top"]), "y_bot": float(d["floor_y"]), "top_north": str(pit.get("ramp_top", "south")) == "north",
 			"cols": Rect2(rect.position.x + rw, rect.position.y, rect.size.x - rw, rect.size.y)})
 		deepest_y = minf(deepest_y, float(d["floor_y"]))
 	if not level_pits.is_empty():
@@ -180,7 +180,22 @@ func _read_levels() -> void:
 
 ## One ramp (slab, solid fill under it, a curb on the open side) running along -z from (y_top at z_south) down to
 ## (y_bot at z_north), between x_a and x_b. Same construction as the basin ramp.
-func _make_ramp(label: String, x_a: float, x_b: float, z_south: float, z_north: float, y_top: float, y_bot: float) -> void:
+const CURB_OPEN := 0.45     ## where the ramp is lower than this above the floor beside it, the side rail ends: you can step off
+
+## The side rail of a pit ramp covers only the steep upper part. Returns {"z": centre, "y": surface height at the centre, "len": length along the slope}.
+func _curb_span(z_south: float, z_north: float, y_top: float, y_bot: float, top_north: bool) -> Dictionary:
+	var run := z_south - z_north
+	var rise := y_top - y_bot
+	var frac := clampf(1.0 - CURB_OPEN / maxf(rise, 0.01), 0.1, 1.0)
+	var rc := run * frac
+	var z_top := z_north if top_north else z_south
+	var sgn := 1.0 if top_north else -1.0
+	var zc := z_top + sgn * rc * 0.5
+	var yc := y_top - rise * frac * 0.5
+	var ang := atan2(rise, run)
+	return {"z": zc, "y": yc, "len": maxf(0.5, rc / cos(ang) - 0.3)}
+
+func _make_ramp(label: String, x_a: float, x_b: float, z_south: float, z_north: float, y_top: float, y_bot: float, top_north := false) -> void:
 	var run := z_south - z_north
 	var rise := y_top - y_bot
 	var ang := atan2(rise, run)
@@ -188,15 +203,19 @@ func _make_ramp(label: String, x_a: float, x_b: float, z_south: float, z_north: 
 	var thick := 0.4
 	var w := x_b - x_a
 	var cx := (x_a + x_b) * 0.5
-	var slab := _body(label + " ramp", Vector3(cx, (y_top + y_bot) * 0.5 - thick * 0.5 / cos(ang) - 0.01, (z_south + z_north) * 0.5), Vector3(w, thick, length), true, Vector3(-ang, 0, 0))
+	var tilt := ang if top_north else -ang        # top at the south end: rotate by -ang; top at the north end: by +ang
+	var slab := _body(label + " ramp", Vector3(cx, (y_top + y_bot) * 0.5 - thick * 0.5 / cos(ang) - 0.01, (z_south + z_north) * 0.5), Vector3(w, thick, length), true, Vector3(tilt, 0, 0))
 	slab.set_meta("ramp", true)
 	for i in range(4):
 		var seg := run / 4.0
 		var hgt := rise * (1.0 - float(i + 1) / 4.0) - 0.25
 		if hgt > 0.05:
-			var fill := _body(label + " ramp fill", Vector3(cx, y_bot - 0.25 + hgt * 0.5, z_south - seg * (float(i) + 0.5)), Vector3(w, hgt, seg), false)
+			var zc := z_north + seg * (float(i) + 0.5) if top_north else z_south - seg * (float(i) + 0.5)
+			var fill := _body(label + " ramp fill", Vector3(cx, y_bot - 0.25 + hgt * 0.5, zc), Vector3(w, hgt, seg), false)
 			fill.set_meta("nav_skip", true)
-	var curb := _body(label + " ramp curb", Vector3(x_b + 0.15, (y_top + y_bot) * 0.5 + 0.5, (z_south + z_north) * 0.5), Vector3(0.25, 1.0, length - 0.6), false, Vector3(-ang, 0, 0))
+			fill.set_meta("climbable", true)
+	var cs := _curb_span(z_south, z_north, y_top, y_bot, top_north)
+	var curb := _body(label + " ramp curb", Vector3(x_b + 0.15, float(cs["y"]) + 0.5, float(cs["z"])), Vector3(0.25, 1.0, float(cs["len"])), false, Vector3(tilt, 0, 0))
 	curb.set_meta("curb", true)
 
 ## Collision shell of quarry levels 2-4: ramp, retaining walls and floor slabs (with a hole for the next level's pit).
@@ -211,7 +230,7 @@ func _build_levels() -> void:
 		var n: int = lp["n"]
 		var z0 := rect.position.y
 		var z1 := rect.end.y
-		_make_ramp("L%d" % n, rect.position.x, cols.position.x, z1, z0, y_top, y_bot)
+		_make_ramp("L%d" % n, rect.position.x, cols.position.x, z1, z0, y_top, y_bot, bool(lp.get("top_north", false)))
 		var h := (y_top - y_bot) + 0.5
 		var cy := y_bot - 0.5 + h * 0.5
 		var walls := [
@@ -219,6 +238,9 @@ func _build_levels() -> void:
 			["north", Vector3(rect.position.x + rect.size.x * 0.5, cy, z0 - 0.5), Vector3(rect.size.x + 2.0, h, 1.0)],
 			["east", Vector3(rect.end.x + 0.5, cy, (z0 + z1) * 0.5), Vector3(1.0, h, rect.size.y + 2.0)],
 			["south", Vector3(cols.position.x + cols.size.x * 0.5 + 0.5, cy, z1 + 0.5), Vector3(cols.size.x + 1.0, h, 1.0)]]
+		if bool(lp.get("top_north", false)):
+			# the ramp's lower end is at the south: the south wall closes the whole width (nobody walks in under the floor above)
+			walls[3] = ["south", Vector3(rect.position.x + rect.size.x * 0.5, cy, z1 + 0.5), Vector3(rect.size.x + 2.0, h, 1.0)]
 		for wl in walls:
 			var wb := _body("L%d wall %s" % [n, wl[0]], wl[1], wl[2], false)
 			wb.set_meta("nav_skip", true)
@@ -350,7 +372,9 @@ func _build_art() -> void:
 		var rise := yt - yb
 		var lang := atan2(rise, run)
 		var llen := sqrt(run * run + rise * rise)
-		var rxl := Transform3D(Basis(Vector3.RIGHT, -lang), Vector3((rect.position.x + cols.position.x) * 0.5, (yt + yb) * 0.5 + 0.02, (rect.position.y + rect.end.y) * 0.5))
+		var tn: bool = bool(lp.get("top_north", false))
+		var ltilt := lang if tn else -lang
+		var rxl := Transform3D(Basis(Vector3.RIGHT, ltilt), Vector3((rect.position.x + cols.position.x) * 0.5, (yt + yb) * 0.5 + 0.02, (rect.position.y + rect.end.y) * 0.5))
 		var lhw := (cols.position.x - rect.position.x) * 0.5
 		var lhl := llen * 0.5 + 0.1
 		var lrs := MeshKit.Soup.new()
@@ -358,11 +382,14 @@ func _build_art() -> void:
 		MeshKit.inst(vis, lrs.mesh(), MeshKit.mat("GroundRoad"))
 		var lw := MeshKit.Soup.new()
 		var xe := cols.position.x
-		lw.tri(Vector3(xe, yt, rect.end.y), Vector3(xe, yb, rect.end.y), Vector3(xe, yb, rect.position.y))
-		lw.tri(Vector3(xe, yt, rect.end.y), Vector3(xe, yb, rect.position.y), Vector3(xe, yb, rect.end.y))   # both windings: seen from either side
+		var zt: float = rect.position.y if tn else rect.end.y      # the end of the ramp that is at the top
+		var zb: float = rect.end.y if tn else rect.position.y
+		lw.tri(Vector3(xe, yt, zt), Vector3(xe, yb, zt), Vector3(xe, yb, zb))
+		lw.tri(Vector3(xe, yt, zt), Vector3(xe, yb, zb), Vector3(xe, yb, zt))   # both windings: seen from either side
 		MeshKit.inst(vis, lw.mesh(), MeshKit.mat("CutLimestone"))
 		var lc := MeshKit.Soup.new()
-		MeshKit.box_into(lc, Vector3.ZERO, Vector3(0.25, 0.35, llen - 0.6), Vector2.ONE, Transform3D(Basis(Vector3.RIGHT, -lang), Vector3(cols.position.x + 0.15, (yt + yb) * 0.5 + 0.17, (rect.position.y + rect.end.y) * 0.5)))
+		var lcs := _curb_span(rect.end.y, rect.position.y, yt, yb, tn)
+		MeshKit.box_into(lc, Vector3.ZERO, Vector3(0.25, 0.35, float(lcs["len"])), Vector2.ONE, Transform3D(Basis(Vector3.RIGHT, ltilt), Vector3(cols.position.x + 0.15, float(lcs["y"]) + 0.17, float(lcs["z"]))))
 		MeshKit.inst(vis, lc.mesh(), MeshKit.mat("Hazard"))
 		var lh := rise + 0.3
 		var wsoup := MeshKit.Soup.new()
@@ -370,7 +397,10 @@ func _build_art() -> void:
 		_wall(wsoup, rect.size.x + 1.8, lh, 0.8, 900 + k * 7 + 1, 2, PI, Vector3(rect.position.x + rect.size.x * 0.5, yb, rect.position.y - 0.4))
 		_wall(wsoup, rect.size.y + 1.8, lh, 0.8, 900 + k * 7 + 2, 2, -PI * 0.5, Vector3(rect.position.x - 0.4, yb, zc))
 		_wall(wsoup, rect.size.y + 1.8, lh, 0.8, 900 + k * 7 + 3, 2, PI * 0.5, Vector3(rect.end.x + 0.4, yb, zc))
-		_wall(wsoup, cols.size.x + 0.9, lh, 0.8, 900 + k * 7 + 4, 2, 0.0, Vector3(cols.position.x + cols.size.x * 0.5 + 0.45, yb, rect.end.y + 0.4))
+		if tn:
+			_wall(wsoup, rect.size.x + 1.8, lh, 0.8, 900 + k * 7 + 4, 2, 0.0, Vector3(rect.position.x + rect.size.x * 0.5, yb, rect.end.y + 0.4))
+		else:
+			_wall(wsoup, cols.size.x + 0.9, lh, 0.8, 900 + k * 7 + 4, 2, 0.0, Vector3(cols.position.x + cols.size.x * 0.5 + 0.45, yb, rect.end.y + 0.4))
 		MeshKit.inst(vis, wsoup.mesh(), MeshKit.mat("CutLimestone"))
 	# basin walls (pale cut limestone), facing into the basin
 	var bw := MeshKit.Soup.new()

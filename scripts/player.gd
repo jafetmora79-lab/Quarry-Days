@@ -4,6 +4,7 @@ class_name QuarryPlayer
 var camera: Camera3D
 var pitch := 0.0
 var locked := false
+var drive_wish := Vector3.INF
 var tool_view: QuarryToolView
 var pickaxe: Node3D # kept for older callers: the tool view node
 var shake := 0.0
@@ -68,7 +69,59 @@ func _physics_process(delta: float) -> void:
 		var dir := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 		var wish := global_transform.basis * Vector3(dir.x, 0, dir.y)
 		var speed := 6.0 if Input.is_action_pressed("sprint") else 4.2
+		if drive_wish != Vector3.INF:        # scripted walking (tests): a world-space direction instead of the keyboard
+			wish = drive_wish.normalized() if drive_wish.length() > 0.01 else Vector3.ZERO
+			speed = 4.2
 		velocity.x = move_toward(velocity.x, wish.x * speed, delta * 18)
 		velocity.z = move_toward(velocity.z, wish.z * speed, delta * 18)
+		_wish_flat = Vector3(wish.x, 0.0, wish.z)
+	if _mantle_t > 0.0:
+		# climbing onto a low ledge: a short, smooth lift (Phase 8.1: one rock tier can be climbed out of)
+		_mantle_t = maxf(0.0, _mantle_t - delta)
+		global_position = _mantle_from.lerp(_mantle_to, 1.0 - _mantle_t / MANTLE_TIME)
+		velocity = Vector3.ZERO
+		return
 	velocity.y -= 22.0 * delta
+	if not locked:
+		_try_mantle()
+		if _mantle_t > 0.0:
+			return
 	move_and_slide()
+
+
+# ------------------------------------------------------------------ ledge climbing (Phase 8.1)
+
+const MANTLE_MAX := 1.3          ## the tallest ledge that can be climbed: one rock tier (1.2 m)
+const MANTLE_TIME := 0.2
+var _mantle_t := 0.0
+var _wish_flat := Vector3.ZERO
+var _mantle_from := Vector3.ZERO
+var _mantle_to := Vector3.ZERO
+
+## Walking into a low rock or ground ledge climbs it, so a one-tier step in the excavation is never a trap.
+## Only quarry ground and rock count: never vehicles, machines or buildings.
+func _try_mantle() -> void:
+	if not is_on_floor():
+		return
+	if _wish_flat.length() < 0.3:
+		return                                   # only when the player is pushing against the ledge
+	var dir := _wish_flat.normalized()
+	var hit := KinematicCollision3D.new()
+	if not test_move(global_transform, dir * 0.2, hit):
+		return
+	var c = hit.get_collider()
+	if c == null or not (c is QuarryFormation or (c is Node and ((c as Node).has_meta("ground") or (c as Node).has_meta("climbable")))):
+		return
+	for h in [0.25, 0.5, 0.9, MANTLE_MAX]:
+		var up := global_transform.translated(Vector3(0, h, 0))
+		if test_move(global_transform, Vector3(0, h, 0)):
+			break                                 # head room is gone: higher is no better
+		if test_move(up, dir * 0.6):
+			continue
+		var over := up.translated(dir * 0.6)
+		if not test_move(over, Vector3(0, -(h + 0.1), 0)):
+			continue                              # nothing to stand on up there
+		_mantle_from = global_position
+		_mantle_to = over.origin
+		_mantle_t = MANTLE_TIME
+		return

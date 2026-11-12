@@ -364,8 +364,14 @@ func cleared_fraction(ids: Array = []) -> float:
 
 ## Applies mining damage to one column. At most `limit` units leave the column (the caller has room for
 ## them); damage beyond that is not banked. Returns {"units", "chunks", "column_emptied"}.
+## Set by the game: (formation id, column) -> true while a person stands on the column. Nothing (tool, crew, rig,
+## companion) may take rock out from under somebody's feet.
+var protect := Callable()
+
 func extract(id: String, col: int, damage: float, limit := 1 << 30, source := "hand") -> Dictionary:
 	var out := {"units": 0, "chunks": 0, "column_emptied": false}
+	if protect.is_valid() and col >= 0 and protect.call(id, col):
+		return out
 	if not state.deposits.has(id) or col < 0 or col >= column_count(id) or column_units(id, col) <= 0 or damage <= 0.0:
 		return out
 	var d: Dictionary = state.deposits[id]

@@ -104,6 +104,7 @@ var dialog_worker: Node3D
 var _forced_sleep := false
 var doors: Array = []            # QuarryDoor: the office and home doors (E to open / close)
 var delivery: QuarryDelivery    # service gate, garage door, delivery drivers and walk-in hires
+var safety: QuarrySafety
 var pit_zone: QuarryPitZone     # Phase 6.3a: the new pit area behind the north-east gate
 var pit_retired: Array = []     # ring pieces retired to make the gate (for tests)
 var cleanup_nodes := {}      # Phase 6.2: weed clumps and rubble heaps still on the site (id -> body)
@@ -150,6 +151,7 @@ func _ready() -> void:
 	fleet = FleetScript.new(business, vcfg)
 	var pcfg = JSON.parse_string(FileAccess.get_file_as_string("res://data/progression.json"))
 	prog = ProgressionScript.new(state, business, pcfg)
+	prog.protect = Callable(self, "_column_has_player")
 	business.prog = prog
 	state.money = int(pcfg.get("new_game_money", state.money))
 	state.money_earned.connect(_on_income)
@@ -187,9 +189,12 @@ func _ready() -> void:
 	excavation.setup(self)
 	excavation.set_open(prog.level_unlocked >= 2)
 	player = PlayerScript.new()
+	safety = QuarrySafety.new()
 	player.name = "Player"
 	player.position = Vector3(0, 0.2, 8)
 	add_child(player)
+	add_child(safety)
+	safety.setup(self)
 	player.collision_mask = 1 | 2 | 4 | 8 # world, loose pieces, workers, vehicles (conveyors: layer 16, crossable)
 	vehicles_root = Node3D.new()
 	vehicles_root.name = "Vehicles"
@@ -566,6 +571,15 @@ func _spawn_cleanup() -> void:
 
 ## One strike on a weed clump or rubble heap. Weeds fall after `weed_hp` damage; a heap gives one stone (into the
 ## bag) per `heap_unit_hp` damage and is gone when its stone is used up. Nothing is lost when the bag is full.
+## True while the player stands on top of (or inside the footprint of) a column: that rock cannot be taken away.
+func _column_has_player(id: String, col: int) -> bool:
+	if player == null or not formation_nodes.has(id) or col < 0 or col >= prog.column_count(id) or prog.column_units(id, col) <= 0:
+		return false
+	var d: Vector3 = player.global_position - prog.column_pos(id, col)
+	var l: Vector3 = Basis(Vector3.UP, prog.column_yaw(id, col)).inverse() * d
+	var half := float(prog.fdef(id)["cell"]) * 0.5 + 0.3
+	return absf(l.x) <= half and absf(l.z) <= half and absf(d.y) <= float(prog.chunks_left(id, col)) * float(prog.fdef(id).get("tier_h", 1.2)) + 1.0
+
 func hit_debris(node: Node3D, damage: float, point: Vector3, continuous := false) -> void:
 	var id := str(node.get_meta("debris_id", ""))
 	if id == "" or prog.cleanup["cleared"].get(id, false):
@@ -1039,6 +1053,9 @@ func player_mine(kind: String, col: int, damage: float, point := Vector3.INF, co
 	if col < 0:
 		_notify("%s is cleared." % str(prog.fdef(kind)["title"]))
 		return 0
+	if _column_has_player(kind, col):
+		_notify("Step off that rock first - you are standing on it.")
+		return 0
 	var bag_room := state.capacity() - state.total(state.inventory)
 	var drop_room := maxi(0, int(prog.cfg.get("loose_piece_cap", 36)) - loose_count(kind))
 	var ex := prog.extract(kind, col, damage, bag_room + drop_room, "hand")
@@ -1179,6 +1196,7 @@ func _physics_process(delta: float) -> void:
 		# the chase camera would sit inside the roof: take the roof off while a vehicle is driven under it
 		var inside := driving != null and driving.global_position.x > -6.5 and driving.global_position.x < 16.0 and driving.global_position.z > 12.5 and driving.global_position.z < 24.0
 		art.garage_roof.visible = not inside
+	safety.tick(delta)
 	_check_introductions()
 	_check_walter_visit()
 	_walter_tick(delta)
@@ -1354,6 +1372,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			elif event.button_index == MOUSE_BUTTON_LEFT:
 				_place_ghost()
 		return
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_U and not placement and not driving and menu == "":
+		safety.rescue("asked to be lifted out")
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_T and not placement and name_dialog == null:
 		_companion_command()
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_B:
