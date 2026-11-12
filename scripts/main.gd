@@ -1181,6 +1181,7 @@ func _physics_process(delta: float) -> void:
 	_check_introductions()
 	_check_walter_visit()
 	_walter_idle(delta)
+	_fossil_tick(delta)
 	if autosave_enabled:
 		autosave_t += delta
 		if autosave_t >= AUTOSAVE_SECONDS and not sleeping and not placement:
@@ -1227,6 +1228,7 @@ func _physics_process(delta: float) -> void:
 						prompt = "E: close the %s" % dn.to_lower() if dr.want_open else "E: open the %s" % dn.to_lower()
 			"bed": prompt = "E: sleep until morning" if can_sleep() else "Too early to sleep (rest after %02d:00)" % int(prog.cfg.get("home", {}).get("sleep_from_hour", 17.0))
 			"discovery": prompt = "E: open the old lockbox"
+			"fossil": prompt = "E: examine the fossil"
 			"walter": prompt = "E: talk to Grandpa Walt" if walter_visit != "" else "Grandpa Walt"
 			"rig":
 				var ri := int(last_target.get_meta("index"))
@@ -1394,6 +1396,8 @@ func _interact(target: Node3D) -> void:
 			_read_discovery(str(target.get_meta("discovery")))
 		"walter":
 			_talk_to_walter()
+		"fossil":
+			_talk_to_fossil()
 		"rig":
 			_open_menu("rig", int(target.get_meta("index")))
 		"vehicle":
@@ -2089,6 +2093,10 @@ func _load(quiet := false) -> void:
 				legacy_pieces[kind] = int(legacy_pieces.get(kind, 0)) + 1
 	_restore_legacy_pieces(legacy_pieces)
 	_remove_walter()
+	_remove_fossil()
+	if fossil_dialog:
+		fossil_dialog.queue_free()
+		fossil_dialog = null
 	walter_visit = ""
 	walter_intro_running = false
 	if walter_dialog:
@@ -3439,6 +3447,121 @@ func _on_formation_cleared(id: String) -> void:
 		_spawn_discovery("first_clear", id)
 		if hud:
 			hud.toast("Something under the rock...", "An old lockbox is lying where the formation stood.", "unlock")
+
+# ------------------------------------------------------------------ Phase 7.6: the fossil
+
+var fossil_node: Node3D
+var fossil_dialog: QuarryFossilDialog
+var _fossil_timer := 0.0
+
+## Bones lying in the floor of the lowest level where the gold bench stood.
+func _spawn_fossil() -> void:
+	if fossil_node != null and is_instance_valid(fossil_node):
+		return
+	var p := prog.fossil_pos()
+	var root := StaticBody3D.new()
+	root.name = "Fossil"
+	root.position = Vector3(p.x, p.y, p.z)
+	root.set_meta("kind", "fossil")
+	var cs := CollisionShape3D.new()
+	var sh := BoxShape3D.new()
+	sh.size = Vector3(2.4, 0.9, 1.2)
+	cs.shape = sh
+	cs.position.y = 0.45
+	root.add_child(cs)
+	var bone := _mat(Color(0.86, 0.80, 0.66))
+	for i in range(7):                            # ribs and spine along the floor
+		var rib := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(0.12, 0.7 - absf(float(i) - 3.0) * 0.08, 0.12)
+		rib.mesh = bm
+		rib.material_override = bone
+		rib.position = Vector3(-1.0 + float(i) * 0.33, 0.35, 0.0)
+		rib.rotation.z = (0.35 if i % 2 == 0 else -0.35)
+		root.add_child(rib)
+	var spine := MeshInstance3D.new()
+	var sm := BoxMesh.new()
+	sm.size = Vector3(2.4, 0.14, 0.16)
+	spine.mesh = sm
+	spine.material_override = bone
+	spine.position.y = 0.1
+	root.add_child(spine)
+	var skull := MeshInstance3D.new()
+	var km := BoxMesh.new()
+	km.size = Vector3(0.7, 0.4, 0.45)
+	skull.mesh = km
+	skull.material_override = bone
+	skull.position = Vector3(1.4, 0.25, 0.0)
+	root.add_child(skull)
+	var glow := OmniLight3D.new()
+	glow.light_color = Color(1.0, 0.9, 0.65)
+	glow.light_energy = 0.9
+	glow.omni_range = 4.0
+	glow.position = Vector3(0, 1.2, 0)
+	root.add_child(glow)
+	world.add_child(root)
+	fossil_node = root
+
+func _remove_fossil() -> void:
+	if fossil_node != null and is_instance_valid(fossil_node):
+		fossil_node.queue_free()
+	fossil_node = null
+
+## Checked about once a second while the player works in the lowest level.
+func _fossil_tick(delta: float) -> void:
+	_fossil_timer -= delta
+	if _fossil_timer > 0.0:
+		return
+	_fossil_timer = 1.0
+	if prog.fossil_state() == "" and prog.quarry_level >= 4 and prog.check_fossil():
+		_spawn_fossil()
+		_sfx_unlock()
+		var t: Array = prog.fossil_cfg().get("toast", ["", ""])
+		if hud:
+			hud.toast(str(t[0]), str(t[1]), "milestone")
+	elif prog.fossil_state() == "found" and fossil_node == null:
+		_spawn_fossil()
+
+func _talk_to_fossil() -> void:
+	if prog.fossil_state() != "found" or fossil_dialog != null or not hud:
+		return
+	var f := prog.fossil_cfg()
+	player.locked = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	hud.show_card(str(f.get("found_title", "FOSSIL")), str(f.get("found_text", "")), func(): _open_fossil_choice())
+
+func _open_fossil_choice() -> void:
+	if fossil_dialog != null:
+		return
+	fossil_dialog = QuarryFossilDialog.new()
+	fossil_dialog.setup(prog.fossil_cfg())
+	ui.add_child(fossil_dialog)
+	fossil_dialog.set_anchors_and_offsets_preset(Control.PRESET_CENTER, Control.PRESET_MODE_MINSIZE)
+	fossil_dialog.chosen.connect(_fossil_chosen)
+	fossil_dialog.cancelled.connect(_close_fossil_dialog)
+
+func _close_fossil_dialog() -> void:
+	if fossil_dialog:
+		fossil_dialog.queue_free()
+	fossil_dialog = null
+	player.locked = false
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+func _fossil_chosen(who: String) -> void:
+	var paid := prog.fossil_choose(who)
+	_close_fossil_dialog()
+	if paid <= 0 and who != "scientist":
+		return
+	_remove_fossil()
+	if hud:
+		hud.popup_money(paid)
+		player.locked = true
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		hud.show_card("THE FOSSIL", str(prog.fossil_cfg().get("results", {}).get(who, "")), func():
+			player.locked = false
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
+	_sfx_unlock()
+	_notify("The fossil went to %s." % str(prog.fossil_cfg()["buyers"][who]["who"]))
 
 func _spawn_discovery(did: String, formation: String) -> void:
 	if discovery_nodes.has(did) or not prog.is_formation(formation):

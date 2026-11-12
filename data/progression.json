@@ -149,7 +149,10 @@
       "req": {
         "earned": 2500,
         "employees": 1,
-        "excavated": {"level": 1, "fraction": 0.04}
+        "excavated": {
+          "level": 1,
+          "fraction": 0.04
+        }
       }
     },
     {
@@ -642,7 +645,20 @@
       ]
     },
     "bench_l2_coal": {
-      "pads": [[-7.0, -3.6, -61.0, 1.5708], [-7.0, -3.6, -64.0, 1.5708]],
+      "pads": [
+        [
+          -7.0,
+          -3.6,
+          -61.0,
+          1.5708
+        ],
+        [
+          -7.0,
+          -3.6,
+          -64.0,
+          1.5708
+        ]
+      ],
       "title": "Coal Bench",
       "resource": "coal",
       "frame": "pit",
@@ -709,7 +725,20 @@
       ]
     },
     "bench_l2_iron": {
-      "pads": [[-7.0, -3.6, -52.0, 1.5708], [-7.0, -3.6, -55.0, 1.5708]],
+      "pads": [
+        [
+          -7.0,
+          -3.6,
+          -52.0,
+          1.5708
+        ],
+        [
+          -7.0,
+          -3.6,
+          -55.0,
+          1.5708
+        ]
+      ],
       "title": "Iron Bench",
       "resource": "iron_ore",
       "frame": "pit",
@@ -999,6 +1028,41 @@
       "capacity_mult": 2
     }
   },
+  "fossil": {
+    "_comment": "Phase 7.6: a fossil is buried in the gold bench of the lowest level. It is exposed only when the listed columns have really been mined out. The choice between the two buyers is final.",
+    "formation": "bench_l4_gold",
+    "columns": [
+      2,
+      3
+    ],
+    "found_title": "SOMETHING IN THE ROCK",
+    "found_text": "The last of the stone falls away and there it is: a spine as long as a truck, ribs curving out of the rock like the hull of an old boat, and a skull with teeth the size of your hand. It is not stone. It is a skeleton, and it is enormous.\n\nNobody has stood here and seen this for millions of years.",
+    "toast": [
+      "Something in the rock...",
+      "The lowest level has uncovered a huge fossil. Go and look (E)."
+    ],
+    "buyers": {
+      "collector": {
+        "title": "Sell to the collector",
+        "who": "Mr. Aldric Vane",
+        "price": 75000,
+        "pitch": "A private collector, Mr. Vane, has heard rumours and offers $75,000 for the whole skeleton, crated and gone by the end of the week. It will hang in his private gallery.",
+        "journal": "fossil_collector"
+      },
+      "scientist": {
+        "title": "Give it to the scientist",
+        "who": "Dr. Evelyn Marsh",
+        "price": 2000,
+        "pitch": "Dr. Evelyn Marsh of the university can pay only $2,000 towards the cost of the dig. But she will study it, put it on display for everyone, and her name for you will be 'the discoverer'.",
+        "journal": "fossil_scientist"
+      }
+    },
+    "confirm": "This cannot be undone. Once you choose, the other buyer is gone for good.",
+    "results": {
+      "collector": "Mr. Vane's crew crates the bones and a truck takes them away. $75,000 lands in your account.",
+      "scientist": "Dr. Marsh's team arrives the next morning, delighted. They cry a little. $2,000 and a promise: the university will keep in touch."
+    }
+  },
   "walter": {
     "_comment": "Phase 7.5: Walter is alive and retiring, not dead. Intro scene, timed visits and journal. Conditions: stage (id), quarry_level, cleaned (site cleanup done). Visits show once, in the morning/afternoon, when the player talks to him.",
     "pos": [
@@ -1033,7 +1097,10 @@
       }
     ],
     "journal": {
-      "lockbox": {"title": "The lockbox", "text": "Under the first rock I cleared there was Walter's old lockbox: a photo of the 1971 crew, notes about copper and gold below the north bench, and a savings bond."},
+      "lockbox": {
+        "title": "The lockbox",
+        "text": "Under the first rock I cleared there was Walter's old lockbox: a photo of the 1971 crew, notes about copper and gold below the north bench, and a savings bond."
+      },
       "handover": {
         "title": "The handover",
         "text": "Walter handed me the quarry and his old hammer. He is retiring, but he lives down the road and says he will look in on the place."
@@ -1057,6 +1124,18 @@
       "big_dig": {
         "title": "A real quarry",
         "text": "Walter walked the rim for a long while. 'It's what I always wanted it to be.'"
+      },
+      "fossil_found": {
+        "title": "The thing in the rock",
+        "text": "Something huge lay in the gold bench of the lowest level: a skeleton, ribs and spine and a skull full of teeth. Walter says his father always said so."
+      },
+      "fossil_collector": {
+        "title": "Sold to the collector",
+        "text": "I sold the skeleton to Mr. Vane for $75,000. It is hanging in a private gallery now, where nobody will see it."
+      },
+      "fossil_scientist": {
+        "title": "Given to the scientist",
+        "text": "Dr. Marsh and her team took the skeleton for the university. I got $2,000 and the feeling of having done something right."
       }
     },
     "visits": [
@@ -1118,6 +1197,43 @@
         "lines": [
           "Look at this. Look at all of it.",
           "I thought I'd be too old to see it. I'm glad I wasn't. This is a real quarry now, kiddo."
+        ]
+      },
+      {
+        "id": "fossil_found",
+        "when": {
+          "fossil": "found"
+        },
+        "title": "WALTER DROPS BY",
+        "journal": "fossil_found",
+        "lines": [
+          "I heard. Is it true? Something is down in the rock at the bottom?",
+          "My father swore the oldest things in this hill lay at the very bottom. I laughed at him. Don't tell him.",
+          "Whoever you sell it to, kiddo, it's yours to decide. I'll back you either way. But think about what you want it to be."
+        ]
+      },
+      {
+        "id": "fossil_after_collector",
+        "when": {
+          "fossil": "collector"
+        },
+        "title": "WALTER DROPS BY",
+        "journal": "",
+        "lines": [
+          "Seventy-five thousand. Well. That is a lot of money for some old bones.",
+          "I won't say I'd have done the same. I won't say I wouldn't have. It is your quarry now."
+        ]
+      },
+      {
+        "id": "fossil_after_scientist",
+        "when": {
+          "fossil": "scientist"
+        },
+        "title": "WALTER DROPS BY",
+        "journal": "",
+        "lines": [
+          "Two thousand dollars and a whole university at your door. I like that.",
+          "You did right by it, kiddo. Whatever happens next, that skeleton is where it belongs."
         ]
       }
     ]
@@ -1271,18 +1387,112 @@
   },
   "world": {
     "_comment": "Phase 7.1. The industrial hub is the yard inside the cliff ring (x -23.5..23.5, z -6..23.5, plus the east expansion); it is the permanent business area and is never excavated. The main quarry is the pit zone reached through the north-east gate (see pit_zone), where all four levels are cut.",
-    "hub": {"x": [-23.5, 23.5], "z": [-6.0, 23.5]},
-    "quarry": {"frame": "pit", "gate_angle_deg": 306.0}
+    "hub": {
+      "x": [
+        -23.5,
+        23.5
+      ],
+      "z": [
+        -6.0,
+        23.5
+      ]
+    },
+    "quarry": {
+      "frame": "pit",
+      "gate_angle_deg": 306.0
+    }
   },
   "quarry_levels": [
-    {"_comment": "Four levels of ONE continuous quarry (Phase 7.2). 'formations' are cut in that level; 'unlock' is the share of the PREVIOUS level that must be excavated before the level's rock can be mined (the shell, ramp and walls are always there, under the flush columns). 'pit' (pit frame): rect = [x0, z0, x1, z1] of the whole pit including its ramp strip on the west side; ramp_w = width of that strip; the ramp runs along z from the south end (z1, previous floor) down to the north end (z0, this floor); the columns fill the rest of the rectangle.",
-     "id": "surface", "title": "Surface Operations", "floor_y": -3.6, "materials": ["limestone"], "formations": ["hillside_face_01", "pit_band_01"], "built": true, "unlock": 0.0},
-    {"id": "bench", "title": "First Excavation Bench", "floor_y": -7.2, "materials": ["coal", "iron_ore"], "formations": ["bench_l2_coal", "bench_l2_iron"], "built": true, "unlock": 0.6,
-     "pit": {"rect": [-27.0, -67.0, -9.0, -49.0], "ramp_w": 4.0, "y_top": -3.6}},
-    {"id": "deep", "title": "Deep Quarry", "floor_y": -10.8, "materials": ["iron_ore", "copper_ore"], "formations": ["bench_l3_iron", "bench_l3_copper"], "built": true, "unlock": 0.6,
-     "pit": {"rect": [-21.0, -65.0, -11.0, -51.0], "ramp_w": 4.0, "y_top": -7.2}},
-    {"id": "lower", "title": "Lower Quarry", "floor_y": -14.4, "materials": ["copper_ore", "gold_ore"], "formations": ["bench_l4_copper", "bench_l4_gold"], "built": true, "unlock": 0.6,
-     "pit": {"rect": [-17.0, -63.0, -11.0, -52.5], "ramp_w": 3.0, "y_top": -10.8}}
+    {
+      "_comment": "Four levels of ONE continuous quarry (Phase 7.2). 'formations' are cut in that level; 'unlock' is the share of the PREVIOUS level that must be excavated before the level's rock can be mined (the shell, ramp and walls are always there, under the flush columns). 'pit' (pit frame): rect = [x0, z0, x1, z1] of the whole pit including its ramp strip on the west side; ramp_w = width of that strip; the ramp runs along z from the south end (z1, previous floor) down to the north end (z0, this floor); the columns fill the rest of the rectangle.",
+      "id": "surface",
+      "title": "Surface Operations",
+      "floor_y": -3.6,
+      "materials": [
+        "limestone"
+      ],
+      "formations": [
+        "hillside_face_01",
+        "pit_band_01"
+      ],
+      "built": true,
+      "unlock": 0.0
+    },
+    {
+      "id": "bench",
+      "title": "First Excavation Bench",
+      "floor_y": -7.2,
+      "materials": [
+        "coal",
+        "iron_ore"
+      ],
+      "formations": [
+        "bench_l2_coal",
+        "bench_l2_iron"
+      ],
+      "built": true,
+      "unlock": 0.6,
+      "pit": {
+        "rect": [
+          -27.0,
+          -67.0,
+          -9.0,
+          -49.0
+        ],
+        "ramp_w": 4.0,
+        "y_top": -3.6
+      }
+    },
+    {
+      "id": "deep",
+      "title": "Deep Quarry",
+      "floor_y": -10.8,
+      "materials": [
+        "iron_ore",
+        "copper_ore"
+      ],
+      "formations": [
+        "bench_l3_iron",
+        "bench_l3_copper"
+      ],
+      "built": true,
+      "unlock": 0.6,
+      "pit": {
+        "rect": [
+          -21.0,
+          -65.0,
+          -11.0,
+          -51.0
+        ],
+        "ramp_w": 4.0,
+        "y_top": -7.2
+      }
+    },
+    {
+      "id": "lower",
+      "title": "Lower Quarry",
+      "floor_y": -14.4,
+      "materials": [
+        "copper_ore",
+        "gold_ore"
+      ],
+      "formations": [
+        "bench_l4_copper",
+        "bench_l4_gold"
+      ],
+      "built": true,
+      "unlock": 0.6,
+      "pit": {
+        "rect": [
+          -17.0,
+          -63.0,
+          -11.0,
+          -52.5
+        ],
+        "ramp_w": 3.0,
+        "y_top": -10.8
+      }
+    }
   ],
   "home": {
     "sleep_from_hour": 17.0,

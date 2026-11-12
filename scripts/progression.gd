@@ -25,7 +25,7 @@ var quarry_level := 1                  ## Phase 7.1: the deepest of the four qua
 const SCHEMA := 2                      ## save schema of the progression block: 1 = before Phase 7.1 (no field), 2 = quarry levels
 var rigs: Array = []
 var next_rig_id := 1
-var story := {"intro_seen": false, "found": {}, "read": {}, "visits": {}, "journal": []}
+var story := {"intro_seen": false, "found": {}, "read": {}, "visits": {}, "journal": [], "fossil": ""}
 ## Phase 6.2 tutorial: weeds and rubble heaps still on the site. "cleared": id -> true, "units": heap id -> units
 ## left (heaps keep their remaining stone when saved), "done": the whole site is clean (hillside unlocked).
 var cleanup := {"cleared": {}, "units": {}, "done": false}
@@ -793,6 +793,58 @@ func read_discovery(id: String) -> int:
 	state.add_income(reward, "discovery")
 	return reward
 
+# ------------------------------------------------------------------ the fossil (Phase 7.6)
+
+func fossil_cfg() -> Dictionary:
+	return cfg.get("fossil", {})
+
+## "" (still buried), "found" (uncovered, undecided), "collector" or "scientist" (decided for good).
+func fossil_state() -> String:
+	return str(story.get("fossil", ""))
+
+## True when the fossil's columns have really been mined out.
+func fossil_exposed() -> bool:
+	var f := fossil_cfg()
+	var id := str(f.get("formation", ""))
+	if f.is_empty() or not is_formation(id) or not state.deposits.has(id):
+		return false
+	for c in f.get("columns", []):
+		if int(c) >= column_count(id) or column_units(id, int(c)) > 0:
+			return false
+	return true
+
+## Marks the fossil found the first time its rock is gone. Returns true on that moment.
+func check_fossil() -> bool:
+	if fossil_state() != "" or not fossil_exposed():
+		return false
+	story["fossil"] = "found"
+	journal_add("fossil_found")
+	return true
+
+func fossil_pos() -> Vector3:
+	var f := fossil_cfg()
+	var id := str(f.get("formation", ""))
+	var cols: Array = f.get("columns", [0])
+	var sum := Vector3.ZERO
+	for c in cols:
+		sum += column_pos(id, int(c))
+	return sum / float(maxi(1, cols.size()))
+
+## The final decision. Pays once; later calls do nothing. Returns the money paid (0 when refused).
+func fossil_choose(who: String) -> int:
+	if fossil_state() != "found":
+		return 0
+	var b: Dictionary = fossil_cfg().get("buyers", {}).get(who, {})
+	if b.is_empty():
+		return 0
+	story["fossil"] = who
+	var price := int(b.get("price", 0))
+	state.add_income(price, "fossil")
+	journal_add(str(b.get("journal", "")))
+	if who == "scientist":
+		story["fossil_egg"] = true       # Phase 7.7: Dr. Marsh's team brings the egg
+	return price
+
 # ------------------------------------------------------------------ Walter (Phase 7.5)
 
 func walter_cfg() -> Dictionary:
@@ -829,6 +881,8 @@ func visit_condition_met(v: Dictionary) -> bool:
 	if w.has("quarry_level") and quarry_level < int(w["quarry_level"]):
 		return false
 	if bool(w.get("cleaned", false)) and not bool(cleanup.get("done", false)):
+		return false
+	if w.has("fossil") and str(story.get("fossil", "")) != str(w["fossil"]):
 		return false
 	return true
 
@@ -892,8 +946,12 @@ func restore(raw_data: Dictionary, vehicle_types: Array = []) -> void:
 		for k in cu.get("units", {}):
 			cleanup["units"][str(k)] = clampi(int(cu["units"][k]), 0, int(cleanup_cfg().get("heap_units", 5)))
 	var st = data.get("story", {})
-	story = {"intro_seen": bool(st.get("intro_seen", true)) if st is Dictionary else true, "found": {}, "read": {}, "visits": {}, "journal": []}
+	story = {"intro_seen": bool(st.get("intro_seen", true)) if st is Dictionary else true, "found": {}, "read": {}, "visits": {}, "journal": [], "fossil": ""}
 	if st is Dictionary:
+		var fs := str(st.get("fossil", ""))
+		story["fossil"] = fs if fs in ["found", "collector", "scientist"] else ""
+		if bool(st.get("fossil_egg", false)):
+			story["fossil_egg"] = true
 		for k in st.get("visits", {}):
 			story["visits"][str(k)] = true
 		for k in st.get("journal", []):
