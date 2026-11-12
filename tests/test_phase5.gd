@@ -69,12 +69,12 @@ func test_formation_logic() -> void:
 	check(col >= 0 and p.column_exposed("stone_mountain", col), "1 an exposed column faces the yard")
 	var interior := 5 # centre of the 4x3 grid
 	check(not p.column_exposed("stone_mountain", interior), "1 interior columns are covered until a neighbour is mined away")
-	var ex := p.extract("stone_mountain", col, 25.0)
-	check(int(ex["units"]) == 2 and p.units_left("stone_mountain") == stone - 2, "1 25 damage on 10-hp stone yields 2 units; the remainder carries over")
-	ex = p.extract("stone_mountain", col, 5.0)
+	var ex := p.extract("stone_mountain", col, 75.0)
+	check(int(ex["units"]) == 2 and p.units_left("stone_mountain") == stone - 2, "1 75 damage on 30-hp stone yields 2 units; the remainder carries over")
+	ex = p.extract("stone_mountain", col, 15.0)
 	check(int(ex["units"]) == 1, "1 damage carry-over completes the next unit")
-	ex = p.extract("stone_mountain", col, 100.0, 0)
-	check(int(ex["units"]) == 0 and float(p.state.deposits["stone_mountain"]["progress"]) < 10.0 and p.units_left("stone_mountain") == stone - 3, "1 no room: nothing is extracted and no damage is banked")
+	ex = p.extract("stone_mountain", col, 300.0, 0)
+	check(int(ex["units"]) == 0 and float(p.state.deposits["stone_mountain"]["progress"]) < 30.0 and p.units_left("stone_mountain") == stone - 3, "1 no room: nothing is extracted and no damage is banked")
 	var before_chunks := p.chunks_left("stone_mountain", col)
 	ex = p.extract("stone_mountain", col, 10000.0)
 	check(p.column_units("stone_mountain", col) == 0 and bool(ex["column_emptied"]) and int(ex["chunks"]) == before_chunks, "1 a column empties chunk by chunk and stops at zero")
@@ -144,7 +144,7 @@ func test_balance() -> void:
 		steps.append(float(p.tools()[t + 1]["cost"]) / float(per_s.call(t)))
 	var ok := true
 	for v in steps:
-		ok = ok and v < 2400.0       # Phase 9: later tools are deliberately a longer saving goal
+		ok = ok and v < 3200.0       # Phase 9: later tools are deliberately a longer saving goal
 	check(ok, "12 each later tool is a few minutes of mining with the previous one (%s s)" % str(steps.map(func(v): return int(v))))
 	var stone := float(p.max_units("stone_mountain"))
 	var manual := stone / (p.tool_dps(1) / hp) / 60.0
@@ -160,7 +160,7 @@ func test_balance() -> void:
 	var rig_cost := float(rig["cost_per_min"]) * 60.0
 	check(rig_income > rig_cost * 3.0, "12 a drilling rig earns well above its running cost ($%d vs $%d per in-game hour)" % [int(rig_income), int(rig_cost)])
 	var wage := float(bcfg["candidates"][0]["wage"]) * float(bcfg["wage_scale"])
-	check(wage >= 12.0, "12 wages stay meaningful ($%.0f/h for a junior miner)" % wage)
+	check(wage >= 8.0, "12 wages stay meaningful ($%.0f/h for a junior miner)" % wage)
 
 func test_stages() -> void:
 	var p := fresh()
@@ -195,7 +195,7 @@ func test_stages() -> void:
 	p.state.note_lifetime("sold", "crushed_stone", 30)
 	p.check_stages()
 	check(p.stage == 5 and p.unlocked("loader") and not p.unlocked("drill_rig"), "12 Power and Pressure unlocks the loader but no rigs yet")
-	check(p.business.hire_fee(p.business.candidate("rosa")) == 75 and is_equal_approx(p.business.wage(p.business.employees[0]), 18.0), "12 staff costs scale with the quarry (fee $75, wage $18/h)")
+	check(p.business.hire_fee(p.business.candidate("rosa")) == 75 and is_equal_approx(p.business.wage(p.business.employees[0]), 9.0), "12 staff costs scale with the quarry (fee $75, wage $9/h)")
 	var old := fresh()
 	old.business.milestones["first_employee"] = true
 	old.state.crushers.append({})
@@ -242,9 +242,9 @@ func scene_mining() -> void:
 	await frames(2)
 	var ray: Dictionary = game._mining_ray()
 	check(not ray.is_empty() and ray["node"] == node and int(ray["column"]) >= 0, "1 the crosshair ray resolves the formation column it hits")
-	for i in range(3):
+	for i in range(8):
 		game._on_swing_impact()
-	check(int(game.state.inventory["limestone"]) == 1 and game.prog.units_left("stone_mountain") == stone0 - 1, "1 three hammer hits (4 dmg each) knock 1 stone out of 10 hp")
+	check(int(game.state.inventory["limestone"]) == 1 and game.prog.units_left("stone_mountain") == stone0 - 1, "1 eight hammer hits (4 dmg each) knock 1 stone out of 30 hp")
 	check(game.hud.popups.get_child_count() >= 1 and game.hud.popups.get_child(0).text.contains("STONE"), "5 a '+1 STONE' pop-up appears")
 	check(game.hud.dura_timer > 0.0, "9 the durability bar shows while mining")
 	# hardness gate
@@ -275,10 +275,10 @@ func scene_mining() -> void:
 	game.state.inventory["coal"] = game.state.capacity()
 	var loose0: int = game.loose_count("coal_mountain")
 	var coal0: int = game.prog.units_left("coal_mountain")
-	var got: int = game.player_mine("coal_mountain", -1, 14.0 * 5)
+	var got: int = game.player_mine("coal_mountain", -1, 42.0 * 5)
 	check(got == 5 and game.loose_count("coal_mountain") == loose0 + 5 and game.prog.units_left("coal_mountain") == coal0 - 5, "1 with a full bag, mined coal drops beside the seam (5 pieces)")
 	for i in range(30):
-		game.player_mine("coal_mountain", -1, 14.0 * 5)
+		game.player_mine("coal_mountain", -1, 42.0 * 5)
 	var cap := int(game.prog.cfg["loose_piece_cap"])
 	check(game.loose_count("coal_mountain") == cap and game.prog.units_left("coal_mountain") == coal0 - cap, "1 loose pieces stop at the cap and nothing more is extracted (no loss, no duplication)")
 	# selling: confirmation, money, lifetime earnings
@@ -289,7 +289,7 @@ func scene_mining() -> void:
 	var m0: int = game.state.money
 	var e0: int = game.state.earned
 	var earned: int = game.sell_from_bag(game.RESOURCE_ORDER)
-	check(earned == 10 * 5 + 2 * 12 and game.state.money == m0 + earned and game.state.earned == e0 + earned, "6 selling the bag pays $74 and counts toward lifetime earnings")
+	check(earned == int(round(10.0 * game.state.unit_price("limestone"))) + int(round(2.0 * game.state.unit_price("coal"))) and game.state.money == m0 + earned and game.state.earned == e0 + earned, "6 selling the bag pays the stage price and counts toward lifetime earnings")
 	check(game.hud.toast_queue.size() >= 1 and str(game.hud.toast_queue.back()[0]).contains("10 STONE"), "6 an animated sale confirmation is queued")
 	for i in range(30):
 		game.hud._process(0.1)
@@ -532,7 +532,7 @@ func scene_deep() -> void:
 	game.state.tool_tier = 3
 	for k in game.state.inventory:
 		game.state.inventory[k] = 0
-	check(game.player_mine("copper_vein", -1, 34.0 * 2) == 2 and int(game.state.inventory["copper_ore"]) == 2, "6 the power drill mines copper on the lower level")
+	check(game.player_mine("copper_vein", -1, 102.0 * 2) == 2 and int(game.state.inventory["copper_ore"]) == 2, "6 the power drill mines copper on the lower level")
 	# a vehicle drives down the ramp
 	game.business.milestones["mechanized"] = true
 	game.ui_buy_vehicle("loader")

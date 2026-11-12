@@ -172,6 +172,7 @@ func scene_tests() -> void:
 	# rapid double click: charged once
 	st.money = 500
 	st.tool_tier = 0
+	prog.stage = prog.stage_index("tools")
 	game._open_menu("upgrades", -1)
 	var tool_cost: int = int(prog.next_tool()["cost"])
 	game._click_ms.clear()

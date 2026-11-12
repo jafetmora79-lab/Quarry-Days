@@ -46,7 +46,7 @@ func run_tests() -> void:
 	# Phase 5: the starting rocks are enormous formations. Player mining goes straight into the bag;
 	# staff mining drops loose pieces beside the column. Both draw from the same column units.
 	var stone_max: int = game.prog.max_units("stone_mountain")
-	var got: int = game.player_mine("stone_mountain", -1, 30.0)
+	var got: int = game.player_mine("stone_mountain", -1, 90.0)
 	check(got == 3 and game.state.inventory["limestone"] == 3 and game.prog.units_left("stone_mountain") == stone_max - 3, "mining a formation puts 3 stone in the bag and takes 3 from its stock")
 	game.worker_strike("stone_mountain", 1, 0, null)
 	var dropped: int = game.ground_pieces.size()

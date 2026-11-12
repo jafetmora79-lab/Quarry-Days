@@ -119,10 +119,10 @@ func test_construction_logic() -> void:
 	var before_lime := int(s.storage["limestone"])
 	var before_crushed := int(s.storage["crushed_stone"])
 	var m := s.money
-	check(b.sell_structure("crusher", 0) == 42 and s.money == m + 42, "10 selling a crusher refunds 50% ($42)")
+	check(b.sell_structure("crusher", 0) == int(s.config["crusher_price"]) / 2 and s.money == m + int(s.config["crusher_price"]) / 2, "10 selling a crusher refunds 50% ($42)")
 	check(int(s.storage["limestone"]) == before_lime + 7 and int(s.storage["crushed_stone"]) == before_crushed + 3, "11 crusher contents return to storage: 7 limestone + 3 crushed, no more, no less")
 	check(s.crushers.size() == 1 and int(op["assignment"]["crusher"]) == 0 and int(hauler["assignment"]["src"]["index"]) == 0, "12 assignments follow the remaining crusher after the index shift")
-	check(b.sell_structure("crusher", 0) == 42 and int(op["assignment"]["crusher"]) == -1 and not b.ep_valid(hauler["assignment"]["src"]), "12 assignments to a sold crusher are cleared, never pointing at another machine")
+	check(b.sell_structure("crusher", 0) == int(s.config["crusher_price"]) / 2 and int(op["assignment"]["crusher"]) == -1 and not b.ep_valid(hauler["assignment"]["src"]), "12 assignments to a sold crusher are cleared, never pointing at another machine")
 	b.outputs[0]["items"]["crushed_stone"] = 10
 	s.storage["limestone"] = s.storage_capacity()
 	s.inventory["limestone"] = s.capacity()
@@ -136,7 +136,7 @@ func test_construction_logic() -> void:
 	b.conveyors[0]["items"] = 2
 	b.conveyors[0]["resource"] = "limestone"
 	var lime := int(s.storage["limestone"])
-	check(b.sell_structure("conveyor", 0) == 10 and int(s.storage["limestone"]) == lime + 2 and b.conveyors.is_empty(), "10/11 conveyor refunds $10 and returns the 2 items on the belt")
+	check(b.sell_structure("conveyor", 0) == int(b.cfg["conveyor_price"]) / 2 and int(s.storage["limestone"]) == lime + 2 and b.conveyors.is_empty(), "10/11 conveyor refunds $10 and returns the 2 items on the belt")
 
 # ------------------------------------------------------------------ scene
 

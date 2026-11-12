@@ -160,7 +160,7 @@ func scene() -> void:
 	check(not ray.is_empty() and ray["node"] == node and int(ray["column"]) == face_col, "A the crosshair resolves the face column in front of the player (col %s)" % str(ray.get("column", -1)))
 	var units0 := prog.units_left(HID)
 	var inv0: int = st.inventory["limestone"]
-	for i in range(3):
+	for i in range(8):
 		game._on_swing_impact()
 	check(prog.units_left(HID) < units0 and int(st.inventory["limestone"]) - inv0 == units0 - prog.units_left(HID), "A the starting hammer cuts stone and every unit lands in the bag exactly once")
 	# hidden sections cannot be mined through the wall

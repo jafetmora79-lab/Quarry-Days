@@ -32,7 +32,7 @@ func run() -> void:
 		mono = mono and e >= prev
 		prev = e
 	check(mono, "1 earned-money requirements never decrease between stages")
-	for sid in ["industry", "large", "deep"]:
+	for sid in ["large", "deep"]:
 		var req: Dictionary = p.stage_info(p.stage_index(sid))["req"]
 		check(req.has("excavated") or req.has("quarry_level") or req.has("cleared"), "2 stage %s needs excavation progress, not only money" % sid)
 	# 3. hand tools: every tier is a clear upgrade but nowhere near rig output

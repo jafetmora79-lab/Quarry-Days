@@ -290,9 +290,9 @@ func scene_tests() -> void:
 	game.state.money = 2000
 	Engine.time_scale = 4.0
 	# --- 13: manual mining and selling still work with the Phase 2 systems running
-	game.player_mine("coal_mountain", -1, 14.0)
+	game.player_mine("coal_mountain", -1, 42.0)
 	var m: int = game.state.money
-	check(game.state.sell("coal", 1) == 1 and game.state.money == m + 12, "13 manual mining and selling still work")
+	check(game.state.sell("coal", 1) == 1 and game.state.money == m + int(round(game.state.unit_price("coal"))), "13 manual mining and selling still work")
 	# --- clerk walks to the station and sells authorized stock
 	game.state.clock_minutes = 600.0 # 10:00
 	game.business.payroll_minute = 600

@@ -130,7 +130,7 @@ func run() -> void:
 	check(not ray.is_empty() and ray["node"] == node and int(ray["column"]) == col, "D the crosshair resolves the face column (%s)" % str(ray.get("column", -1)))
 	var u0: int = prog.units_left(BID)
 	var inv0: int = st.inventory["limestone"]
-	for i in range(3):
+	for i in range(8):
 		game._on_swing_impact()
 	check(prog.units_left(BID) < u0 and int(st.inventory["limestone"]) - inv0 == u0 - prog.units_left(BID), "D the hammer cuts the face and each unit lands in the bag once")
 	var buried_before: int = prog.column_units(BID, 16 * 3 + 8)
