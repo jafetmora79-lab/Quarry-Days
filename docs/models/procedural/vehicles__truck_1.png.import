@@ -1,0 +1,37 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://1jcnmbfl3p2k"
+path="res://.godot/imported/vehicles__truck_1.png-d7edf976f27534f453b7bae01f1b2a7a.ctex"
+metadata={
+"vram_texture": false
+}
+generator_parameters={
+"md5": "ac4b95d8bcc954091dfd26487aa3e8e4"
+}
+
+[deps]
+
+source_file="res://docs/models/procedural/vehicles__truck_1.png"
+dest_files=["res://.godot/imported/vehicles__truck_1.png-d7edf976f27534f453b7bae01f1b2a7a.ctex"]
+
+[params]
+
+compress/mode=0
+compress/high_quality=false
+compress/lossy_quality=0.7
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=0
+detect_3d/compress_to=1
