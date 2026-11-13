@@ -271,28 +271,44 @@ func recover() -> void:
 
 ## Chase camera that never ends up behind a wall: a ray from the pivot toward the wanted spot stops it at the first
 ## solid thing (hangar back wall, building, rock), so you always see the vehicle, also inside the equipment garage.
-func _pull_camera_in() -> void:
+const CAM_PROBE := 0.32          ## radius of the sphere swept from the pivot to the wanted camera spot (a little more than the near-plane half-size)
+
+## Frame-rate-independent exponential easing: the same feel at 30 and 144 fps (a fixed lerp factor per frame is not).
+static func ease_toward(cur: Vector3, goal: Vector3, rate: float, dt: float) -> Vector3:
+	return cur.lerp(goal, 1.0 - exp(-rate * dt))
+
+## The chase camera never ends up inside a wall: a SPHERE swept from the pivot toward the wanted spot stops at the first solid thing (hangar
+## back wall, building, rock), so the lens never pokes into geometry. It pulls in at once when blocked (no clipping frame) and eases back out.
+func _pull_camera_in(delta := -1.0) -> void:
 	var dist := cam_distance()
 	var want_local := Vector3(0, 1.6, dist)
 	var from := cam_pivot.global_position
 	var to := cam_pivot.to_global(want_local)
-	var q := PhysicsRayQueryParameters3D.create(from, to)
+	var sp := SphereShape3D.new()
+	sp.radius = CAM_PROBE
+	var q := PhysicsShapeQueryParameters3D.new()
+	q.shape = sp
+	q.transform = Transform3D(Basis.IDENTITY, from)
+	q.motion = to - from
 	q.collision_mask = 1
 	q.exclude = [get_rid()]
-	var hit := get_world_3d().direct_space_state.intersect_ray(q)
-	if hit.is_empty():
-		camera.position = want_local
-		return
-	var p: Vector3 = hit["position"] + (hit["normal"] as Vector3) * 0.35
-	var l := cam_pivot.to_local(p)
-	camera.position = l if l.length() > 1.8 else want_local.normalized() * 1.8
+	var fr: PackedFloat32Array = get_world_3d().direct_space_state.cast_motion(q)
+	var goal := want_local
+	if fr.size() == 2 and fr[0] < 1.0:
+		goal = cam_pivot.to_local(from.lerp(to, fr[0]))
+		if goal.length() < 1.8:
+			goal = want_local.normalized() * 1.8
+	if delta < 0.0 or goal.length() < camera.position.length():
+		camera.position = goal                                      # blocked, or no time step given: place it at once
+	else:
+		camera.position = ease_toward(camera.position, goal, 7.0, delta)   # open space again: glide back out
 
 func _animate(delta: float) -> void:
 	if driven:
 		cam_pivot.rotation = Vector3(cam_pitch, swing if (vkind == "excavator" and turret != null) else cam_yaw, 0)
-		_pull_camera_in()
+		_pull_camera_in(delta)
 		if absf(speed) > 1.0:
-			cam_yaw = lerp_angle(cam_yaw, 0.0, delta * 0.6)
+			cam_yaw = lerp_angle(cam_yaw, 0.0, 1.0 - exp(-0.6 * delta))      # the view swings back behind the machine at the same pace at any frame rate
 	# wheels, rollers and tracks follow the distance the machine has really travelled along its heading: driven, delivered by script,
 	# or carried by anything else, they turn the same way
 	var travelled := 0.0

@@ -97,13 +97,14 @@ func _make_theme() -> Theme:
 	t.set_stylebox("hover", "Button", _box(Color(0.33, 0.25, 0.15), Color(0.72, 0.56, 0.34), 2, 4))
 	t.set_stylebox("pressed", "Button", _box(Color(0.47, 0.34, 0.16), Color(0.98, 0.76, 0.34), 2, 4))
 	t.set_stylebox("hover_pressed", "Button", _box(Color(0.47, 0.34, 0.16), Color(0.98, 0.76, 0.34), 2, 4))
+	var fb := _box(Color(0, 0, 0, 0), Color(1.0, 0.92, 0.55), 3, 4)       # keyboard / gamepad focus: a bright outline, distinct from hover
+	t.set_stylebox("focus", "Button", fb)
 	t.set_stylebox("disabled", "Button", _box(Color(0.15, 0.12, 0.1), Color(0.3, 0.26, 0.21), 2, 4))
-	t.set_stylebox("focus", "Button", StyleBoxEmpty.new())
 	for type in ["OptionButton", "CheckBox"]:
 		t.set_stylebox("normal", type, _box(Color(0.12, 0.11, 0.09), Color(0.45, 0.38, 0.24), 1, 4))
 		t.set_stylebox("hover", type, _box(Color(0.22, 0.19, 0.13), Color(0.75, 0.6, 0.3), 1, 4))
 		t.set_stylebox("pressed", type, _box(Color(0.30, 0.24, 0.12), Color(0.95, 0.74, 0.3), 1, 4))
-		t.set_stylebox("focus", type, StyleBoxEmpty.new())
+		t.set_stylebox("focus", type, fb)
 	t.set_stylebox("panel", "PopupMenu", _box(Color(0.09, 0.08, 0.07), Color(0.62, 0.5, 0.28), 1, 4))
 	t.set_stylebox("hover", "PopupMenu", _box(Color(0.32, 0.25, 0.12), Color(0.32, 0.25, 0.12), 0, 2))
 	for type in ["Button", "OptionButton", "CheckBox", "Label", "PopupMenu"]:
@@ -138,7 +139,7 @@ func _button(text: String, action: Callable, enabled := true) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.disabled = not enabled
-	b.focus_mode = Control.FOCUS_NONE
+	b.focus_mode = Control.FOCUS_ALL          # reachable with the arrow keys / a gamepad as well as the mouse
 	b.pressed.connect(func(): game.ui_click("mgmt_" + text, action, b)) # debounced; shows the money pop-up
 	return b
 
@@ -191,6 +192,32 @@ func refresh() -> void:
 		"milestones": _milestones(b)
 		"upgrades": _upgrades()
 		"stats": _stats(b)
+	call_deferred("_ensure_focus")
+
+## Every page leaves one control focused (a keyboard or gamepad user is never stranded on an empty screen); a mouse click that rebuilds the page
+## hands the focus to the first usable button of the new page.
+func _ensure_focus() -> void:
+	if not is_inside_tree() or not visible:
+		return
+	var fo := get_viewport().gui_get_focus_owner()
+	if fo != null and is_instance_valid(fo) and is_ancestor_of(fo) and fo.is_visible_in_tree() and not fo.is_queued_for_deletion():
+		if not (fo is BaseButton and (fo as BaseButton).disabled):
+			return
+	var pick: Control = null
+	for c in content.find_children("*", "BaseButton", true, false):
+		var bt := c as BaseButton
+		if not bt.disabled and bt.focus_mode != Control.FOCUS_NONE and bt.is_visible_in_tree():
+			pick = bt
+			break
+	if pick == null and back_button != null and back_button.visible:
+		pick = back_button
+	if pick == null:
+		for id in tab_buttons:
+			if tab_buttons[id].is_visible_in_tree():
+				pick = tab_buttons[id]
+				break
+	if pick != null:
+		pick.grab_focus()
 
 # ------------------------------------------------------------------ quarry plan
 
@@ -250,7 +277,7 @@ func _home() -> void:
 	var b: QuarryBusiness = game.business
 	for c in CARDS:
 		var card := Button.new()
-		card.focus_mode = Control.FOCUS_NONE
+		card.focus_mode = Control.FOCUS_ALL
 		card.custom_minimum_size = Vector2(268, 112)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		card.alignment = HORIZONTAL_ALIGNMENT_LEFT

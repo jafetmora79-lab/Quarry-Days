@@ -4247,7 +4247,7 @@ func _survey_refresh() -> void:
 
 func _driving_input(event: InputEvent) -> bool:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not touch_mode:
-		driving.rotate_camera(event.relative)
+		driving.rotate_camera(event.screen_relative * QuarryPlayer.MOUSE_LOOK_SCALE)
 		return true
 	if event.is_action_pressed("interact"):
 		exit_vehicle()

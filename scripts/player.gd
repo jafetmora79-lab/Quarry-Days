@@ -1,6 +1,10 @@
 extends CharacterBody3D
 class_name QuarryPlayer
 
+## Mouse look reads screen pixels (`screen_relative`), not the stretch-scaled `relative`, so the turn per hand movement does not depend on the window size.
+## 0.75 keeps the feel the game had at its default 1280x720 window (960x540 canvas).
+const MOUSE_LOOK_SCALE := 0.75
+
 var camera: Camera3D
 var pitch := 0.0
 var locked := false
@@ -38,8 +42,9 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not locked and not game_touch():
-		rotate_y(-event.relative.x * 0.0024)
-		pitch = clampf(pitch - event.relative.y * 0.0024, -1.42, 1.42)
+		var look: Vector2 = event.screen_relative * MOUSE_LOOK_SCALE     # screen pixels: the same turn per hand movement in any window size
+		rotate_y(-look.x * 0.0024)
+		pitch = clampf(pitch - look.y * 0.0024, -1.42, 1.42)
 
 ## Touch builds look with finger drags (touch_controls.gd); emulated mouse motion must not rotate the camera too.
 func game_touch() -> bool:

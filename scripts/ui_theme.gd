@@ -117,7 +117,7 @@ static func theme() -> Theme:
 	t.set_stylebox("hover", "Button", bh)
 	t.set_stylebox("pressed", "Button", bp)
 	t.set_stylebox("disabled", "Button", bd)
-	t.set_stylebox("focus", "Button", StyleBoxEmpty.new())
+	t.set_stylebox("focus", "Button", panel_box(Color(0, 0, 0, 0), Color(1.0, 0.92, 0.55), 6, 3))      # a visible outline for keyboard / gamepad focus, distinct from hover
 	t.set_font_size("font_size", "Button", BODY)
 	t.set_font("font", "Button", bold())
 	t.set_color("font_color", "Button", INK)
