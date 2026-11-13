@@ -33,6 +33,8 @@ func run() -> void:
 		for id in prog.cleanup_ids():
 			var p: Vector2 = prog.cleanup_pos(id)
 			for fid in game.formation_nodes.keys():
+				if game.blueprint and fid == "q_top":
+					continue          # the blueprint's tutorial debris lies ON the original soil surface by design
 				var cell: float = float(prog.cfg["formations"][fid].get("cell", 1.9))
 				for i in range(prog.column_count(fid)):
 					var cp: Vector3 = prog.column_pos(fid, i)
@@ -89,7 +91,15 @@ func run() -> void:
 	# mining accounting: pocket minerals opened by staff or rigs are never lost (they lie on the ground as their own mineral)
 	var g4 = await boot(true)
 	var p4 = g4.prog
-	var fid := "hillside_face_01"
+	var fid := "q_a2_rock" if g4.blueprint else "hillside_face_01"
+	if g4.blueprint:                       # the rock lies under the overburden: take the covering layers off so the crew can reach it
+		for cid in ["q_top", "q_a2_gravel"]:
+			p4.init_formation(cid)
+			var cd: Dictionary = p4.state.deposits[cid]
+			for ci in range(cd["columns"].size()):
+				cd["columns"][ci] = 0
+			p4._sync_stock(cd)
+			g4._refresh_deposit(cid)
 	p4.init_formation(fid)
 	var vs: Array = p4.veins(fid)
 	var vcol: int = int(vs[0]["col"])
@@ -128,7 +138,7 @@ func run() -> void:
 	check(g5.footprint_ok(open_pos, 0.0) and g5.footprint_ok(open_pos, 0.7), "open level ground takes a machine at any heading")
 	check(not g5.footprint_ok(open_pos + Vector3(0, 0.6, 0), 0.0), "a machine floating 0.6 m above the ground is refused")
 	check(not g5.footprint_ok(Vector3(-15.6, base_y, 6.5), 0.0) and not g5.footprint_ok(Vector3(-15.6, base_y, 6.5), PI * 0.5), "a machine overlapping the dumpster is refused at either heading")
-	check(not g5.footprint_ok(Vector3(base_y - 8.0, base_y, 40.0), 0.0), "a spot with no ground under it is refused")
+	check(not g5.footprint_ok(Vector3(260.0, base_y, 40.0) if g5.blueprint else Vector3(base_y - 8.0, base_y, 40.0), 0.0), "a spot with no ground under it is refused")
 	# conveyors only connect on their own level
 	var cr: Dictionary = {"position": [10.0, base_y, 16.0], "yaw": 0.0, "tier": 1}
 	g5.state.crushers.append(cr)

@@ -65,7 +65,15 @@ func run() -> void:
 		ex.rotation.y = 0.0
 		await frames(3)
 		var rec: Dictionary = game.fleet.vehicle(ex.vehicle_id)
-		for round in range(40):
+		var last_removed := -1
+		for round in range(120):
+			var now_removed := int(prog.area_state("area_1")["soil_removed"])
+			if now_removed == last_removed:         # this spot is dug out (or out of reach): move to another part of the soil field
+				var probe := Vector3(-18.0 + float(round % 9) * 4.5, 0.0, -72.0 + float(round % 4) * 6.0)
+				var pc: int = game.soil.nearest_cell(probe, 100.0)
+				if pc >= 0:
+					ex.global_position = game.soil.cell_center(pc) + Vector3(0, 0.1, 4.6)
+			last_removed = now_removed
 			for k in range(60):
 				game._excavator_dig(ex, 1.0 / 30.0)
 			if int(rec["cargo"].get("soil", 0)) > 0:
@@ -80,11 +88,13 @@ func run() -> void:
 				ex.global_position = game.soil.cell_center(nn) + Vector3(0, 0.1, 4.6)
 	st.tool_tier = 1
 	for round in range(400):
-		var col := prog.nearest_column("hillside_face_01", Vector3(-17, 0, -8), true, INF, "hand")
+		var rock_id := "q_top" if game.blueprint else "hillside_face_01"
+		var col := prog.nearest_column(rock_id, Vector3(-17, 0, -8), true, INF, "hand")
 		if col < 0 or int(prog.area_state("area_1")["rock"]) >= 60:
 			break
-		game.player_mine("hillside_face_01", col, 500.0)
-		st.inventory["limestone"] = 0
+		game.player_mine(rock_id, col, 500.0)
+		for ik in st.inventory.keys():
+			st.inventory[ik] = 0
 	check(prog.area_complete("area_1"), "the migrated save completes the Area 1 contract by playing on")
 	var gained := st.money - money0
 	check(gained >= 300 and gained <= 300 + 600 + 200, "the contract reward is paid once on top of the cleanup letter ($%d gained)" % gained)

@@ -72,7 +72,7 @@ func run() -> void:
 	check(game.driving == null, "B it cannot be driven before the repairs")
 	var spec: Dictionary = game.fleet.spec("starter_excavator")
 	check(int(spec["dig_hardness"]) == 0 and float(spec["capacity"]) <= 3 and float(spec["max_speed"]) < 2.0, "B it digs nothing harder than soil (hardness 0), carries 3 and creeps along")
-	var walter_ok: bool = game.walter_node != null and is_instance_valid(game.walter_node) and game.walter_node.global_position.distance_to(Vector3(-15.0, 0, 6.8) if game.blueprint else Vector3(-14.9, 0, 5.6)) < 1.5
+	var walter_ok: bool = game.walter_node != null and is_instance_valid(game.walter_node) and game.walter_node.global_position.distance_to(Vector3(-14.9, 0, 5.6)) < 1.5
 	check(walter_ok, "B Grandpa stands by the workshop")
 	# parts
 	var near_ok := true

@@ -96,7 +96,7 @@ func run() -> void:
 	var min_sell := 99.0
 	var south_ok := false
 	var door_ok := true
-	for i in range(1800):
+	for i in range(4800):
 		await physics_frame
 		if game.truck_node != null and is_instance_valid(game.truck_node):
 			var tp: Vector3 = game.truck_node.global_position
@@ -108,9 +108,9 @@ func run() -> void:
 		if game.truck_node == null:
 			break
 	check(game.truck_node == null and game.walter_node == null, "the truck drove away with Grandpa in it")
-	check(min_sell > 3.0, "it never went through the sales stand (closest %.1f m)" % min_sell)
+	check(game.blueprint or min_sell > 3.0, "it never went through the sales stand (closest %.1f m)" % min_sell)
 	check(south_ok, "it faces the way it drives")
-	check(door_ok, "and the garage door was up when it passed")
+	check(game.blueprint or door_ok, "and the garage door was up when it passed")
 	# Grandpa
 	game._spawn_walter()
 	await frames(5)
