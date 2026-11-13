@@ -45,7 +45,10 @@ func run() -> void:
 	check(fence_ok, "the yard fence blocks the whole north edge outside the gate")
 	var gate_ok := true
 	for x in [-4.0, -2.5, 0.0, 2.5, 4.0]:
-		gate_ok = gate_ok and not blocked(game, Vector3(x, 0.8, fz + 2.0), Vector3(x, 0.8, fz - 2.0))
+		var hitd: Dictionary = game.get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(Vector3(x, 0.8, fz + 2.0), Vector3(x, 0.8, fz - 2.0), 1))
+		if not hitd.is_empty():
+			printerr("   gate blocked at x=%.1f by %s %s" % [x, str(hitd["collider"].name), str(hitd["position"])])
+		gate_ok = gate_ok and hitd.is_empty()
 	check(gate_ok, "the gate gap is open (%.1f m wide)" % (gh * 2.0))
 	# a vehicle-sized body fits through the gate
 	var cap := BoxShape3D.new()
@@ -73,7 +76,7 @@ func run() -> void:
 				var c: Vector3 = game.soil.cell_center(i)
 				if hub.has_point(Vector2(c.x, c.z)) or c.z > fz:
 					soil_in_yard += 1
-				if absf(c.x) < 3.5:
+				if absf(c.x) < 4.5:
 					soil_in_yard += 1                       # and none on the haul road itself
 	check(soil_in_yard == 0, "no soil to dig inside the yard or on the road")
 	for id in game.formation_nodes:

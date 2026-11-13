@@ -2399,7 +2399,7 @@ func _build_soil() -> void:
 	var avoid: Array = [Vector2(2.0, -14.0), Vector2(11.5, -11.0), spoil_pos]
 	for i in range(cols * rows):
 		var p := Vector2(org.x + (float(i % cols) + 0.5) * cell, org.y + (float(i / cols) + 0.5) * cell)
-		var ok := not in_pit_corridor(Vector3(p.x, 0, p.y), 3.0) and not in_hillside_zone(Vector3(p.x, 0, p.y), 1.5) and not hub_rect().has_point(p) and absf(p.x) > 3.6     # the quarry road stays clear
+		var ok := not in_pit_corridor(Vector3(p.x, 0, p.y), 3.0) and not in_hillside_zone(Vector3(p.x, 0, p.y), 1.5) and not hub_rect().has_point(p) and absf(p.x) > 5.0     # the quarry road stays clear (a cell is 2 m wide)
 		for q in solids:
 			if (q as Vector2).distance_to(p) < 2.6:
 				ok = false
