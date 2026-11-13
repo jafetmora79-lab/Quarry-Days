@@ -17,6 +17,7 @@ var game
 var pivot: Node3D
 var body: StaticBody3D
 var open_amount := 0.0
+var passers: Array = []                     ## other machines coming or going through the gate (Walter's truck)
 var jobs: Array = []                        ## active deliveries: {vehicle, driver, slot, stage, wps}
 var reserved: Array = []                    ## bays promised to a delivery in progress
 var reserved_sizes := {}                    ## bay position -> the footprint of the machine on its way
@@ -169,6 +170,9 @@ func _near_door(p: Vector3, r := 4.6) -> bool:
 
 func _anyone_near() -> bool:
 	# the door never opens for the player (on foot or driving): only deliveries and staff arriving or leaving
+	for ps in passers:
+		if is_instance_valid(ps) and _near_door(ps.global_position, 6.0):
+			return true
 	for j in jobs:
 		if _near_door(j["vehicle"].global_position, 6.0):
 			return true

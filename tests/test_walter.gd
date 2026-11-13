@@ -58,7 +58,7 @@ func run() -> void:
 	check("handover" in prog.story["journal"], "7 the handover is written in the journal")
 	game.hud.close_card()
 	await process_frame
-	check(prog.story["intro_seen"] and not game.player.locked and game.walter_mode == "leaving", "8 the intro finishes: the player is free and Walter walks off")
+	check(prog.story["intro_seen"] and not game.player.locked and (game.walter_mode == "leaving" or game.walter_mode == "to_truck"), "8 the intro finishes: the player is free and Walter walks off to his truck")
 	game.walter_speed = 60.0
 	await frames(60)
 	check(game.walter_node == null, "8b he walks all the way out of the yard before he is removed")

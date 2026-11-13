@@ -1281,6 +1281,7 @@ func _look_target() -> Node3D:
 	return null
 
 func _physics_process(delta: float) -> void:
+	_truck_step(delta)
 	if held_cart != null:
 		_cart_follow(delta)
 	for i in range(mini(output_nodes.size(), business.outputs.size())):
@@ -4466,18 +4467,23 @@ func _build_truck() -> void:
 ## Grandpa's own look on the shared miner rig: cardigan and cream shirt, old trousers, no safety gear, and a flat wool cap,
 ## round glasses, bushy white brows, a white moustache and side tufts on the head socket.
 func _dress_grandpa(body: Node3D) -> void:
-	var recolor := {"Top": Color(0.42, 0.30, 0.20), "TopCuff": Color(0.34, 0.24, 0.16), "Shirt": Color(0.88, 0.84, 0.72), "Pants": Color(0.38, 0.36, 0.32), "PantsHem": Color(0.32, 0.30, 0.27), "Shoes": Color(0.25, 0.17, 0.11)}
+	# the body mesh has one surface per garment: each gets a plain colour in place of the miner's textured work clothes
+	var recolor := {"QD_Miner_Top": Color(0.30, 0.40, 0.30), "QD_Miner_TopCuff": Color(0.24, 0.32, 0.24), "QD_Miner_Shirt": Color(0.90, 0.87, 0.78),
+		"QD_Miner_Pants": Color(0.42, 0.37, 0.30), "QD_Miner_PantsHem": Color(0.36, 0.32, 0.26), "QD_Miner_Shoes": Color(0.22, 0.15, 0.10), "QD_Miner_Sole": Color(0.15, 0.12, 0.10),
+		"QD_Miner_Badge": Color(0.30, 0.40, 0.30)}
 	for mi in body.find_children("*", "MeshInstance3D", true, false):
-		var n := str(mi.name)
-		if n.contains("Gear") or n.contains("Badge"):
-			mi.visible = false     # the miner's pouches and badge: Grandpa carries none of it
+		if str(mi.name).contains("Gear"):
+			mi.visible = false     # the miner's pouches: Grandpa carries none of it
 			continue
-		for key in recolor:
-			if n == "QD_Miner_" + key and mi.mesh != null and mi.get_active_material(0) is BaseMaterial3D:
-				var m: BaseMaterial3D = mi.get_active_material(0).duplicate()
+		if mi.mesh == null:
+			continue
+		for si in range(mi.mesh.get_surface_count()):
+			var sm: Material = mi.get_active_material(si)
+			if sm is BaseMaterial3D and recolor.has(str(sm.resource_name)):
+				var m: BaseMaterial3D = sm.duplicate()
 				m.albedo_texture = null
-				m.albedo_color = recolor[key]
-				mi.material_override = m
+				m.albedo_color = recolor[str(sm.resource_name)]
+				mi.set_surface_override_material(si, m)
 	var skels := body.find_children("*", "Skeleton3D", true, false)
 	if skels.is_empty() or (skels[0] as Skeleton3D).find_bone("Socket_Head") < 0:
 		return
@@ -4485,9 +4491,9 @@ func _dress_grandpa(body: Node3D) -> void:
 	att.name = "GrandpaHead"
 	att.bone_name = "Socket_Head"
 	skels[0].add_child(att)
-	var wool := _mat(Color(0.36, 0.38, 0.34))
-	var white := _mat(Color(0.94, 0.94, 0.92))
-	var dark := _mat(Color(0.12, 0.10, 0.09))
+	var wool := _mat(Color(0.45, 0.46, 0.42))
+	var white := _mat(Color(0.97, 0.97, 0.95))
+	var dark := _mat(Color(0.10, 0.09, 0.08))
 	var gb := func(pos: Vector3, size_v: Vector3, mat: Material) -> void:
 		var m := MeshInstance3D.new()
 		var b := BoxMesh.new()
@@ -4497,29 +4503,35 @@ func _dress_grandpa(body: Node3D) -> void:
 		m.position = pos
 		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		att.add_child(m)
+	# flat cap: a low squashed dome that sits on the skull, with a short peak
 	var dome := MeshInstance3D.new()
 	var sm := SphereMesh.new()
-	sm.radius = 0.16
-	sm.height = 0.2
+	sm.radius = 0.135
+	sm.height = 0.13
 	dome.mesh = sm
 	dome.material_override = wool
-	dome.position = Vector3(0, -0.02, 0.0)
+	dome.position = Vector3(0, -0.015, 0.005)
 	dome.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	att.add_child(dome)
-	gb.call(Vector3(0, -0.075, -0.15), Vector3(0.28, 0.02, 0.16), wool)      # the flat cap's peak
-	gb.call(Vector3(0, -0.07, 0.0), Vector3(0.3, 0.03, 0.3), wool)             # its band
-	for sx in [-0.14, 0.14]:
-		gb.call(Vector3(sx, -0.14, 0.02), Vector3(0.03, 0.09, 0.14), white)    # white tufts under the cap
-		gb.call(Vector3(sx * 0.37, -0.145, -0.16), Vector3(0.09, 0.025, 0.02), white)   # bushy brows
-	gb.call(Vector3(0, -0.225, -0.165), Vector3(0.14, 0.03, 0.025), white)      # moustache
-	gb.call(Vector3(-0.07, -0.225, -0.16), Vector3(0.03, 0.045, 0.02), white)
-	gb.call(Vector3(0.07, -0.225, -0.16), Vector3(0.03, 0.045, 0.02), white)
-	for sx in [-0.055, 0.055]:                                                  # round wire glasses
-		gb.call(Vector3(sx, -0.175, -0.168), Vector3(0.07, 0.006, 0.01), dark)
-		gb.call(Vector3(sx, -0.19, -0.168), Vector3(0.07, 0.006, 0.01), dark)
-		gb.call(Vector3(sx - 0.035, -0.182, -0.168), Vector3(0.006, 0.02, 0.01), dark)
-		gb.call(Vector3(sx + 0.035, -0.182, -0.168), Vector3(0.006, 0.02, 0.01), dark)
-	gb.call(Vector3(0, -0.18, -0.168), Vector3(0.03, 0.006, 0.01), dark)
+	gb.call(Vector3(0, -0.055, -0.14), Vector3(0.2, 0.012, 0.09), wool)
+	# white hair showing at the temples and the back of the neck
+	for sx in [-0.118, 0.118]:
+		gb.call(Vector3(sx, -0.10, 0.0), Vector3(0.014, 0.07, 0.17), white)
+	gb.call(Vector3(0, -0.11, 0.125), Vector3(0.2, 0.08, 0.02), white)
+	# bushy white eyebrows, a full moustache and a small white goatee
+	for sx in [-0.05, 0.05]:
+		gb.call(Vector3(sx, -0.135, -0.14), Vector3(0.075, 0.02, 0.02), white)
+	gb.call(Vector3(0, -0.215, -0.145), Vector3(0.15, 0.03, 0.03), white)
+	for sx in [-0.075, 0.075]:
+		gb.call(Vector3(sx, -0.235, -0.14), Vector3(0.025, 0.04, 0.03), white)
+	gb.call(Vector3(0, -0.265, -0.13), Vector3(0.05, 0.05, 0.03), white)
+	# round wire glasses
+	for sx in [-0.05, 0.05]:
+		gb.call(Vector3(sx, -0.17, -0.148), Vector3(0.06, 0.006, 0.008), dark)
+		gb.call(Vector3(sx, -0.19, -0.148), Vector3(0.06, 0.006, 0.008), dark)
+		gb.call(Vector3(sx - 0.03, -0.18, -0.148), Vector3(0.006, 0.02, 0.008), dark)
+		gb.call(Vector3(sx + 0.03, -0.18, -0.148), Vector3(0.006, 0.02, 0.008), dark)
+	gb.call(Vector3(0, -0.175, -0.148), Vector3(0.03, 0.006, 0.008), dark)
 
 ## Walter: the miner model with white hair. Anyone can talk to him with E while he waits.
 func _spawn_walter(at := Vector3.INF, face_to := Vector3.ZERO, npc := "walter") -> void:
@@ -4547,12 +4559,15 @@ func _spawn_walter(at := Vector3.INF, face_to := Vector3.ZERO, npc := "walter") 
 	for mi in body.find_children("*_Hair", "MeshInstance3D", true, false):
 		if mi.mesh != null and mi.get_active_material(0) is BaseMaterial3D:
 			var m: BaseMaterial3D = mi.get_active_material(0).duplicate()
-			m.albedo_color = Color(0.92, 0.92, 0.9) if npc == "walter" else Color(0.62, 0.32, 0.18)
+			if npc == "walter":
+				m.albedo_texture = null        # the hair texture is dark: white hair needs a plain colour
+			m.albedo_color = Color(0.95, 0.95, 0.93) if npc == "walter" else Color(0.62, 0.32, 0.18)
 			mi.material_override = m
 	body.scale = Vector3.ONE * (0.96 if npc == "walter" else 0.98)
 	if npc == "walter":
 		_dress_grandpa(body)
-		body.scale = Vector3(0.93, 0.89, 0.93)   # a little shorter, shoulders rounded by the years
+		body.scale = Vector3(0.93, 0.89, 0.93)   # a little shorter, and he leans forward a little
+		body.rotation.x = -0.1
 	var found := body.find_children("*", "Skeleton3D", true, false)
 	if not found.is_empty():
 		var r := VeilRig.new()
@@ -4564,30 +4579,72 @@ func _spawn_walter(at := Vector3.INF, face_to := Vector3.ZERO, npc := "walter") 
 	if face_to != Vector3.ZERO:
 		root.rotation.y = atan2(-(face_to.x - root.position.x), -(face_to.z - root.position.z))
 
-## Phase 10: Walter's old truck does not sit in the yard for good. Once the intro is over it drives out through the
-## service gate; a save made after that never sees it at all.
-func _truck_leaves(instant := false) -> void:
+## Phase 10: Walter's old truck does not sit in the yard for good. When Walter leaves he walks to it, climbs in and drives
+## out along the open lane to the service gate (the garage door rolls up for it), then on through the tunnel and away.
+var truck_route: Array = []
+var truck_driving := false
+
+func _truck_depart() -> void:
 	if truck_node == null or not is_instance_valid(truck_node):
 		return
 	var t := truck_node
-	truck_node = null
-	var gone := func() -> void:
-		if is_instance_valid(t):
-			t.queue_free()
-		_rebake_nav()
-	if instant:
-		t.queue_free()
+	var p := t.global_position
+	var lane_clear := true
+	for v in vehicle_nodes.values():
+		if v.global_position.x > -2.5 and v.global_position.x < 3.5 and v.global_position.z > 5.0 and v.global_position.z < 26.0:
+			lane_clear = false
+	if not lane_clear:
+		_truck_leaves(true)      # something is parked in the lane: it is simply gone by the next frame
 		return
 	t.collision_layer = 0
-	var tw := create_tween()
-	tw.tween_property(t, "rotation:y", 0.0, 1.0)
-	tw.tween_property(t, "position", Vector3(t.position.x, 0.0, 17.0), 3.0).set_trans(Tween.TRANS_SINE)
-	tw.tween_property(t, "position", Vector3(0.5, 0.0, 17.0), 2.0).set_trans(Tween.TRANS_SINE)
-	tw.tween_property(t, "position", Vector3(0.5, 0.0, 30.0), 3.0)
-	tw.tween_callback(gone)
+	truck_route = [Vector3(-2.0, 0.0, p.z), Vector3(0.5, 0.0, p.z + 2.6), Vector3(0.5, 0.0, 15.0), Vector3(0.5, 0.0, 26.0), Vector3(0.5, 0.0, 43.0)]
+	truck_driving = true
+	delivery.passers.append(t)
+	_rebake_nav()
+	_sfx_at("breaker_hit", p, -8.0)
+
+func _truck_step(delta: float) -> void:
+	if not truck_driving:
+		return
+	if truck_node == null or not is_instance_valid(truck_node) or truck_route.is_empty():
+		_truck_leaves(true)
+		return
+	var t := truck_node
+	var goal: Vector3 = truck_route[0]
+	var to := goal - t.global_position
+	to.y = 0.0
+	if to.length() < 0.35:
+		truck_route.pop_front()
+		if truck_route.is_empty():
+			_truck_leaves(true)
+		return
+	# waits for the garage door to roll up while it is at the door
+	if t.global_position.z > delivery.DOOR_Z - 4.0 and t.global_position.z < delivery.DOOR_Z + 0.5 and not delivery.is_open():
+		return
+	var want := atan2(-to.x, -to.z)                      # the cab leads: forward is -Z
+	t.rotation.y = lerp_angle(t.rotation.y, want, clampf(delta * 3.0, 0.0, 1.0))
+	var fwd := -t.global_transform.basis.z
+	var speed := 2.6 if absf(angle_difference(t.rotation.y, want)) > 0.35 else 3.4
+	t.global_position += fwd * minf(speed * delta, to.length())
+
+func _truck_leaves(instant := false) -> void:
+	if truck_node == null or not is_instance_valid(truck_node):
+		truck_driving = false
+		return
+	delivery.passers.erase(truck_node)
+	truck_node.queue_free()
+	truck_node = null
+	truck_driving = false
+	truck_route.clear()
+	_rebake_nav()
 
 func _truck_should_be_gone() -> bool:
-	return natural_start_enabled and prog.natural_start() and not bool(prog.excavator_state().get("legacy", false)) and bool(prog.story.get("intro_seen", false))
+	if not bool(prog.story.get("intro_seen", false)):
+		return false
+	# a new game keeps the truck by the broken excavator until Grandpa has left with it
+	if natural_start_enabled and prog.natural_start():
+		return bool(prog.excavator_state().get("started", false))
+	return true
 
 func _remove_walter() -> void:
 	if walter_node != null and is_instance_valid(walter_node):
@@ -4623,9 +4680,13 @@ func _walter_tick(delta: float) -> void:
 	if walter_node == null or not is_instance_valid(walter_node):
 		return
 	var walking := false
-	if walter_mode == "arriving" or walter_mode == "leaving":
+	if walter_mode == "arriving" or walter_mode == "leaving" or walter_mode == "to_truck":
 		walking = _walter_walk(delta)
 		if not walking:
+			if walter_mode == "to_truck":
+				_remove_walter()
+				_truck_depart()
+				return
 			if walter_mode == "arriving":
 				walter_mode = "waiting"
 				_walter_face_player()
@@ -4806,8 +4867,6 @@ func _finish_intro() -> void:
 	prog.story["intro_seen"] = true
 	player.locked = false
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	if natural_start_enabled and prog.natural_start():
-		_truck_leaves()
 	if natural_start_enabled and prog.natural_start() and not bool(prog.excavator_state()["started"]):
 		_grandpa_to_post()   # Phase 10: he waits by the broken excavator and helps once it is repaired
 	else:
@@ -4816,8 +4875,13 @@ func _finish_intro() -> void:
 func _walter_leave() -> void:
 	if walter_node == null or not is_instance_valid(walter_node):
 		return
-	walter_mode = "leaving"
 	walter_pose = "idle"
+	if truck_node != null and is_instance_valid(truck_node) and not truck_driving:
+		# he leaves the way he came: over to the truck, in, and off down the road
+		walter_mode = "to_truck"
+		_walter_goto(truck_node.global_transform * Vector3(-1.7, 0.0, -0.9))
+		return
+	walter_mode = "leaving"
 	_walter_goto(Vector3(0.5, 0.0, 25.4))
 
 ## Walter comes by in the day when something new has happened at the quarry. He walks in from the road, waits to be
