@@ -672,9 +672,14 @@ func area_visit(id: String) -> void:
 		area_check(id)
 
 func area_add(id: String, key: String, n: int) -> void:
-	if id == "" or n <= 0 or not area_available(id):
+	if id == "" or n <= 0 or area_def(id).is_empty():
 		return
 	var st := area_state(id)
+	if not area_available(id):
+		# Phase 1: work done in an area before its contract opens is banked, not lost, so mining ahead of time can never leave the
+		# contract short of rock; it is measured the moment the contract opens (see area_check)
+		st[key] = int(st.get(key, 0)) + n
+		return
 	if bool(st["complete"]):
 		st[key] = int(st.get(key, 0)) + n           # work after completion still counts for the stats; nothing is rewarded again
 		return
@@ -708,7 +713,7 @@ func area_progress(id: String) -> Dictionary:
 	if int(c.get("recovered", 0)) > 0:
 		parts.append({"key": "recovered", "label": "Rock recovered (in the bag, bucket or bin)", "have": mini(int(st["recovered"]), int(c["recovered"])), "need": int(c["recovered"])})
 	if int(c.get("shipped", 0)) > 0:
-		parts.append({"key": "shipped", "label": "Loaded into trucks for shipment", "have": mini(int(st["shipped"]), int(c["shipped"])), "need": int(c["shipped"])})
+		parts.append({"key": "shipped", "label": "Delivered by truck to storage or the crusher", "have": mini(int(st["shipped"]), int(c["shipped"])), "need": int(c["shipped"])})
 	if int(c.get("visit", 0)) > 0:
 		parts.append({"key": "visited", "label": "Reached the work area", "have": mini(int(st["visited"]), 1), "need": 1})
 	var frac := 0.0
@@ -736,6 +741,11 @@ func area_check(id: String) -> void:
 		state.money += int(pr["reward"])
 	check_stages()
 	area_completed.emit(id)
+	# contracts this one unlocks may already be satisfied by work banked earlier
+	for a in area_defs():
+		var aid := str(a["id"])
+		if aid != id and not area_complete(aid) and area_available(aid):
+			area_check(aid)
 
 ## Old saves (and the legacy start) are already past the starter job: the contract counts as done, with no second reward.
 func area_adopt_legacy() -> void:

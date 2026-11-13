@@ -73,6 +73,39 @@ func run() -> void:
 				check(in_yard == 0, "no level-1 rock column reaches into the yard (%d)" % in_yard)
 		game.queue_free()
 		await process_frame
+	# contracts: work done in an area BEFORE its contract opens is banked and counts when it opens (it cannot be lost)
+	var g3 = await boot(true)
+	var p3 = g3.prog
+	var money0: int = g3.state.money
+	p3.area_add("area_2", "rock", 200)
+	p3.area_add("area_2", "recovered", 150)
+	p3.area_add("area_4", "shipped", 80)
+	check(int(p3.area_state("area_2")["rock"]) == 200 and not p3.area_available("area_2") and not p3.area_complete("area_2"), "mining Area 2 ahead of time is banked and the contract is still closed")
+	p3.cleanup["done"] = true
+	p3.area_add("area_1", "soil_removed", 48)
+	p3.area_add("area_1", "soil_hauled", 24)
+	p3.area_add("area_1", "rock", 60)
+	check(p3.area_complete("area_1"), "Area 1 completes")
+	check(p3.area_available("area_2") and not p3.area_complete("area_2"), "Area 2 opens; it still needs the player to reach it")
+	p3.area_visit("area_2")
+	check(p3.area_complete("area_2") and g3.state.money == money0 + 300 + 800, "reaching Area 2 completes it from the banked work, paid once (%d)" % (g3.state.money - money0))
+	p3.area_check("area_2")
+	check(g3.state.money == money0 + 1100, "never paid twice")
+	# shipments: loading a truck is not one; delivering is, once, for the area the rock came from
+	g3.state.money = 900000
+	g3.state.add_item("limestone", 0)
+	var fl = g3.fleet
+	var t_a = fl.give("truck", Vector3(0, 0, 0), 0.0)
+	var t_b = fl.give("truck", Vector3(5, 0, 0), 0.0)
+	fl.add_cargo(t_a, "iron_ore", 10, "area_4")
+	fl.add_cargo(t_a, "iron_ore", 5, "area_3")
+	var before4: int = int(p3.area_state("area_4")["shipped"])
+	fl.transfer(t_a, t_b)
+	check(int(p3.area_state("area_4")["shipped"]) == before4 and int(t_b["origin"].get("area_4", 0)) == 10 and int(t_b["origin"].get("area_3", 0)) == 5, "loading a truck keeps each unit's area and counts nothing")
+	var got: int = fl.dump_to(t_b, {"type": "storage"})
+	g3._credit_delivery(t_b)
+	check(got == 15 or got > 0, "the truck delivers %d to storage" % got)
+	check(int(t_b.get("origin", {}).get("area_4", 0)) + int(t_b.get("origin", {}).get("area_3", 0)) + got == 15, "delivered units leave the origin record, so they cannot count twice")
 	# the dump: the bed tips UP (its front rises above the rear hinge) and the load slides to the tailgate
 	var g2 = await boot(true)
 	g2.state.money = 900000

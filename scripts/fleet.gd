@@ -161,12 +161,39 @@ func max_speed(v: Dictionary) -> float:
 
 # ------------------------------------------------------------------ material handling
 
-func add_cargo(v: Dictionary, res: String, n: int) -> int:
+func add_cargo(v: Dictionary, res: String, n: int, origin := "") -> int:
 	var taken := mini(n, space(v))
 	if taken <= 0 or not (state.inventory.has(res) or res == "soil"):
 		return 0
 	v["cargo"][res] = int(v["cargo"].get(res, 0)) + taken
+	if origin != "" and res != "soil":
+		_give_origin(v, {origin: taken})
 	return taken
+
+## Phase 1: cargo remembers the excavation area it came from ({area id: units}); loading a truck moves that record with the rock and a
+## delivery to a destination spends it, so a shipment is counted once, for the area it was cut in.
+func _give_origin(v: Dictionary, parts: Dictionary) -> void:
+	if not v.has("origin"):
+		v["origin"] = {}
+	for a in parts:
+		v["origin"][a] = int(v["origin"].get(a, 0)) + int(parts[a])
+
+func take_origin(v: Dictionary, n: int) -> Dictionary:
+	var out := {}
+	var o: Dictionary = v.get("origin", {})
+	for a in o.keys():
+		if n <= 0:
+			break
+		var k := mini(n, int(o[a]))
+		out[a] = k
+		o[a] = int(o[a]) - k
+		n -= k
+		if int(o[a]) <= 0:
+			o.erase(a)
+	return out
+
+func rock_cargo(v: Dictionary) -> int:
+	return cargo_total(v) - int(v["cargo"].get("soil", 0))
 
 func take_cargo(v: Dictionary, res: String, n: int) -> int:
 	var taken := mini(n, int(v["cargo"].get(res, 0)))
@@ -199,10 +226,15 @@ func scoop_pile(v: Dictionary, id: String) -> int:
 ## Material the target cannot accept stays in the vehicle.
 func dump_to(v: Dictionary, ep: Dictionary) -> int:
 	var moved := 0
+	v["delivered"] = {}
 	for res in v["cargo"].keys():
 		var n := business.ep_put(ep, res, int(v["cargo"][res]), false)
 		take_cargo(v, res, n)
 		moved += n
+		if res != "soil" and n > 0:
+			var parts := take_origin(v, n)
+			for a in parts:
+				v["delivered"][a] = int(v["delivered"].get(a, 0)) + int(parts[a])
 	return moved
 
 ## Loader bucket -> truck bed.
@@ -214,6 +246,8 @@ func transfer(from: Dictionary, to: Dictionary) -> int:
 		var n := add_cargo(to, res, int(from["cargo"][res]))
 		take_cargo(from, res, n)
 		moved += n
+		if res != "soil" and n > 0:
+			_give_origin(to, take_origin(from, n))      # the rock keeps the area it was cut in
 	return moved
 
 ## Rubble regrows one unit per pile every `pile_regen_minutes` of game time.

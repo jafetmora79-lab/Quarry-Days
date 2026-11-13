@@ -72,10 +72,19 @@ func run() -> void:
 		tkn.rotation.y = 0.0
 		await frames(5)
 		var rec: Dictionary = game.fleet.vehicle(exn.vehicle_id)
-		rec["cargo"] = {"iron_ore": 6}
+		rec["cargo"] = {}
+		game.fleet.add_cargo(rec, "iron_ore", 6, "area_4")           # rock cut in Area 4 remembers where it came from
 		var s0 := int(prog.area_state("area_4")["shipped"])
 		var moved: int = game.vehicle_dump(exn)
-		check(moved > 0 and int(prog.area_state("area_4")["shipped"]) == s0 + moved, "loading the bucket into a truck on the Area 4 floor counts as shipment (%d)" % moved)
+		check(moved > 0 and int(prog.area_state("area_4")["shipped"]) == s0, "loading the bucket into a truck is NOT a shipment (%d loaded)" % moved)
+		var trec: Dictionary = game.fleet.vehicle(tkn.vehicle_id)
+		check(int(trec.get("origin", {}).get("area_4", 0)) == moved, "the truck's load remembers it came from Area 4")
+		# delivered to a destination (the storage crate): only now does it count, once, for Area 4
+		var got: int = game.fleet.dump_to(trec, {"type": "storage"})
+		game._credit_delivery(trec)
+		check(got > 0 and int(prog.area_state("area_4")["shipped"]) == s0 + got, "delivering it to storage counts as shipment (%d)" % got)
+		game._credit_delivery(trec)
+		check(int(prog.area_state("area_4")["shipped"]) == s0 + got, "and it cannot be counted twice")
 		var s_other := int(prog.area_state("area_5")["shipped"])
 		check(s_other == 0, "and does not count for Area 5")
 	prog.area_add("area_4", "rock", 200)

@@ -4102,7 +4102,7 @@ func loader_primary(v: QuarryVehicle) -> int:
 		var bp := prog.rig_bin_pos(r)
 		if fleet.space(rec) > 0 and got == 0 and prog.rig_bin_total(r) > 0 and _flat_dist(point, bp) < 2.6:
 			var res := prog.rig_resource(r)
-			var n := fleet.add_cargo(rec, res, prog.rig_bin_total(r))
+			var n := fleet.add_cargo(rec, res, prog.rig_bin_total(r), prog.area_of_formation(str(r["formation"])))
 			prog.rig_take(r, res, n)
 			got += n
 			source = "the rig's output bin"
@@ -4116,7 +4116,7 @@ func loader_primary(v: QuarryVehicle) -> int:
 			if fleet.space(rec) <= 0:
 				break
 			var body: Node3D = ground_pieces[id]
-			if fleet.add_cargo(rec, str(body.get_meta("resource")), 1) == 1:
+			if fleet.add_cargo(rec, str(body.get_meta("resource")), 1, prog.area_of_formation(str(body.get_meta("deposit", "")))) == 1:
 				prog.area_add(prog.area_of_formation(str(body.get_meta("deposit", ""))), "recovered", 1)
 				ground_pieces.erase(id)
 				body.queue_free()
@@ -4221,7 +4221,7 @@ func _excavator_dig(v: QuarryVehicle, delta: float) -> void:
 		fx.impact(node.column_top(col), str(t["res"]), 0.9)
 		_sfx_at("hit_pick", node.column_top(col), -3.0)
 	if n > 0:
-		var put := fleet.add_cargo(rec, str(t["res"]), n)
+		var put := fleet.add_cargo(rec, str(t["res"]), n, prog.area_of_formation(kind))
 		prog.area_add(prog.area_of_formation(kind), "recovered", put)
 		for i in range(n - put):
 			_spawn_formation_piece(kind, col, i)
@@ -4241,7 +4241,7 @@ func _vein_bonus(ex: Dictionary, kind: String, col: int, to: String, rec := {}) 
 		if to == "player":
 			put = state.add_item(r, n)
 		elif to == "bucket" and not rec.is_empty():
-			put = fleet.add_cargo(rec, r, n)          # the bucket's real capacity applies; the rest lies on the ground below
+			put = fleet.add_cargo(rec, r, n, prog.area_of_formation(kind))          # the bucket's real capacity applies; the rest lies on the ground below
 		var left := n - put
 		for k in range(left):
 			_spawn_vein_piece(kind, col, r, k)         # nothing is lost: what does not fit becomes loose pieces of the RIGHT mineral
@@ -4336,15 +4336,23 @@ func vehicle_dump(v: QuarryVehicle) -> int:
 	if t.has("spoil"):
 		moved = _dump_soil(rec)
 	elif t.has("truck"):
-		moved = fleet.transfer(rec, fleet.vehicle(t["truck"].vehicle_id))
-		prog.area_add(area_at(v.global_position), "shipped", moved)       # loaded into a truck where the digging machine stands
+		moved = fleet.transfer(rec, fleet.vehicle(t["truck"].vehicle_id))       # loading a truck is not a shipment: the rock keeps its area and is counted when it is delivered
 	else:
 		moved = fleet.dump_to(rec, t["ep"])
+		_credit_delivery(rec)
 	v.dump_timer = 1.0
 	if moved > 0:
 		fx.chunk_break(v.work_point() + Vector3(0, 1.0, 0), "limestone")
 	_notify("Dumped %d into %s.%s" % [moved, _target_name(t), (" %d left in the bucket (target full or wrong material)." % fleet.cargo_total(rec)) if fleet.cargo_total(rec) > 0 else ""])
 	return moved
+
+## A delivery to a destination (storage crate, crusher, output storage) is the only thing that counts as a shipment, and only for the units
+## the destination accepted, each for the excavation area it was cut in (fleet.dump_to records them in rec["delivered"]).
+func _credit_delivery(rec: Dictionary) -> void:
+	var d: Dictionary = rec.get("delivered", {})
+	for a in d:
+		prog.area_add(str(a), "shipped", int(d[a]))
+	rec.erase("delivered")
 
 ## Soil cargo goes onto the spoil heap: it leaves the vehicle and is counted (soil_dumped); nothing else is touched.
 func _dump_soil(rec: Dictionary) -> int:
@@ -4363,6 +4371,7 @@ func truck_finish_unload(v: QuarryVehicle, t: Dictionary) -> int:
 	if rec.is_empty() or not t.has("ep") or not business.ep_valid(t["ep"]):
 		return 0
 	var moved := fleet.dump_to(rec, t["ep"])
+	_credit_delivery(rec)
 	if moved > 0:
 		fx.chunk_break(v.work_point() + Vector3(0, 0.8, 0), "limestone")
 	_notify("Unloaded %d into %s.%s" % [moved, _target_name(t), (" %d stays on the truck (target full or wrong material)." % fleet.cargo_total(rec)) if fleet.cargo_total(rec) > 0 else ""])
