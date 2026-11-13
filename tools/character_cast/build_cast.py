@@ -140,7 +140,7 @@ def build(name):
          "neck": Vector((0, 0.0, 1.40)), "head": Vector((0, 0.012, 1.495)), "crown": Vector((0, 0.0, 1.76))}
     for s, sx in (("R", 1), ("L", -1)):
         J["shoulder" + s] = Vector((sx * sh, -0.005, 1.375)); J["clav" + s] = Vector((sx * 0.04, 0.0, 1.39))
-        J["elbow" + s] = Vector((sx * (sh + 0.18), 0.0, 1.165)); J["wrist" + s] = Vector((sx * (sh + 0.33), 0.035, 0.99))
+        J["elbow" + s] = Vector((sx * (sh + 0.17), 0.0, 1.17)); J["wrist" + s] = Vector((sx * (sh + 0.31), 0.035, 1.005))
         J["hip" + s] = Vector((sx * hipx, 0.0, 0.89)); J["knee" + s] = Vector((sx * (hipx + 0.01), 0.02, 0.49))
         J["ankle" + s] = Vector((sx * (hipx + 0.015), -0.01, 0.10)); J["ball" + s] = Vector((sx * (hipx + 0.025), 0.13, 0.03))
         J["toe" + s] = Vector((sx * (hipx + 0.03), 0.22, 0.03))
@@ -151,9 +151,9 @@ def build(name):
           J["hipR"], J["kneeR"], J["ankleR"] + Vector((0, 0, -0.07)), J["hipL"], J["kneeL"], J["ankleL"] + Vector((0, 0, -0.07))]   # legs reach into the shoes
     se = [(0, 1), (1, 2), (2, 3), (3, 4), (3, 5), (5, 6), (6, 7), (3, 8), (8, 9), (9, 10), (0, 11), (11, 12), (12, 13),
           (0, 14), (14, 15), (15, 16)]
-    A, L_ = b["arm"] * 1.08, (b["hips"] + b["waist"]) / 2
+    A, L_ = b["arm"] * 0.92, (b["hips"] + b["waist"]) / 2              # slimmer arms that taper to the wrist
     rad = [0.150 * b["hips"], 0.150 * b["waist"], 0.170 * b["chest"], 0.075 * b["neck"], 0.048 * b["neck"],
-           0.072 * A, 0.060 * A, 0.054 * A, 0.072 * A, 0.060 * A, 0.054 * A,
+           0.068 * A, 0.052 * A, 0.044 * A, 0.068 * A, 0.052 * A, 0.044 * A,
            0.088 * L_, 0.068 * L_, 0.066 * L_, 0.088 * L_, 0.068 * L_, 0.066 * L_]
     me = bpy.data.meshes.new("skel"); me.from_pydata([tuple(v) for v in sv], se, []); sk = bpy.data.objects.new("skel", me)
     bpy.context.scene.collection.objects.link(sk)
@@ -213,7 +213,7 @@ def build(name):
             return "Top"
         if pk == "overalls" and n.y > 0.2 and abs(c.x) < 0.095 and c.z < 1.27: return "Pants"
         if pk == "coverall_waist" and c.z < 0.99: return "Pants"
-        if tk == "tank" and c.z > 1.33 and (abs(c.x) > 0.075 or n.y > 0.5 and c.z > 1.37): return "Skin"
+        if tk == "tank" and ((c.z > 1.36 and abs(c.x) > 0.065) or (n.y > 0.3 and c.z > 1.31 and abs(c.x) < 0.07) or (n.y < -0.3 and c.z > 1.37)): return "Skin"
         if n.y > 0.35 and abs(c.x) < 0.14: return "TopFront"
         if tk in ("jacket",) and c.z < 0.95: return "TopCuff"
         return "Top"
@@ -357,7 +357,7 @@ def build(name):
                 gt = Part(); tbox(gt, loc + nr * 0.01, loc + nr * 0.01 + Vector((0, -0.01, 0.10)), 0.07, 0.06, 0.02, 0.02, (1, 0, 0), "Gear"); gpart(gt, "glove")
     if "watch" in gear:
         w = J["wristL"]; a = (J["wristL"] - J["elbowL"]).normalized(); wt = Part()
-        tbox(wt, w - a * 0.045, w - a * 0.02, 0.105 * A, 0.105 * A, 0.105 * A, 0.105 * A, (0, 0, 1), "Gear"); gpart(wt, "gold")
+        tbox(wt, w - a * 0.040, w - a * 0.022, 0.095 * A, 0.095 * A, 0.095 * A, 0.095 * A, (0, 0, 1), "Gear"); gpart(wt, "gold")
     if "pen" in gear:
         loc, nr = surface(-0.07, 1.27)
         if loc is not None: pn = Part(); tbox(pn, loc + nr * 0.015, loc + nr * 0.015 + Vector((0, 0, 0.06)), 0.01, 0.01, 0.01, 0.01, (1, 0, 0), "Gear"); gpart(pn, "pen")
