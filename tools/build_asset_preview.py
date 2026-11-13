@@ -56,6 +56,17 @@ def main():
         cat, name = base.split("__", 1)
         add("Quarry Days", pretty(cat), "models/procedural/" + os.path.basename(f), pretty(name))
 
+    # Isolated visual candidates; never selected by employee/gameplay code.
+    candidate = os.path.join(ROOT, "experiments", "dmitri-redesign", "Dmitri_Candidate.glb")
+    if os.path.isfile(candidate):
+        dst = os.path.join(OUT, "experiments", "dmitri-redesign", "Dmitri_Candidate.glb")
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        shutil.copy2(candidate, dst)
+        group = "Quarry Days — Character redesign experiment"
+        section = "Dmitri Holt · preview only · approval pending"
+        add(group, section, "models/characters/CHR_QD_Dmitri.glb", "Dmitri — original (unchanged)")
+        add(group, section, "models/experiments/dmitri-redesign/Dmitri_Candidate.glb", "Dmitri — redesigned candidate")
+
     manifest = []
     for g in groups:
         manifest.append({"group": g, "sections": [{"title": t, "items": groups[g][t]} for t in sorted(groups[g])]})

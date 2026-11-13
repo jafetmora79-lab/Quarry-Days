@@ -1,0 +1,29 @@
+{
+  "url": "https://jafetmora79-lab.github.io/Quarry-Days/#models/experiments/dmitri-redesign/Dmitri_Candidate.glb",
+  "candidate": {
+    "meshes": 1,
+    "skinned": true,
+    "bones": 22,
+    "texture": [
+      256,
+      256
+    ],
+    "filter": 1003,
+    "minFilter": 1003,
+    "colors": 26,
+    "min": 32,
+    "max": 241,
+    "animations": [
+      "Idle",
+      "Walk"
+    ],
+    "triangles": 7680
+  },
+  "orbit_zoom_and_view_buttons": "passed",
+  "clip_selection": "passed",
+  "original_comparison_selection": "passed",
+  "default_preserved": "Excavator",
+  "page_errors": [],
+  "failed_requests": [],
+  "screenshots_or_videos_generated": false
+}

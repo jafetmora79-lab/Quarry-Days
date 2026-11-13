@@ -446,5 +446,23 @@
     ]
    }
   ]
+ },
+ {
+  "group": "Quarry Days \u2014 Character redesign experiment",
+  "sections": [
+   {
+    "title": "Dmitri Holt \u00b7 preview only \u00b7 approval pending",
+    "items": [
+     {
+      "name": "Dmitri \u2014 original (unchanged)",
+      "file": "models/characters/CHR_QD_Dmitri.glb"
+     },
+     {
+      "name": "Dmitri \u2014 redesigned candidate",
+      "file": "models/experiments/dmitri-redesign/Dmitri_Candidate.glb"
+     }
+    ]
+   }
+  ]
  }
 ]
