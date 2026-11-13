@@ -148,7 +148,7 @@ def build(name):
     # ------------------------------------------------------------ body (skin modifier, cohesive)
     sv = [J["hips"], J["spine"], J["chest"], J["neck"], J["head"] + Vector((0, 0, 0.02)),
           J["shoulderR"], J["elbowR"], J["wristR"], J["shoulderL"], J["elbowL"], J["wristL"],
-          J["hipR"], J["kneeR"], J["ankleR"] + Vector((0, 0, -0.02)), J["hipL"], J["kneeL"], J["ankleL"] + Vector((0, 0, -0.02))]
+          J["hipR"], J["kneeR"], J["ankleR"] + Vector((0, 0, -0.07)), J["hipL"], J["kneeL"], J["ankleL"] + Vector((0, 0, -0.07))]   # legs reach into the shoes
     se = [(0, 1), (1, 2), (2, 3), (3, 4), (3, 5), (5, 6), (6, 7), (3, 8), (8, 9), (9, 10), (0, 11), (11, 12), (12, 13),
           (0, 14), (14, 15), (15, 16)]
     A, L_ = b["arm"] * 1.08, (b["hips"] + b["waist"]) / 2
@@ -267,10 +267,6 @@ def build(name):
             pts = [v.co + nrm[v.index] * off for v in fc.verts]
             det.add(pts, "Over")
         bm.free()
-        if ok == "cardigan":
-            for s in ("R", "L"):                                      # knit cuffs
-                a, w = J["elbow" + s], J["wrist" + s]; p0 = a + (w - a) * 0.80
-                tbox(det, p0, p0 + (w - a) * 0.08, 0.13 * A, 0.12 * A, 0.13 * A, 0.12 * A, (0, 0, 1), "TopCuff")
     # ---- hands (stylised, thumb + four two-joint fingers); gloves swap the material
     glove = "gloves" in gear
     hands = Part()
@@ -282,7 +278,7 @@ def build(name):
         fwd = a.cross(inward).normalized()
         if fwd.y < 0: fwd = -fwd
         w0 = J["wrist" + s] + a * 0.008; hm = "Gear" if glove else "Skin"
-        tbox(hands, w0, w0 + a * 0.088 * HS, 0.080 * HS, 0.088 * HS, 0.036 * HS, 0.032 * HS, fwd, hm)
+        tbox(hands, w0 - a * 0.045, w0 + a * 0.088 * HS, 0.070 * HS, 0.088 * HS, 0.040 * HS, 0.032 * HS, fwd, hm)   # palm starts inside the sleeve: no gap at the wrist
         if glove: tbox(hands, w0 - a * 0.02, w0 + a * 0.03, 0.10 * HS, 0.095 * HS, 0.06 * HS, 0.055 * HS, fwd, hm)
         for i, off in enumerate((0.031, 0.011, -0.009, -0.028)):
             L1, L2 = (0.044, 0.040, 0.042, 0.036)[i] * HS, (0.034, 0.033, 0.032, 0.026)[i] * HS
