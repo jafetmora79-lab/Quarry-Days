@@ -86,7 +86,7 @@ func run() -> void:
 	prog.area_check("area_1")
 	check(st.money == money0 + 300, "the reward cannot be claimed twice")
 	check(prog.milestone_done("area_1_complete"), "the stage milestone 'Area 1 contract complete' is reached")
-	check(prog.units_left("hillside_face_01") > 0, "completing the contract does not erase the remaining rock")
+	check(prog.units_left("q_top" if prog.filled_world() else "hillside_face_01") > 0, "completing the contract does not erase the remaining rock")
 	check(game.hud_status_text().find("AREA 1") < 0, "the HUD stops showing a finished contract")
 	# ---- save and load
 	game._save(true)

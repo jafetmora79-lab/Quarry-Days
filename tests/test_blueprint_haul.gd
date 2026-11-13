@@ -64,10 +64,13 @@ func drive_route(game, v, route: Array, max_frames: int, cap := 3.2) -> bool:
 		return false)
 	return done < max_frames
 
-## The haul road, down: pit-local (x, z) waypoints through the new geometry.
-const DOWN := [Vector2(0.0, -44.0), Vector2(0.0, -58.0), Vector2(0.0, -71.0), Vector2(-8.0, -74.5), Vector2(-30.0, -74.5), Vector2(-44.0, -76.0), Vector2(-48.0, -86.0),
-	Vector2(-48.0, -104.0), Vector2(-48.0, -128.0), Vector2(-46.0, -145.0), Vector2(-36.0, -146.0), Vector2(0.0, -146.0), Vector2(32.0, -146.0), Vector2(40.0, -142.0),
-	Vector2(40.0, -124.0), Vector2(40.0, -104.0), Vector2(36.0, -97.0), Vector2(14.0, -96.0), Vector2(-14.0, -96.0), Vector2(-24.0, -98.0), Vector2(-24.0, -108.0), Vector2(-24.0, -122.0)]
+## The haul road, down: pit-local (x, z) waypoints through the blueprint geometry (surface lane west, the level-2 strip and north road, the level-3
+## strip and south road, the level-4 strip and north road, the level-5 strip).
+const DOWN := [Vector2(0.0, -8.0), Vector2(0.0, -20.0), Vector2(-30.0, -20.0), Vector2(-88.0, -20.0), Vector2(-98.0, -21.0), Vector2(-104.0, -25.0), Vector2(-106.0, -32.0), Vector2(-106.0, -40.0),
+	Vector2(-106.0, -60.0), Vector2(-106.0, -78.0), Vector2(-100.0, -88.0), Vector2(-60.0, -88.0), Vector2(0.0, -88.0), Vector2(60.0, -88.0), Vector2(90.0, -88.0),
+	Vector2(94.0, -80.0), Vector2(94.0, -64.0), Vector2(94.0, -50.0), Vector2(90.0, -40.0), Vector2(50.0, -40.0), Vector2(0.0, -40.0), Vector2(-60.0, -40.0),
+	Vector2(-82.0, -42.0), Vector2(-82.0, -55.0), Vector2(-82.0, -66.0), Vector2(-78.0, -72.0), Vector2(-40.0, -72.0), Vector2(0.0, -72.0), Vector2(44.0, -72.0),
+	Vector2(56.0, -72.0), Vector2(62.0, -72.0), Vector2(67.0, -70.5), Vector2(70.0, -67.0), Vector2(70.0, -60.0), Vector2(70.0, -54.0)]
 
 func walk(game, route: Array, label: String) -> bool:
 	var pz = game.pit_zone
@@ -117,20 +120,24 @@ func run() -> void:
 	prog.cleanup["done"] = true
 	game._sync_pit_gate()
 	game.safety.enabled = false
-	check(prog.filled_world() and pz.level_pits.size() == 3, "the new world is the filled quarry with the shells of levels 2, 3 and 4")
-	# the player digs: level 1 (all three layers) goes, then half of each deeper level, so every level opens (its haul road is cut by the survey)
-	for id in ["q_l1_top", "q_l1_gravel", "q_l1_rock"]:
-		zero_formation(game, id)
+	check(prog.filled_world() and game.blueprint and pz.level_pits.size() == 4, "the new world is the blueprint quarry with the shells of levels 2 to 5")
+	game.state.money = 900000
+	zero_formation(game, "q_top", 1)
 	prog.check_levels()
-	check(prog.quarry_level == 2, "cutting the surface layers opens level 2 (%d)" % prog.quarry_level)
-	for id in ["q_l2_coal", "q_l2_iron"]:
+	check(prog.quarry_level == 2 and not prog.road_built(2), "cutting the surface opens level 2, but its access road is not built for free (%d)" % prog.quarry_level)
+	check(prog.buy_road(2) and prog.road_built(2), "the level-2 access road is bought (a paid construction job)")
+	for id in ["q_a2_gravel", "q_a2_rock"]:
 		zero_formation(game, id, 1)
 	prog.check_levels()
-	check(prog.quarry_level == 3, "cutting level 2 opens level 3 (%d)" % prog.quarry_level)
-	for id in ["q_l3_iron", "q_l3_copper"]:
+	check(prog.quarry_level == 3 and prog.buy_road(3), "cutting level 2 opens level 3, whose road is bought")
+	for id in ["q_a3_iron", "q_a3_coal"]:
 		zero_formation(game, id, 1)
 	prog.check_levels()
-	check(prog.quarry_level == 4, "cutting level 3 opens level 4 (%d)" % prog.quarry_level)
+	check(prog.quarry_level == 4 and prog.buy_road(4), "cutting level 3 opens level 4, whose road is bought")
+	for id in ["q_a4_iron", "q_a4_copper"]:
+		zero_formation(game, id, 1)
+	prog.check_levels()
+	check(prog.quarry_level == 5 and prog.buy_road(5), "cutting level 4 opens level 5, whose road is bought")
 	await frames(10)
 	prog.stage = prog.stage_index("deep")
 	game.state.money = 900000
@@ -145,10 +152,10 @@ func run() -> void:
 		if v.vtype == ttype:
 			truck = v
 	check(truck != null, "the %s is bought" % ttype)
-	game.player.global_position = pz.to_world(Vector3(-6.0, 0.2, -38.0))
+	game.player.global_position = pz.to_world(Vector3(-6.0, 0.2, 6.0))
 	game.enter_vehicle(truck)
 	game.scripted_input = true
-	truck.global_position = pz.to_world(Vector3(0.0, 0.2, -38.0))
+	truck.global_position = pz.to_world(Vector3(0.0, 0.2, 4.0))
 	truck.rotation.y = pz.global_rotation.y
 	truck.speed = 0.0
 	truck.velocity = Vector3.ZERO
@@ -166,9 +173,9 @@ func run() -> void:
 		route_ok = route_ok and ok
 		var ly: float = pz.to_loc(truck.global_position).y
 		low = minf(low, ly)
-		if ly < -6.8: seen[2] = true
-		if ly < -10.4: seen[3] = true
-		if ly < -14.0: seen[4] = true
+		if ly < -4.0: seen[2] = true
+		if ly < -7.6: seen[3] = true
+		if ly < -13.0: seen[4] = true
 		if not ok:
 			var kc := KinematicCollision3D.new()
 			var hit: bool = truck.test_move(truck.global_transform, truck.forward() * 0.4, kc)
@@ -189,11 +196,11 @@ func run() -> void:
 			printerr("   truck stopped (up) before %s at %s speed %.2f; ahead: %s" % [str(wp), str(pz.to_loc(truck.global_position)), truck.speed, (str(kc.get_collider().name) + " " + str(kc.get_collider().get_parent().name) if hit and kc.get_collider() else "nothing")])
 			break
 	var top: Vector3 = pz.to_loc(truck.global_position)
-	check(up_ok and top.y > -0.8 and top.z > -47.5, "loaded: and climbs all the way back out to the plateau (z %.1f, y %.2f)" % [top.z, top.y])
+	check(up_ok and top.y > -0.8 and top.z > -22.0, "loaded: and climbs all the way back out to the plateau (z %.1f, y %.2f)" % [top.z, top.y])
 	check(game.fleet.cargo_total(trec) == cap and int(trec["cargo"].get("copper_ore", 0)) == cap, "the whole load is still on board: nothing was lost on the ramps")
 	# on out of the corridor and to the yard gate
 	var yard_ok := true
-	for wp in [Vector2(0.0, -30.0), Vector2(0.0, -12.0), Vector2(0.0, 2.0)]:
+	for wp in [Vector2(0.0, -12.0), Vector2(0.0, 2.0), Vector2(0.0, 10.0)]:
 		yard_ok = yard_ok and await drive_route(game, truck, [wp], 2400)
 	var gl: Vector3 = pz.to_loc(truck.global_position)
 	check(yard_ok and gl.z > -6.0, "loaded: it drives the corridor to the quarry gate (z %.1f)" % gl.z)

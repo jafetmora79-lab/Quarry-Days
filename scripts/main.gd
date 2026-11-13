@@ -179,6 +179,7 @@ func _ready() -> void:
 	prog.site_cleared.connect(_on_site_cleared)
 	prog.area_completed.connect(_on_area_completed)
 	prog.quarry_level_reached.connect(_on_quarry_level)
+	prog.road_built_signal.connect(_on_road_built)
 	fx = FXScript.new()
 	add_child(fx)
 	fx.game_audio_break = func(at: Vector3): _sfx_at("rock_break", at, -6.0)
@@ -281,10 +282,10 @@ func _init_layout() -> void:
 	blueprint = prog.filled_world()
 	if not blueprint:
 		return
-	TOOLSHED_POS = Vector3(-17.0, 0, 3.5)
-	SHED_POS = Vector3(-9.0, 0, 3.5)
-	OFFICE_POS = Vector3(13.0, 0, 3.5)
-	HOME_POS = Vector3(17.5, 0, 17.5)
+	TOOLSHED_POS = Vector3(-17.125, 0, 3.5)     # x on a nav cell centre: the 1.4 m doorway keeps a walkable lane after the agent-radius erosion
+	SHED_POS = Vector3(-8.875, 0, 3.5)
+	OFFICE_POS = Vector3(13.125, 0, 3.5)
+	HOME_POS = Vector3(17.625, 0, 17.5)
 	SELL_ANCHOR = Vector3(9.0, 0.85, -1.2)
 	STORAGE_POS = Vector3(8.0, 0.65, 9.5)
 	business.storage_pos = Vector3(STORAGE_POS.x, 0.0, STORAGE_POS.z)
@@ -954,9 +955,15 @@ func _build_hillside_backdrop(r: Rect2) -> void:
 
 func _deposit_info(kind: String) -> Dictionary:
 	if DEPOSIT_INFO.has(kind):
-		return DEPOSIT_INFO[kind]
+		var di: Dictionary = DEPOSIT_INFO[kind].duplicate()
+		if blueprint:
+			di["pos"] = Vector3(-48.0, 0, -62.0)     # the infinite limestone face stands on the quarry surface, off the tutorial debris
+		return di
 	if OUTCROP_INFO.has(kind):
-		return OUTCROP_INFO[kind]
+		var oi: Dictionary = OUTCROP_INFO[kind].duplicate()
+		if blueprint:
+			oi["pos"] = Vector3(-64.0, 0, -60.0) if kind == "coal_outcrop" else Vector3(44.0, 0, -62.0)    # on the quarry surface, off the roads and the tutorial debris
+		return oi
 	if prog and prog.is_formation(kind):
 		return {"pos": prog.formation_origin_world(kind), "resource": str(prog.fdef(kind)["resource"]), "pieces": 0, "formation": true, "color": WorkerScript.RESOURCE_COLORS.get(str(prog.fdef(kind)["resource"]), Color.GRAY)}
 	return EXPANSION_DEPOSITS.get(kind, {})
@@ -2459,7 +2466,16 @@ func _build_natural_ground(natural: bool) -> void:
 	var ok := func(p: Vector2) -> bool:
 		var v := Vector3(p.x, 0.0, p.y)
 		return not in_pit_corridor(v, 5.0) and not in_hillside_zone(v, 4.0) and not hub_rect().grow(3.0).has_point(p) and p.distance_to(Vector2(2.0, -14.0)) > 3.0 and p.distance_to(Vector2(11.5, -11.0)) > 3.0 and absf(p.x) > 4.4 
-	var info := OpeningModels.natural_ground(world, ok, Rect2(-23.0, -29.0, 46.0, 21.5) if not blueprint else Rect2(-32.0, -56.0, 64.0, 42.0), 1010)
+	var ok_bp := func(p: Vector2) -> bool:
+		if not ok.call(p):
+			return false
+		if blueprint:                                   # nothing permanent stands where an access road will be built (rects are in the pit frame: local z = world z + 8)
+			for lv in prog.levels():
+				for r in lv.get("roads", []):
+					if Rect2(float(r[0]), float(r[1]), float(r[2]) - float(r[0]), float(r[3]) - float(r[1])).grow(2.0).has_point(Vector2(p.x, p.y + 8.0)):
+						return false
+		return true
+	var info := OpeningModels.natural_ground(world, ok_bp, Rect2(-23.0, -29.0, 46.0, 21.5) if not blueprint else Rect2(-32.0, -56.0, 64.0, 42.0), 1010)
 	natural_root = info["root"]
 	_build_soil()
 	natural_root.set_meta("counts", {"boulders": info["boulders"], "outcrops": info["outcrops"], "patches": info["patches"], "scrub": info["scrub"], "pebbles": info["pebbles"]})
@@ -5814,6 +5830,18 @@ func hud_badges() -> Array:
 	if loose > 0:
 		lines.append(["%d belt%s not connected at both ends" % [loose, "" if loose == 1 else "s"], true])
 	return lines
+
+## A level's access road was built (paid for): the rock it cut disappears, the crews re-plan their routes.
+func _on_road_built(n: int) -> void:
+	for lv in range(1, n + 1):
+		for fid in prog.level_formations(lv):
+			if formation_nodes.has(fid):
+				_refresh_deposit(fid)
+	if pit_zone:
+		pit_zone.request_bake()
+	nav_dirty = true
+	if hud:
+		hud.toast("Access road built", "Level %d is open to trucks and excavators." % n, "milestone")
 
 func _on_quarry_level(n: int) -> void:
 	# Phase 8.7: the level's haul road was cut out of its rock (progression.open_roads): show it, and let the crews find the way

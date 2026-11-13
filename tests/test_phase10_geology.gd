@@ -22,6 +22,7 @@ func frames(n: int) -> void:
 
 func run() -> void:
 	var game = load("res://Main.tscn").instantiate()
+	game.natural_start_enabled = false      # the bench mechanic belongs to the legacy hillside, which the blueprint world no longer has
 	game.autosave_enabled = false
 	game.curfew_enabled = false
 	game.introductions_enabled = false
@@ -83,10 +84,11 @@ func run() -> void:
 	check(game.survey_root == null, "and switches off again")
 	# ---- manual excavator joints
 	var rec = game.fleet.give("starter_excavator", Vector3(-12, 0, 6.6), 0.0)
+	game._sync_vehicles()
 	await frames(10)
 	var v = null
 	for nd in game.vehicle_nodes.values():
-		if nd.vkind == "excavator":
+		if nd.vkind == "excavator" or ("turret" in nd and nd.turret != null):
 			v = nd
 	check(v != null and v.turret != null and v.stick != null, "the excavator has a turret, boom, stick and bucket")
 	if v != null:

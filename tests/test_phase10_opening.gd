@@ -48,7 +48,7 @@ func run() -> void:
 	var no_piles := true
 	for id in piles:
 		no_piles = no_piles and not game.formation_nodes.has(id)
-	check(no_piles and game.formation_nodes.has("hillside_face_01") and game.formation_nodes.has("q_l1_top") and game.formation_nodes.has("q_l2_coal"), "A the three artificial starting piles are gone; the hillside and the quarry's layered formations remain")
+	check(no_piles and (game.formation_nodes.has("q_top") and game.formation_nodes.has("q_a2_gravel") if game.prog.filled_world() else (game.formation_nodes.has("hillside_face_01") and game.formation_nodes.has("q_l1_top") and game.formation_nodes.has("q_l2_coal"))), "A the three artificial starting piles are gone; the hillside and the quarry's layered formations remain")
 	check(game.deposit_nodes.has("coal_outcrop") and game.deposit_nodes.has("iron_boulder"), "A coal and iron appear as small natural outcrops")
 	var counts: Dictionary = game.natural_root.get_meta("counts") if game.natural_root else {}
 	check(not counts.is_empty() and counts["boulders"] >= 5 and counts["outcrops"] >= 3 and counts["patches"] >= 6 and counts["scrub"] == 0 and counts["pebbles"] >= 40, "A the site is dirt patches, scattered rocks, boulders and buried outcrops - no scrub %s" % str(counts))
@@ -72,7 +72,7 @@ func run() -> void:
 	check(game.driving == null, "B it cannot be driven before the repairs")
 	var spec: Dictionary = game.fleet.spec("starter_excavator")
 	check(int(spec["dig_hardness"]) == 0 and float(spec["capacity"]) <= 3 and float(spec["max_speed"]) < 2.0, "B it digs nothing harder than soil (hardness 0), carries 3 and creeps along")
-	var walter_ok: bool = game.walter_node != null and is_instance_valid(game.walter_node) and game.walter_node.global_position.distance_to(Vector3(-14.9, 0, 5.6)) < 1.5
+	var walter_ok: bool = game.walter_node != null and is_instance_valid(game.walter_node) and game.walter_node.global_position.distance_to(Vector3(-15.0, 0, 6.8) if game.blueprint else Vector3(-14.9, 0, 5.6)) < 1.5
 	check(walter_ok, "B Grandpa stands by the workshop")
 	# parts
 	var near_ok := true

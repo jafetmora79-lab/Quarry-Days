@@ -44,15 +44,25 @@ func run() -> void:
 		prog.area_state(id)["rewarded"] = true
 	check(prog.area_available("area_4") and not prog.area_available("area_5") and not prog.area_available("area_6"), "after Area 3, only Area 4 opens")
 	# ---- membership by floor and position in the pit frame
-	var l3: Dictionary = pz.level_pits[1]
-	var l4: Dictionary = pz.level_pits[2]
-	var r3: Rect2 = l3["rect"]
-	var r4: Rect2 = l4["rect"]
-	var p4: Vector3 = pz.to_world(Vector3(r3.position.x + 16.0, l3["y_bot"], r3.position.y + 30.0))
-	check(game.area_at(p4) == "area_4", "standing on the level-3 floor is Area 4")
-	var p5: Vector3 = pz.to_world(Vector3(-26.0, l4["y_bot"], -105.0))
-	var p6: Vector3 = pz.to_world(Vector3(-26.0, l4["y_bot"], -125.0))
-	check(game.area_at(p5) == "area_5" and game.area_at(p6) == "area_6", "the level-4 floor splits into the copper side (Area 5) and the gold side (Area 6)")
+	var p4 := Vector3.ZERO
+	if prog.filled_world():
+		var f4: Dictionary = pz.level_pits[2]       # level 4 = Area 4
+		var f5: Dictionary = pz.level_pits[3]       # level 5 = the final zone, copper west / gold east
+		var q4: Rect2 = f4["rect"]
+		var q5: Rect2 = f5["rect"]
+		p4 = pz.to_world(Vector3(q4.position.x + 10.0, f4["y_bot"], q4.position.y + q4.size.y * 0.5))
+		check(game.area_at(p4) == "area_4", "standing on the level-4 floor is Area 4")
+		check(game.area_at(pz.to_world(Vector3(-40.0, f5["y_bot"], q5.position.y + q5.size.y * 0.5))) == "area_5" and game.area_at(pz.to_world(Vector3(40.0, f5["y_bot"], q5.position.y + q5.size.y * 0.5))) == "area_6", "the deepest floor splits into the copper side (Area 5) and the gold side (Area 6)")
+	else:
+		var l3: Dictionary = pz.level_pits[1]
+		var l4: Dictionary = pz.level_pits[2]
+		var r3: Rect2 = l3["rect"]
+		var r4: Rect2 = l4["rect"]
+		p4 = pz.to_world(Vector3(r3.position.x + 16.0, l3["y_bot"], r3.position.y + 30.0))
+		check(game.area_at(p4) == "area_4", "standing on the level-3 floor is Area 4")
+		var p5: Vector3 = pz.to_world(Vector3(-26.0, l4["y_bot"], -105.0))
+		var p6: Vector3 = pz.to_world(Vector3(-26.0, l4["y_bot"], -125.0))
+		check(game.area_at(p5) == "area_5" and game.area_at(p6) == "area_6", "the level-4 floor splits into the copper side (Area 5) and the gold side (Area 6)")
 	# ---- Area 4: contract parts, including a real truck loading
 	var ex = game.fleet.give("compact_excavator", p4 + Vector3(0, 0.1, 0), 0.0)
 	var tk = game.fleet.give("truck", p4 + Vector3(0, 0.1, 6.0), 0.0)
@@ -106,7 +116,7 @@ func run() -> void:
 	for k in ["rock", "recovered", "visited", "shipped"]:
 		prog.area_add("area_6", k, 200 if k != "visited" else 1)
 	check(prog.area_complete("area_6"), "Area 6 completes with its measured work")
-	check(prog.units_left("q_l4_gold" if prog.filled_world() else "bench_l4_gold") > 0 and prog.units_left("q_l3_iron" if prog.filled_world() else "bench_l3_iron") > 0, "all that rock stays minable after the contracts")
+	check(prog.units_left("q_a5_gold" if prog.filled_world() else "bench_l4_gold") > 0 and prog.units_left("q_a3_iron" if prog.filled_world() else "bench_l3_iron") > 0, "all that rock stays minable after the contracts")
 	# ---- the stages
 	var reqs := {}
 	for s_ in prog.cfg["stages"]:

@@ -8524,28 +8524,28 @@
     -20
    ],
    [
-    -21,
-    -48
+    -30,
+    -32
    ],
    [
     -4,
-    -51
+    -33
    ],
    [
     14,
-    -50
+    -31
    ],
    [
-    29,
-    -39
+    46,
+    -24
    ],
    [
-    -29,
-    -34
+    -44,
+    -22
    ],
    [
-    19,
-    -28
+    60,
+    -20
    ]
   ],
   "heaps": [
@@ -8554,20 +8554,20 @@
     -30
    ],
    [
-    3,
-    -47
+    -38,
+    -27
    ],
    [
-    23,
-    -45
+    24,
+    -30
    ],
    [
-    -8,
-    -38
+    2,
+    -26
    ],
    [
-    11,
-    -35
+    50,
+    -30
    ]
   ],
   "gift_text": "Kiddo,\n\nI heard you cleaned the old place up. I knew you would.\n\nNow the real quarry is open to you: start taking the topsoil off, then the gravel and the limestone under it. Cut it level by level and it will give up good stone.\n\nI'm sending what I had put away. Spend it on a drill when you are ready. Machines are how we cut the big benches.\n\n- Grandpa Walt"
@@ -8575,7 +8575,7 @@
  "soil_filled": {
   "origin": [
    -22.0,
-   -44.0
+   -74.0
   ],
   "cols": 22,
   "rows": 10,
@@ -8600,17 +8600,17 @@
  "opening_filled": {
   "excavator": {
    "pos": [
-    10.5,
+    -12.9,
     0.0,
-    17.5
+    7.4
    ],
    "yaw": 0.0
   },
   "grandpa": {
    "pos": [
-    8.0,
+    -15.0,
     0.0,
-    14.0
+    6.8
    ]
   },
   "parts": {
