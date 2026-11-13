@@ -20,14 +20,29 @@ static func icon(name: String) -> Texture2D:
 static func has_icon(name: String) -> bool:
 	return ResourceLoader.exists(ICON_DIR + name + ".png")
 
+## The named cast (tools/character_cast) has portraits rendered from their own 3D models, so the face in the UI is the
+## person in the yard. They use indices NAMED_BASE + position in NAMED_IDS; everyone else keeps the sheet portraits.
+const NAMED_DIR := "res://assets/ui/portraits/named/"
+const NAMED_BASE := 100
+const NAMED_IDS := ["walter", "marsh", "rosa", "dmitri", "ines", "nia", "tomas", "hana", "sofia", "bram", "lucia", "felix", "petra", "omar"]
+
+static func named_index(id: String) -> int:
+	var i := NAMED_IDS.find(id)
+	return NAMED_BASE + i if i >= 0 and ResourceLoader.exists(NAMED_DIR + id + ".png") else -1
+
 static func portrait(index: int) -> Texture2D:
+	if index >= NAMED_BASE:
+		return _tex(NAMED_DIR + str(NAMED_IDS[index - NAMED_BASE]) + ".png")
 	return _tex(PORTRAIT_DIR + "p%d.png" % index)
 
 ## The same worker always gets the same face: it depends only on the name and gender. Clerks use the clerk portrait.
 static func portrait_for(name: String, gender: String, profession := "") -> Texture2D:
 	return portrait(portrait_index(name, gender, profession))
 
-static func portrait_index(name: String, gender: String, profession := "") -> int:
+static func portrait_index(name: String, gender: String, profession := "", candidate := "") -> int:
+	var named := named_index(candidate)
+	if named >= 0:
+		return named
 	if profession == "clerk":
 		return CLERK
 	var pool: Array = FEMALE if gender == "f" else MALE

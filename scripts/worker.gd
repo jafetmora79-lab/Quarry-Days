@@ -87,7 +87,16 @@ func _ready() -> void:
 ## tools/veil_pipeline/qd_style_cast.py from THE VEIL's hand-made reference) animated by VeilRig.
 const CHARACTER := {"miner": "res://assets/characters/CHR_QD_Miner.glb", "operator": "res://assets/characters/CHR_QD_Operator.glb",
 	"hauler": "res://assets/characters/CHR_QD_Hauler.glb", "clerk": "res://assets/characters/CHR_QD_Clerk.glb"}
+## The named cast (tools/character_cast): every hireable candidate has their own model, face, hair, outfit and gear,
+## on the same 22-bone rig. Records without a known candidate (very old saves) keep the profession model and its looks.
+const NAMED := "res://assets/characters/CHR_QD_%s.glb"
 static var _packed := {}
+
+static func named_model(candidate_id: String) -> String:
+	if candidate_id == "":
+		return ""
+	var path := NAMED % (candidate_id.substr(0, 1).to_upper() + candidate_id.substr(1))
+	return path if ResourceLoader.exists(path) else ""
 var rig: VeilRig
 var speed_now := 0.0
 
@@ -98,14 +107,16 @@ func _build_rig() -> void:
 	# The worker body's -Z is its travel direction, so no model flip is needed.
 	model.rotation.y = 0.0
 	add_child(model)
-	var path: String = CHARACTER[profession]
+	var named := named_model(str(e.get("candidate", "")))
+	var path: String = named if named != "" else CHARACTER[profession]
 	if not _packed.has(path):
 		_packed[path] = load(path)
 	var body: Node3D = _packed[path].instantiate()
 	model.add_child(body)
 	for gi in body.find_children("*", "GeometryInstance3D", true, false):
 		gi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_apply_variant(body)
+	if named == "":
+		_apply_variant(body)          # the named cast already has its own height, build, hair and gear
 	var found := body.find_children("*", "Skeleton3D", true, false)
 	if found.is_empty():
 		return

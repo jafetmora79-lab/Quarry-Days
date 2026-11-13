@@ -1,0 +1,226 @@
+{
+ "Walter": {
+  "name": "Walter",
+  "title": "Grandpa Walter",
+  "glb": "assets/characters/CHR_QD_Walter.glb",
+  "triangles": 2814,
+  "parts": {
+   "QD_Walter_Body": 1348,
+   "QD_Walter_Head": 352,
+   "QD_Walter_Hair": 196,
+   "QD_Walter_Shoes": 248,
+   "QD_Walter_GearExtras": 670
+  },
+  "materials": 11,
+  "height_m": 1.658,
+  "empty_material_slots": 0
+ },
+ "Rosa": {
+  "name": "Rosa",
+  "title": "Rosa Quintero",
+  "glb": "assets/characters/CHR_QD_Rosa.glb",
+  "triangles": 2994,
+  "parts": {
+   "QD_Rosa_Body": 1724,
+   "QD_Rosa_Head": 352,
+   "QD_Rosa_Hair": 432,
+   "QD_Rosa_Shoes": 248,
+   "QD_Rosa_GearExtras": 238
+  },
+  "materials": 12,
+  "height_m": 1.616,
+  "empty_material_slots": 0
+ },
+ "Marsh": {
+  "name": "Marsh",
+  "title": "Dr. Evelyn Marsh",
+  "glb": "assets/characters/CHR_QD_Marsh.glb",
+  "triangles": 2922,
+  "parts": {
+   "QD_Marsh_Body": 1642,
+   "QD_Marsh_Head": 352,
+   "QD_Marsh_Hair": 360,
+   "QD_Marsh_Shoes": 248,
+   "QD_Marsh_GearExtras": 320
+  },
+  "materials": 12,
+  "height_m": 1.744,
+  "empty_material_slots": 0
+ },
+ "Dmitri": {
+  "name": "Dmitri",
+  "title": "Dmitri Holt",
+  "glb": "assets/characters/CHR_QD_Dmitri.glb",
+  "triangles": 2830,
+  "parts": {
+   "QD_Dmitri_Body": 1504,
+   "QD_Dmitri_Head": 352,
+   "QD_Dmitri_Hair": 360,
+   "QD_Dmitri_Shoes": 248,
+   "QD_Dmitri_GearExtras": 366
+  },
+  "materials": 12,
+  "height_m": 1.844,
+  "empty_material_slots": 0
+ },
+ "Ines": {
+  "name": "Ines",
+  "title": "Ines Varga",
+  "glb": "assets/characters/CHR_QD_Ines.glb",
+  "triangles": 2870,
+  "parts": {
+   "QD_Ines_Body": 1584,
+   "QD_Ines_Head": 352,
+   "QD_Ines_Hair": 460,
+   "QD_Ines_Shoes": 248,
+   "QD_Ines_GearExtras": 226
+  },
+  "materials": 12,
+  "height_m": 1.665,
+  "empty_material_slots": 0
+ },
+ "Nia": {
+  "name": "Nia",
+  "title": "Nia Adeyemi",
+  "glb": "assets/characters/CHR_QD_Nia.glb",
+  "triangles": 3318,
+  "parts": {
+   "QD_Nia_Body": 1584,
+   "QD_Nia_Head": 352,
+   "QD_Nia_Hair": 552,
+   "QD_Nia_Shoes": 248,
+   "QD_Nia_GearExtras": 582
+  },
+  "materials": 12,
+  "height_m": 1.702,
+  "empty_material_slots": 0
+ },
+ "Tomas": {
+  "name": "Tomas",
+  "title": "Tomas Reyes",
+  "glb": "assets/characters/CHR_QD_Tomas.glb",
+  "triangles": 2588,
+  "parts": {
+   "QD_Tomas_Body": 1540,
+   "QD_Tomas_Head": 352,
+   "QD_Tomas_Hair": 360,
+   "QD_Tomas_Shoes": 248,
+   "QD_Tomas_GearExtras": 88
+  },
+  "materials": 11,
+  "height_m": 1.837,
+  "empty_material_slots": 0
+ },
+ "Hana": {
+  "name": "Hana",
+  "title": "Hana Okafor",
+  "glb": "assets/characters/CHR_QD_Hana.glb",
+  "triangles": 2736,
+  "parts": {
+   "QD_Hana_Body": 1412,
+   "QD_Hana_Head": 352,
+   "QD_Hana_Hair": 612,
+   "QD_Hana_Shoes": 248,
+   "QD_Hana_GearExtras": 112
+  },
+  "materials": 11,
+  "height_m": 1.665,
+  "empty_material_slots": 0
+ },
+ "Sofia": {
+  "name": "Sofia",
+  "title": "Sofia Marin",
+  "glb": "assets/characters/CHR_QD_Sofia.glb",
+  "triangles": 2448,
+  "parts": {
+   "QD_Sofia_Body": 1272,
+   "QD_Sofia_Head": 352,
+   "QD_Sofia_Hair": 360,
+   "QD_Sofia_Shoes": 248,
+   "QD_Sofia_GearExtras": 216
+  },
+  "materials": 11,
+  "height_m": 1.7,
+  "empty_material_slots": 0
+ },
+ "Bram": {
+  "name": "Bram",
+  "title": "Bram Keller",
+  "glb": "assets/characters/CHR_QD_Bram.glb",
+  "triangles": 2566,
+  "parts": {
+   "QD_Bram_Body": 1368,
+   "QD_Bram_Head": 352,
+   "QD_Bram_Hair": 360,
+   "QD_Bram_Shoes": 248,
+   "QD_Bram_GearExtras": 238
+  },
+  "materials": 11,
+  "height_m": 1.789,
+  "empty_material_slots": 0
+ },
+ "Lucia": {
+  "name": "Lucia",
+  "title": "Lucia Moreno",
+  "glb": "assets/characters/CHR_QD_Lucia.glb",
+  "triangles": 2560,
+  "parts": {
+   "QD_Lucia_Body": 1436,
+   "QD_Lucia_Head": 352,
+   "QD_Lucia_Hair": 480,
+   "QD_Lucia_Shoes": 248,
+   "QD_Lucia_GearExtras": 44
+  },
+  "materials": 11,
+  "height_m": 1.628,
+  "empty_material_slots": 0
+ },
+ "Felix": {
+  "name": "Felix",
+  "title": "Felix Brandt",
+  "glb": "assets/characters/CHR_QD_Felix.glb",
+  "triangles": 2686,
+  "parts": {
+   "QD_Felix_Body": 1608,
+   "QD_Felix_Head": 352,
+   "QD_Felix_Hair": 360,
+   "QD_Felix_Shoes": 248,
+   "QD_Felix_GearExtras": 118
+  },
+  "materials": 12,
+  "height_m": 1.852,
+  "empty_material_slots": 0
+ },
+ "Petra": {
+  "name": "Petra",
+  "title": "Petra Lind",
+  "glb": "assets/characters/CHR_QD_Petra.glb",
+  "triangles": 2946,
+  "parts": {
+   "QD_Petra_Body": 1758,
+   "QD_Petra_Head": 352,
+   "QD_Petra_Hair": 360,
+   "QD_Petra_Shoes": 248,
+   "QD_Petra_GearExtras": 228
+  },
+  "materials": 12,
+  "height_m": 1.621,
+  "empty_material_slots": 0
+ },
+ "Omar": {
+  "name": "Omar",
+  "title": "Omar Saleh",
+  "glb": "assets/characters/CHR_QD_Omar.glb",
+  "triangles": 2558,
+  "parts": {
+   "QD_Omar_Body": 1422,
+   "QD_Omar_Head": 352,
+   "QD_Omar_Hair": 360,
+   "QD_Omar_Shoes": 248,
+   "QD_Omar_GearExtras": 176
+  },
+  "materials": 12,
+  "height_m": 1.753,
+  "empty_material_slots": 0
+ }
+}

@@ -1,5 +1,12 @@
 # Changelog
 
+### The named cast
+- **Every person has their own model:** Grandpa Walter, Dr. Evelyn Marsh and all twelve hireable workers (Rosa, Dmitri, Ines, Nia, Tomas, Hana, Sofia, Bram, Lucia, Felix, Petra, Omar). Each has a distinct face, nose, ears, build, height and posture, plus their own hair, outfit and gear: hard hats, hi-vis, coveralls, ear defenders, glasses, beards and moustaches, tool belts, radios, gloves, a satchel and a cardigan. Built in THE VEIL's pixel low-poly style by `tools/character_cast/` (see its README).
+- **Same rig as before:** the existing 22-bone humanoid with the same sockets and bone frames, so every worker animation, tool grip and Walter's cutscenes work unchanged.
+- **Workers:** a hire loads the model of their own candidate (`CHR_QD_<Candidate>.glb`). Old records without a candidate keep the profession model and its tint and hat variants.
+- **Walter and Dr. Marsh:** they use their own models instead of the recoloured miner and clerk. `_dress_grandpa` and the hair recolouring are gone.
+- **Portraits:** the HUD, hiring list and intro dialog show portraits rendered from the same models (`assets/ui/portraits/named/`), so the face in the UI is the person in the yard. Walter's dialog now also shows Dr. Marsh when she speaks.
+
 ### Phase 6.3: living business
 - **Corner belts:** left and right 90 degree conveyor corners (`kind` on each belt; old saves load as straight). Belts, corners, crushers, outputs, the storage crate and rig bins all expose ports, and a new piece snaps end to end onto the nearest free port. Material moves round the bend (items follow the L) with no loss or duplication.
 - **Storage visuals:** the heap in the storage crate and in output bins shows the dominant stored material (coal charcoal, iron rust, copper orange, gold, stone grey) with a label listing the contents.

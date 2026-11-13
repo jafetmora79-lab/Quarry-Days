@@ -99,6 +99,6 @@ func run() -> void:
 	game._spawn_walter()
 	await frames(5)
 	var g = game.walter_node
-	check(g != null and g.find_child("GrandpaHead", true, false) != null, "Grandpa wears his own cap, glasses and moustache")
+	check(g != null and g.find_child("QD_Walter_GearExtras", true, false) != null, "Grandpa wears his own cap, glasses and moustache (his own model)")
 	print("RESULT: %d checks, %d failures" % [checks, failures.size()])
 	quit(1 if failures.size() > 0 else 0)

@@ -75,7 +75,7 @@ func run() -> void:
 	var e: Dictionary = biz.employees[0]
 	check(QuarryBusiness.PERSONALITIES.has(str(e["personality"])) and int(e["variant"]) >= 0 and int(e["variant"]) < 4 and not bool(e["intro_done"]), "B a new hire has a personality, a look and a pending introduction (%s, look %d)" % [e["personality"], int(e["variant"])])
 	var w = game.worker_nodes.values()[0]
-	check(absf(w.model.get_child(0).scale.y - float(w.HEIGHT_SCALE[int(e["variant"])])) < 0.001, "B the look variant is applied to the model")
+	check(w.find_child("QD_Rosa_Body", true, false) != null, "B a named hire wears her own model (Rosa)")
 	var old := {"id": 77, "profession": "miner", "name": "Old Timer", "skill": 2}
 	QuarryBusiness.ensure_identity(old)
 	check(bool(old["intro_done"]) and QuarryBusiness.PERSONALITIES.has(str(old["personality"])), "B older saves get a personality and never replay the introduction")

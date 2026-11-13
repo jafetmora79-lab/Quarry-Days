@@ -66,10 +66,15 @@ func run() -> void:
 		for k in keys:
 			has_all = has_all and e["look"].has(k)
 	check(has_all, "1c every look has gender, hair style and colour, skin, height, outfit and an accessory")
-	# ---- 2: it shows on the model
+	# ---- 2: it shows on the model. Named candidates wear their own model (tools/character_cast); the look variants
+	# below apply to records without a known candidate (older saves), so Rosa and Dmitri stand in for those here.
 	for n in game.worker_nodes.values():
 		n.queue_free()
 	game.worker_nodes.clear()
+	var cand0: String = es[0]["candidate"]
+	var cand1: String = es[1]["candidate"]
+	es[0]["candidate"] = ""
+	es[1]["candidate"] = ""
 	es[0]["look"]["accessory"] = "hardhat"
 	es[0]["look"]["hair"] = "ponytail"
 	es[1]["look"]["accessory"] = "glasses"
@@ -89,6 +94,11 @@ func run() -> void:
 	for mi in w0.model.find_children("*_Body", "MeshInstance3D", true, false):
 		tinted = tinted or mi.material_override != null or es[0]["look"]["outfit"] == 0
 	check(tinted, "2d the outfit tint is applied")
+	var w2 = game.worker_nodes[int(es[2]["id"])]
+	check(w2.find_child("QD_Ines_Body", true, false) != null and w2.find_child("HeadGear", true, false) == null and w2.rig != null,
+		"2e a named hire (Ines) wears her own rigged model, without the generic head gear")
+	es[0]["candidate"] = cand0
+	es[1]["candidate"] = cand1
 	# ---- 3: looks survive saves; older saves get a stable look
 	var snap := biz.snapshot()
 	biz.restore(snap)
