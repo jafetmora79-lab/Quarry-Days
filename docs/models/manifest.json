@@ -195,6 +195,31 @@
   "group": "Quarry Days",
   "sections": [
    {
+    "title": "Buildings",
+    "items": [
+     {
+      "name": "Garage",
+      "file": "models/procedural/buildings__garage.glb"
+     },
+     {
+      "name": "Home",
+      "file": "models/procedural/buildings__home.glb"
+     },
+     {
+      "name": "Office",
+      "file": "models/procedural/buildings__office.glb"
+     },
+     {
+      "name": "Sales Booth And Order Kiosk",
+      "file": "models/procedural/buildings__sales_booth_and_order_kiosk.glb"
+     },
+     {
+      "name": "Shed",
+      "file": "models/procedural/buildings__shed.glb"
+     }
+    ]
+   },
+   {
     "title": "Carts And Props",
     "items": [
      {
@@ -233,6 +258,63 @@
      {
       "name": "Operator",
       "file": "models/characters/CHR_QD_Operator.glb"
+     }
+    ]
+   },
+   {
+    "title": "Machinery",
+    "items": [
+     {
+      "name": "Cone Crusher",
+      "file": "models/procedural/machinery__cone_crusher.glb"
+     },
+     {
+      "name": "Conveyor",
+      "file": "models/procedural/machinery__conveyor.glb"
+     },
+     {
+      "name": "Conveyor Corner Left",
+      "file": "models/procedural/machinery__conveyor_corner_left.glb"
+     },
+     {
+      "name": "Conveyor Corner Right",
+      "file": "models/procedural/machinery__conveyor_corner_right.glb"
+     },
+     {
+      "name": "Drill Rig",
+      "file": "models/procedural/machinery__drill_rig.glb"
+     },
+     {
+      "name": "Heavy Breaker",
+      "file": "models/procedural/machinery__heavy_breaker.glb"
+     },
+     {
+      "name": "Improved Rig",
+      "file": "models/procedural/machinery__improved_rig.glb"
+     },
+     {
+      "name": "Jaw Crusher",
+      "file": "models/procedural/machinery__jaw_crusher.glb"
+     },
+     {
+      "name": "Output Storage",
+      "file": "models/procedural/machinery__output_storage.glb"
+     },
+     {
+      "name": "Rock Breaker",
+      "file": "models/procedural/machinery__rock_breaker.glb"
+     },
+     {
+      "name": "Small Hopper",
+      "file": "models/procedural/machinery__small_hopper.glb"
+     },
+     {
+      "name": "Sorting Table",
+      "file": "models/procedural/machinery__sorting_table.glb"
+     },
+     {
+      "name": "Storage Crate",
+      "file": "models/procedural/machinery__storage_crate.glb"
      }
     ]
    },
