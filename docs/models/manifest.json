@@ -1,0 +1,328 @@
+[
+ {
+  "group": "The Veil pack",
+  "sections": [
+   {
+    "title": "Commercial / Shared Props",
+    "items": [
+     {
+      "name": "Document Boxes",
+      "file": "models/veil/04_Commercial/Shared_Props/COM_DocumentBoxes.glb"
+     },
+     {
+      "name": "Filing Cabinet",
+      "file": "models/veil/04_Commercial/Shared_Props/COM_FilingCabinet.glb"
+     },
+     {
+      "name": "Notice Board",
+      "file": "models/veil/04_Commercial/Shared_Props/COM_NoticeBoard.glb"
+     },
+     {
+      "name": "Pallet Rack",
+      "file": "models/veil/04_Commercial/Shared_Props/COM_PalletRack.glb"
+     },
+     {
+      "name": "Pallet Stack",
+      "file": "models/veil/04_Commercial/Shared_Props/COM_PalletStack.glb"
+     },
+     {
+      "name": "Waiting Chairs",
+      "file": "models/veil/04_Commercial/Shared_Props/COM_WaitingChairs.glb"
+     }
+    ]
+   },
+   {
+    "title": "Residential / Exterior Modules",
+    "items": [
+     {
+      "name": "Ext Door Back Half Glass",
+      "file": "models/veil/03_Residential/Exterior_Modules/RES_Ext_Door_Back_HalfGlass.glb"
+     },
+     {
+      "name": "Ext Window Double Hung 1.1x1.3",
+      "file": "models/veil/03_Residential/Exterior_Modules/RES_Ext_Window_DoubleHung_1.1x1.3.glb"
+     },
+     {
+      "name": "Ext Window Picture 1.6x1.4",
+      "file": "models/veil/03_Residential/Exterior_Modules/RES_Ext_Window_Picture_1.6x1.4.glb"
+     }
+    ]
+   },
+   {
+    "title": "Residential / Furniture",
+    "items": [
+     {
+      "name": "Cardboard Box Stack",
+      "file": "models/veil/03_Residential/Furniture/RES_CardboardBox_Stack.glb"
+     },
+     {
+      "name": "Desk Chair Office",
+      "file": "models/veil/03_Residential/Furniture/RES_DeskChair_Office.glb"
+     },
+     {
+      "name": "Desk Computer",
+      "file": "models/veil/03_Residential/Furniture/RES_Desk_Computer.glb"
+     },
+     {
+      "name": "Shelving Metal",
+      "file": "models/veil/03_Residential/Furniture/RES_Shelving_Metal.glb"
+     },
+     {
+      "name": "Storage Bin",
+      "file": "models/veil/03_Residential/Furniture/RES_StorageBin.glb"
+     },
+     {
+      "name": "Toolbox",
+      "file": "models/veil/03_Residential/Furniture/RES_Toolbox.glb"
+     },
+     {
+      "name": "Wall Calendar",
+      "file": "models/veil/03_Residential/Furniture/RES_WallCalendar.glb"
+     },
+     {
+      "name": "Wall Clock",
+      "file": "models/veil/03_Residential/Furniture/RES_WallClock.glb"
+     },
+     {
+      "name": "Workbench",
+      "file": "models/veil/03_Residential/Furniture/RES_Workbench.glb"
+     }
+    ]
+   },
+   {
+    "title": "Town / Fences",
+    "items": [
+     {
+      "name": "Metal Railing 2.5m",
+      "file": "models/veil/02_Town/Fences/FN_MetalRailing_2.5m.glb"
+     },
+     {
+      "name": "Retaining Wall 2.5m",
+      "file": "models/veil/02_Town/Fences/FN_RetainingWall_2.5m.glb"
+     }
+    ]
+   },
+   {
+    "title": "Town / Street Props",
+    "items": [
+     {
+      "name": "Bench Wood",
+      "file": "models/veil/02_Town/Street_Props/SP_Bench_Wood.glb"
+     },
+     {
+      "name": "Dumpster",
+      "file": "models/veil/02_Town/Street_Props/SP_Dumpster.glb"
+     },
+     {
+      "name": "Lamp Commercial",
+      "file": "models/veil/02_Town/Street_Props/SP_Lamp_Commercial.glb"
+     },
+     {
+      "name": "Lamp Wall",
+      "file": "models/veil/02_Town/Street_Props/SP_Lamp_Wall.glb"
+     },
+     {
+      "name": "Road Barrier",
+      "file": "models/veil/02_Town/Street_Props/SP_RoadBarrier.glb"
+     },
+     {
+      "name": "Traffic Cone",
+      "file": "models/veil/02_Town/Street_Props/SP_TrafficCone.glb"
+     },
+     {
+      "name": "Trash Bin Public",
+      "file": "models/veil/02_Town/Street_Props/SP_TrashBin_Public.glb"
+     },
+     {
+      "name": "Utility Pole Streetlight",
+      "file": "models/veil/02_Town/Street_Props/SP_UtilityPole_Streetlight.glb"
+     }
+    ]
+   },
+   {
+    "title": "Town / Utilities",
+    "items": [
+     {
+      "name": "Electrical Cabinet",
+      "file": "models/veil/02_Town/Utilities/UT_ElectricalCabinet.glb"
+     },
+     {
+      "name": "Junction Box",
+      "file": "models/veil/02_Town/Utilities/UT_JunctionBox.glb"
+     }
+    ]
+   },
+   {
+    "title": "Town / Vegetation",
+    "items": [
+     {
+      "name": "Dead Vegetation",
+      "file": "models/veil/02_Town/Vegetation/VG_DeadVegetation.glb"
+     },
+     {
+      "name": "Dirt Mound",
+      "file": "models/veil/02_Town/Vegetation/VG_DirtMound.glb"
+     },
+     {
+      "name": "Gravel Pile",
+      "file": "models/veil/02_Town/Vegetation/VG_GravelPile.glb"
+     },
+     {
+      "name": "Mud Patch",
+      "file": "models/veil/02_Town/Vegetation/VG_MudPatch.glb"
+     },
+     {
+      "name": "Rocks Small",
+      "file": "models/veil/02_Town/Vegetation/VG_RocksSmall.glb"
+     },
+     {
+      "name": "Tree Stump",
+      "file": "models/veil/02_Town/Vegetation/VG_TreeStump.glb"
+     },
+     {
+      "name": "Tree Pine",
+      "file": "models/veil/02_Town/Vegetation/VG_Tree_Pine.glb"
+     },
+     {
+      "name": "Weeds",
+      "file": "models/veil/02_Town/Vegetation/VG_Weeds.glb"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "group": "Quarry Days",
+  "sections": [
+   {
+    "title": "Carts And Props",
+    "items": [
+     {
+      "name": "Air Compressor",
+      "file": "models/procedural/carts_and_props__air_compressor.glb"
+     },
+     {
+      "name": "Hand Cart",
+      "file": "models/procedural/carts_and_props__hand_cart.glb"
+     },
+     {
+      "name": "Reinforced Wheelbarrow",
+      "file": "models/procedural/carts_and_props__reinforced_wheelbarrow.glb"
+     },
+     {
+      "name": "Wheelbarrow",
+      "file": "models/procedural/carts_and_props__wheelbarrow.glb"
+     }
+    ]
+   },
+   {
+    "title": "Characters",
+    "items": [
+     {
+      "name": "Clerk",
+      "file": "models/characters/CHR_QD_Clerk.glb"
+     },
+     {
+      "name": "Hauler",
+      "file": "models/characters/CHR_QD_Hauler.glb"
+     },
+     {
+      "name": "Miner",
+      "file": "models/characters/CHR_QD_Miner.glb"
+     },
+     {
+      "name": "Operator",
+      "file": "models/characters/CHR_QD_Operator.glb"
+     }
+    ]
+   },
+   {
+    "title": "Repair Parts",
+    "items": [
+     {
+      "name": "Battery",
+      "file": "models/procedural/repair_parts__battery.glb"
+     },
+     {
+      "name": "Fuel",
+      "file": "models/procedural/repair_parts__fuel.glb"
+     },
+     {
+      "name": "Hose",
+      "file": "models/procedural/repair_parts__hose.glb"
+     }
+    ]
+   },
+   {
+    "title": "Tools",
+    "items": [
+     {
+      "name": "Flat Chisel",
+      "file": "models/procedural/tools__flat_chisel.glb"
+     },
+     {
+      "name": "Hand Splitter",
+      "file": "models/procedural/tools__hand_splitter.glb"
+     },
+     {
+      "name": "Hardened Pickaxe",
+      "file": "models/procedural/tools__hardened_pickaxe.glb"
+     },
+     {
+      "name": "Ladder 1",
+      "file": "models/procedural/tools__ladder_1.glb"
+     },
+     {
+      "name": "Ladder 2",
+      "file": "models/procedural/tools__ladder_2.glb"
+     },
+     {
+      "name": "Ladder 3",
+      "file": "models/procedural/tools__ladder_3.glb"
+     },
+     {
+      "name": "Pneumatic Chisel",
+      "file": "models/procedural/tools__pneumatic_chisel.glb"
+     },
+     {
+      "name": "Pointed Chisel",
+      "file": "models/procedural/tools__pointed_chisel.glb"
+     },
+     {
+      "name": "Powered Hammer",
+      "file": "models/procedural/tools__powered_hammer.glb"
+     },
+     {
+      "name": "Repaired Pickaxe",
+      "file": "models/procedural/tools__repaired_pickaxe.glb"
+     },
+     {
+      "name": "Sledgehammer",
+      "file": "models/procedural/tools__sledgehammer.glb"
+     },
+     {
+      "name": "Steel Pickaxe",
+      "file": "models/procedural/tools__steel_pickaxe.glb"
+     }
+    ]
+   },
+   {
+    "title": "Vehicles",
+    "items": [
+     {
+      "name": "Excavator",
+      "file": "models/procedural/vehicles__excavator.glb"
+     },
+     {
+      "name": "Loader",
+      "file": "models/procedural/vehicles__loader.glb"
+     },
+     {
+      "name": "Truck",
+      "file": "models/procedural/vehicles__truck.glb"
+     }
+    ]
+   }
+  ]
+ }
+]

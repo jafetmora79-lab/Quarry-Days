@@ -270,3 +270,12 @@ Open the project in the Godot Android editor (or run it on any touchscreen with 
 
 - Fonts: Atkinson Hyperlegible (UI body text) and Silkscreen (large headings only), both under the SIL Open Font License 1.1 (`assets/fonts/*-OFL.txt`).
 - Sounds: synthesized by `tools/qd_sounds.py`. Rock textures: painted by `tools/qd_textures.py` from THE VEIL palette.
+
+## 3D asset preview page
+
+`docs/index.html` is a three.js viewer for every model (the Veil pack, the characters and the game's generated vehicles, tools, carts and repair parts). Publish it with GitHub Pages (Settings → Pages → Deploy from a branch → branch + `/docs`). To refresh it after changing models:
+
+```bash
+godot --headless -s tools/export_procedural_models.gd -- docs/models/procedural
+python3 tools/build_asset_preview.py
+```

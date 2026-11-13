@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quarry Days 3D Assets</title>
+<style>
+  :root { --bg:#f4efe6; --panel:#fffaf0; --ink:#2b2418; --dim:#7b6f5c; --line:#dcd2bf; --accent:#c9741a; --view:#e9e2d3; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#1b1812; --panel:#262218; --ink:#f0e8d6; --dim:#a39679; --line:#3a3425; --accent:#e8923a; --view:#14120d; } }
+  :root[data-theme="dark"] { --bg:#1b1812; --panel:#262218; --ink:#f0e8d6; --dim:#a39679; --line:#3a3425; --accent:#e8923a; --view:#14120d; }
+  * { box-sizing:border-box; }
+  [hidden] { display:none !important; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--ink); font:14px/1.4 system-ui,-apple-system,Segoe UI,sans-serif; }
+  #app { display:grid; grid-template-columns:300px 1fr; height:100vh; }
+  aside { background:var(--panel); border-right:1px solid var(--line); display:flex; flex-direction:column; min-height:0; }
+  header { padding:14px 16px 10px; border-bottom:1px solid var(--line); }
+  header h1 { margin:0 0 8px; font-size:16px; letter-spacing:.04em; }
+  #q { width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--ink); font:inherit; }
+  #list { overflow:auto; padding:6px 8px 20px; flex:1; }
+  .grp { margin:12px 8px 2px; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--accent); font-weight:700; }
+  .sec { margin:8px 8px 2px; font-size:12px; color:var(--dim); }
+  .item { display:block; width:100%; text-align:left; padding:6px 10px; border:0; border-radius:6px; background:none; color:var(--ink); font:inherit; cursor:pointer; }
+  .item:hover { background:var(--bg); }
+  .item.on { background:var(--accent); color:#fff; }
+  main { position:relative; min-width:0; background:var(--view); }
+  #stage { position:absolute; inset:0; }
+  #info { position:absolute; left:16px; top:14px; pointer-events:none; text-shadow:0 1px 0 var(--view); }
+  #info h2 { margin:0; font-size:18px; }
+  #info p { margin:2px 0 0; color:var(--dim); font-size:12px; }
+  #bar { position:absolute; left:50%; bottom:16px; transform:translateX(-50%); display:flex; gap:6px; flex-wrap:wrap; justify-content:center; padding:6px; background:var(--panel); border:1px solid var(--line); border-radius:10px; max-width:calc(100% - 24px); }
+  #bar button, #bar select { padding:6px 10px; border:1px solid var(--line); border-radius:7px; background:var(--bg); color:var(--ink); font:inherit; cursor:pointer; }
+  #bar button.on { background:var(--accent); color:#fff; border-color:var(--accent); }
+  #msg { position:absolute; inset:0; display:grid; place-items:center; color:var(--dim); pointer-events:none; }
+  #menu { display:none; position:absolute; left:10px; top:10px; z-index:5; padding:6px 10px; border:1px solid var(--line); border-radius:8px; background:var(--panel); color:var(--ink); font:inherit; }
+  @media (max-width:760px) {
+    #app { grid-template-columns:1fr; }
+    aside { position:absolute; inset:0 20% 0 0; z-index:4; transform:translateX(-100%); transition:transform .2s; }
+    aside.open { transform:none; }
+    #menu { display:block; }
+    #info { left:16px; top:52px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="side">
+    <header><h1>QUARRY DAYS · 3D ASSETS</h1><input id="q" type="search" placeholder="Search models" autocomplete="off"></header>
+    <div id="list"></div>
+  </aside>
+  <main>
+    <button id="menu">Models</button>
+    <div id="stage"></div>
+    <div id="info"><h2 id="name"></h2><p id="meta"></p></div>
+    <div id="msg">Loading…</div>
+    <div id="bar">
+      <button id="rot" class="on">Auto-rotate</button>
+      <button id="wire">Wireframe</button>
+      <button id="grid" class="on">Grid</button>
+      <button id="flat">Flat shading</button>
+      <button id="theme">Light / dark</button>
+      <select id="anim" hidden></select>
+      <button id="reset">Reset view</button>
+    </div>
+  </main>
+</div>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+
+const $ = (id) => document.getElementById(id);
+const stage = $("stage");
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+stage.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(40, 1, 0.01, 500);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 1.6;
+scene.add(new THREE.HemisphereLight(0xfff1d6, 0x6a5c44, 1.15));
+const sun = new THREE.DirectionalLight(0xfff0d0, 2.0);
+sun.position.set(4, 8, 5);
+scene.add(sun);
+const fill = new THREE.DirectionalLight(0xb8cfff, 0.6);
+fill.position.set(-5, 3, -4);
+scene.add(fill);
+const grid = new THREE.GridHelper(20, 40, 0x887755, 0xbbaa88);
+grid.material.transparent = true;
+grid.material.opacity = 0.35;
+scene.add(grid);
+
+let current = null, mixer = null, home = null, wire = false, flat = false;
+const clock = new THREE.Clock();
+const loader = new GLTFLoader();
+
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+addEventListener("resize", resize);
+resize();
+
+function applyMaterials() {
+  if (!current) return;
+  current.traverse((o) => {
+    if (!o.isMesh) return;
+    for (const m of [].concat(o.material)) {
+      m.wireframe = wire;
+      if (m.flatShading !== flat) { m.flatShading = flat; m.needsUpdate = true; }
+    }
+  });
+}
+
+function frame(obj) {
+  const box = new THREE.Box3().setFromObject(obj);
+  const size = box.getSize(new THREE.Vector3());
+  const c = box.getCenter(new THREE.Vector3());
+  obj.position.sub(new THREE.Vector3(c.x, box.min.y, c.z));
+  const r = Math.max(size.x, size.y, size.z) || 1;
+  grid.scale.setScalar(Math.max(0.1, r / 8));
+  home = { pos: new THREE.Vector3(r * 1.5, r * 1.0, r * 1.7), target: new THREE.Vector3(0, size.y * 0.45, 0) };
+  camera.near = r / 200; camera.far = r * 100; camera.updateProjectionMatrix();
+  resetView();
+  return { size, r };
+}
+function resetView() { if (home) { camera.position.copy(home.pos); controls.target.copy(home.target); controls.update(); } }
+
+function show(item, push = true) {
+  document.querySelectorAll(".item").forEach((b) => b.classList.toggle("on", b.dataset.file === item.file));
+  $("msg").textContent = "Loading…"; $("msg").hidden = false;
+  $("side").classList.remove("open");
+  if (push) history.replaceState(null, "", "#" + encodeURIComponent(item.file));
+  loader.load(item.file, (gltf) => {
+    if (current) scene.remove(current);
+    current = gltf.scene;
+    scene.add(current);
+    const { size } = frame(current);
+    let tris = 0;
+    current.traverse((o) => { if (o.isMesh) { const g = o.geometry; tris += (g.index ? g.index.count : g.attributes.position.count) / 3; } });
+    $("name").textContent = item.name;
+    $("meta").textContent = `${Math.round(tris).toLocaleString()} triangles · ${size.x.toFixed(2)} × ${size.y.toFixed(2)} × ${size.z.toFixed(2)} m · ${item.file.split("/").pop()}`;
+    mixer = null;
+    const sel = $("anim"); sel.innerHTML = ""; sel.hidden = true;
+    if (gltf.animations.length) {
+      mixer = new THREE.AnimationMixer(current);
+      sel.hidden = false;
+      sel.add(new Option("Static pose", -1));
+      gltf.animations.forEach((a, i) => sel.add(new Option(a.name || "Clip " + (i + 1), i)));
+      sel.onchange = () => { mixer.stopAllAction(); if (+sel.value >= 0) mixer.clipAction(gltf.animations[+sel.value]).play(); };
+    }
+    applyMaterials();
+    $("msg").hidden = true;
+  }, undefined, () => { $("msg").textContent = "Could not load " + item.file; });
+}
+
+const all = [];
+fetch("models/manifest.json").then((r) => r.json()).then((manifest) => {
+  const list = $("list");
+  for (const g of manifest) {
+    const gh = document.createElement("div"); gh.className = "grp"; gh.textContent = g.group; list.appendChild(gh);
+    for (const s of g.sections) {
+      const sh = document.createElement("div"); sh.className = "sec"; sh.textContent = s.title; list.appendChild(sh);
+      for (const it of s.items) {
+        const b = document.createElement("button");
+        b.className = "item"; b.textContent = it.name; b.dataset.file = it.file;
+        b.onclick = () => show(it);
+        list.appendChild(b);
+        all.push({ it, b, sh, gh, text: (it.name + " " + s.title + " " + g.group).toLowerCase() });
+      }
+    }
+  }
+  const want = decodeURIComponent(location.hash.slice(1));
+  const first = all.find((a) => a.it.file === want) || all.find((a) => a.it.file.includes("vehicles__excavator")) || all[0];
+  if (first) show(first.it, false);
+});
+
+$("q").addEventListener("input", (e) => {
+  const q = e.target.value.trim().toLowerCase();
+  const secs = new Set(), grps = new Set();
+  for (const a of all) { const ok = !q || a.text.includes(q); a.b.hidden = !ok; if (ok) { secs.add(a.sh); grps.add(a.gh); } }
+  document.querySelectorAll(".sec").forEach((s) => (s.hidden = !secs.has(s)));
+  document.querySelectorAll(".grp").forEach((s) => (s.hidden = !grps.has(s)));
+});
+const toggle = (id, fn) => $(id).addEventListener("click", () => { const on = $(id).classList.toggle("on"); fn(on); });
+toggle("rot", (on) => (controls.autoRotate = on));
+toggle("wire", (on) => { wire = on; applyMaterials(); });
+toggle("grid", (on) => (grid.visible = on));
+toggle("flat", (on) => { flat = on; applyMaterials(); });
+$("reset").onclick = resetView;
+$("theme").onclick = () => {
+  const root = document.documentElement;
+  const dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  root.dataset.theme = dark ? "light" : "dark";
+};
+$("menu").onclick = () => $("side").classList.toggle("open");
+
+renderer.setAnimationLoop(() => {
+  if (mixer) mixer.update(clock.getDelta()); else clock.getDelta();
+  controls.update();
+  renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>
