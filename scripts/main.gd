@@ -20,11 +20,17 @@ const ExcavationScript = preload("res://scripts/excavation.gd")
 const RigScript = preload("res://scripts/rig.gd")
 const MINE_REACH := 2.6 # tools reach a little past the visual lunge (QuarryToolView.REACH_MAX)
 const HILLSIDE_ID := "hillside_face_01"
-const HOME_POS := Vector3(-8.6, 0, 18.9)
-const OFFICE_POS := Vector3(-15.5, 0, 12)
-const SHED_POS := Vector3(15.5, 0, 12)
-const TOOLSHED_POS := Vector3(-7.6, 0, 10.0)       ## the tool upgrade shed (it used to be a corner of the office)
-const SELL_ANCHOR := Vector3(-12.3, 0.85, 9.0)     ## where carts and the sales clerk deal: just outside the office door (there is no sales stand any more)
+## Where the yard's buildings stand. The blueprint world (new games) lays the yard out as drawn: tool shed top-left, office top-right,
+## storage beside the tool shed, house bottom-right, garage along the bottom with the tunnel coming in from the west (see _init_layout).
+var HOME_POS := Vector3(-8.6, 0, 18.9)
+var OFFICE_POS := Vector3(-15.5, 0, 12)
+var SHED_POS := Vector3(15.5, 0, 12)
+var TOOLSHED_POS := Vector3(-7.6, 0, 10.0)         ## the tool upgrade shed (it used to be a corner of the office)
+var SELL_ANCHOR := Vector3(-12.3, 0.85, 9.0)       ## where carts and the sales clerk deal: just outside the office door (there is no sales stand any more)
+var STORAGE_POS := Vector3(10, 0.65, 10)           ## the storage crate
+var GARAGE_DX := 0.0                               ## the garage row's shift along x (blueprint: it sits further west)
+var EXP_DZ := 0.0                                  ## the east extension's shift along z (blueprint: south of the quarry fence)
+var blueprint := false                             ## true in the blueprint world (the new game)
 const SAVE_PATH := "user://quarry_save.json"
 const SAVE_BACKUP := "user://quarry_save.bak"
 const AUTOSAVE_SECONDS := 60.0
@@ -162,6 +168,8 @@ func _ready() -> void:
 	var pcfg = JSON.parse_string(FileAccess.get_file_as_string("res://data/progression.json"))
 	prog = ProgressionScript.new(state, business, pcfg)
 	prog.natural_start_enabled = natural_start_enabled
+	_peek_save_layout()
+	_init_layout()
 	prog.protect = Callable(self, "_column_has_player")
 	business.prog = prog
 	state.money = int(pcfg.get("new_game_money", state.money))
@@ -254,6 +262,39 @@ func _ready() -> void:
 		call_deferred("_show_intro")
 	Engine.remove_meta("qd_skip_title") if Engine.has_meta("qd_skip_title") else null
 
+## A save from before Phase 10 (or the legacy start) lives in the old world: say so before the world is built, so its geometry matches.
+func _peek_save_layout() -> void:
+	if not autosave_enabled or not FileAccess.file_exists(SAVE_PATH):
+		return
+	var data = _read_save()
+	if data == null or not data is Dictionary:
+		return
+	var p5 = data.get("phase5", {})
+	var st = p5.get("story", {}) if p5 is Dictionary else {}
+	var legacy := true
+	if st is Dictionary and st.get("excavator", null) is Dictionary:
+		legacy = bool((st["excavator"] as Dictionary).get("legacy", false))
+	if legacy:
+		prog.story["excavator"]["legacy"] = true
+
+func _init_layout() -> void:
+	blueprint = prog.filled_world()
+	if not blueprint:
+		return
+	TOOLSHED_POS = Vector3(-17.0, 0, 3.5)
+	SHED_POS = Vector3(-9.0, 0, 3.5)
+	OFFICE_POS = Vector3(13.0, 0, 3.5)
+	HOME_POS = Vector3(17.5, 0, 17.5)
+	SELL_ANCHOR = Vector3(9.0, 0.85, -1.2)
+	STORAGE_POS = Vector3(8.0, 0.65, 9.5)
+	business.storage_pos = Vector3(STORAGE_POS.x, 0.0, STORAGE_POS.z)
+	GARAGE_DX = -8.0
+	PARK_X_MIN = -4.4 + GARAGE_DX
+	PARK_X_MAX = 14.0 + GARAGE_DX
+	EXP_DZ = 12.0
+	for slot in fleet.cfg.get("parking", []):
+		slot[0] = float(slot[0]) + GARAGE_DX
+
 func _audio(path: String, volume: float) -> AudioStreamPlayer:
 	var audio := AudioStreamPlayer.new()
 	audio.stream = load(path)
@@ -308,38 +349,41 @@ func _visual_box(parent: Node3D, pos: Vector3, size: Vector3, color: Color, yaw 
 	return mesh
 
 func _build_quarry() -> void:
-	# Phase 5: the floor is split around the future excavation pit; thick pieces form solid pit walls.
-	var pit: Array = prog.cfg["excavation"]["pit"]
-	var x0 := float(pit[0])
-	var z0 := float(pit[1])
-	var x1 := float(pit[2])
-	var z1 := float(pit[3])
-	_solid(world, "Quarry floor", Vector3(0, -0.25, (z1 + 29.0) * 0.5), Vector3(58, 0.5, 29.0 - z1), Color(0.38,0.34,0.28))
-	_floor_piece("Quarry floor north", Vector3(0, -2.75, (z0 - 29.0) * 0.5), Vector3(58, 5.5, z0 + 29.0))
-	_floor_piece("Quarry floor west", Vector3((x0 - 29.0) * 0.5, -2.75, (z0 + z1) * 0.5), Vector3(x0 + 29.0, 5.5, z1 - z0))
-	_floor_piece("Quarry floor east", Vector3((x1 + 29.0) * 0.5, -2.75, (z0 + z1) * 0.5), Vector3(29.0 - x1, 5.5, z1 - z0))
-	_floor_piece("Quarry floor south wall", Vector3((x0 + x1) * 0.5, -3.0, z1 + 0.25), Vector3(x1 - x0, 5.0, 0.5))
-	# The lower pit is open toward the office; the stepped rim provides a walkable entrance.
-	for i in range(8 if not natural_start_enabled else 0):       # the old pit's rim slabs belong to the legacy layout; in the new one they stood inside the hangar
-		var angle := (float(i) + 0.5) * TAU / 8.0
-		var pos := Vector3(cos(angle)*19, 1.1, -8 + sin(angle)*19)
-		if pos.z > 5 and absf(pos.x) < 8:
-			continue
-		_solid(world, "Excavated rim", pos, Vector3(12,2.2,3.4), Color(0.40,0.36,0.30), -angle-PI/2)
-	for i in range(10):
-		var angle := float(i)*TAU/10.0
-		var cpos := Vector3(cos(angle)*27, 3.0, sin(angle)*27)
-		var cliff := _solid(world, "Cliff", cpos, Vector3(10,6,5), Color(0.32+0.025*(i%3),0.32,0.29), -angle-PI/2)
-		if i == 0:
-			expansion_gate.append(cliff)
-	for x in [-20.0,-15.0,15.0,21.0]:
-		for z in [-22.0,16.0,22.0]:
-			if absf(x) < 19 and z < 0:
+	if blueprint:
+		_build_blueprint_ground()
+	else:
+		# Phase 5: the floor is split around the future excavation pit; thick pieces form solid pit walls.
+		var pit: Array = prog.cfg["excavation"]["pit"]
+		var x0 := float(pit[0])
+		var z0 := float(pit[1])
+		var x1 := float(pit[2])
+		var z1 := float(pit[3])
+		_solid(world, "Quarry floor", Vector3(0, -0.25, (z1 + 29.0) * 0.5), Vector3(58, 0.5, 29.0 - z1), Color(0.38,0.34,0.28))
+		_floor_piece("Quarry floor north", Vector3(0, -2.75, (z0 - 29.0) * 0.5), Vector3(58, 5.5, z0 + 29.0))
+		_floor_piece("Quarry floor west", Vector3((x0 - 29.0) * 0.5, -2.75, (z0 + z1) * 0.5), Vector3(x0 + 29.0, 5.5, z1 - z0))
+		_floor_piece("Quarry floor east", Vector3((x1 + 29.0) * 0.5, -2.75, (z0 + z1) * 0.5), Vector3(29.0 - x1, 5.5, z1 - z0))
+		_floor_piece("Quarry floor south wall", Vector3((x0 + x1) * 0.5, -3.0, z1 + 0.25), Vector3(x1 - x0, 5.0, 0.5))
+		# The lower pit is open toward the office; the stepped rim provides a walkable entrance.
+		for i in range(8 if not natural_start_enabled else 0):       # the old pit's rim slabs belong to the legacy layout; in the new one they stood inside the hangar
+			var angle := (float(i) + 0.5) * TAU / 8.0
+			var pos := Vector3(cos(angle)*19, 1.1, -8 + sin(angle)*19)
+			if pos.z > 5 and absf(pos.x) < 8:
 				continue
-			if in_hillside_zone(Vector3(x, 0, z), 1.5):
-				continue # the hillside replaces this corner of the rim
-			_solid(world,"Tree trunk",Vector3(x,1.1,z),Vector3(0.5,2.2,0.5),Color(0.24,0.18,0.12))
-			_visual_box(world,Vector3(x,2.85,z),Vector3(2.1,2.5,2.1),Color(0.13,0.24,0.16))
+			_solid(world, "Excavated rim", pos, Vector3(12,2.2,3.4), Color(0.40,0.36,0.30), -angle-PI/2)
+		for i in range(10):
+			var angle := float(i)*TAU/10.0
+			var cpos := Vector3(cos(angle)*27, 3.0, sin(angle)*27)
+			var cliff := _solid(world, "Cliff", cpos, Vector3(10,6,5), Color(0.32+0.025*(i%3),0.32,0.29), -angle-PI/2)
+			if i == 0:
+				expansion_gate.append(cliff)
+		for x in [-20.0,-15.0,15.0,21.0]:
+			for z in [-22.0,16.0,22.0]:
+				if absf(x) < 19 and z < 0:
+					continue
+				if in_hillside_zone(Vector3(x, 0, z), 1.5):
+					continue # the hillside replaces this corner of the rim
+				_solid(world,"Tree trunk",Vector3(x,1.1,z),Vector3(0.5,2.2,0.5),Color(0.24,0.18,0.12))
+				_visual_box(world,Vector3(x,2.85,z),Vector3(2.1,2.5,2.1),Color(0.13,0.24,0.16))
 	_building("Office", OFFICE_POS, Color(0.48,0.42,0.31))
 	_building("Storage shed", SHED_POS, Color(0.38,0.37,0.31))
 	_building("Home", HOME_POS, Color(0.46,0.38,0.28))
@@ -352,7 +396,7 @@ func _build_quarry() -> void:
 	sell.set_meta("kind","sell_anchor")
 	sell_body = sell
 	_build_workbench()
-	var storage := _solid(world,"Storage crate",Vector3(10,0.65,10),Vector3(2,1.3,1.6),Color(0.33,0.23,0.13))
+	var storage := _solid(world,"Storage crate",STORAGE_POS,Vector3(2,1.3,1.6),Color(0.33,0.23,0.13))
 	storage.set_meta("kind","storage")
 	storage.set_meta("index",0)
 	storage_body = storage
@@ -380,6 +424,22 @@ func _build_quarry() -> void:
 	daylight.rotation_degrees = Vector3(-46,-24,0)
 	daylight.light_energy = 1.4
 	add_child(daylight)
+
+## The blueprint world's ground: one solid ground plane for the yard and everything south and beside it (the quarry's own ground is built by the
+## pit zone), boundary walls round the property, and the mountain mass the west tunnel runs into. Everything is collision only; the art layer
+## (QuarryArt._blueprint_world) draws the surface, fences, mountains and forests.
+func _build_blueprint_ground() -> void:
+	var g := _floor_piece("World floor", Vector3(0, -2.75, 36.0), Vector3(400.0, 5.5, 88.0))        # z -8 .. 80: the yard, the service lane, the land beside them
+	g.name = "Quarry floor"
+	var h := 9.0
+	_solid(world, "Boundary south", Vector3(0, h * 0.5, 80.5), Vector3(400.0, h, 1.0), Color(0.3, 0.3, 0.3)).visible = false
+	_solid(world, "Boundary west", Vector3(-200.5, h * 0.5, 36.0), Vector3(1.0, h, 90.0), Color(0.3, 0.3, 0.3)).visible = false
+	_solid(world, "Boundary east", Vector3(200.5, h * 0.5, 36.0), Vector3(1.0, h, 90.0), Color(0.3, 0.3, 0.3)).visible = false
+	# the yard's west and east edges outside the tunnel: solid so nobody walks out of the property onto the mountain side
+	for part in [[-8.0, 21.3], [29.5, 80.0]]:          # the mountain north and south of the tunnel (the tunnel's own walls and roof stand between them)
+		var m := _solid(world, "Tunnel mountain", Vector3(-62.0, 4.0, (float(part[0]) + float(part[1])) * 0.5), Vector3(76.0, 8.0, float(part[1]) - float(part[0])), Color(0.34, 0.33, 0.3))
+		m.visible = false
+		m.set_meta("nav_skip", true)
 
 ## Invisible walkable ground block (the art layer draws the surface).
 func _floor_piece(label: String, pos: Vector3, size: Vector3) -> StaticBody3D:
@@ -769,11 +829,11 @@ func _on_site_cleared() -> void:
 # ------------------------------------------------------------------ Phase 6.3a: the pit area behind the north-east gate
 
 func pit_gate_xf() -> Transform3D:
-	return PitZoneScript.gate_transform(prog.cfg.get("pit_zone", {}))
+	return PitZoneScript.gate_transform(prog.pit_cfg())
 
 ## True near the access corridor (world builders use it to keep scenery out of the way).
 func in_pit_corridor(p: Vector3, margin := 0.0) -> bool:
-	var c: Dictionary = prog.cfg.get("pit_zone", {})
+	var c: Dictionary = prog.pit_cfg()
 	if c.is_empty():
 		return false
 	var l := pit_gate_xf().affine_inverse() * p
@@ -781,7 +841,7 @@ func in_pit_corridor(p: Vector3, margin := 0.0) -> bool:
 
 ## Retires the ring pieces in the gate's mouth (low rim walls, the cliff filler) and builds the zone behind it.
 func _build_pit_zone() -> void:
-	if prog.cfg.get("pit_zone", {}).is_empty():
+	if prog.pit_cfg().is_empty():
 		return
 	var inv := pit_gate_xf().affine_inverse()
 	for body in world.get_children():
@@ -822,6 +882,8 @@ func _sync_pit_gate() -> void:
 
 ## Footprint of the Phase 6.1 hillside (world xz), from its formation data. Empty rect when the data has none.
 func hillside_rect() -> Rect2:
+	if blueprint:
+		return Rect2()            # there is no hillside in the blueprint world: its rock is the quarry itself
 	var f: Dictionary = prog.fdef(HILLSIDE_ID)
 	if f.is_empty():
 		return Rect2()
@@ -1392,23 +1454,26 @@ func _look_target() -> Node3D:
 ## Which contract area the player (or the machine they drive) is standing in: the yard-side Area 1 by its rectangle, the pit areas by
 ## the pit's own frame and floor height (basin floor = Area 2, the level-2 pit = Area 3). "" in the yard or elsewhere.
 func area_at(p: Vector3) -> String:
+	if pit_zone != null and is_instance_valid(pit_zone):
+		var l: Vector3 = pit_zone.to_loc(p)
+		for lp in pit_zone.level_pits:
+			var r: Rect2 = lp["rect"]
+			if r.has_point(Vector2(l.x, l.z)) and l.y < float(lp["y_bot"]) + 1.6 and l.y > float(lp["y_bot"]) - 1.0:
+				for ad in prog.area_defs():
+					if int(ad.get("level", 0)) == int(lp["n"]) + 0 and ad.get("frame", "") == "pit":
+						var zr: Array = ad.get("z_range_filled", ad.get("z_range", [])) if prog.filled_world() else ad.get("z_range", [])
+						var xr: Array = ad.get("x_range", []) if prog.filled_world() else []
+						if (zr.is_empty() or (l.z >= float(zr[0]) and l.z <= float(zr[1]))) and (xr.is_empty() or (l.x >= float(xr[0]) and l.x <= float(xr[1]))):
+							return str(ad["id"])
+				return ""
 	var a1 := prog.area_for_point(p)
 	if a1 != "":
 		return a1
-	if pit_zone == null or not is_instance_valid(pit_zone):
+	if pit_zone == null or not is_instance_valid(pit_zone) or prog.filled_world():
 		return ""
-	var l: Vector3 = pit_zone.to_loc(p)
-	for lp in pit_zone.level_pits:
-		var r: Rect2 = lp["rect"]
-		if r.has_point(Vector2(l.x, l.z)) and l.y < float(lp["y_bot"]) + 1.6 and l.y > float(lp["y_bot"]) - 1.0:
-			for ad in prog.area_defs():
-				if int(ad.get("level", 0)) == int(lp["n"]) + 0 and ad.get("frame", "") == "pit":
-					var zr: Array = ad.get("z_range_filled", ad.get("z_range", [])) if prog.filled_world() else ad.get("z_range", [])
-					if zr.is_empty() or (l.z >= float(zr[0]) and l.z <= float(zr[1])):
-						return str(ad["id"])
-			return ""
-	if absf(l.x) <= pit_zone.basin_w * 0.5 and l.z <= pit_zone.basin_zs() and l.z >= pit_zone.basin_zn() and l.y > -5.0 and l.y < (3.0 if prog.filled_world() else -2.0):
-		return "area_2"           # the surface of the quarry (filled quarry: the top of the layers, flush with the plateau)
+	var l2: Vector3 = pit_zone.to_loc(p)
+	if absf(l2.x) <= pit_zone.basin_w * 0.5 and l2.z <= pit_zone.basin_zs() and l2.z >= pit_zone.basin_zn() and l2.y > -5.0 and l2.y < -2.0:
+		return "area_2"
 	return ""
 
 var _area_check_t := 0.0
@@ -1436,7 +1501,7 @@ func _physics_process(delta: float) -> void:
 		return
 	if art and art.garage_roof:
 		# the chase camera would sit inside the roof: take the roof off while a vehicle is driven under it
-		var inside := driving != null and driving.global_position.x > -6.5 and driving.global_position.x < 16.0 and driving.global_position.z > 12.5 and driving.global_position.z < 24.0
+		var inside := driving != null and driving.global_position.x > -6.5 + GARAGE_DX and driving.global_position.x < 16.0 + GARAGE_DX and driving.global_position.z > 12.5 and driving.global_position.z < 24.0
 		art.garage_roof.visible = not inside
 	safety.tick(delta)
 	if fossil_reveal_active and Input.is_action_just_pressed("interact"):
@@ -2328,7 +2393,7 @@ func _ensure_opening() -> void:
 		var rec := fleet.give("starter_excavator", Vector3(float(pp[0]), float(pp[1]), float(pp[2])), float(oc.get("yaw", 0.0)))
 		if not rec.is_empty():
 			ex["granted"] = true
-			var tc: Dictionary = prog.cfg.get("soil", {}).get("truck", {})
+			var tc: Dictionary = prog.cfg_for("soil").get("truck", {})
 			if not tc.is_empty() and not fleet.owns_type("starter_truck"):
 				var tp: Array = tc["pos"]
 				fleet.give("starter_truck", Vector3(float(tp[0]), float(tp[1]), float(tp[2])), float(tc.get("yaw", 0.0)))
@@ -2394,7 +2459,7 @@ func _build_natural_ground(natural: bool) -> void:
 	var ok := func(p: Vector2) -> bool:
 		var v := Vector3(p.x, 0.0, p.y)
 		return not in_pit_corridor(v, 5.0) and not in_hillside_zone(v, 4.0) and not hub_rect().grow(3.0).has_point(p) and p.distance_to(Vector2(2.0, -14.0)) > 3.0 and p.distance_to(Vector2(11.5, -11.0)) > 3.0 and absf(p.x) > 4.4 
-	var info := OpeningModels.natural_ground(world, ok, Rect2(-23.0, -29.0, 46.0, 21.5), 1010)
+	var info := OpeningModels.natural_ground(world, ok, Rect2(-23.0, -29.0, 46.0, 21.5) if not blueprint else Rect2(-32.0, -56.0, 64.0, 42.0), 1010)
 	natural_root = info["root"]
 	_build_soil()
 	natural_root.set_meta("counts", {"boulders": info["boulders"], "outcrops": info["outcrops"], "patches": info["patches"], "scrub": info["scrub"], "pebbles": info["pebbles"]})
@@ -2402,7 +2467,7 @@ func _build_natural_ground(natural: bool) -> void:
 
 ## The soil field: cells clear of the boulders and outcrops, the paths, the ore outcrops and the spoil heap. State comes from the save.
 func _build_soil() -> void:
-	var sc: Dictionary = prog.cfg.get("soil", {})
+	var sc: Dictionary = prog.cfg_for("soil")
 	if sc.is_empty() or (soil and is_instance_valid(soil)):
 		return
 	var cols := int(sc["cols"])
@@ -3402,7 +3467,7 @@ func _rebake_nav() -> void:
 	mesh.agent_radius = 0.5
 	mesh.agent_height = 1.75
 	mesh.agent_max_climb = 0.25
-	mesh.filter_baking_aabb = AABB(Vector3(-30,-6,-30), Vector3(82,14,60))
+	mesh.filter_baking_aabb = AABB(Vector3(-30,-6,-30), Vector3(82,14,60)) if not blueprint else AABB(Vector3(-50,-6,-30), Vector3(102,14,62))
 	NavigationServer3D.bake_from_source_geometry_data(mesh, source)
 	nav_region.navigation_mesh = mesh
 	nav_version += 1
@@ -3420,6 +3485,9 @@ func is_visible_to_player(pos: Vector3) -> bool:
 
 ## Where off-duty workers leave the site and come back to work: the service gate (there is no break area any more).
 func break_spot(slot: int) -> Vector3:
+	if blueprint:
+		var g := QuarryDelivery.gate_for(true)
+		return Vector3(g.x - 0.9 * float(clampi(slot, 0, 3) / 3), 0, g.z + 0.9 * float(clampi(slot, 0, 3) % 3 - 1))
 	return Vector3(0.5 + 0.9 * float(clampi(slot, 0, 3) % 3 - 1), 0, QuarryDelivery.GATE.z - 0.9 * float(clampi(slot, 0, 3) / 3))
 
 ## Standing area for a workplace endpoint: centre, radius of reachable ring, preferred side.
@@ -3970,8 +4038,8 @@ func _sync_vehicles(rebuild := false) -> void:
 ## Equipment parking (Phase 8.3). Bays are not fixed any more: a machine is packed into the garage row (tail toward the door,
 ## nose toward the apron), left to right, wherever its real footprint fits between the walls, people and the machines already
 ## there. When the garage row is full it goes on the apron in front of the garage, in a second row.
-const PARK_X_MIN := -4.4
-const PARK_X_MAX := 14.0
+var PARK_X_MIN := -4.4
+var PARK_X_MAX := 14.0
 const GARAGE_TAIL_Z := 20.7       ## the back edge of a machine in the garage row
 const APRON_TAIL_Z := 14.6        ## the back edge of a machine in the apron row
 
@@ -4422,7 +4490,7 @@ func dump_target(point: Vector3, radius: float, from: QuarryVehicle) -> Dictiona
 			best_d = d
 			best = {"ep": c[0]}
 	if spoil_node and is_instance_valid(spoil_node) and fleet.cargo_total(fleet.vehicle(from.vehicle_id)) > 0 and int(fleet.vehicle(from.vehicle_id)["cargo"].get("soil", 0)) > 0:
-		var sr := float(prog.cfg["soil"]["spoil"]["radius"])
+		var sr := float(prog.cfg_for("soil")["spoil"]["radius"])
 		var spoil_d := _flat_dist(point, spoil_node.global_position)
 		if spoil_d < sr + 1.5:
 			best = {"spoil": true}
@@ -4877,7 +4945,11 @@ func _truck_depart() -> void:
 		_truck_leaves(true)      # something is parked in the lane: it is simply gone by the next frame
 		return
 	t.collision_layer = 0
-	truck_route = [Vector3(-2.0, 0.0, p.z), Vector3(0.5, 0.0, p.z + 2.6), Vector3(0.5, 0.0, 15.0), Vector3(0.5, 0.0, 26.0), Vector3(0.5, 0.0, 43.0)]
+	if blueprint:
+		# out of the yard: west along the open lane north of the garage, down the west side to the service lane, through the tunnel gate
+		truck_route = [Vector3(p.x, 0.0, 11.5), Vector3(-19.5, 0.0, 11.5), Vector3(-19.5, 0.0, delivery.door_c.z), Vector3(delivery.door_c.x + 1.0, 0.0, delivery.door_c.z), Vector3(-46.0, 0.0, delivery.door_c.z)]
+	else:
+		truck_route = [Vector3(-2.0, 0.0, p.z), Vector3(0.5, 0.0, p.z + 2.6), Vector3(0.5, 0.0, 15.0), Vector3(0.5, 0.0, 26.0), Vector3(0.5, 0.0, 43.0)]
 	truck_driving = true
 	delivery.passers.append(t)
 	_rebake_nav()
@@ -4899,7 +4971,10 @@ func _truck_step(delta: float) -> void:
 			_truck_leaves(true)
 		return
 	# waits for the garage door to roll up while it is at the door
-	if t.global_position.z > delivery.DOOR_Z - 4.0 and t.global_position.z < delivery.DOOR_Z + 0.5 and not delivery.is_open():
+	if blueprint:
+		if absf(t.global_position.x - delivery.door_c.x) < 3.5 and t.global_position.x > delivery.door_c.x - 0.5 and not delivery.is_open():
+			return
+	elif t.global_position.z > delivery.DOOR_Z - 4.0 and t.global_position.z < delivery.DOOR_Z + 0.5 and not delivery.is_open():
 		return
 	var want := atan2(-to.x, -to.z)                      # the cab leads: forward is -Z
 	t.rotation.y = lerp_angle(t.rotation.y, want, clampf(delta * 3.0, 0.0, 1.0))
@@ -5754,7 +5829,7 @@ func _on_quarry_level(n: int) -> void:
 
 ## The industrial hub's boundary (data/progression.json "world"): the permanent business yard, never excavated.
 func hub_rect() -> Rect2:
-	var h: Dictionary = prog.cfg.get("world", {}).get("hub", {})
+	var h: Dictionary = prog.cfg_for("world").get("hub", {})
 	var xs: Array = h.get("x", [-23.5, 23.5])
 	var zs: Array = h.get("z", [-6.0, 23.5])
 	return Rect2(float(xs[0]), float(zs[0]), float(xs[1]) - float(xs[0]), float(zs[1]) - float(zs[0]))

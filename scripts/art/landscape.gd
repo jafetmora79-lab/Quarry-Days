@@ -44,7 +44,10 @@ func build(main_node) -> void:
 	_sun_moon()
 	for i in range(MTN_RADII.size()):
 		_mountains(i)
-	_forest()
+	if game.blueprint:
+		_forest_blueprint()
+	else:
+		_forest()
 	set_day(1.0)
 
 # ------------------------------------------------------------------ sky and haze
@@ -220,6 +223,51 @@ func _embankment_height(r: float) -> float:
 		if r <= rings[k + 1][0]:
 			return lerpf(float(rings[k][1]), float(rings[k + 1][1]), (r - float(rings[k][0])) / (float(rings[k + 1][0]) - float(rings[k][0])))
 	return 9.0
+
+## The blueprint world's forests: dense groves in the strips east and west of the quarry, thinning out south of the quarry fence (east of the yard).
+func _forest_blueprint() -> void:
+	var s := MeshKit.Soup.new()
+	MeshKit.frustum_into(s, Vector3(0, 0.0, 0), 0.18, 0.14, 1.2, 5)
+	MeshKit.frustum_into(s, Vector3(0, 0.9, 0), 1.3, 0.35, 2.0, 6)
+	MeshKit.frustum_into(s, Vector3(0, 2.4, 0), 0.95, 0.2, 1.8, 6)
+	var m := s.mesh()
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.20, 0.36, 0.22)
+	mat.roughness = 1.0
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.surface_set_material(0, mat)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 78
+	var xfs := []
+	# [x0, z0, x1, z1, count]: the strips beside the quarry, and the land east of the yard and south of the quarry fence
+	var zones := [[-196.0, -112.0, -134.0, 30.0, 420], [134.0, -112.0, 196.0, 30.0, 420], [30.0, -4.0, 130.0, 74.0, 180], [-134.0, 30.0, -100.0, 74.0, 60]]
+	for z in zones:
+		var n := 0
+		var tries := 0
+		while n < int(z[4]) and tries < 8000:
+			tries += 1
+			var p := Vector3(rng.randf_range(float(z[0]), float(z[2])), 0.0, rng.randf_range(float(z[1]), float(z[3])))
+			if sin(p.x * 0.13 + 1.3) * 0.5 + cos(p.z * 0.17) * 0.5 < -0.25 and rng.randf() < 0.7:
+				continue               # groves, not an even carpet
+			if p.x > 24.0 and p.x < 56.0 and p.z > -4.0 and p.z < 30.0:
+				continue               # the east extension stays clear
+			var sc := rng.randf_range(1.2, 2.4)
+			xfs.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU) * Basis.from_scale(Vector3(sc, sc * rng.randf_range(0.9, 1.4), sc)), p))
+			n += 1
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = m
+	mm.instance_count = xfs.size()
+	for i in range(xfs.size()):
+		mm.set_instance_transform(i, xfs[i])
+	forest = MultiMeshInstance3D.new()
+	forest.name = "Forest"
+	forest.multimesh = mm
+	forest.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(forest)
+	tree_count = xfs.size()
+	for x in xfs:
+		tree_positions.append((x as Transform3D).origin)
 
 func _forest() -> void:
 	var s := MeshKit.Soup.new()

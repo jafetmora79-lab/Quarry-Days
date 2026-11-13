@@ -26,6 +26,8 @@ func setup(main_node) -> void:
 	game = main_node
 	name = "Excavation"
 	cfg = game.prog.cfg.get("excavation", {})
+	if game.prog.filled_world():
+		return                    # the blueprint quarry replaces this old lower pit; its coordinates now lie inside the quarry
 	var pit: Array = cfg["pit"]
 	x0 = float(pit[0])
 	z0 = float(pit[1])
@@ -183,6 +185,8 @@ func _build_visuals(rx0: float, rx1: float, rz_top: float, rz_bot: float, ang: f
 
 ## Opens (or closes) the lower level: colliders, visuals and navigation follow.
 func set_open(open: bool) -> void:
+	if cap == null:
+		return
 	is_open = open
 	cap.collision_layer = 0 if open else 1
 	cap.set_meta("nav_skip", open)
@@ -199,5 +203,7 @@ func contains_xz(p: Vector3, margin := 0.0) -> bool:
 
 ## Buildable lower-level ground (away from the ramp and the deep formations' pads).
 func lower_build_ok(p: Vector3) -> bool:
+	if cap == null:
+		return false
 	var r: Array = cfg["ramp"]
 	return is_open and contains_xz(p, 1.0) and p.y < -1.0 and p.x > float(r[1]) + 1.0

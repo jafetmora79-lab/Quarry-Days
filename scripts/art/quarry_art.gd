@@ -77,14 +77,20 @@ func build_environment(main_node) -> void:
 	root.name = "Art"
 	game.add_child(root)
 	_clear_placeholders()
-	_ground()
-	_cliffs()
+	if game.blueprint:
+		_blueprint_world()
+	else:
+		_ground()
+		_cliffs()
 	_office()
 	_shed()
 	_toolshed()
 	_home()
 	_garage()
-	_site_props()
+	if game.blueprint:
+		_site_props_blueprint()
+	else:
+		_site_props()
 	_yard_boundary()
 	_flush()
 	_atmosphere()
@@ -456,25 +462,27 @@ func _shed() -> void:
 var garage_roof: MeshInstance3D
 
 func _garage() -> void:
-	var x0 := -4.7
-	var x1 := 14.5
+	var ox: float = game.GARAGE_DX
+	var x0 := -4.7 + ox
+	var x1 := 14.5 + ox
 	var z0 := 14.9
 	var z1 := 22.4
 	var cx := (x0 + x1) * 0.5
 	var w := x1 - x0
 	# The back wall has a big service door (see scripts/delivery.gd): deliveries and new hires come in through it.
-	var dx0: float = QuarryDelivery.DOOR_X - QuarryDelivery.DOOR_W * 0.5
-	var dx1: float = QuarryDelivery.DOOR_X + QuarryDelivery.DOOR_W * 0.5
+	var gdx: float = QuarryDelivery.DOOR_X + ox
+	var dx0: float = gdx - QuarryDelivery.DOOR_W * 0.5
+	var dx1: float = gdx + QuarryDelivery.DOOR_W * 0.5
 	for seg in [[x0, dx0], [dx1, x1]]:
 		var sc: float = (float(seg[0]) + float(seg[1])) * 0.5
 		var sw: float = float(seg[1]) - float(seg[0])
 		solid("Garage back wall", Vector3(sc, 2.0, z1), Vector3(sw, 4.0, 0.25))
 		bx("Corrugated", Vector3(sc, 3.0, z1), Vector3(sw, 6.0, 0.2))
 		bx(M_FOUNDATION, Vector3(sc, 0.2, z1), Vector3(sw + 0.1, 0.4, 0.3))
-	bx("Corrugated", Vector3(QuarryDelivery.DOOR_X, 5.0, z1), Vector3(QuarryDelivery.DOOR_W + 0.4, 2.0, 0.2))   # wall over the door
+	bx("Corrugated", Vector3(gdx, 5.0, z1), Vector3(QuarryDelivery.DOOR_W + 0.4, 2.0, 0.2))   # wall over the door
 	for dxp in [dx0 - 0.1, dx1 + 0.1]:
 		bx("SteelGreen", Vector3(dxp, 3.0, z1 + 0.02), Vector3(0.25, 6.0, 0.34))
-	bx("Hazard", Vector3(QuarryDelivery.DOOR_X, 3.65, z1 - 0.12), Vector3(QuarryDelivery.DOOR_W, 0.16, 0.04))
+	bx("Hazard", Vector3(gdx, 3.65, z1 - 0.12), Vector3(QuarryDelivery.DOOR_W, 0.16, 0.04))
 	solid("Garage wall", Vector3(x0, 2.0, (z0 + z1) * 0.5), Vector3(0.25, 4.0, z1 - z0))
 	solid("Garage wall", Vector3(x1, 2.0, (z0 + z1) * 0.5), Vector3(0.25, 4.0, z1 - z0))
 	bx("Corrugated", Vector3(x0, 3.0, (z0 + z1) * 0.5), Vector3(0.2, 6.0, z1 - z0))
@@ -497,18 +505,18 @@ func _garage() -> void:
 	prop(P_WORKBENCH, Vector3(x0 + 0.55, 0.0, 19.6), PI * 0.5)
 	prop(P_TOOLBOX, Vector3(x0 + 0.5, 0.95, 19.2), PI * 0.5)
 	prop(P_SHELF, Vector3(x0 + 0.4, 0.0, 21.5), PI * 0.5)
-	prop(P_SHELF, Vector3(11.8, 0.0, z1 - 0.4), PI)
-	prop(P_SHELF, Vector3(5.2, 0.0, z1 - 0.4), PI)
-	prop(P_ELEC, Vector3(9.8, 0.0, z1 - 0.35), PI)
-	prop(P_BOXES, Vector3(14.0, 0.0, 21.6), -PI * 0.5)
-	prop(P_BIN, Vector3(14.0, 0.0, 17.2), -PI * 0.5)
+	prop(P_SHELF, Vector3(11.8 + ox, 0.0, z1 - 0.4), PI)
+	prop(P_SHELF, Vector3(5.2 + ox, 0.0, z1 - 0.4), PI)
+	prop(P_ELEC, Vector3(9.8 + ox, 0.0, z1 - 0.35), PI)
+	prop(P_BOXES, Vector3(14.0 + ox, 0.0, 21.6), -PI * 0.5)
+	prop(P_BIN, Vector3(14.0 + ox, 0.0, 17.2), -PI * 0.5)
 	prop(P_CONE, Vector3(x0 + 0.6, 0.0, 16.8))
 	prop(P_CONE, Vector3(x0 + 1.0, 0.0, 17.2))
 	for k in range(3):                                                                   # oil drums
-		MeshKit.frustum_into(soup("PaintRed" if k != 1 else "SteelGreen"), Vector3(13.7 - 0.6 * (k % 2), 0, 19.0 + 0.62 * k), 0.29, 0.29, 0.88, 8)
+		MeshKit.frustum_into(soup("PaintRed" if k != 1 else "SteelGreen"), Vector3(13.7 + ox - 0.6 * (k % 2), 0, 19.0 + 0.62 * k), 0.29, 0.29, 0.88, 8)
 	solid("Garage shelving", Vector3((dx1 + x1) * 0.5, 0.9, z1 - 0.45), Vector3(x1 - dx1 - 0.4, 1.8, 0.6))       # behind the bays, clear of the door
 	solid("Garage workbench", Vector3(x0 + 0.5, 0.5, 20.2), Vector3(0.75, 1.0, 3.6))
-	solid("Garage drums", Vector3(13.6, 0.45, 19.6), Vector3(0.9, 0.9, 1.9))
+	solid("Garage drums", Vector3(13.6 + ox, 0.45, 19.6), Vector3(0.9, 0.9, 1.9))
 	light(Vector3(cx - 5, 5.6, 19.0), Color(0.9, 0.95, 1.0), 1.2, 9.0)
 	light(Vector3(cx + 5, 5.6, 19.0), Color(0.9, 0.95, 1.0), 1.2, 9.0)
 
@@ -518,6 +526,9 @@ func _garage() -> void:
 const FENCE_Z := -6.35
 const GATE_HALF := 4.8
 func _yard_boundary() -> void:
+	if game.blueprint:
+		_yard_boundary_blueprint()
+		return
 	var hub: Rect2 = game.hub_rect()
 	quad_flat(M_GRAVEL, Vector3(hub.get_center().x, 0, hub.get_center().y), hub.size, 0.0, 0.068)                    # the yard's own ground
 	quad_flat(M_GRAVEL, Vector3(0, 0, FENCE_Z - 11.0), Vector2(7.0, 22.0), 0.0, 0.066)              # the haul road beyond the gate
@@ -539,6 +550,115 @@ func _yard_boundary() -> void:
 	bx("SteelGreen", Vector3(0, 3.25, FENCE_Z), Vector3(GATE_HALF * 2.0 + 0.4, 0.3, 0.3))
 	_sign(root, "Sign_Safety", Vector3(0, 3.25, FENCE_Z - 0.17), Vector2(2.6, 0.85), PI)
 	_sign(root, "Sign_Safety", Vector3(0, 3.25, FENCE_Z + 0.17), Vector2(2.6, 0.85), 0.0)
+
+## A fence run between two points on the ground (x, z): collision box, steel posts every 3 m and two rails. Industrial fencing, not walls.
+func _fence_line(a: Vector2, b: Vector2, collide := true, height := 1.4) -> void:
+	var d := b - a
+	var len := d.length()
+	if len < 0.2:
+		return
+	var yaw := atan2(d.x, d.y) - PI * 0.5            # the box's long axis (x) along the line
+	var c := (a + b) * 0.5
+	if collide:
+		solid("Yard fence", Vector3(c.x, height * 0.5, c.y), Vector3(len, height, 0.2), -atan2(d.y, d.x))
+	var n := int(ceil(len / 3.0))
+	for i in range(n + 1):
+		var p := a + d * (float(i) / float(n))
+		bx("SteelPlate", Vector3(p.x, height * 0.5, p.y), Vector3(0.14, height, 0.14))
+	var ang := -atan2(d.y, d.x)
+	bx(M_WOOD, Vector3(c.x, height * 0.82, c.y), Vector3(len, 0.07, 0.07), ang)
+	bx(M_WOOD, Vector3(c.x, height * 0.46, c.y), Vector3(len, 0.07, 0.07), ang)
+
+func _pads() -> void:
+	var ox: float = game.GARAGE_DX
+	quad_flat(M_CONCRETE, Vector3(5.0 + ox, 0, 18.7), Vector2(19.6, 7.6), 0.0, 0.075)         # garage slab
+	quad_flat(M_CONCRETE, game.OFFICE_POS, Vector2(6.4, 6.4), 0.0, 0.075)
+	quad_flat(M_CONCRETE, game.SHED_POS, Vector2(6.0, 6.0), 0.0, 0.075)
+	quad_flat(M_CONCRETE, game.TOOLSHED_POS, Vector2(6.0, 6.0), 0.0, 0.075)
+	quad_flat(M_CONCRETE, game.HOME_POS, Vector2(6.0, 6.0), 0.0, 0.075)
+	for slot in game.fleet.cfg.get("parking", []):                                        # painted bay lines
+		for side in [-1.4, 1.4]:
+			quad_flat("Hazard", Vector3(float(slot[0]) + side, 0, float(slot[2])), Vector2(0.12, 4.2), 0.0, 0.115)
+
+## The blueprint world's surroundings: ground beside the yard, the yard's roads, the quarry's industrial fence, the mountain range to the north,
+## and the mountain the west tunnel runs into. (The quarry's own surface is drawn by the pit zone; forests by the landscape.)
+func _blueprint_world() -> void:
+	quad_flat("ExcavatedDirt", Vector3(0, 0, 36.0), Vector2(400.0, 88.0), 0.0, 0.02)
+	quad_flat("ExcavatedDirt", Vector3(-180.0, 0, -58.0), Vector2(40.0, 100.0), 0.0, 0.02)
+	quad_flat("ExcavatedDirt", Vector3(180.0, 0, -58.0), Vector2(40.0, 100.0), 0.0, 0.02)
+	_pads()
+	# yard roads: the central road from the quarry gate, the cross road, the west road down to the service lane behind the garage, the lane itself
+	quad_flat(M_ASPHALT, Vector3(0, 0, 2.0), Vector2(7.0, 20.0), 0.0, 0.071)
+	quad_flat(M_ASPHALT, Vector3(0, 0, 11.5), Vector2(47.0, 6.0), 0.0, 0.071)
+	quad_flat(M_ASPHALT, Vector3(-19.5, 0, 20.5), Vector2(6.0, 18.0), 0.0, 0.071)
+	quad_flat(M_ASPHALT, Vector3(-6.75, 0, 25.4), Vector2(33.5, 5.0), 0.0, 0.071)
+	for z in [-5.0, 2.0, 9.0]:                                                           # centre dashes on the gate road
+		quad_flat("Hazard", Vector3(0, 0, z), Vector2(0.16, 2.0), 0.0, 0.074)
+	# the quarry's industrial fence (the south side, with the central gate, is _yard_boundary)
+	var fx := 126.0
+	var fz0 := -108.0
+	var fz1 := -8.0
+	_fence_line(Vector2(-fx, fz1), Vector2(-fx, fz0), false, 2.0)
+	_fence_line(Vector2(fx, fz1), Vector2(fx, fz0), false, 2.0)
+	_fence_line(Vector2(-fx, fz0), Vector2(fx, fz0), false, 2.0)
+	# the mountain range to the north: not interactable, only seen
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 5150
+	var rs := MeshKit.Soup.new()
+	for i in range(22):
+		var x := -200.0 + float(i) * 19.5 + rng.randf_range(-6.0, 6.0)
+		var h := rng.randf_range(26.0, 52.0) * (1.0 - 0.45 * absf(x) / 220.0)
+		MeshKit.rock_into(rs, Vector3(x, -2.0, rng.randf_range(-170.0, -140.0)), Vector3(rng.randf_range(44.0, 70.0), h, rng.randf_range(36.0, 52.0)), 400 + i, 4, 8)
+	for i in range(14):
+		var x2 := -190.0 + float(i) * 29.0 + rng.randf_range(-8.0, 8.0)
+		MeshKit.rock_into(rs, Vector3(x2, -2.0, rng.randf_range(-128.0, -118.0)), Vector3(rng.randf_range(30.0, 46.0), rng.randf_range(8.0, 15.0), rng.randf_range(16.0, 24.0)), 500 + i, 3, 7)
+	MeshKit.inst(root, rs.mesh(), MeshKit.mat("CliffStrata")).name = "NorthRange"
+	# the west mountain with the tunnel: rock masses beside and above the tunnel (its own walls and roof are built by the delivery system)
+	var ms := MeshKit.Soup.new()
+	MeshKit.rock_into(ms, Vector3(-62.0, -1.0, 6.0), Vector3(74.0, 26.0, 40.0), 611, 4, 8)
+	MeshKit.rock_into(ms, Vector3(-66.0, -1.0, 52.0), Vector3(80.0, 30.0, 50.0), 612, 4, 8)
+	MeshKit.rock_into(ms, Vector3(-38.0, 5.2, 25.4), Vector3(34.0, 12.0, 16.0), 613, 3, 7)
+	MeshKit.rock_into(ms, Vector3(-86.0, -1.0, 27.0), Vector3(40.0, 20.0, 30.0), 614, 3, 7)
+	MeshKit.inst(root, ms.mesh(), MeshKit.mat("CliffStrata")).name = "TunnelMountain"
+
+## The blueprint yard's dressing: a few lamps, the dumpster and cones, drums by the garage. (The old yard's scatter of mounds, scree and brush
+## is gone: the yard is gravel and buildings; everything green lives in the quarry and the forest.)
+func _site_props_blueprint() -> void:
+	for p in [Vector3(-21.0, 0, 8.0), Vector3(21.0, 0, 22.0), Vector3(-4.0, 0, 27.6), Vector3(21.0, 0, 2.0)]:
+		prop(P_POLE, p, 0.0)
+		solid("Light pole", p + Vector3(0, 2.0, 0), Vector3(0.35, 4.0, 0.35))
+		light(p + Vector3(0, 6.0, 0), Color(1.0, 0.82, 0.55), 1.4, 14.0)
+	prop(P_DUMPSTER, Vector3(9.5, 0, 24.2), PI * 0.5)
+	solid("Dumpster", Vector3(9.5, 0.65, 24.2), Vector3(1.2, 1.3, 2.0))
+	for p in [Vector3(-5.6, 0, -6.6), Vector3(5.6, 0, -6.6), Vector3(-12.0, 0, 25.0)]:
+		prop(P_CONE, p)
+	prop(P_BARRIER, Vector3(-13.5, 0, 9.0), 0.2)
+	prop(P_JUNCTION, Vector3(-21.8, 0.9, 14.0), -PI * 0.5)
+	prop(P_GRAVEL, Vector3(21.0, 0, 6.0), 0.0, 1.0)
+
+## The blueprint yard's boundary: the fence along the quarry's whole south edge (252 m, with the one central vehicle gate), the yard's own west,
+## east and south fences (gaps: the tunnel gate in the west, the east extension's gate), the yard's gravel and the gate posts.
+func _yard_boundary_blueprint() -> void:
+	var hub: Rect2 = game.hub_rect()
+	quad_flat(M_GRAVEL, Vector3(hub.get_center().x, 0, hub.get_center().y), hub.size, 0.0, 0.068)
+	quad_flat(M_GRAVEL, Vector3(0, 0, -16.0), Vector2(7.0, 16.0), 0.0, 0.066)                  # the road onto the quarry surface
+	var fz := -8.0
+	var fx := 126.0
+	_fence_line(Vector2(-fx, fz), Vector2(-GATE_HALF, fz), true, 2.0)
+	_fence_line(Vector2(GATE_HALF, fz), Vector2(fx, fz), true, 2.0)
+	var x0 := hub.position.x
+	var x1 := hub.end.x
+	var z1 := hub.end.y
+	_fence_line(Vector2(x0, fz), Vector2(x0, 21.3), true, 1.6)               # west, down to the tunnel gate
+	_fence_line(Vector2(x0, z1), Vector2(x1, z1), true, 1.6)                 # south
+	_fence_line(Vector2(x1, fz), Vector2(x1, 9.0), true, 1.6)                # east, with the gate to the east extension at z 9..15
+	_fence_line(Vector2(x1, 15.0), Vector2(x1, z1), true, 1.6)
+	for side in [-1.0, 1.0]:
+		bx("SteelGreen", Vector3(side * GATE_HALF, 1.7, fz), Vector3(0.4, 3.4, 0.4))
+		bx("Hazard", Vector3(side * GATE_HALF, 0.55, fz - 0.21), Vector3(0.4, 0.8, 0.02), PI)
+	bx("SteelGreen", Vector3(0, 3.25, fz), Vector3(GATE_HALF * 2.0 + 0.4, 0.3, 0.3))
+	_sign(root, "Sign_Safety", Vector3(0, 3.25, fz - 0.17), Vector2(2.6, 0.85), PI)
+	_sign(root, "Sign_Safety", Vector3(0, 3.25, fz + 0.17), Vector2(2.6, 0.85), 0.0)
 
 func _site_props() -> void:
 	# Phase 1: the dumpster stands clear of Grandpa's truck (parked at x -21, z 5), which it used to touch

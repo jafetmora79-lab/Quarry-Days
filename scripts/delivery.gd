@@ -10,9 +10,18 @@ const DOOR_Z := 22.4
 const DOOR_W := 5.4
 const DOOR_H := 3.7
 const GATE := Vector3(0.5, 0.05, 25.4)     ## where drivers and new hires step out of the tunnel mouth
+## The blueprint yard: the tunnel comes in from the WEST. Its industrial gate stands at the yard's west edge, the service lane runs east along the
+## back of the garage to the garage's open back doorway, and everything else (bays, drivers, new hires) behaves as before.
+const WEST_GATE := Vector3(-25.2, 0.05, 25.4)       ## the gate in the mountain face
+const WEST_MOUTH := Vector3(-32.0, 0.05, 25.4)      ## where drivers and new hires step out of the tunnel
+const WEST_END := Vector3(-45.5, 0.05, 25.4)        ## the machine appears here, inside the tunnel
 const VEHICLE_SPEED := 3.6
 const WALK_SPEED := 2.4
 
+var west := false                           ## blueprint layout
+var gdx := DOOR_X                           ## x of the garage's back doorway / door
+var door_c := Vector3(DOOR_X, 0.0, DOOR_Z)  ## the shutter that rolls up for deliveries: the garage door (old yard) or the tunnel gate (blueprint yard)
+var mouth := GATE                           ## where people step out
 var game
 var pivot: Node3D
 var body: StaticBody3D
@@ -24,13 +33,21 @@ var reserved_sizes := {}                    ## bay position -> the footprint of 
 var delivered := 0                          ## completed deliveries (tests)
 var entered := 0                            ## workers who stepped out of the gate (tests)
 
+static func gate_for(bp: bool) -> Vector3:
+	return WEST_MOUTH if bp else GATE
+
 func build(main_node) -> void:
 	game = main_node
 	name = "Delivery"
 	game.add_child(self)
+	west = game.blueprint
+	if west:
+		gdx = DOOR_X + game.GARAGE_DX
+		door_c = Vector3(WEST_GATE.x, 0.0, WEST_GATE.z)
+		mouth = WEST_MOUTH
 	# the roll-up door: a pivot at the top of the opening that the shutter scales into
 	pivot = Node3D.new()
-	pivot.position = Vector3(DOOR_X, DOOR_H, DOOR_Z)
+	pivot.position = Vector3(door_c.x, DOOR_H, door_c.z)
 	game.world.add_child(pivot)
 	var panel := MeshInstance3D.new()
 	var bm := BoxMesh.new()
@@ -47,9 +64,13 @@ func build(main_node) -> void:
 		rib.position = Vector3(0, -0.4 - 0.7 * k, 0)
 		rib.material_override = MeshKit.flat(Color(0.30, 0.34, 0.32))
 		pivot.add_child(rib)
+	if west:
+		pivot.rotation.y = PI * 0.5            # the gate spans the road: its panel runs north-south
 	body = StaticBody3D.new()
 	body.name = "Garage door"
-	body.position = Vector3(DOOR_X, DOOR_H * 0.5, DOOR_Z)
+	body.position = Vector3(door_c.x, DOOR_H * 0.5, door_c.z)
+	if west:
+		body.rotation.y = PI * 0.5
 	body.set_meta("nav_skip", true)         # workers path through; the door opens as they come close
 	body.set_meta("art", true)
 	var cs := CollisionShape3D.new()
@@ -58,7 +79,48 @@ func build(main_node) -> void:
 	cs.shape = bs
 	body.add_child(cs)
 	game.world.add_child(body)
-	_build_gate()
+	if west:
+		_build_gate_west()
+	else:
+		_build_gate()
+
+## The blueprint yard's tunnel: a stone portal in the mountain face at the yard's west edge (the industrial gate hangs in it) and the tunnel
+## itself running west into the mountain. The tunnel is built along +z in its own frame and turned to run along -x.
+func _build_gate_west() -> void:
+	var stone := MeshKit.mat("RockLimestone")
+	var gx := WEST_GATE.x - 0.9
+	for sz in [-1.0, 1.0]:
+		var post := MeshInstance3D.new()
+		var pm := BoxMesh.new()
+		pm.size = Vector3(1.8, 5.6, 1.4)
+		post.mesh = pm
+		post.position = Vector3(gx, 2.8, WEST_GATE.z + sz * 4.1)
+		post.material_override = stone
+		game.world.add_child(post)
+		var wall := StaticBody3D.new()
+		wall.name = "Gate post"
+		wall.position = post.position
+		var c := CollisionShape3D.new()
+		var b := BoxShape3D.new()
+		b.size = pm.size
+		c.shape = b
+		wall.add_child(c)
+		game.world.add_child(wall)
+	var lintel := MeshInstance3D.new()
+	var lm := BoxMesh.new()
+	lm.size = Vector3(1.8, 1.3, 9.6)
+	lintel.mesh = lm
+	lintel.position = Vector3(gx, 5.0, WEST_GATE.z)
+	lintel.material_override = stone
+	game.world.add_child(lintel)
+	var stripe := MeshInstance3D.new()
+	var sm := BoxMesh.new()
+	sm.size = Vector3(0.1, 0.18, 6.8)
+	stripe.mesh = sm
+	stripe.position = Vector3(gx + 0.92, 4.4, WEST_GATE.z)
+	stripe.material_override = MeshKit.mat("Hazard")
+	game.world.add_child(stripe)
+	_build_tunnel(0.0)
 
 ## Tunnel mouth in the ring road: stone portal, dark opening, hazard header, sign and a short haul road.
 func _build_gate() -> void:
@@ -110,6 +172,11 @@ func _build_tunnel(z0: float) -> void:
 	var parts := Node3D.new()
 	parts.name = "ServiceTunnel"
 	game.world.add_child(parts)
+	if west:
+		# the tunnel's own frame: centre line x 0, running +z from the gate; turned so that +z points west (-x) and its x axis lies along the road's width
+		cx = 0.0
+		parts.position = Vector3(WEST_GATE.x - 1.8, 0.0, WEST_GATE.z)
+		parts.rotation.y = -PI * 0.5
 	var box := func(pos: Vector3, size_v: Vector3, m: Material, collide := false, roll := 0.0) -> void:
 		var mi := MeshInstance3D.new()
 		var bm := BoxMesh.new()
@@ -136,7 +203,7 @@ func _build_tunnel(z0: float) -> void:
 	var rib := MeshKit.flat(Color(0.36, 0.36, 0.38))
 	var dark := MeshKit.flat(Color(0.05, 0.05, 0.06))
 	# the road: garage apron -> portal -> through the tunnel
-	var rz0 := DOOR_Z + 0.2
+	var rz0 := (DOOR_Z + 0.2) if not west else 0.2
 	box.call(Vector3(cx, 0.03, (rz0 + z1) * 0.5), Vector3(w, 0.06, z1 - rz0), asphalt, true)
 	var d := rz0 + 1.0
 	while d < z1 - 1.0:
@@ -172,10 +239,12 @@ func _build_tunnel(z0: float) -> void:
 ## Where a newly hired worker steps out (spread a little so several hires do not stack).
 func gate_point(k := 0) -> Vector3:
 	entered += 1
+	if west:
+		return mouth + Vector3(-float(k / 3) * 0.9, 0.0, float(k % 3 - 1) * 0.9)
 	return GATE + Vector3(float(k % 3 - 1) * 0.9, 0.0, -float(k / 3) * 0.9)
 
 func _near_door(p: Vector3, r := 4.6) -> bool:
-	return Vector2(p.x, p.z).distance_to(Vector2(DOOR_X, DOOR_Z)) < r
+	return Vector2(p.x, p.z).distance_to(Vector2(door_c.x, door_c.z)) < r
 
 func _anyone_near() -> bool:
 	# the door never opens for the player (on foot or driving): only deliveries and staff arriving or leaving
@@ -207,15 +276,22 @@ func start(vehicle_id: int, slot: Vector3, fallback := false) -> bool:
 	v.set_meta("delivering", true)
 	v.collision_layer = 0
 	v.collision_mask = 0
-	v.global_position = Vector3(DOOR_X, 0.05, GATE.z)
-	v.rotation.y = 0.0
-	var wps: Array = [Vector3(DOOR_X, 0.05, 24.8), Vector3(DOOR_X, 0.05, 21.0)]
+	var wps: Array = []
+	if west:
+		v.global_position = WEST_END
+		v.rotation.y = -PI * 0.5                    # heading east out of the tunnel
+		wps = [Vector3(WEST_MOUTH.x, 0.05, WEST_GATE.z), Vector3(WEST_GATE.x + 1.5, 0.05, WEST_GATE.z), Vector3(gdx - 3.0, 0.05, WEST_GATE.z), Vector3(gdx, 0.05, 25.0)]
+		wps.append(Vector3(gdx, 0.05, 21.0))
+	else:
+		v.global_position = Vector3(DOOR_X, 0.05, GATE.z)
+		v.rotation.y = 0.0
+		wps = [Vector3(DOOR_X, 0.05, 24.8), Vector3(DOOR_X, 0.05, 21.0)]
 	if fallback:
-		wps.append(Vector3(DOOR_X, 0.05, 15.6))
-		if absf(slot.x - DOOR_X) > 1.2:
+		wps.append(Vector3(gdx, 0.05, 15.6))
+		if absf(slot.x - gdx) > 1.2:
 			wps.append(Vector3(slot.x, 0.05, 13.4))
 	else:
-		if absf(slot.x - DOOR_X) > 1.2:
+		if absf(slot.x - gdx) > 1.2:
 			wps.append(Vector3(slot.x, 0.05, 21.0))
 	wps.append(slot)
 	var driver := _make_driver()
@@ -231,7 +307,7 @@ func start(vehicle_id: int, slot: Vector3, fallback := false) -> bool:
 
 ## True when nobody (player, worker, another machine) stands where a delivery appears.
 func entry_clear() -> bool:
-	var at := Vector3(DOOR_X, 0.0, GATE.z)
+	var at := Vector3(WEST_MOUTH.x if west else DOOR_X, 0.0, WEST_MOUTH.z if west else GATE.z)
 	if game.player and not game.driving and Vector2(game.player.global_position.x, game.player.global_position.z).distance_to(Vector2(at.x, at.z)) < 3.4:
 		return false
 	for w in game.worker_nodes.values():
@@ -278,7 +354,7 @@ func _make_driver() -> Node3D:
 func _physics_process(delta: float) -> void:
 	var want := 1.0 if _anyone_near() else 0.0
 	if want > 0.5 and open_amount < 0.02:
-		game._sfx_at("breaker_hit", Vector3(DOOR_X, 1.5, DOOR_Z), -9.0)   # the shutter starts to roll up
+		game._sfx_at("breaker_hit", Vector3(door_c.x, 1.5, door_c.z), -9.0)   # the shutter starts to roll up
 	open_amount = move_toward(open_amount, want, delta * 0.9)
 	var e := smoothstep(0.0, 1.0, open_amount)
 	pivot.scale.y = lerpf(1.0, 0.06, e)
@@ -304,7 +380,8 @@ func _step_job(j: Dictionary, delta: float) -> void:
 				j["wait"] = float(j["wait"]) + delta   # stops for people, up to 15 s
 				v.speed = 0.0
 				return
-			if v.global_position.z < DOOR_Z + 1.0 and v.global_position.z > DOOR_Z - 1.0 and open_amount < 0.85:
+			var at_door: bool = (absf(v.global_position.x - door_c.x) < 1.2) if west else (v.global_position.z < DOOR_Z + 1.0 and v.global_position.z > DOOR_Z - 1.0)
+			if at_door and open_amount < 0.85:
 				v.speed = 0.0                   # waits for the shutter
 				return
 			var wps: Array = j["wps"]
@@ -360,7 +437,10 @@ func _unload_driver(j: Dictionary) -> void:
 	game.nav_dirty = true
 	var slot: Vector3 = j["slot"]
 	j["stage"] = "walk"
-	j["wps"] = [Vector3(minf(slot.x + 2.0, 13.4), 0, 21.0), Vector3(DOOR_X + 0.8, 0, 21.0), Vector3(DOOR_X + 0.8, 0, 24.8), Vector3(DOOR_X, 0, GATE.z)]
+	if west:
+		j["wps"] = [Vector3(minf(slot.x + 2.0, gdx + 13.4), 0, 21.0), Vector3(gdx + 0.8, 0, 21.0), Vector3(gdx + 0.8, 0, 24.8), Vector3(gdx - 3.0, 0, WEST_GATE.z), Vector3(WEST_MOUTH.x, 0, WEST_MOUTH.z)]
+	else:
+		j["wps"] = [Vector3(minf(slot.x + 2.0, 13.4), 0, 21.0), Vector3(DOOR_X + 0.8, 0, 21.0), Vector3(DOOR_X + 0.8, 0, 24.8), Vector3(DOOR_X, 0, GATE.z)]
 	from = from # (kept for clarity: the driver steps out beside the cab)
 
 func _finish(j: Dictionary) -> void:

@@ -13,6 +13,7 @@ signal stage_reached(index: int)
 signal formation_cleared(id: String)
 signal site_cleared
 signal quarry_level_reached(level: int)
+signal road_built_signal(level: int)
 
 const MIN_PER_SECOND := 0.5 # in-game minutes per real second (48-minute day)
 
@@ -27,7 +28,7 @@ var quarry_level := 1                  ## Phase 7.1: the deepest of the four qua
 const SCHEMA := 3                      ## save schema of the progression block: 1 = before Phase 7.1 (no field), 2 = quarry levels, 3 = Phase 9 twelve-stage ladder
 var rigs: Array = []
 var next_rig_id := 1
-var story := {"intro_seen": false, "found": {}, "read": {}, "visits": {}, "journal": [], "fossil": "", "companion": {"state": "none"}, "milestones": {}, "excavator": {"battery": false, "hose": false, "fuel": false, "started": false, "granted": false, "legacy": false, "carry": ""}, "areas": {}, "quarry_world": "filled"}
+var story := {"intro_seen": false, "found": {}, "read": {}, "visits": {}, "journal": [], "fossil": "", "companion": {"state": "none"}, "milestones": {}, "excavator": {"battery": false, "hose": false, "fuel": false, "started": false, "granted": false, "legacy": false, "carry": ""}, "areas": {}, "quarry_world": "filled", "roads": {}}
 ## Phase 6.2 tutorial: weeds and rubble heaps still on the site. "cleared": id -> true, "units": heap id -> units
 ## left (heaps keep their remaining stone when saved), "done": the whole site is clean (hillside unlocked).
 var cleanup := {"cleared": {}, "units": {}, "done": false}
@@ -251,7 +252,7 @@ const PitZoneScript = preload("res://scripts/pit_zone.gd")
 ## angular slices (x index) of `rows` concentric rings (y index; row 0 is the inner ring) around `center`.
 func formation_frame(id: String) -> Transform3D:
 	if str(fdef(id).get("frame", "")) == "pit":
-		return PitZoneScript.gate_transform(cfg.get("pit_zone", {}))
+		return PitZoneScript.gate_transform(pit_cfg())
 	return Transform3D.IDENTITY
 
 func is_arc(id: String) -> bool:
@@ -641,6 +642,8 @@ func collect_veins(id: String, col: int) -> Array:
 signal area_completed(id: String)
 
 func area_defs() -> Array:
+	if filled_world() and cfg.has("areas_filled"):
+		return cfg["areas_filled"]
 	return cfg.get("areas", [])
 
 func area_def(id: String) -> Dictionary:
@@ -931,7 +934,8 @@ func level_unlock_met(n: int) -> bool:
 func check_levels() -> void:
 	while quarry_level < levels().size() and level_unlock_met(quarry_level + 1):
 		quarry_level += 1
-		open_roads(quarry_level)
+		if not filled_world():
+			open_roads(quarry_level)         # the blueprint quarry's access roads are built (and paid for) from the office instead: buy_road()
 		quarry_level_reached.emit(quarry_level)
 
 ## Phase 8.7: the haul road of an opened level. Its "roads" rects (pit frame) are cut out of that level's own rock the
@@ -939,7 +943,7 @@ func check_levels() -> void:
 ## this way is simply gone (no resources are paid for it); calling it again does nothing. Returns the columns removed.
 func open_roads(n: int) -> int:
 	var removed := 0
-	var inv: Transform3D = PitZoneScript.gate_transform(cfg.get("pit_zone", {})).affine_inverse()
+	var inv: Transform3D = PitZoneScript.gate_transform(pit_cfg()).affine_inverse()
 	var ids := []
 	if filled_world():
 		# the filled quarry: the road is cut through the level's own rock AND the layers above it, so the way down is open from the surface
@@ -967,8 +971,46 @@ func open_roads(n: int) -> int:
 func open_all_roads() -> int:
 	var n := 0
 	for lv in range(2, quarry_level + 1):
+		if filled_world() and not road_built(lv):
+			continue
 		n += open_roads(lv)
 	return n
+
+## The blueprint quarry's access roads are a construction job: when a level opens, its ramp strip and floor roads can be built from the office
+## for a fee (the survey crew cuts the rock; it pays nothing). Nothing is cut for free.
+func road_built(n: int) -> bool:
+	return bool(story.get("roads", {}).get(str(n), false))
+
+func road_cost(n: int) -> int:
+	return int(level_def(n).get("road_cost", 0))
+
+func road_block_reason(n: int) -> String:
+	if not filled_world() or level_def(n).is_empty() or not level_def(n).has("roads"):
+		return "There is no road to build here."
+	if n > quarry_level:
+		return "Level %d is not open yet." % n
+	if road_built(n):
+		return "The access road is already built."
+	if state.money < road_cost(n):
+		return "Need $%d for the access road." % road_cost(n)
+	return ""
+
+func buy_road(n: int) -> bool:
+	if road_block_reason(n) != "":
+		return false
+	state.money -= road_cost(n)
+	if not story.has("roads"):
+		story["roads"] = {}
+	story["roads"][str(n)] = true
+	open_roads(n)
+	road_built_signal.emit(n)
+	return true
+
+## pit-zone configuration: the blueprint's quarry for the new world, the earlier pit for everything else
+func pit_cfg() -> Dictionary:
+	if filled_world() and cfg.has("pit_zone_filled"):
+		return cfg["pit_zone_filled"]
+	return cfg.get("pit_zone", {})
 
 var migrated_filled := false      ## set by the migration below; Main moves machines that stood inside the old pit to the yard, then clears it
 
@@ -981,7 +1023,7 @@ func migrate_filled_world() -> void:
 	story["quarry_world"] = "filled"
 	migrated_filled = true
 	var old: Array = cfg.get("quarry_levels", [])
-	var inv: Transform3D = PitZoneScript.gate_transform(cfg.get("pit_zone", {})).affine_inverse()
+	var inv: Transform3D = PitZoneScript.gate_transform(pit_cfg()).affine_inverse()
 	var share := {}
 	for n in range(1, old.size() + 1):
 		var tot := 0
@@ -1007,6 +1049,7 @@ func migrate_filled_world() -> void:
 						state.deposits[id]["columns"][i] = 0
 				_sync_stock(state.deposits[id])
 	for n in range(2, quarry_level + 1):
+		story["roads"][str(n)] = true
 		open_roads(n)
 	for n in range(1, lvls.size() + 1):
 		if float(share.get(n, 0.0)) <= 0.0:
@@ -1044,7 +1087,7 @@ static func migrate(data: Dictionary) -> Dictionary:
 	var d := data.duplicate(true)
 	var v := int(d.get("schema", 1))
 	if v < 2:
-		d["quarry_level"] = clampi(int(d.get("quarry_level", 1)), 1, 4)
+		d["quarry_level"] = clampi(int(d.get("quarry_level", 1)), 1, 8)
 		v = 2
 	d["schema"] = maxi(v, 2)      # restore() converts the stage ladder (schema 3) because it needs the game data
 	return d
@@ -1398,8 +1441,17 @@ func rig_resource(r: Dictionary) -> String:
 
 # ------------------------------------------------------------------ site cleanup (Phase 6.2)
 
+## A data section with its blueprint-world overrides (key + "_filled") merged in, when this is the blueprint world.
+func cfg_for(key: String) -> Dictionary:
+	var base: Dictionary = cfg.get(key, {})
+	if filled_world() and cfg.has(key + "_filled"):
+		var o: Dictionary = base.duplicate()
+		o.merge(cfg[key + "_filled"], true)
+		return o
+	return base
+
 func cleanup_cfg() -> Dictionary:
-	return cfg.get("cleanup", {})
+	return cfg_for("cleanup")
 
 ## Item ids: "w0".. for weed clumps, "h0".. for rubble heaps.
 ## The new layout puts the debris in Area 1, beyond the yard. The old starting layout (legacy saves, old tests) keeps its old positions,
@@ -1481,7 +1533,7 @@ func read_discovery(id: String) -> int:
 const REPAIR_PARTS := ["battery", "hose", "fuel"]
 
 func opening_cfg() -> Dictionary:
-	return cfg.get("opening", {})
+	return cfg_for("opening")
 
 func excavator_state() -> Dictionary:
 	return story["excavator"]
@@ -1535,7 +1587,7 @@ func install_part() -> String:
 
 ## True for a game that began with the opening (not a save from before Phase 10).
 func natural_start() -> bool:
-	return bool(opening_cfg().get("natural_start", false)) and not bool(story["excavator"].get("legacy", false))
+	return bool(cfg.get("opening", {}).get("natural_start", false)) and not bool(story["excavator"].get("legacy", false))
 
 func fossil_cfg() -> Dictionary:
 	if filled_world() and cfg.has("fossil_filled"):
@@ -1707,7 +1759,7 @@ func companion_can_break(res: String, day: int) -> bool:
 # ------------------------------------------------------------------ Walter (Phase 7.5)
 
 func walter_cfg() -> Dictionary:
-	return cfg.get("walter", {})
+	return cfg_for("walter")
 
 func journal_entry(id: String) -> Dictionary:
 	return walter_cfg().get("journal", {}).get(id, {})
@@ -1823,6 +1875,10 @@ func restore(raw_data: Dictionary, vehicle_types: Array = []) -> void:
 	else:
 		story["excavator"] = {"battery": true, "hose": true, "fuel": true, "started": true, "granted": true, "legacy": true, "carry": ""}
 	story["quarry_world"] = str(st.get("quarry_world", "")) if st is Dictionary else ""        # "" = a save from the pre-dug pit: migrated at the end of restore()
+	story["roads"] = {}
+	if st is Dictionary and st.get("roads", null) is Dictionary:
+		for rk in st["roads"]:
+			story["roads"][str(rk)] = bool(st["roads"][rk])
 	story["areas"] = {}
 	if st is Dictionary and st.get("areas", null) is Dictionary:
 		for aid in st["areas"]:

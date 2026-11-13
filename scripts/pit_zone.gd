@@ -34,6 +34,7 @@ var ramp_w := 8.0
 var ramp_run := 20.0
 var wall_h := 8.0
 var build_margin := 3.0
+var flat := false              ## the blueprint quarry (new world): attached to the yard, fenced, flat start; no corridor, rim or rock walls
 var level_pits: Array = []     ## Phase 7.2: [{"n", "rect": Rect2 (x, z, w, d) incl. ramp strip, "rw", "y_top", "y_bot", "cols": Rect2}] for quarry levels 2+
 var basin_holes: Array = []    ## Rect2s (local x, z) cut out of the basin floor (the level-2 pit)
 var deepest_y := -3.6
@@ -47,7 +48,8 @@ static func gate_transform(c: Dictionary) -> Transform3D:
 
 func setup(main_node) -> bool:
 	game = main_node
-	cfg = game.prog.cfg.get("pit_zone", {})
+	cfg = game.prog.pit_cfg()
+	flat = game.prog.filled_world()
 	if cfg.is_empty():
 		return false
 	corr_len = float(cfg.get("corridor_length", corr_len))
@@ -119,10 +121,13 @@ func _build_ground() -> void:
 	var hx := basin_w * 0.5
 	var zn := basin_zn()
 	var zs := basin_zs()
-	_body("Corridor floor", Vector3(0, -0.25, 3.0 - (corr_len + 3.0) * 0.5), Vector3(corr_w, 0.5, corr_len + 3.0))
+	if corr_len > 0.5:
+		_body("Corridor floor", Vector3(0, -0.25, 3.0 - (corr_len + 3.0) * 0.5), Vector3(corr_w, 0.5, corr_len + 3.0))
 	# plateau: thick pieces around the basin hole, so the hole's sides are solid walls
-	_body("Plateau south", Vector3(0, -2.75, (z0 + zs) * 0.5), Vector3(plat_w, 5.5, z0 - zs))
-	_body("Plateau north", Vector3(0, -2.75, (z1 + zn) * 0.5), Vector3(plat_w, 5.5, zn - z1))
+	if z0 - zs > 0.05:
+		_body("Plateau south", Vector3(0, -2.75, (z0 + zs) * 0.5), Vector3(plat_w, 5.5, z0 - zs))
+	if zn - z1 > 0.05:
+		_body("Plateau north", Vector3(0, -2.75, (z1 + zn) * 0.5), Vector3(plat_w, 5.5, zn - z1))
 	_body("Plateau west", Vector3(-(plat_w * 0.5 + hx) * 0.5, -2.75, basin_zc()), Vector3(plat_w * 0.5 - hx, 5.5, basin_d))
 	_body("Plateau east", Vector3((plat_w * 0.5 + hx) * 0.5, -2.75, basin_zc()), Vector3(plat_w * 0.5 - hx, 5.5, basin_d))
 	_slab_with_hole("Basin floor", Rect2(-hx, zn, basin_w, basin_d), basin_y, basin_holes[0] if not basin_holes.is_empty() else Rect2())
@@ -321,7 +326,32 @@ func _build_levels() -> void:
 			hole = level_pits[k + 1]["rect"]
 		_slab_with_hole("L%d floor" % n, cols, y_bot, hole)
 
+## The quarry's perimeter in the blueprint world: an industrial fence (collision boxes; rails and posts are drawn in _build_art) with the central
+## vehicle gate on the yard side, and invisible boundary walls at the edge of the plateau so nothing leaves the property.
+func _build_fence() -> void:
+	var f: Array = cfg.get("fence", [-126.0, -100.0, 126.0, 0.0])
+	var x0 := float(f[0])
+	var z0f := float(f[1])
+	var x1 := float(f[2])
+	var z1f := float(f[3])
+	var gate := 4.8
+	var t := 0.3
+	var h := 2.2
+	_body("Quarry fence west", Vector3(x0, h * 0.5, (z0f + z1f) * 0.5), Vector3(t, h, z1f - z0f), false)
+	_body("Quarry fence east", Vector3(x1, h * 0.5, (z0f + z1f) * 0.5), Vector3(t, h, z1f - z0f), false)
+	_body("Quarry fence north", Vector3(0, h * 0.5, z0f), Vector3(x1 - x0, h, t), false)
+	var seg := (x1 - x0) * 0.5 - gate
+	_body("Quarry fence south west", Vector3(x0 + seg * 0.5, h * 0.5, z1f), Vector3(seg, h, t), false)
+	_body("Quarry fence south east", Vector3(x1 - seg * 0.5, h * 0.5, z1f), Vector3(seg, h, t), false)
+	var hb := 9.0
+	_body("Boundary west", Vector3(-plat_w * 0.5 - 1.0, hb * 0.5, (plateau_z0() + plateau_z1()) * 0.5), Vector3(2.0, hb, plat_d + 6.0), false)
+	_body("Boundary east", Vector3(plat_w * 0.5 + 1.0, hb * 0.5, (plateau_z0() + plateau_z1()) * 0.5), Vector3(2.0, hb, plat_d + 6.0), false)
+	_body("Boundary north", Vector3(0, hb * 0.5, plateau_z1() - 1.0), Vector3(plat_w + 6.0, hb, 2.0), false)
+
 func _build_walls() -> void:
+	if flat:
+		_build_fence()
+		return
 	var z0 := plateau_z0()
 	var z1 := plateau_z1()
 	var hx := basin_w * 0.5
@@ -348,6 +378,8 @@ func _build_walls() -> void:
 		_body("Rim south", Vector3(side * (ramp_w * 0.5 + 0.6 + rseg * 0.5), rim * 0.5, zs + 0.15), Vector3(rseg, rim, 0.3), false)
 
 func _build_barrier() -> void:
+	if flat:
+		return                # the blueprint quarry has no rockfall barrier: the fence gate is the way in, open from the start
 	barrier = _body("North gate barrier", Vector3(0, 2.0, -0.6), Vector3(corr_w + 1.0, 4.0, 1.4), false)
 	barrier.set_meta("kind", "gate")
 	var r := MeshKit.Soup.new()
@@ -533,12 +565,13 @@ func _build_art() -> void:
 # ------------------------------------------------------------------ gate
 
 func set_open(open: bool) -> void:
-	is_open = open
-	barrier.visible = not open
-	barrier.collision_layer = 0 if open else 1
-	barrier.set_meta("nav_skip", open)
+	is_open = open or flat
+	if barrier != null:
+		barrier.visible = not is_open
+		barrier.collision_layer = 0 if is_open else 1
+		barrier.set_meta("nav_skip", is_open)
 	if nav_link:
-		nav_link.enabled = open
+		nav_link.enabled = is_open
 		NavigationServer3D.link_set_map(nav_link.get_rid(), game.nav_map)
 	request_bake()
 
