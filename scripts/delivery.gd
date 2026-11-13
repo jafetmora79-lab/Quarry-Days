@@ -3,7 +3,7 @@ class_name QuarryDelivery
 ## The quarry's service gate and garage door. A tunnel mouth in the south ring road opens onto the back of the
 ## equipment garage, which has a big roll-up door. New machinery is driven in through it by a delivery driver (an
 ## NPC) who parks it in its bay, hops out and walks back out; newly hired workers walk in through the same gate.
-## The door rolls up by itself when anyone (player, driver, vehicle, worker) is close, and closes behind them.
+## The door rolls up by itself only for deliveries and staff coming or going (never for the player), and closes behind them.
 
 const DOOR_X := 0.5
 const DOOR_Z := 22.4
@@ -78,13 +78,6 @@ func _build_gate() -> void:
 	lintel.position = Vector3(DOOR_X, 5.0, z)
 	lintel.material_override = stone
 	game.world.add_child(lintel)
-	var hole := MeshInstance3D.new()
-	var hm := BoxMesh.new()
-	hm.size = Vector3(6.8, 4.4, 0.3)
-	hole.mesh = hm
-	hole.position = Vector3(DOOR_X, 2.2, z - 0.35)
-	hole.material_override = MeshKit.flat(Color(0.03, 0.03, 0.035))
-	game.world.add_child(hole)
 	var stripe := MeshInstance3D.new()
 	var sm := BoxMesh.new()
 	sm.size = Vector3(6.8, 0.18, 0.1)
@@ -104,15 +97,67 @@ func _build_gate() -> void:
 		c.shape = b
 		wall.add_child(c)
 		game.world.add_child(wall)
-	var back := StaticBody3D.new()
-	back.name = "Gate back"
-	back.position = Vector3(DOOR_X, 2.2, z + 1.1)
-	var bc := CollisionShape3D.new()
-	var bb := BoxShape3D.new()
-	bb.size = Vector3(9.6, 4.4, 0.4)
-	bc.shape = bb
-	back.add_child(bc)
-	game.world.add_child(back)
+	_build_tunnel(z + 0.9)
+
+## A real tunnel behind the portal: asphalt road with a dashed centre line, lined walls with ribs, an arched-flat roof, ceiling lamps
+## and a bright daylight opening at the far end where the street continues. The road also runs from the garage apron to the portal.
+func _build_tunnel(z0: float) -> void:
+	var z1 := z0 + 20.0
+	var w := 6.8
+	var h := 4.4
+	var cx := DOOR_X
+	var parts := Node3D.new()
+	parts.name = "ServiceTunnel"
+	game.world.add_child(parts)
+	var box := func(pos: Vector3, size_v: Vector3, m: Material, collide := false) -> void:
+		var mi := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = size_v
+		mi.mesh = bm
+		mi.material_override = m
+		mi.position = pos
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		parts.add_child(mi)
+		if collide:
+			var sb := StaticBody3D.new()
+			sb.position = pos
+			sb.set_meta("art", true)
+			var cs := CollisionShape3D.new()
+			var bs := BoxShape3D.new()
+			bs.size = size_v
+			cs.shape = bs
+			sb.add_child(cs)
+			parts.add_child(sb)
+	var asphalt: Material = load(QuarryArt.M_ASPHALT)
+	var stone := MeshKit.mat("RockLimestone")
+	var line := MeshKit.flat(Color(0.92, 0.82, 0.30))
+	var rib := MeshKit.flat(Color(0.36, 0.36, 0.38))
+	var dark := MeshKit.flat(Color(0.05, 0.05, 0.06))
+	# the road: garage apron -> portal -> through the tunnel
+	var rz0 := DOOR_Z + 0.2
+	box.call(Vector3(cx, 0.03, (rz0 + z1) * 0.5), Vector3(w, 0.06, z1 - rz0), asphalt, true)
+	var d := rz0 + 1.0
+	while d < z1 - 1.0:
+		box.call(Vector3(cx, 0.07, d), Vector3(0.16, 0.02, 1.2), line)
+		d += 2.6
+	# walls, roof and the closed end are solid so nobody walks out of the tunnel into the hillside
+	for sx in [-1.0, 1.0]:
+		box.call(Vector3(cx + sx * (w * 0.5 + 0.3), h * 0.5, (z0 + z1) * 0.5), Vector3(0.6, h, z1 - z0), stone, true)
+		box.call(Vector3(cx + sx * (w * 0.5 - 0.02), 0.45, (z0 + z1) * 0.5), Vector3(0.06, 0.9, z1 - z0), MeshKit.flat(Color(0.55, 0.55, 0.5)))   # kerb
+	box.call(Vector3(cx, h + 0.3, (z0 + z1) * 0.5), Vector3(w + 1.2, 0.6, z1 - z0), stone, true)
+	var lamp := MeshKit.flat(Color(1.0, 0.92, 0.7), 2.2)
+	var k := z0 + 2.0
+	while k < z1 - 1.0:
+		box.call(Vector3(cx, h - 0.05, k), Vector3(w - 0.4, 0.14, 0.18), rib)           # roof rib
+		box.call(Vector3(cx, h - 0.16, k + 1.6), Vector3(1.4, 0.08, 0.3), lamp)         # ceiling lamp
+		k += 3.2
+	# the far end: daylight and the street carrying on (sky-coloured glow, road and kerb lines)
+	box.call(Vector3(cx, h * 0.5, z1 + 0.15), Vector3(w + 1.2, h + 0.6, 0.3), MeshKit.flat(Color(0.82, 0.90, 1.0), 1.6), true)
+	box.call(Vector3(cx, 0.5, z1 - 0.05), Vector3(w, 1.0, 0.1), MeshKit.flat(Color(0.35, 0.37, 0.4), 0.4))
+	for sx in [-1.0, 1.0]:
+		box.call(Vector3(cx + sx * 1.4, 0.06, z1 - 0.12), Vector3(0.14, 0.02, 0.1), line)
+	# dark inside the portal so the opening reads as depth from the garage
+	box.call(Vector3(cx, h + 0.05, z0 - 0.4), Vector3(w + 0.2, 0.12, 0.8), dark)
 
 ## Where a newly hired worker steps out (spread a little so several hires do not stack).
 func gate_point(k := 0) -> Vector3:
@@ -123,11 +168,7 @@ func _near_door(p: Vector3, r := 4.6) -> bool:
 	return Vector2(p.x, p.z).distance_to(Vector2(DOOR_X, DOOR_Z)) < r
 
 func _anyone_near() -> bool:
-	if game.driving:
-		if _near_door(game.driving.global_position, 6.0):
-			return true
-	elif game.player and _near_door(game.player.global_position):
-		return true
+	# the door never opens for the player (on foot or driving): only deliveries and staff arriving or leaving
 	for j in jobs:
 		if _near_door(j["vehicle"].global_position, 6.0):
 			return true

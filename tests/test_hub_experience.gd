@@ -197,8 +197,11 @@ func run() -> void:
 	game.buy_next_tool()
 	await frames(3)
 	check(game.state.tool_tier == tier0 + 1 and (game.workbench_tag.text.contains(str(prog.next_tool()["title"])) if not prog.next_tool().is_empty() else true), "6g buying a tool updates the bench sign")
-	while not prog.next_tool().is_empty():
-		game.buy_next_tool()
+	var guard := 0
+	while not prog.next_tool().is_empty() and guard < 40:
+		guard += 1
+		if not game.buy_next_tool():
+			game.state.tool_tier += 1      # a stage-locked tool: hand it over, this check is about the bench sign
 	await frames(3)
 	check(game.workbench_tag.text.contains("All tools owned"), "6h with everything bought the sign says so")
 	# ---- 7: parking is sized by footprint

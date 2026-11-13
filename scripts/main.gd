@@ -2168,6 +2168,8 @@ func _ensure_opening() -> void:
 	prog.natural_start_enabled = natural_start_enabled
 	var natural := natural_start_enabled and prog.natural_start()
 	var ex := prog.excavator_state()
+	if _truck_should_be_gone():
+		_truck_leaves(true)
 	if natural and not bool(ex["granted"]):
 		var oc: Dictionary = prog.opening_cfg().get("excavator", {})
 		var pp: Array = oc.get("pos", [-12.0, 0.0, 6.6])
@@ -4366,6 +4368,64 @@ func _build_truck() -> void:
 	world.add_child(root)
 	truck_node = root
 
+## Grandpa's own look on the shared miner rig: cardigan and cream shirt, old trousers, no safety gear, and a flat wool cap,
+## round glasses, bushy white brows, a white moustache and side tufts on the head socket.
+func _dress_grandpa(body: Node3D) -> void:
+	var recolor := {"Top": Color(0.42, 0.30, 0.20), "TopCuff": Color(0.34, 0.24, 0.16), "Shirt": Color(0.88, 0.84, 0.72), "Pants": Color(0.38, 0.36, 0.32), "PantsHem": Color(0.32, 0.30, 0.27), "Shoes": Color(0.25, 0.17, 0.11)}
+	for mi in body.find_children("*", "MeshInstance3D", true, false):
+		var n := str(mi.name)
+		if n.contains("Gear") or n.contains("Badge"):
+			mi.visible = false     # the miner's pouches and badge: Grandpa carries none of it
+			continue
+		for key in recolor:
+			if n == "QD_Miner_" + key and mi.mesh != null and mi.get_active_material(0) is BaseMaterial3D:
+				var m: BaseMaterial3D = mi.get_active_material(0).duplicate()
+				m.albedo_texture = null
+				m.albedo_color = recolor[key]
+				mi.material_override = m
+	var skels := body.find_children("*", "Skeleton3D", true, false)
+	if skels.is_empty() or (skels[0] as Skeleton3D).find_bone("Socket_Head") < 0:
+		return
+	var att := BoneAttachment3D.new()
+	att.name = "GrandpaHead"
+	att.bone_name = "Socket_Head"
+	skels[0].add_child(att)
+	var wool := _mat(Color(0.36, 0.38, 0.34))
+	var white := _mat(Color(0.94, 0.94, 0.92))
+	var dark := _mat(Color(0.12, 0.10, 0.09))
+	var gb := func(pos: Vector3, size_v: Vector3, mat: Material) -> void:
+		var m := MeshInstance3D.new()
+		var b := BoxMesh.new()
+		b.size = size_v
+		m.mesh = b
+		m.material_override = mat
+		m.position = pos
+		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		att.add_child(m)
+	var dome := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = 0.16
+	sm.height = 0.2
+	dome.mesh = sm
+	dome.material_override = wool
+	dome.position = Vector3(0, -0.02, 0.0)
+	dome.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	att.add_child(dome)
+	gb.call(Vector3(0, -0.075, -0.15), Vector3(0.28, 0.02, 0.16), wool)      # the flat cap's peak
+	gb.call(Vector3(0, -0.07, 0.0), Vector3(0.3, 0.03, 0.3), wool)             # its band
+	for sx in [-0.14, 0.14]:
+		gb.call(Vector3(sx, -0.14, 0.02), Vector3(0.03, 0.09, 0.14), white)    # white tufts under the cap
+		gb.call(Vector3(sx * 0.37, -0.145, -0.16), Vector3(0.09, 0.025, 0.02), white)   # bushy brows
+	gb.call(Vector3(0, -0.225, -0.165), Vector3(0.14, 0.03, 0.025), white)      # moustache
+	gb.call(Vector3(-0.07, -0.225, -0.16), Vector3(0.03, 0.045, 0.02), white)
+	gb.call(Vector3(0.07, -0.225, -0.16), Vector3(0.03, 0.045, 0.02), white)
+	for sx in [-0.055, 0.055]:                                                  # round wire glasses
+		gb.call(Vector3(sx, -0.175, -0.168), Vector3(0.07, 0.006, 0.01), dark)
+		gb.call(Vector3(sx, -0.19, -0.168), Vector3(0.07, 0.006, 0.01), dark)
+		gb.call(Vector3(sx - 0.035, -0.182, -0.168), Vector3(0.006, 0.02, 0.01), dark)
+		gb.call(Vector3(sx + 0.035, -0.182, -0.168), Vector3(0.006, 0.02, 0.01), dark)
+	gb.call(Vector3(0, -0.18, -0.168), Vector3(0.03, 0.006, 0.01), dark)
+
 ## Walter: the miner model with white hair. Anyone can talk to him with E while he waits.
 func _spawn_walter(at := Vector3.INF, face_to := Vector3.ZERO, npc := "walter") -> void:
 	if walter_node != null and is_instance_valid(walter_node):
@@ -4395,6 +4455,9 @@ func _spawn_walter(at := Vector3.INF, face_to := Vector3.ZERO, npc := "walter") 
 			m.albedo_color = Color(0.92, 0.92, 0.9) if npc == "walter" else Color(0.62, 0.32, 0.18)
 			mi.material_override = m
 	body.scale = Vector3.ONE * (0.96 if npc == "walter" else 0.98)
+	if npc == "walter":
+		_dress_grandpa(body)
+		body.scale = Vector3(0.93, 0.89, 0.93)   # a little shorter, shoulders rounded by the years
 	var found := body.find_children("*", "Skeleton3D", true, false)
 	if not found.is_empty():
 		var r := VeilRig.new()
@@ -4405,6 +4468,31 @@ func _spawn_walter(at := Vector3.INF, face_to := Vector3.ZERO, npc := "walter") 
 	walter_pose = "idle"
 	if face_to != Vector3.ZERO:
 		root.rotation.y = atan2(-(face_to.x - root.position.x), -(face_to.z - root.position.z))
+
+## Phase 10: Walter's old truck does not sit in the yard for good. Once the intro is over it drives out through the
+## service gate; a save made after that never sees it at all.
+func _truck_leaves(instant := false) -> void:
+	if truck_node == null or not is_instance_valid(truck_node):
+		return
+	var t := truck_node
+	truck_node = null
+	var gone := func() -> void:
+		if is_instance_valid(t):
+			t.queue_free()
+		_rebake_nav()
+	if instant:
+		t.queue_free()
+		return
+	t.collision_layer = 0
+	var tw := create_tween()
+	tw.tween_property(t, "rotation:y", 0.0, 1.0)
+	tw.tween_property(t, "position", Vector3(t.position.x, 0.0, 17.0), 3.0).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(t, "position", Vector3(0.5, 0.0, 17.0), 2.0).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(t, "position", Vector3(0.5, 0.0, 30.0), 3.0)
+	tw.tween_callback(gone)
+
+func _truck_should_be_gone() -> bool:
+	return natural_start_enabled and prog.natural_start() and not bool(prog.excavator_state().get("legacy", false)) and bool(prog.story.get("intro_seen", false))
 
 func _remove_walter() -> void:
 	if walter_node != null and is_instance_valid(walter_node):
@@ -4623,6 +4711,8 @@ func _finish_intro() -> void:
 	prog.story["intro_seen"] = true
 	player.locked = false
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	if natural_start_enabled and prog.natural_start():
+		_truck_leaves()
 	if natural_start_enabled and prog.natural_start() and not bool(prog.excavator_state()["started"]):
 		_grandpa_to_post()   # Phase 10: he waits by the broken excavator and helps once it is repaired
 	else:
