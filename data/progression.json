@@ -129,7 +129,7 @@
    "unlocks": [
     "Rock Hammer"
    ],
-   "price_mult": 0.07
+   "price_mult": 0.22
   },
   {
    "id": "better_tools",
@@ -150,7 +150,7 @@
     "Hand Cart",
     "Repaired Pickaxe"
    ],
-   "price_mult": 0.045
+   "price_mult": 0.1
   },
   {
    "id": "workshop",
@@ -169,7 +169,7 @@
     "Reinforced Wheelbarrow",
     "Workshop upgrades"
    ],
-   "price_mult": 0.05
+   "price_mult": 0.12
   },
   {
    "id": "breaking_ground",
@@ -190,7 +190,7 @@
     "Stone Crusher",
     "Output Storage"
    ],
-   "price_mult": 0.065
+   "price_mult": 0.13
   },
   {
    "id": "first_employee",
@@ -210,7 +210,7 @@
     "Conveyors",
     "Employee improvements"
    ],
-   "price_mult": 0.12
+   "price_mult": 0.15
   },
   {
    "id": "power_pressure",
@@ -2563,9 +2563,7 @@
   "heavy_truck": "moving_mountains",
   "industrial_truck": "deeper_ground",
   "compact_excavator": "moving_mountains",
-  "heavy_excavator": "deeper_ground",
-  "starter_excavator": "grandpa",
-  "starter_truck": "grandpa"
+  "heavy_excavator": "deeper_ground"
  },
  "quarry_milestones": [
   {

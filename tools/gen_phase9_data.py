@@ -6,7 +6,7 @@ d=json.load(open(P))
 S=lambda i,t,g,req,unl: {"id":i,"title":t,"goal":g,"req":req,"unlocks":unl}
 d['stages']=[
  S("grandpa","Grandpa's Legacy","Break stone with Grandpa's hammer, clear the overgrown site and sell what you cut.",{},["Rock Hammer"]),
- S("better_tools","Better Tools","Earn $150 and clear the site. Then buy better hand tools at the workbench.",{"earned":150,"milestones":["cleanup_done"]},["Pointed Chisel","Worn Pickaxe","Flat Chisel","Hand Cart","Repaired Pickaxe"]),
+ S("better_tools","Better Tools","Earn $150, clear the site, get Grandpa's excavator running and haul away the first soil. Then buy better hand tools at the workbench.",{"earned":150,"milestones":["cleanup_done","excavator_running","soil_hauled"]},["Pointed Chisel","Worn Pickaxe","Flat Chisel","Hand Cart","Repaired Pickaxe"]),
  S("workshop","The Workshop","Earn $600 and own a pickaxe. The workshop sells heavier, more specialised tools.",{"earned":600,"owns":["pickaxe"]},["Reinforced Pickaxe","Sledgehammer","Steel Pickaxe","Reinforced Wheelbarrow","Workshop upgrades"]),
  S("breaking_ground","Breaking Ground","Earn $1,800 and make a workbench upgrade. Start processing stone.",{"earned":1800,"owns":["reinforced"],"milestones":["workshop_upgrade"]},["Hardened Pickaxe","Hand Rock Splitter","Stone Crusher","Output Storage"]),
  S("first_employee","First Employee","Earn $4,000, find iron and run a crusher. Then you can hire help.",{"earned":4000,"discover":["iron_ore"],"milestones":["crusher_built"]},["Hire workers","Conveyors","Employee improvements"]),
@@ -18,7 +18,7 @@ d['stages']=[
  S("beneath_mountain","Beneath the Mountain","Earn $600,000 and reach the lowest level. (Future content.)",{"earned":600000,"quarry_level":4},[]),
  S("quarry_empire","Quarry Empire","Earn $1,500,000. (Future content.)",{"earned":1500000,"quarry_level":4},[]),
 ]
-PRICE_MULT=[0.07,0.045,0.05,0.065,0.12,0.4,1.0,1.0,1.0,1.0,1.0,1.0]
+PRICE_MULT=[0.22,0.10,0.12,0.13,0.15,0.4,1.0,1.0,1.0,1.0,1.0,1.0]
 for i,stg in enumerate(d['stages']):
     stg['price_mult']=PRICE_MULT[i]
 d['legacy_stage_ids']={"manual":"grandpa","tools":"better_tools","crew":"first_employee","industry":"power_pressure","large":"moving_mountains","deep":"deeper_ground"}
@@ -46,7 +46,7 @@ d['unlocks']={
  "jackhammer":{"stage":"industrial_quarry","owns":["drill"],"discover":["copper_ore"]},
 }
 d['unlocks_comment']="Phase 9.1 hybrid unlocks: every entry lists what must be true BEFORE the item can be bought (money is the item's price). stage = a stage id; owns = tools/equipment already owned; discover = minerals found; delivered = minerals sold; milestones = built-in or story milestones; earned; quarry_level; story = story flags."
-d['milestone_titles']={"cleanup_done":"Clear Grandpa's overgrown site","workshop_upgrade":"Buy a workbench upgrade","crusher_built":"Build a crusher"}
+d['milestone_titles']={"cleanup_done":"Clear Grandpa's overgrown site","workshop_upgrade":"Buy a workbench upgrade","crusher_built":"Build a crusher","excavator_running":"Repair Grandpa's excavator","soil_hauled":"Haul 24 loads of soil to the spoil heap"}
 # ---- Phase 9.2: the extra tools (a precision / general / impact / continuous mix) and the hauling aids
 T['drill'].update(dps=100,powered=True)
 T['jackhammer'].update(dps=180,powered=True)
