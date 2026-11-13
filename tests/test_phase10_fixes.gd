@@ -62,6 +62,15 @@ func run() -> void:
 		if not game.get_world_3d().direct_space_state.intersect_point(q, 1).is_empty():
 			buried.append(id)
 	check(buried.is_empty(), "no cleanup item is buried inside a solid %s" % str(buried))
+	# nothing is buried under the soil piles either
+	var under := []
+	if game.soil != null:
+		for id in game.prog.cleanup_ids():
+			var cp: Vector2 = game.prog.cleanup_pos(str(id))
+			var ci: int = game.soil.nearest_cell(Vector3(cp.x, 0.0, cp.y), 2.0)
+			if ci >= 0:
+				under.append(id)
+	check(under.is_empty(), "no weed or rubble heap lies under soil %s" % str(under))
 	# the old truck waits by the excavator; when Grandpa leaves he walks to it, climbs in and drives out along the lane
 	check(game.truck_node != null, "Walter's truck is still parked while Grandpa waits by the excavator")
 	game._spawn_walter()

@@ -2350,6 +2350,9 @@ func _build_soil() -> void:
 		for q in avoid:
 			if (q as Vector2).distance_to(p) < 3.6:
 				ok = false
+		for cid in prog.cleanup_ids():
+			if prog.cleanup_pos(str(cid)).distance_to(p) < 2.8:
+				ok = false           # weeds and rubble are never buried under a soil pile: the ground around them stays bare
 		mask[i] = 1 if ok else 0
 	soil = QuarrySoil.new()
 	world.add_child(soil)
