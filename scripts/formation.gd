@@ -232,7 +232,11 @@ func _build_decor(dd: Dictionary) -> void:
 		var on: Array = []
 		on.resize(xfs.size())
 		on.fill(true)
-		_decor_groups.append({"mm": mm, "base": xfs, "col": cols, "on": on})
+		var clean: Array = []
+		clean.resize(xfs.size())
+		clean.fill(false)
+		_decor_groups.append({"mm": mm, "base": xfs, "col": cols, "on": on, "clean": clean, "overgrowth": ki != 4})
+	_apply_cleanup_state()
 
 static var _decor_mat: StandardMaterial3D
 
@@ -246,6 +250,40 @@ static func _decor_material() -> StandardMaterial3D:
 		_decor_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	return _decor_mat
 
+## The overgrowth (scrub, grass, loose stones and pebbles) is cleaned off the ground: everything within `radius` metres of a world point, or all of it.
+## The patches of darker and lighter soil are just dirt and stay. Returns how many pieces were cleared.
+func clean_decor(world_pos: Vector3, radius: float, everything := false) -> int:
+	var lp := to_local(world_pos)
+	var n := 0
+	for g in _decor_groups:
+		if not bool(g["overgrowth"]):
+			continue
+		var base: Array = g["base"]
+		var clean: Array = g["clean"]
+		for q in range(base.size()):
+			if bool(clean[q]):
+				continue
+			var o: Vector3 = (base[q] as Transform3D).origin
+			if everything or Vector2(o.x - lp.x, o.z - lp.z).length() <= radius:
+				clean[q] = true
+				n += 1
+	if n > 0:
+		_refresh_decor()
+	return n
+
+## Re-applies what the site cleanup has already done (a loaded save, or the world being rebuilt): around every cleared weed and heap, or everywhere
+## once the whole site is clean.
+func _apply_cleanup_state() -> void:
+	if prog == null or not prog.cfg.has("cleanup_filled") or not prog.filled_world():
+		return
+	if bool(prog.cleanup.get("done", false)):
+		clean_decor(Vector3.ZERO, 0.0, true)
+		return
+	for id in prog.cleanup_ids():
+		if bool(prog.cleanup["cleared"].get(str(id), false)):
+			var p2: Vector2 = prog.cleanup_pos(str(id))
+			clean_decor(to_global(Vector3(0, 0, 0)) * 0.0 + Vector3(p2.x, 0.0, p2.y), 7.0)
+
 ## Shows or hides each decoration with the soil under it (an instance with zero scale draws nothing).
 func _refresh_decor() -> void:
 	for g in _decor_groups:
@@ -253,8 +291,9 @@ func _refresh_decor() -> void:
 		var on: Array = g["on"]
 		var cols: Array = g["col"]
 		var base: Array = g["base"]
+		var clean: Array = g["clean"]
 		for q in range(cols.size()):
-			var want: bool = prog.chunks_left(fid, int(cols[q])) > 0
+			var want: bool = prog.chunks_left(fid, int(cols[q])) > 0 and not bool(clean[q])
 			if want != bool(on[q]):
 				on[q] = want
 				mm.set_instance_transform(q, base[q] if want else Transform3D(Basis.from_scale(Vector3.ZERO), (base[q] as Transform3D).origin))
@@ -330,7 +369,7 @@ func _rebuild_skin(heights: Array) -> void:
 		var base := origin + Vector3((float(gx) - 0.5) * cell, 0, (float(gy) - 0.5) * cell)
 		var jx := (_corner_noise(gx, gy, 1) - 0.5) * 2.0 * jit
 		var jz := (_corner_noise(gx, gy, 2) - 0.5) * 2.0 * jit
-		var jy := -_corner_noise(gx, gy, 3) * 0.10
+		var jy := -_corner_noise(gx, gy, 3) * (0.02 if str(prog.fdef(fid).get("frame", "")) == "pit" else 0.10)       # the walking surface and what you see agree to 2 cm (the collider top is flat)
 		if h <= 0.0:
 			return Vector3(base.x + jx, 0.0, base.z + jz)
 		return Vector3(base.x + jx, h + jy, base.z + jz)

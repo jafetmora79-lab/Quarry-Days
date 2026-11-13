@@ -157,6 +157,18 @@ func sell(key: String, amount: int) -> int:
 	add_income(int(round(float(sold) * unit_price(key))), "sale")
 	return sold
 
+## Sells what is in the storage bin (not only what is in the bag).
+func sell_storage(key: String, amount: int) -> int:
+	if not storage.has(key) or amount <= 0:
+		return 0
+	var sold: int = mini(amount, int(storage[key]))
+	if sold <= 0:
+		return 0
+	storage[key] -= sold
+	note_lifetime("sold", key, sold)
+	add_income(int(round(float(sold) * unit_price(key))), "sale")
+	return sold
+
 ## What the buyers pay for one unit right now (the base price times the stage's pay factor).
 func unit_price(key: String) -> float:
 	return float(config["prices"].get(key, 0)) * price_mult

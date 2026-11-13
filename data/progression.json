@@ -8338,7 +8338,7 @@
   "gate_radius": 8.0,
   "corridor_length": 0.0,
   "corridor_width": 8.0,
-  "plateau_width": 320.0,
+  "plateau_width": 400.0,
   "plateau_depth": 100.0,
   "basin_width": 244.0,
   "basin_depth": 92.0,
@@ -8508,66 +8508,166 @@
   "_comment": "Blueprint world: the weeds and rubble lie ON the quarry's original soil surface in front of the central gate (Area 1, the tutorial zone); clearing them does not lower the ground.",
   "weeds": [
    [
-    -27,
-    -19
+    -97,
+    -38
    ],
    [
-    -12,
-    -17
-   ],
-   [
-    8,
-    -18
-   ],
-   [
-    24,
-    -20
-   ],
-   [
-    -30,
-    -32
-   ],
-   [
-    -4,
+    52,
     -33
    ],
    [
-    14,
+    -98,
+    -33
+   ],
+   [
+    -68,
+    -37
+   ],
+   [
+    81,
+    -40
+   ],
+   [
+    42,
+    -28
+   ],
+   [
+    50,
+    -38
+   ],
+   [
+    26,
     -31
    ],
    [
-    46,
-    -24
+    4,
+    -27
    ],
    [
-    -44,
+    53,
+    -19
+   ],
+   [
+    -80,
+    -28
+   ],
+   [
+    71,
+    -29
+   ],
+   [
+    19,
+    -42
+   ],
+   [
+    -97,
+    -18
+   ],
+   [
+    -68,
+    -31
+   ],
+   [
+    -54,
     -22
    ],
    [
-    60,
-    -20
+    -68,
+    -18
+   ],
+   [
+    97,
+    -32
+   ],
+   [
+    40,
+    -41
+   ],
+   [
+    -19,
+    -32
+   ],
+   [
+    -84,
+    -17
+   ],
+   [
+    81,
+    -21
+   ],
+   [
+    71,
+    -22
+   ],
+   [
+    25,
+    -17
+   ],
+   [
+    5,
+    -38
+   ],
+   [
+    -23,
+    -18
+   ],
+   [
+    97,
+    -37
+   ],
+   [
+    81,
+    -27
    ]
   ],
   "heaps": [
    [
-    -17,
-    -30
+    -48,
+    -40
+   ],
+   [
+    -85,
+    -41
+   ],
+   [
+    -19,
+    -41
+   ],
+   [
+    -40,
+    -39
+   ],
+   [
+    10,
+    -20
+   ],
+   [
+    -9,
+    -39
+   ],
+   [
+    -54,
+    -31
+   ],
+   [
+    36,
+    -18
    ],
    [
     -38,
-    -27
+    -32
    ],
    [
-    24,
-    -30
+    66,
+    -40
    ],
    [
-    2,
-    -26
+    -11,
+    -32
    ],
    [
-    50,
-    -30
+    -34,
+    -20
    ]
   ],
   "gift_text": "Kiddo,\n\nI heard you cleaned the old place up. I knew you would.\n\nNow the real quarry is open to you: start taking the topsoil off, then the gravel and the limestone under it. Cut it level by level and it will give up good stone.\n\nI'm sending what I had put away. Spend it on a drill when you are ready. Machines are how we cut the big benches.\n\n- Grandpa Walt"
@@ -8590,56 +8690,56 @@
   },
   "truck": {
    "pos": [
-    20.5,
+    -5.0,
     0.0,
-    9.5
+    18.5
    ],
-   "yaw": -1.5708
+   "yaw": 0.0
   }
  },
  "opening_filled": {
   "excavator": {
    "pos": [
-    -13.5,
+    -9.5,
     0.0,
-    11.5
+    18.5
    ],
    "yaw": 0.0
   },
   "grandpa": {
    "pos": [
-    -14.9,
+    -7.2,
     0.0,
-    5.6
+    15.6
    ]
   },
   "parts": {
    "battery": {
     "title": "Battery",
     "pos": [
-     -17.0,
+     -11.5,
      0.0,
-     7.5
+     13.0
     ],
-    "hint": "The battery is flat and corroded... there is a fresh one on the ground by the tool shed."
+    "hint": "The battery is flat and corroded... there is a fresh one on the ground in front of the garage, at the west end."
    },
    "hose": {
     "title": "Hydraulic hose",
     "pos": [
-     -13.0,
+     -8.0,
      0.0,
-     8.5
+     13.2
     ],
-    "hint": "The boom hose split years ago. I kept a spare coiled on the ground, a few steps south-east of the tool shed."
+    "hint": "The boom hose split years ago. I kept a spare coiled on the ground in front of the garage, in the middle."
    },
    "fuel": {
     "title": "Fuel can",
     "pos": [
-     -9.5,
+     -5.4,
      0.0,
-     7.2
+     13.0
     ],
-    "hint": "She's bone dry. There is a can of diesel on the ground south of the storage shed."
+    "hint": "She's bone dry. There is a can of diesel on the ground in front of the garage, at the east end."
    }
   }
  },
@@ -8651,11 +8751,11 @@
   ],
   "truck": {
    "pos": [
-    20.5,
+    22.0,
     0.0,
-    9.5
+    26.0
    ],
-   "yaw": -1.5708
+   "yaw": 0.0
   },
   "cinematic_look": [
    0.0,

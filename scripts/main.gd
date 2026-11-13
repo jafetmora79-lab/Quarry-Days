@@ -286,8 +286,8 @@ func _init_layout() -> void:
 	SHED_POS = Vector3(-8.875, 0, 3.5)
 	OFFICE_POS = Vector3(13.125, 0, 3.5)
 	HOME_POS = Vector3(17.625, 0, 17.5)
-	SELL_ANCHOR = Vector3(9.0, 0.85, -1.2)
-	STORAGE_POS = Vector3(8.0, 0.65, 9.5)
+	SELL_ANCHOR = Vector3(13.125, 0.85, 0.2)         # carts and the sales clerk deal just outside the office door
+	STORAGE_POS = Vector3(9.0, 0.65, -13.5)          # the storage bin stands INSIDE the quarry, just past the central gate
 	business.storage_pos = Vector3(STORAGE_POS.x, 0.0, STORAGE_POS.z)
 	GARAGE_DX = -8.0
 	PARK_X_MIN = -4.4 + GARAGE_DX
@@ -793,6 +793,8 @@ func _finish_debris(id: String, node: Node3D, what: String) -> void:
 	tw.tween_callback(node.queue_free)
 	if what == "weeds" and hud:
 		hud.popup_resource("copper_ore", 1, "Weeds cut")
+	if blueprint and formation_nodes.has("q_top"):
+		(formation_nodes["q_top"] as QuarryFormation).clean_decor(node.global_position, 7.0)      # the scrub, grass and stones around it go with it
 	var last := prog.clear_cleanup_item(id)
 	if not last:
 		var nx := nearest_cleanup()
@@ -813,6 +815,8 @@ func _on_area_completed(id: String) -> void:
 
 ## The whole site is clean: Walt's letter arrives with money, and the hillside opens.
 func _on_site_cleared() -> void:
+	if blueprint and formation_nodes.has("q_top"):
+		(formation_nodes["q_top"] as QuarryFormation).clean_decor(Vector3.ZERO, 0.0, true)       # every bush, tuft and loose stone: only dirt is left
 	var cu: Dictionary = prog.cleanup_cfg()
 	var gift := int(cu.get("gift", 0))
 	state.money += gift
@@ -1990,16 +1994,18 @@ func _draw_cart(p: QuarryStationUI, idx: int) -> void:
 func _draw_sell(p: QuarryStationUI) -> void:
 	var bag_value := 0
 	for key in RESOURCE_ORDER:
-		bag_value += int(round(float(state.inventory[key]) * state.unit_price(key)))
+		bag_value += int(round(float(int(state.inventory[key]) + int(state.storage.get(key, 0))) * state.unit_price(key)))
 	p.begin("SALES", state.money, "Optional keys: 1-8 sell, 9 sell all, Shift+1-8 clerk on/off")
 	var R := HORIZONTAL_ALIGNMENT_RIGHT
-	p.row([["MATERIAL", QuarryTheme.DIM, 120], ["IN BAG", QuarryTheme.DIM, 60, R], ["PRICE EACH", QuarryTheme.DIM, 90, R], ["SALE VALUE", QuarryTheme.DIM, 100, R]], [], Color(0, 0, 0, 0), true)
+	p.row([["MATERIAL", QuarryTheme.DIM, 110], ["BAG", QuarryTheme.DIM, 44, R], ["STORAGE", QuarryTheme.DIM, 64, R], ["PRICE EACH", QuarryTheme.DIM, 80, R], ["SALE VALUE", QuarryTheme.DIM, 90, R]], [], Color(0, 0, 0, 0), true)
 	for i in range(RESOURCE_ORDER.size()):
 		var key: String = RESOURCE_ORDER[i]
-		var n := int(state.inventory[key])
+		var nb := int(state.inventory[key])
+		var ns := int(state.storage.get(key, 0))
+		var n := nb + ns
 		var price_f := state.unit_price(key)
 		var ok: bool = business.authorized[key]
-		p.row([[prog.display(key), QuarryTheme.INK, 120, HORIZONTAL_ALIGNMENT_LEFT, true], [str(n), QuarryTheme.INK if n > 0 else QuarryTheme.DIM, 60, R], [("$%.2f" % price_f) if state.price_mult < 0.995 else ("$%d" % int(price_f)), QuarryTheme.DIM, 90, R], [QuarryTheme.money_text(int(round(float(n) * price_f))), QuarryTheme.MONEY if n > 0 else QuarryTheme.DIM, 100, R, true]],
+		p.row([[prog.display(key), QuarryTheme.INK, 110, HORIZONTAL_ALIGNMENT_LEFT, true], [str(nb), QuarryTheme.INK if nb > 0 else QuarryTheme.DIM, 44, R], [str(ns), QuarryTheme.INK if ns > 0 else QuarryTheme.DIM, 64, R], [("$%.2f" % price_f) if state.price_mult < 0.995 else ("$%d" % int(price_f)), QuarryTheme.DIM, 80, R], [QuarryTheme.money_text(int(round(float(n) * price_f))), QuarryTheme.MONEY if n > 0 else QuarryTheme.DIM, 90, R, true]],
 			[["clerk_" + key, "Clerk: " + ("on" if ok else "off"), true, func(): menu_act("sell", i, true), 84, "toggle"], ["sell_" + key, "SELL", n > 0, func(): menu_act("sell", i, false), 80, "primary"]], QuarryTheme.RES_COLORS.get(key, Color.WHITE))
 	p.button_bar([["sell_all", "SELL ALL   %s" % QuarryTheme.money_text(bag_value), bag_value > 0, func(): menu_act("sell", RESOURCE_ORDER.size(), false), 260, "primary"], ["office", "OFFICE COMPUTER", true, func(): _open_menu("manage"), 200]])
 	p.text("'Clerk' chooses what the sales clerk may sell for you. It never stops you selling by hand.")
@@ -2397,12 +2403,17 @@ func _ensure_opening() -> void:
 	if natural and not bool(ex["granted"]):
 		var oc: Dictionary = prog.opening_cfg().get("excavator", {})
 		var pp: Array = oc.get("pos", [-12.0, 0.0, 6.6])
+		var park: Array = fleet.cfg.get("parking", [])
+		if blueprint and park.size() >= 2:
+			pp = park[0]                       # the excavator and the old truck stand in the machinery garage, in their own parking slots
 		var rec := fleet.give("starter_excavator", Vector3(float(pp[0]), float(pp[1]), float(pp[2])), float(oc.get("yaw", 0.0)))
 		if not rec.is_empty():
 			ex["granted"] = true
 			var tc: Dictionary = prog.cfg_for("soil").get("truck", {})
 			if not tc.is_empty() and not fleet.owns_type("starter_truck"):
 				var tp: Array = tc["pos"]
+				if blueprint and park.size() >= 2:
+					tp = park[1]
 				fleet.give("starter_truck", Vector3(float(tp[0]), float(tp[1]), float(tp[2])), float(tc.get("yaw", 0.0)))
 			_sync_vehicles()
 	_decorate_starter()
@@ -2478,7 +2489,14 @@ func _build_natural_ground(natural: bool) -> void:
 					if Rect2(float(r[0]), float(r[1]), float(r[2]) - float(r[0]), float(r[3]) - float(r[1])).grow(2.0).has_point(Vector2(p.x, p.y + 8.0)):
 						return false
 		return true
-	var info := OpeningModels.natural_ground(world, ok_bp, Rect2(-23.0, -29.0, 46.0, 21.5) if not blueprint else Rect2(-32.0, -56.0, 64.0, 42.0), 1010)
+	var info: Dictionary
+	if blueprint:
+		var nr := Node3D.new()                       # no permanent boulders, mounds or scrub in the blueprint quarry: the loose rocks and weeds are the cleanable debris
+		nr.name = "NaturalStart"
+		world.add_child(nr)
+		info = {"root": nr, "boulders": 0, "outcrops": 0, "patches": 0, "scrub": 0, "pebbles": 0}
+	else:
+		info = OpeningModels.natural_ground(world, ok_bp, Rect2(-23.0, -29.0, 46.0, 21.5) if not blueprint else Rect2(-32.0, -56.0, 64.0, 42.0), 1010)
 	natural_root = info["root"]
 	_build_soil()
 	natural_root.set_meta("counts", {"boulders": info["boulders"], "outcrops": info["outcrops"], "patches": info["patches"], "scrub": info["scrub"], "pebbles": info["pebbles"]})
@@ -3413,19 +3431,22 @@ func fmt_time(minutes: int) -> String:
 	return "%02d:%02d" % [posmod(minutes, 1440) / 60, posmod(minutes, 60)]
 
 func _build_phase2_area() -> void:
-	var floor_body := _solid(world, "Expansion floor", Vector3(39,-0.25,0), Vector3(20,0.5,26), Color(0.36,0.33,0.27))
-	floor_body.set_meta("ground", true)
-	_solid(world, "Expansion cliff", Vector3(39,3,-14), Vector3(22,6,2), Color(0.33,0.32,0.29))
-	_solid(world, "Expansion cliff", Vector3(39,3,14), Vector3(22,6,2), Color(0.34,0.32,0.29))
-	_solid(world, "Expansion cliff", Vector3(50,3,0), Vector3(2,6,30), Color(0.32,0.31,0.28))
-	var barrier := _solid(world, "Rockfall barrier", Vector3(29.6,2.0,0), Vector3(1.2,4.0,26), Color(0.42,0.37,0.31))
-	expansion_gate.append(barrier)
-	var desk := _solid(world, "Management desk", Vector3(OFFICE_POS.x,0.5,13.4), Vector3(1.8,1.0,0.8), Color(0.30,0.20,0.12))
+	if not blueprint:                        # the old east expansion: grey cliff blocks and a rockfall barrier east of the old yard. The blueprint world has no such area.
+		var floor_body := _solid(world, "Expansion floor", Vector3(39,-0.25,0), Vector3(20,0.5,26), Color(0.36,0.33,0.27))
+		floor_body.set_meta("ground", true)
+		_solid(world, "Expansion cliff", Vector3(39,3,-14), Vector3(22,6,2), Color(0.33,0.32,0.29))
+		_solid(world, "Expansion cliff", Vector3(39,3,14), Vector3(22,6,2), Color(0.34,0.32,0.29))
+		_solid(world, "Expansion cliff", Vector3(50,3,0), Vector3(2,6,30), Color(0.32,0.31,0.28))
+		var barrier := _solid(world, "Rockfall barrier", Vector3(29.6,2.0,0), Vector3(1.2,4.0,26), Color(0.42,0.37,0.31))
+		expansion_gate.append(barrier)
+	var desk := _solid(world, "Management desk", Vector3(OFFICE_POS.x, 0.5, OFFICE_POS.z + 1.4), Vector3(1.8,1.0,0.8), Color(0.30,0.20,0.12))
 	desk.set_meta("kind", "office")
 	_visual_box(desk, Vector3(-0.4,0.62,0), Vector3(0.5,0.24,0.06), Color(0.12,0.2,0.16))
 
 ## Shows or hides the east expansion. Locked: barrier + cliff in place, no deposits there.
 func _set_expansion(unlocked: bool) -> void:
+	if blueprint:
+		return                               # no east expansion in the blueprint world (the quarry itself is the expansion)
 	for body in expansion_gate:
 		body.visible = not unlocked
 		body.collision_layer = 0 if unlocked else 1
@@ -6049,18 +6070,20 @@ func sell_from_bag(keys: Array) -> int:
 	var parts := []
 	for key in keys:
 		var n := int(state.inventory[key])
-		if n <= 0:
+		var ns := int(state.storage.get(key, 0))
+		if n <= 0 and ns <= 0:
 			continue
 		var before := state.money
-		state.sell(key, n)
+		state.sell(key, n)                    # the bag first, then whatever waits in the storage bin
+		state.sell_storage(key, ns)
 		total += state.money - before
-		parts.append("%d %s" % [n, prog.display(key).to_upper()])
+		parts.append("%d %s" % [n + ns, prog.display(key).to_upper()])
 	if total > 0:
 		sfx["coin"].play()
 		hud.toast("Sold " + ", ".join(parts), "+" + QuarryTheme.money_text(total), "sale")
 		_notify("Sold %s for %s" % [", ".join(parts), QuarryTheme.money_text(total)])
 	else:
-		_notify("Nothing of that in your bag.")
+		_notify("Nothing of that in your bag or in storage.")
 	return total
 
 func buy_next_tool() -> bool:

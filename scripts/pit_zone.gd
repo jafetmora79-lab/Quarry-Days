@@ -407,8 +407,12 @@ func _build_fence_art(vis: Node3D) -> void:
 	var wire := MeshKit.Soup.new()
 	var runs := [[Vector2(x0, z0f), Vector2(x1, z0f)], [Vector2(x1, z0f), Vector2(x1, z1f)], [Vector2(x0, z1f), Vector2(x0, z0f)],
 		[Vector2(x0, z1f), Vector2(-gate, z1f)], [Vector2(gate, z1f), Vector2(x1, z1f)]]
+	# the property boundary: a proper fence all the way round (the invisible walls stand just behind it), so the edge of the site is something you can see
+	var px := plat_w * 0.5
+	var pz_south := 88.0                    # local z of the land's south edge (world z 80)
+	var perimeter := [[Vector2(-px, z0f), Vector2(-px, pz_south)], [Vector2(px, z0f), Vector2(px, pz_south)], [Vector2(-px, pz_south), Vector2(px, pz_south)], [Vector2(-px, z0f), Vector2(x0, z0f)], [Vector2(x1, z0f), Vector2(px, z0f)]]
 	var h := 2.2
-	for r in runs:
+	for r in runs + perimeter:
 		var a: Vector2 = r[0]
 		var b: Vector2 = r[1]
 		var d := b - a

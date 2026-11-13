@@ -46,36 +46,43 @@ func build(main_node) -> void:
 		door_c = Vector3(WEST_GATE.x, 0.0, WEST_GATE.z)
 		mouth = WEST_MOUTH
 	# the roll-up door: a pivot at the top of the opening that the shutter scales into
+	var dw := DOOR_W
+	var dh := DOOR_H
+	var px := door_c.x
+	if west:
+		dw = 6.7                                # the tunnel gate: the shutter fills the portal (posts 8.2 m apart, 1.4 m wide, lintel underside at 4.35 m) ...
+		dh = 4.3
+		px = WEST_GATE.x - 0.9                  # ... and hangs in the portal's own plane, not 0.9 m in front of it
 	pivot = Node3D.new()
-	pivot.position = Vector3(door_c.x, DOOR_H, door_c.z)
+	pivot.position = Vector3(px, dh, door_c.z)
 	game.world.add_child(pivot)
 	var panel := MeshInstance3D.new()
 	var bm := BoxMesh.new()
-	bm.size = Vector3(DOOR_W, DOOR_H, 0.14)
+	bm.size = Vector3(dw, dh, 0.14)
 	panel.mesh = bm
-	panel.position = Vector3(0, -DOOR_H * 0.5, 0)
+	panel.position = Vector3(0, -dh * 0.5, 0)
 	panel.material_override = MeshKit.mat("Corrugated")
 	pivot.add_child(panel)
 	for k in range(5):
 		var rib := MeshInstance3D.new()
 		var rm := BoxMesh.new()
-		rm.size = Vector3(DOOR_W - 0.1, 0.08, 0.2)
+		rm.size = Vector3(dw - 0.1, 0.08, 0.2)
 		rib.mesh = rm
-		rib.position = Vector3(0, -0.4 - 0.7 * k, 0)
+		rib.position = Vector3(0, -0.4 - (dh / 5.2) * k, 0)
 		rib.material_override = MeshKit.flat(Color(0.30, 0.34, 0.32))
 		pivot.add_child(rib)
 	if west:
 		pivot.rotation.y = PI * 0.5            # the gate spans the road: its panel runs north-south
 	body = StaticBody3D.new()
 	body.name = "Garage door"
-	body.position = Vector3(door_c.x, DOOR_H * 0.5, door_c.z)
+	body.position = Vector3(px, dh * 0.5, door_c.z)
 	if west:
 		body.rotation.y = PI * 0.5
 	body.set_meta("nav_skip", true)         # workers path through; the door opens as they come close
 	body.set_meta("art", true)
 	var cs := CollisionShape3D.new()
 	var bs := BoxShape3D.new()
-	bs.size = Vector3(DOOR_W, DOOR_H, 0.25)
+	bs.size = Vector3(dw, dh, 0.25)
 	cs.shape = bs
 	body.add_child(cs)
 	game.world.add_child(body)

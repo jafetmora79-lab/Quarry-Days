@@ -108,7 +108,7 @@ d['materials']['gravel'] = dict(hp=16, hardness=0)
 d['display_names']['topsoil'] = 'Topsoil'
 d['display_names']['gravel'] = 'Pit Gravel'
 d['pit_zone_filled'] = {"_comment": "The blueprint quarry: frame at the yard's central gate (world 0, -8) facing north; 252 x 100 m fenced rectangle directly attached to the yard.",
-    "angle_deg": 270.0, "gate_radius": 8.0, "corridor_length": 0.0, "corridor_width": 8.0, "plateau_width": 320.0, "plateau_depth": 100.0,
+    "angle_deg": 270.0, "gate_radius": 8.0, "corridor_length": 0.0, "corridor_width": 8.0, "plateau_width": 400.0, "plateau_depth": 100.0,
     "basin_width": 244.0, "basin_depth": 92.0, "basin_floor": -1.2, "ramp_width": 8.0, "ramp_run": 8.0, "wall_height": 4.0, "build_margin": 3.0,
     "fence": [-126.0, -100.0, 126.0, 0.0]}
 # contracts for the blueprint's five areas (area 5 = the deepest zone, split into its copper and gold halves for contracts 5 and 6)
