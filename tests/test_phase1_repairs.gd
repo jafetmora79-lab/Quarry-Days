@@ -100,6 +100,7 @@ func run() -> void:
 				cd["columns"][ci] = 0
 			p4._sync_stock(cd)
 			g4._refresh_deposit(cid)
+		p4.check_levels()
 	p4.init_formation(fid)
 	var vs: Array = p4.veins(fid)
 	var vcol: int = int(vs[0]["col"])
