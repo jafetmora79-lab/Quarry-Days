@@ -1388,7 +1388,12 @@ func area_at(p: Vector3) -> String:
 	for lp in pit_zone.level_pits:
 		var r: Rect2 = lp["rect"]
 		if r.has_point(Vector2(l.x, l.z)) and l.y < float(lp["y_bot"]) + 1.6 and l.y > float(lp["y_bot"]) - 1.0:
-			return "area_3" if int(lp["n"]) == 2 else ""
+			for ad in prog.area_defs():
+				if int(ad.get("level", 0)) == int(lp["n"]) + 0 and ad.get("frame", "") == "pit":
+					var zr: Array = ad.get("z_range", [])
+					if zr.is_empty() or (l.z >= float(zr[0]) and l.z <= float(zr[1])):
+						return str(ad["id"])
+			return ""
 	if absf(l.x) <= pit_zone.basin_w * 0.5 and l.z <= pit_zone.basin_zs() and l.z >= pit_zone.basin_zn() and l.y > -5.0 and l.y < -2.0:
 		return "area_2"
 	return ""
@@ -4332,6 +4337,7 @@ func vehicle_dump(v: QuarryVehicle) -> int:
 		moved = _dump_soil(rec)
 	elif t.has("truck"):
 		moved = fleet.transfer(rec, fleet.vehicle(t["truck"].vehicle_id))
+		prog.area_add(area_at(v.global_position), "shipped", moved)       # loaded into a truck where the digging machine stands
 	else:
 		moved = fleet.dump_to(rec, t["ep"])
 	v.dump_timer = 1.0

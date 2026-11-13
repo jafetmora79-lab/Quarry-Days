@@ -653,7 +653,7 @@ func area_state(id: String) -> Dictionary:
 	if not story.has("areas"):
 		story["areas"] = {}
 	if not story["areas"].has(id):
-		story["areas"][id] = {"rock": 0, "soil_removed": 0, "soil_hauled": 0, "recovered": 0, "visited": 0, "complete": false, "rewarded": false}
+		story["areas"][id] = {"rock": 0, "soil_removed": 0, "soil_hauled": 0, "recovered": 0, "shipped": 0, "visited": 0, "complete": false, "rewarded": false}
 	return story["areas"][id]
 
 ## A contract is available once it is active and the contracts it requires are complete (Areas 2 and 3 both follow Area 1, in either order).
@@ -707,6 +707,8 @@ func area_progress(id: String) -> Dictionary:
 		parts.append({"key": "rock", "label": "Rock recovered" if not c.has("recovered") else "Rock cut", "have": mini(int(st["rock"]), int(c["rock"])), "need": int(c["rock"])})
 	if int(c.get("recovered", 0)) > 0:
 		parts.append({"key": "recovered", "label": "Rock recovered (in the bag, bucket or bin)", "have": mini(int(st["recovered"]), int(c["recovered"])), "need": int(c["recovered"])})
+	if int(c.get("shipped", 0)) > 0:
+		parts.append({"key": "shipped", "label": "Loaded into trucks for shipment", "have": mini(int(st["shipped"]), int(c["shipped"])), "need": int(c["shipped"])})
 	if int(c.get("visit", 0)) > 0:
 		parts.append({"key": "visited", "label": "Reached the work area", "have": mini(int(st["visited"]), 1), "need": 1})
 	var frac := 0.0
@@ -1032,7 +1034,7 @@ func milestone_done(id: String) -> bool:
 		"crusher_built": return state.crushers.size() > 0
 		"excavator_running": return excavator_ready()
 		"soil_hauled": return bool(story["excavator"].get("legacy", false)) or state.soil_dumped >= int(opening_cfg().get("soil_hauled_units", 24))
-		"area_1_complete", "area_2_complete", "area_3_complete": return bool(story["excavator"].get("legacy", false)) or area_complete(id.replace("_complete", ""))
+		"area_1_complete", "area_2_complete", "area_3_complete", "area_4_complete", "area_5_complete", "area_6_complete": return bool(story["excavator"].get("legacy", false)) or area_complete(id.replace("_complete", ""))
 	if bool(story.get("milestones", {}).get(id, false)):
 		return true
 	return business != null and bool(business.milestones.get(id, false))
@@ -1715,7 +1717,7 @@ func restore(raw_data: Dictionary, vehicle_types: Array = []) -> void:
 		for aid in st["areas"]:
 			var src: Dictionary = st["areas"][aid]
 			story["areas"][str(aid)] = {"rock": int(src.get("rock", 0)), "soil_removed": int(src.get("soil_removed", 0)), "soil_hauled": int(src.get("soil_hauled", 0)),
-				"recovered": int(src.get("recovered", 0)), "visited": int(src.get("visited", 0)), "complete": bool(src.get("complete", false)), "rewarded": bool(src.get("rewarded", false))}
+				"recovered": int(src.get("recovered", 0)), "shipped": int(src.get("shipped", 0)), "visited": int(src.get("visited", 0)), "complete": bool(src.get("complete", false)), "rewarded": bool(src.get("rewarded", false))}
 	elif bool(story["excavator"].get("legacy", false)):
 		area_adopt_legacy()                               # a save from before the area contracts: Area 1 is behind the player already
 	else:

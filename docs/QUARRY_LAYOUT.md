@@ -1,6 +1,6 @@
 # One connected quarry: layout and contracts
 
-Status: Phase A (foundation), B (Area 1) and C (Areas 2 and 3) are implemented and tested headless. Areas 4-6 are declared (stable ids, plan) but not built.
+Status: Phases A-D are implemented and tested headless: all six contracts exist. Areas 4-6 reuse levels 3 and 4 of the existing pit; no deeper terrain than level 4 (floor -14.4) was added.
 
 ## Spaces
 - **Operations yard** (`world.hub`, x -23.5..23.5, z -6..23.5): permanent, never excavated. It no longer holds any mandatory weeds or rubble.
@@ -21,3 +21,11 @@ The yard gate at the north-east edge of Area 1 opens (once Area 1's cleanup is d
 - **Area 3 - First Terrace**: the level-2 pit, rock = `bench_l2_coal` + `bench_l2_iron`. Contract: cut 150, recover 100, reach the terrace floor. Reward $1,600. The terrace itself opens by the existing rule (60% of the level above excavated). Required by the Industrial Quarry stage.
 - Both need Area 1 complete, in either order. Membership is by place (`Main.area_at`): the pit frame and floor height, so a machine on the wrong level does not count.
 - "Recovered" counts units that reach a carrier (hand bag, bucket, rig bin, worker) at mining time or when a dropped piece is picked up; cutting alone does not.
+
+## Phase D: Areas 4-6 (levels 3 and 4 of the same pit)
+- **Area 4 - Industrial Bench** (level 3, iron + copper): cut 200, recover 150, load 80 into trucks, reach the floor. $6,000. Needs Area 3. Required by Mass Production.
+- **Area 5 - Deep Mineral Bench** (level 4, copper side z -114..-96): cut 150, recover 100, load 60, reach it. $15,000. Needs Area 4. Required by Beneath the Mountain.
+- **Area 6 - Final Industrial Cut** (level 4, gold side z -135..-114): cut 120 gold, recover 80, load 40, reach it. $40,000. Needs Area 5. Required by Quarry Empire.
+- "Loaded into trucks" counts bucket-to-truck transfers by the player's digging machine, attributed to the area the machine stands in. Loads by staff and haulers are not counted yet.
+- Limitation: Area 6 shares level 4's floor with Area 5 (it is the gold half of it). A deeper level 5 was not built: nesting another pit inside level 4's 12 m-wide rock band with its own ramp would need new pit-zone geometry that could not be checked visually here.
+- `tests/test_full_progression.gd` walks a new game through all 12 stages, satisfying every requirement for real (including all six contracts and the quarry levels), and checks no stage opens early.

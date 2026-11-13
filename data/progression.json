@@ -287,7 +287,10 @@
    "goal": "Earn $250,000. (Future content.)",
    "req": {
     "earned": 250000,
-    "quarry_level": 3
+    "quarry_level": 3,
+    "milestones": [
+     "area_4_complete"
+    ]
    },
    "unlocks": [],
    "price_mult": 1.0
@@ -298,7 +301,10 @@
    "goal": "Earn $600,000 and reach the lowest level. (Future content.)",
    "req": {
     "earned": 600000,
-    "quarry_level": 4
+    "quarry_level": 4,
+    "milestones": [
+     "area_5_complete"
+    ]
    },
    "unlocks": [],
    "price_mult": 1.0
@@ -309,7 +315,10 @@
    "goal": "Earn $1,500,000. (Future content.)",
    "req": {
     "earned": 1500000,
-    "quarry_level": 4
+    "quarry_level": 4,
+    "milestones": [
+     "area_6_complete"
+    ]
    },
    "unlocks": [],
    "price_mult": 1.0
@@ -2899,7 +2908,10 @@
   "soil_hauled": "Haul 24 loads of soil to the spoil heap",
   "area_1_complete": "Area 1 contract complete",
   "area_2_complete": "Area 2 contract complete",
-  "area_3_complete": "Area 3 contract complete"
+  "area_3_complete": "Area 3 contract complete",
+  "area_4_complete": "Area 4 contract complete",
+  "area_5_complete": "Area 5 contract complete",
+  "area_6_complete": "Area 6 contract complete"
  },
  "gear": {
   "pointed_chisel": {
@@ -3284,30 +3296,74 @@
   {
    "id": "area_4",
    "title": "AREA 4 - INDUSTRIAL BENCH",
-   "level": "deep",
+   "frame": "pit",
+   "level": 3,
    "formations": [
     "bench_l3_iron",
     "bench_l3_copper"
    ],
-   "status": "planned",
-   "note": "A broad bench with room for excavators, loaders, trucks and crushers."
+   "status": "active",
+   "requires": [
+    "area_3"
+   ],
+   "contract": {
+    "rock": 200,
+    "recovered": 150,
+    "shipped": 80,
+    "visit": 1
+   },
+   "reward": 6000,
+   "note": "The third level: a broad bench with room for excavators, loaders and trucks. Cut iron and copper, and load trucks for shipment."
   },
   {
    "id": "area_5",
    "title": "AREA 5 - DEEP MINERAL BENCH",
-   "level": "lower",
-   "formations": [
-    "bench_l4_copper",
-    "bench_l4_gold"
+   "frame": "pit",
+   "level": 4,
+   "z_range": [
+    -114.0,
+    -96.0
    ],
-   "status": "planned",
-   "note": "The deepest existing level: copper and gold."
+   "formations": [
+    "bench_l4_copper"
+   ],
+   "status": "active",
+   "requires": [
+    "area_4"
+   ],
+   "contract": {
+    "rock": 150,
+    "recovered": 100,
+    "shipped": 60,
+    "visit": 1
+   },
+   "reward": 15000,
+   "note": "The fourth level, copper side: deeper, harder rock that needs a stronger machine and a working haul route up the ramps."
   },
   {
    "id": "area_6",
    "title": "AREA 6 - FINAL INDUSTRIAL CUT",
-   "status": "planned",
-   "note": "To be cut as a continuation of Area 5 (not built yet)."
+   "frame": "pit",
+   "level": 4,
+   "z_range": [
+    -135.0,
+    -114.0
+   ],
+   "formations": [
+    "bench_l4_gold"
+   ],
+   "status": "active",
+   "requires": [
+    "area_5"
+   ],
+   "contract": {
+    "rock": 120,
+    "recovered": 80,
+    "shipped": 40,
+    "visit": 1
+   },
+   "reward": 40000,
+   "note": "The deepest floor of the same excavation: the gold bench. The last contract needs real excavation, recovery and truck shipments."
   }
  ]
 }
