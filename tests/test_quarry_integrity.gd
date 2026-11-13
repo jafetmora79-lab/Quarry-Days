@@ -94,7 +94,7 @@ func run() -> void:
 	var low := -1
 	for i in range(prog.column_count(id)):
 		var cl := prog.chunks_left(id, i)
-		if cl > 0 and cl < prog.bench_level(id) and prog.column_minable(id, i) and low < 0:
+		if cl > 0 and cl < prog.working_level(id) and prog.column_minable(id, i) and low < 0:
 			low = i
 	check(low >= 0, "found an exposed column below the current bench")
 	check(prog.extraction_block(id, low, "excavator", 9) != "" and prog.extraction_block(id, low, "crew") != "" and prog.extraction_block(id, low, "rig", 9) != "", "machines and staff must work the current bench")

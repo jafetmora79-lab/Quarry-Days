@@ -42,15 +42,13 @@ func run() -> void:
 	# ---- benches
 	check(prog.benched(id) and prog.bench_levels(id) == 4, "the hillside face is a four-bench formation")
 	check(prog.bench_number(id) == 1 and prog.bench_level(id) == 4, "work starts on the top bench")
-	var tall := 0
 	var low := -1
+	var wl := prog.working_level(id)
 	for i in range(prog.column_count(id)):
-		if prog.chunks_left(id, i) == 4:
-			tall += 1
-		elif low < 0 and prog.chunks_left(id, i) > 0:
+		if low < 0 and prog.column_minable(id, i) and prog.chunks_left(id, i) > 0 and prog.chunks_left(id, i) < wl:
 			low = i
-	check(prog.column_in_bench(id, 0) == (prog.chunks_left(id, 0) >= 4), "only columns standing at the bench height are in the bench")
-	check(low >= 0 and not prog.column_in_bench(id, low), "a lower column waits until its bench opens")
+	check(wl > 0 and wl <= 4, "the working bench is the tallest EXPOSED column (%d chunks), so a buried tall interior never locks machines out" % wl)
+	check(low >= 0 and not prog.column_in_bench(id, low), "a lower exposed column waits until its bench opens")
 	# cut every top-bench column down one chunk: the bench is finished and the next one opens
 	var n := prog.column_count(id)
 	var one: float = float(prog.material("limestone")["hp"]) * float(prog.fdef(id)["chunk_units"])

@@ -550,8 +550,17 @@ func extraction_block(id: String, col: int, source := "hand", max_hardness := -1
 		return "Work the current bench first: the next one opens when this one is cut."
 	return ""
 
+## The height of the tallest column that can actually be worked now (exposed, not covered): the bench the machines are on. A face
+## that is buried behind rock is not a bench yet, so machines can never be locked out of a formation whose tall columns are buried.
+func working_level(id: String) -> int:
+	var m := 0
+	for i in range(column_count(id)):
+		if state.deposits.has(id) and column_minable(id, i):
+			m = maxi(m, chunks_left(id, i))
+	return m
+
 func column_in_bench(id: String, i: int) -> bool:
-	return not benched(id) or chunks_left(id, i) >= bench_level(id)
+	return not benched(id) or chunks_left(id, i) >= working_level(id)
 
 ## Share of the CURRENT bench already cut (0..1): the columns of this level that have dropped one step.
 func bench_progress(id: String) -> float:
