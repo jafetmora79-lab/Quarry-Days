@@ -384,7 +384,7 @@
     },
     {
       "check": "bed hinge -> chassis [tilt 0.50]",
-      "gap_m": 0,
+      "gap_m": 0.005,
       "note": "",
       "ok": true
     },
@@ -394,7 +394,7 @@
     },
     {
       "check": "bed hinge -> chassis [tilt 0.95]",
-      "gap_m": 0.007,
+      "gap_m": 0.008,
       "note": "",
       "ok": true
     },

@@ -203,7 +203,7 @@ func run() -> void:
 	game.state.tool_tier = 3
 	game.business.milestones["mechanized"] = true
 	game.business.milestones["automated"] = true
-	game.ui_buy_vehicle(OS.get_environment("HAUL_TRUCK") if OS.get_environment("HAUL_TRUCK") != "" else "heavy_truck")
+	game.ui_buy_vehicle(OS.get_environment("HAUL_TRUCK") if OS.get_environment("HAUL_TRUCK") != "" else "industrial_truck")
 	game.delivery.finish_all()
 	var trucks: Array = game.vehicle_nodes.values()
 	check(trucks.size() >= 1, "the biggest haul truck is bought")

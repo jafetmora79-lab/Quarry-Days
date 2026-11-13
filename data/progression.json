@@ -2412,7 +2412,7 @@
   "corridor_width": 8.0,
   "plateau_width": 160.0,
   "plateau_depth": 156.0,
-  "basin_width": 128.0,
+  "basin_width": 144.0,
   "basin_depth": 120.0,
   "basin_floor": -3.6,
   "ramp_width": 8.0,
