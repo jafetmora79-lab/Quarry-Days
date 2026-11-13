@@ -107,6 +107,7 @@ var autosave_t := 0.0
 var _confirm_new := false
 var title_enabled := DisplayServer.get_name() != "headless"      ## the main menu opens on launch (tests run headless and skip it)
 var title: QuarryTitleMenu
+var music: QuarryMusic
 var dialog: QuarryIntroDialog         # the introduction with a new employee, while it is open
 var dialog_worker: Node3D
 var _forced_sleep := false
@@ -236,6 +237,9 @@ func _ready() -> void:
 	crusher_audio = _audio("res://audio/crusher_loop.wav", -23)
 	var loop_stream: AudioStreamWAV = crusher_audio.stream
 	loop_stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	music = QuarryMusic.new()
+	add_child(music)
+	music.setup(self)
 	_update_light()
 	_refresh_stage_hud()
 	if autosave_enabled and FileAccess.file_exists(SAVE_PATH):
@@ -1771,6 +1775,9 @@ func _draw_menu() -> void:
 					else:
 						_confirm_new = true
 						_draw_menu()]])
+			p.text("Music: %s" % ("muted" if music.muted else "%d%%" % int(round(music.volume * 100.0))), QuarryTheme.DIM, true)
+			p.button_bar([["music_down", "MUSIC -", true, func(): music.set_volume(music.volume - 0.1), 130], ["music_up", "MUSIC +", true, func(): music.set_volume(music.volume + 0.1), 130],
+				["music_mute", "UNMUTE" if music.muted else "MUTE", true, func(): music.set_muted(not music.muted), 130]])
 		"sell": _draw_sell(p)
 		"upgrades": _draw_upgrades(p)
 		"cart": _draw_cart(p, idx)
@@ -4733,6 +4740,8 @@ func _on_stage(index: int) -> void:
 func _sfx_unlock() -> void:
 	if sfx.has("unlock"):
 		sfx["unlock"].play()
+	if music:
+		music.duck()                                  # the jingle sits on top of the music for a moment
 
 # ------------------------------------------------------------------ Phase 7.5: Walter (alive, retiring, visiting)
 
