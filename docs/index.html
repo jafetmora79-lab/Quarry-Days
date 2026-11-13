@@ -110,10 +110,11 @@ const clock = new THREE.Clock();
 const loader = new GLTFLoader();
 
 function resize() {
-  const w = stage.clientWidth, h = stage.clientHeight;
+  const w = Math.max(1, stage.clientWidth), h = Math.max(1, stage.clientHeight);
   renderer.setSize(w, h);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
+  if (home) fitCamera();
 }
 addEventListener("resize", resize);
 resize();
@@ -130,26 +131,68 @@ function applyMaterials() {
 }
 
 function frame(obj) {
-  const box = new THREE.Box3().setFromObject(obj);
+  // Skin bounds cached during loading can precede the bones' world transforms.
+  // Update the entire hierarchy before measuring actual deformed vertices.
+  obj.updateMatrixWorld(true);
+  obj.traverse((o) => {
+    if (!o.isSkinnedMesh) return;
+    o.skeleton.update();
+    o.computeBoundingBox();
+    o.computeBoundingSphere();
+    // Only one asset is shown. Animated poses must not use a stale culling sphere.
+    o.frustumCulled = false;
+  });
+  const box = new THREE.Box3().setFromObject(obj, true);
   const size = box.getSize(new THREE.Vector3());
   const c = box.getCenter(new THREE.Vector3());
   obj.position.sub(new THREE.Vector3(c.x, box.min.y, c.z));
+  obj.updateMatrixWorld(true);
   const r = Math.max(size.x, size.y, size.z) || 1;
   grid.scale.setScalar(Math.max(0.1, r / 8));
-  home = { pos: new THREE.Vector3(r * 1.5, r * 1.0, r * 1.7), target: new THREE.Vector3(0, size.y * 0.45, 0) };
-  camera.near = r / 200; camera.far = r * 100; camera.updateProjectionMatrix();
-  resetView();
+  home = { size: size.clone(), radius: Math.max(size.length() * 0.5, 0.01), target: new THREE.Vector3(0, size.y * 0.5, 0) };
+  fitCamera();
   return { size, r };
+}
+function fitCamera() {
+  if (!home) return;
+  const verticalFov = THREE.MathUtils.degToRad(camera.fov);
+  const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * camera.aspect);
+  const direction = new THREE.Vector3(1.5, 0.55, 1.7).normalize();
+  const right = new THREE.Vector3().crossVectors(THREE.Object3D.DEFAULT_UP, direction).normalize();
+  const up = new THREE.Vector3().crossVectors(direction, right).normalize();
+  let fit = 0;
+  for (const x of [-0.5, 0.5]) for (const y of [-0.5, 0.5]) for (const z of [-0.5, 0.5]) {
+    const corner = new THREE.Vector3(x * home.size.x, y * home.size.y, z * home.size.z);
+    const depth = corner.dot(direction);
+    fit = Math.max(fit, depth + Math.abs(corner.dot(right)) / Math.tan(horizontalFov / 2), depth + Math.abs(corner.dot(up)) / Math.tan(verticalFov / 2));
+  }
+  const distance = Math.max(fit * 1.15, home.radius * 1.2);
+  home.distance = distance;
+  home.pos = home.target.clone().addScaledVector(direction, distance);
+  controls.minDistance = home.radius * 0.2;
+  controls.maxDistance = distance * 8;
+  camera.near = Math.max(home.radius / 1000, 0.0001);
+  camera.far = Math.max(distance * 20, home.radius * 100);
+  camera.updateProjectionMatrix();
+  resetView();
 }
 function viewFrom(dx, dy, dz) {
   if (!home) return;
-  const r = home.pos.length() / 1.8;
-  camera.position.set(home.target.x + dx * r * 2.2, home.target.y + dy * r * 2.2, home.target.z + dz * r * 2.2);
+  camera.position.copy(home.target).addScaledVector(new THREE.Vector3(dx, dy, dz).normalize(), home.distance);
   controls.target.copy(home.target);
   controls.autoRotate = false; $("rot").classList.remove("on");
   controls.update();
 }
-function resetView() { if (home) { camera.position.copy(home.pos); controls.target.copy(home.target); controls.update(); } }
+function resetView() {
+  if (!home) return;
+  // Reset also clears residual damping/pan from the previous model or view.
+  controls.enableDamping = false;
+  controls.update();
+  camera.position.copy(home.pos);
+  controls.target.copy(home.target);
+  controls.update();
+  controls.enableDamping = true;
+}
 
 function show(item, push = true) {
   const ticket = ++loadVersion;
