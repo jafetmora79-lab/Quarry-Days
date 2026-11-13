@@ -21,11 +21,11 @@ Crew, companion and rig extraction ignored the pocket minerals (`ex["veins"]`) t
 
 ## Also fixed in this branch (found by the user while testing)
 - Dump truck bed tipped DOWN; it now tips up about the rear hinge and the load slides to the tailgate (the animation audit had the same wrong sign).
-- The Hillside Face rock reached into the yard (blocked Grandpa's utility truck) -> moved north into Area 1; a weed that was inside the rock was moved; the old retaining wall that boxed the truck in was removed and the dumpster moved clear.
+- Grandpa's utility truck sat touching the dumpster; the dumpster moved 2.4 m east. (An attempt to move the Hillside Face rock out of the yard was reverted: it broke the hillside / legacy-layout suites. Its southern rows still stand inside the yard; the truck can reverse out, and this is listed as remaining.)
 - Wheels/tracks rotate with distance travelled for every vehicle; open arched service tunnel behind the garage (previous branch).
 
 ## Tests
-`tests/test_phase1_repairs.gd` (new): nothing buried in rock (both layouts), the truck leaves its spot, no level-1 rock in the yard, bank-before-activation, shipments on delivery only and once, crew pockets, footprint/support, belt levels, truck origin save/load, old-format save. Plus `test_loaded_haul` (3 trucks), `test_areas456` (updated), full regression.
+`tests/test_phase1_repairs.gd` (new): nothing buried in rock (both layouts), bank-before-activation, shipments on delivery only and once, crew pockets, footprint/support, belt levels, truck origin save/load, old-format save. Plus `test_loaded_haul` (3 trucks), `test_areas456` (updated), full regression.
 
 ## Not verified / remaining
-Visuals on Windows (wider basin, tunnel, truck bed, wheels). Basin-ramp relocation and a real level 5 remain undone. Worker anti-wall hop has no dedicated test (covered only by existing worker suites not failing).
+Visuals on Windows (wider basin, tunnel, truck bed, wheels). Basin-ramp relocation, a real level 5 and moving the hillside rock out of the yard remain undone. Worker anti-wall hop has no dedicated test (covered only by existing worker suites not failing).

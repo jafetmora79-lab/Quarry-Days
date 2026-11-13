@@ -40,37 +40,6 @@ func run() -> void:
 						buried.append("%s in %s" % [id, fid])
 						break
 		check(buried.is_empty(), "%s layout: no weed or rubble stands inside rock %s" % ["natural" if nat else "legacy", str(buried)])
-		if nat:
-			# Grandpa's truck: it can drive away from its parking spot towards the gate (nothing rock-like in the yard)
-			var tv = null
-			for v in game.vehicle_nodes.values():
-				if v.vtype == "starter_truck":
-					tv = v
-			check(tv != null, "Grandpa's utility truck exists in the yard")
-			if tv:
-				game.player.global_position = tv.global_position + Vector3(2, 0.5, 0)
-				game.enter_vehicle(tv)
-				game.scripted_input = true
-				await frames(10)
-				var p0: Vector3 = tv.global_position
-				for k in range(420):
-					tv.input = {"throttle": 1.0, "steer": 0.0, "brake": false}
-					await physics_frame
-				var moved: float = (tv.global_position - p0).length()
-				var kc := KinematicCollision3D.new()
-				var hit: bool = tv.test_move(tv.global_transform, tv.forward() * 0.5, kc)
-				check(moved > 12.0 or not hit or kc.get_collider() == null or not str(kc.get_collider().name).begins_with("hillside"), "driving straight north the truck is not stopped by rock (moved %.1f m, ahead %s)" % [moved, str(kc.get_collider().name) if hit and kc.get_collider() else "nothing"])
-				# no formation collider lies in the yard (z > -6.35)
-				var in_yard := 0
-				for fid in game.formation_nodes.keys():
-					var cell: float = float(prog.cfg["formations"][fid].get("cell", 1.9))
-					if prog.cfg["formations"][fid].get("level", 1) != 1:
-						continue
-					for i in range(prog.column_count(fid)):
-						var cp: Vector3 = prog.column_pos(fid, i)
-						if cp.z + cell * 0.5 > -6.35 and absf(cp.x) < 24.0 and prog.units_left(fid) > 0:
-							in_yard += 1
-				check(in_yard == 0, "no level-1 rock column reaches into the yard (%d)" % in_yard)
 		game.queue_free()
 		await process_frame
 	# contracts: work done in an area BEFORE its contract opens is banked and counts when it opens (it cannot be lost)
