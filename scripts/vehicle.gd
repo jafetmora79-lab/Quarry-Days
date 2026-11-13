@@ -301,7 +301,16 @@ func _animate(delta: float) -> void:
 			dig_curl = maxf(0.0, -cos(dig_phase)) * 0.6
 		if vkind == "excavator":
 			_joints(delta)
-		arm.rotation.x = lerpf(-0.12, 0.75, lift) + boom_m * 0.45
+		var base_th := lerpf(-0.12, 0.75, lift)
+		var th := base_th + boom_m * 0.45
+		if vkind == "excavator" and stick != null:
+			# the bucket may bite into the soil but never goes through the ground: the boom is held up at the lowest the stick and bucket allow
+			var guard := 0
+			while _tip_y(th, stick_m * 0.7) < -0.3 and guard < 30:
+				th += 0.03
+				guard += 1
+			boom_m = clampf((th - base_th) / 0.45, -1.0, 1.0)
+		arm.rotation.x = th
 		if stick != null:
 			stick.rotation.x = stick_m * 0.7
 		var tilt := sin(clampf(dump_timer / 1.0, 0.0, 1.0) * PI) * 1.1
@@ -331,6 +340,11 @@ func _animate(delta: float) -> void:
 			bed_load.position.z = float(bed_load.get_meta("base_z")) + 0.6 * smoothstep(0.4, 0.95, bed_tilt)
 			if not data["cargo"].is_empty():
 				bed_load.material_override = MeshKit.mat(QuarryArt.ROCK_MAT.get(data["cargo"].keys()[0], "RockLimestone"))
+
+## Height of the bucket's lowest point above the machine's ground for a boom angle `th` and stick angle `sg` (rad, positive = up / out).
+func _tip_y(th: float, sg: float) -> float:
+	var elbow := 1.05 - 0.1 * cos(th) + 1.95 * sin(th)
+	return elbow - 0.95 * cos(th + sg)
 
 ## Manual excavator controls: arrows swing the upper body and raise / lower the boom, Z / X work the stick, C / V curl the bucket.
 func _joints(delta: float) -> void:

@@ -104,5 +104,12 @@ func run() -> void:
 		v.joint_in["stick"] = 0.0
 		check(v.stick.rotation.x > 0.4, "the stick works on its own joint")
 		check(v.work_point().distance_to(w1) > 0.3, "and moves the digging point")
+	if v != null:
+		v.joint_in["boom"] = -1.0
+		v.joint_in["stick"] = -1.0
+		await frames(150)
+		v.joint_in["boom"] = 0.0
+		v.joint_in["stick"] = 0.0
+		check(v._tip_y(v.arm.rotation.x, v.stick.rotation.x) >= -0.31, "the bucket cannot be pushed through the ground")
 	print("RESULT: %d checks, %d failures" % [checks, failures.size()])
 	quit(1 if failures.size() > 0 else 0)
