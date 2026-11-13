@@ -179,7 +179,7 @@ static func truck(v) -> void:
 		for z in [-0.6, -1.3, -2.0]:
 			MeshKit.box_into(b["SteelPlate"], Vector3(x * 1.04, 0.5, z), Vector3(0.05, 0.75, 0.08))    # side ribs
 	MeshKit.box_into(b[bed_paint], Vector3(0, 0.62, -2.86), Vector3(2.1, 1.1, 0.1))          # headboard
-	MeshKit.box_into(b[bed_paint], Vector3(0, 1.15, -3.05), Vector3(1.96, 0.06, 0.5))         # cab guard
+	MeshKit.box_into(b[bed_paint], Vector3(0, 1.17, -2.8), Vector3(1.96, 0.06, 0.5))          # cab guard: stands on the headboard and stays clear of the cab roof
 	MeshKit.box_into(b["Hazard"], Vector3(0, 0.95, -0.02), Vector3(2.1, 0.08, 0.03))
 	for x in [-0.4, 0.4]:
 		MeshKit.drum_into(b["SteelPlate"], Vector3(x, 0.0, 0.0), 0.09, 0.22, 6)                   # rear hinges
@@ -216,6 +216,8 @@ static func excavator(v) -> void:
 	# upper body: engine hood and counterweight at the back, boom foot at the front
 	MeshKit.box_into(u[paint], Vector3(0.1, 1.2, 0.45), Vector3(1.7, 0.7, 1.7), Vector2(0.96, 0.9))
 	MeshKit.box_into(u["SteelPlate"], Vector3(0.1, 1.4, 1.45), Vector3(1.7, 0.78, 0.45))                           # counterweight
+	MeshKit.box_into(u[paint], Vector3(0.55, 0.98, -0.5), Vector3(0.62, 0.5, 0.4))                                   # boom pedestal: the boom's foot is hinged to the body here
+	MeshKit.drum_into(u["SteelPlate"], Vector3(0.55, 1.05, -0.5), 0.1, 0.7, 8)                                      # boom foot pin
 	MeshKit.box_into(u["Hazard"], Vector3(0.1, 1.05, 1.69), Vector3(1.6, 0.1, 0.02))
 	MeshKit.frustum_into(u["SteelPlate"], Vector3(0.6, 1.62, 0.85), 0.07, 0.06, 0.65, 6)                           # exhaust
 	for z in [0.2, 0.55, 0.9]:
@@ -247,6 +249,7 @@ static func excavator(v) -> void:
 	var boom := PackedVector2Array([Vector2(0.1, -0.15), Vector2(-0.9, 0.25), Vector2(-1.9, 0.0), Vector2(-1.95, -0.2), Vector2(-0.9, 0.05), Vector2(0.1, -0.4)])
 	MeshKit.extrude_into(a[paint], boom, 0.3)
 	MeshKit.drum_into(a["SteelPlate"], Vector3(0, -0.1, -1.95), 0.1, 0.34, 6)                                       # elbow pin
+	MeshKit.drum_into(a["SteelPlate"], Vector3(0, 0.0, 0.0), 0.11, 0.36, 8)                                         # boom foot hub: always overlaps the pedestal, whatever the angle
 	_emit(v.arm, a)
 	ram(v.arm, Vector3(0, -0.45, 0.4), Vector3(0, 0.1, -0.85), 0.08)                                                # boom cylinder
 	# the stick hangs from the elbow (v.stick) and the bucket from the stick's tip (v.bucket): three joints, all independent
@@ -259,12 +262,16 @@ static func excavator(v) -> void:
 	var sk := _soups(["SteelPlate"])
 	var stick := PackedVector2Array([Vector2(0.08, 0.1), Vector2(-0.1, -0.7), Vector2(0.0, -0.75), Vector2(0.18, 0.1)])
 	MeshKit.extrude_into(sk["SteelPlate"], stick, 0.2)
+	MeshKit.drum_into(sk["SteelPlate"], Vector3(0.0, 0.0, 0.0), 0.09, 0.3, 8)                                       # stick-to-boom pin at the elbow
+	MeshKit.drum_into(sk["SteelPlate"], Vector3(-0.02, -0.7, 0.0), 0.08, 0.3, 8)                                    # bucket pin at the stick's tip
 	_emit(v.stick, sk)
 	var b := _soups(["SteelPlate", "Hazard"])
 	var shell := PackedVector2Array([Vector2(0.18, -0.55 + 0.7), Vector2(0.05, -0.8 + 0.7), Vector2(-0.3, -0.95 + 0.7), Vector2(-0.62, -0.78 + 0.7), Vector2(-0.64, -0.7 + 0.7), Vector2(-0.32, -0.8 + 0.7), Vector2(0.0, -0.66 + 0.7), Vector2(0.18, -0.45 + 0.7)])
 	MeshKit.extrude_into(b["SteelPlate"], shell, 0.8)
 	for k in range(4):
 		MeshKit.box_into(b["SteelPlate"], Vector3(-0.3 + k * 0.2, -0.96 + 0.7, -0.62 + 0.0), Vector3(0.08, 0.1, 0.14), Vector2(0.6, 0.6))       # teeth
+	MeshKit.drum_into(b["SteelPlate"], Vector3(0.0, 0.0, 0.0), 0.075, 0.32, 8)                                      # bucket pivot pin: rotates in place with the bucket
+	MeshKit.box_into(b["SteelPlate"], Vector3(0.0, 0.07, -0.08), Vector3(0.26, 0.2, 0.2))                           # bucket ears the pin goes through
 	_emit(v.bucket, b)
 	v.bucket_load = MeshKit.inst(v.bucket, MeshKit.rock(Vector3(0.7, 0.35, 0.5), 43, 3, 6), MeshKit.mat("RockLimestone"), Vector3(-0.28, -0.68 + 0.7, -0.58))
 	v.bucket_load.visible = false

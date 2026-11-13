@@ -1,0 +1,406 @@
+{
+  "crusher tier 1": [
+    {
+      "check": "moving part 1 -> housing",
+      "gap_m": 0.04,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "moving part 2 -> housing",
+      "gap_m": 0.04,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "moving part 3 -> housing",
+      "gap_m": 0.014,
+      "note": "",
+      "ok": true
+    }
+  ],
+  "crusher tier 2": [
+    {
+      "check": "moving part 1 -> housing",
+      "gap_m": 0.03,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "moving part 2 -> housing",
+      "gap_m": 0.03,
+      "note": "",
+      "ok": true
+    }
+  ],
+  "excavator": [
+    {
+      "check": "boom -> cab/body [rest]",
+      "gap_m": 0.006,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "stick -> boom [rest]",
+      "gap_m": 0,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "bucket -> stick [rest]",
+      "gap_m": 0,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "boom -> cab/body [boom raised]",
+      "gap_m": 0.014,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "stick -> boom [boom raised]",
+      "gap_m": 0,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "bucket -> stick [boom raised]",
+      "gap_m": 0,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "boom -> cab/body [boom lowered]",
+      "gap_m": 0.004,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "stick -> boom [boom lowered]",
+      "gap_m": 0,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "bucket -> stick [boom lowered]",
+      "gap_m": 0,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "boom -> cab/body [stick out]",
+      "gap_m": 0.015,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "stick -> boom [stick out]",
+      "gap_m": 0,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "bucket -> stick [stick out]",
+      "gap_m": 0,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "boom -> cab/body [stick in]",
+      "gap_m": 0.015,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "stick -> boom [stick in]",
+      "gap_m": 0,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "bucket -> stick [stick in]",
+      "gap_m": 0,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "boom -> cab/body [bucket curled]",
+      "gap_m": 0.015,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "stick -> boom [bucket curled]",
+      "gap_m": 0,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "bucket -> stick [bucket curled]",
+      "gap_m": 0,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "boom -> cab/body [bucket dumped]",
+      "gap_m": 0.015,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "stick -> boom [bucket dumped]",
+      "gap_m": 0,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "bucket -> stick [bucket dumped]",
+      "gap_m": 0,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "boom -> cab/body [cab swung]",
+      "gap_m": 0.015,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "stick -> boom [cab swung]",
+      "gap_m": 0,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "bucket -> stick [cab swung]",
+      "gap_m": 0,
+      "note": "",
+      "ok": true
+    }
+  ],
+  "loader": [
+    {
+      "check": "lift arm -> chassis [lift 0.0]",
+      "gap_m": 0,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "bucket -> lift arm [lift 0.0]",
+      "gap_m": 0.015,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "lift arm -> chassis [lift 0.5]",
+      "gap_m": 0,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "bucket -> lift arm [lift 0.5]",
+      "gap_m": 0.006,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "lift arm -> chassis [lift 1.0]",
+      "gap_m": 0,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "bucket -> lift arm [lift 1.0]",
+      "gap_m": 0.009,
+      "note": "",
+      "ok": true
+    }
+  ],
+  "tool grip": [
+    {
+      "check": "pointed_chisel R hand",
+      "gap_m": 0.021,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "flat_chisel R hand",
+      "gap_m": 0.018,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "repaired_pickaxe R hand",
+      "gap_m": 0.01,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "repaired_pickaxe L hand",
+      "gap_m": 0.004,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "sledgehammer R hand",
+      "gap_m": 0.022,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "sledgehammer L hand",
+      "gap_m": 0.022,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "steel_pickaxe R hand",
+      "gap_m": 0.017,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "steel_pickaxe L hand",
+      "gap_m": 0.017,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "hardened_pickaxe R hand",
+      "gap_m": 0.018,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "hardened_pickaxe L hand",
+      "gap_m": 0.018,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "hand_splitter R hand",
+      "gap_m": 0.03,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "hand_splitter L hand",
+      "gap_m": 0.018,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "powered_hammer R hand",
+      "gap_m": 0.026,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "powered_hammer L hand",
+      "gap_m": 0.008,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "pneumatic_chisel R hand",
+      "gap_m": 0.01,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "pneumatic_chisel L hand",
+      "gap_m": 0.01,
+      "note": "",
+      "ok": true
+    }
+  ],
+  "tool tip": [
+    {
+      "check": "pointed_chisel working tip on the model",
+      "gap_m": 0.008,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "flat_chisel working tip on the model",
+      "gap_m": 0.004,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "repaired_pickaxe working tip on the model",
+      "gap_m": 0.02,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "sledgehammer working tip on the model",
+      "gap_m": 0,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "steel_pickaxe working tip on the model",
+      "gap_m": 0.007,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "hardened_pickaxe working tip on the model",
+      "gap_m": 0.034,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "hand_splitter working tip on the model",
+      "gap_m": 0.004,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "powered_hammer working tip on the model",
+      "gap_m": 0.012,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "pneumatic_chisel working tip on the model",
+      "gap_m": 0.006,
+      "note": "",
+      "ok": true
+    }
+  ],
+  "truck": [
+    {
+      "check": "bed hinge -> chassis [tilt 0.00]",
+      "gap_m": 0.001,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "bed clears the cab [tilt 0.00]",
+      "ok": true
+    },
+    {
+      "check": "bed hinge -> chassis [tilt 0.50]",
+      "gap_m": 0,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "bed clears the cab [tilt 0.50]",
+      "ok": true
+    },
+    {
+      "check": "bed hinge -> chassis [tilt 0.95]",
+      "gap_m": 0.007,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "bed clears the cab [tilt 0.95]",
+      "ok": true
+    }
+  ]
+}

@@ -28,7 +28,7 @@ const POSE := {
 	"hardened_pickaxe": {"grip": Vector3(0.30, -0.42, -0.55), "scale": 0.76, "rest": -0.75, "yaw": 0.2, "wind": 0.12, "strike": -1.38, "tip": Vector3(0, 0.57, -0.33),
 		"hands": [["R", Vector3(0, 0.15, 0)], ["L", Vector3(0, 0.42, 0)]]},
 	"hand_splitter": {"grip": Vector3(0.28, -0.40, -0.5), "scale": 0.85, "rest": -0.95, "yaw": 0.1, "wind": -0.55, "strike": -1.2, "tip": Vector3(0, 0.46, -0.02), "lever": true,
-		"hands": [["R", Vector3(0, 0.05, 0)], ["L", Vector3(0, 0.21, 0.24)]]},
+		"hands": [["R", Vector3(0, 0.05, 0)], ["L", Vector3(0, 0.3, 0.26)]]},
 	"powered_hammer": {"grip": Vector3(0.28, -0.32, -0.5), "scale": 0.75, "power": true, "rest_rot": Vector3(0.1, 0.2, 0.0), "tip": Vector3(0, 0.12, -0.5), "spin": "pump_z", "amp": 0.012,
 		"hands": [["R", Vector3(0, 0.0, 0.08)], ["L", Vector3(-0.07, 0.14, -0.1)]]},
 	"pneumatic_chisel": {"grip": Vector3(0.3, -0.14, -0.5), "scale": 0.75, "power": true, "rest_rot": Vector3(0.0, 0.3, 0.0), "model_pitch": 0.8, "tip": Vector3(0, -0.62, 0), "spin": "pump_y", "amp": 0.012,
