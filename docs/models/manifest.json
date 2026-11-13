@@ -248,10 +248,6 @@
       "file": "models/characters/CHR_QD_Bram.glb"
      },
      {
-      "name": "Clerk",
-      "file": "models/characters/CHR_QD_Clerk.glb"
-     },
-     {
       "name": "Dmitri",
       "file": "models/characters/CHR_QD_Dmitri.glb"
      },
@@ -262,10 +258,6 @@
      {
       "name": "Hana",
       "file": "models/characters/CHR_QD_Hana.glb"
-     },
-     {
-      "name": "Hauler",
-      "file": "models/characters/CHR_QD_Hauler.glb"
      },
      {
       "name": "Ines",
@@ -280,20 +272,12 @@
       "file": "models/characters/CHR_QD_Marsh.glb"
      },
      {
-      "name": "Miner",
-      "file": "models/characters/CHR_QD_Miner.glb"
-     },
-     {
       "name": "Nia",
       "file": "models/characters/CHR_QD_Nia.glb"
      },
      {
       "name": "Omar",
       "file": "models/characters/CHR_QD_Omar.glb"
-     },
-     {
-      "name": "Operator",
-      "file": "models/characters/CHR_QD_Operator.glb"
      },
      {
       "name": "Petra",

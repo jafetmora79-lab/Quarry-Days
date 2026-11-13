@@ -42,7 +42,10 @@ def main():
         os.makedirs(os.path.dirname(dst), exist_ok=True)
         shutil.copy2(f, dst)
     # characters
+    legacy = {"Clerk", "Hauler", "Miner", "Operator"}   # generic fallbacks for very old saves: not shown in the gallery
     for f in sorted(glob.glob(os.path.join(ROOT, "assets", "characters", "*.glb"))):
+        if os.path.splitext(os.path.basename(f))[0].replace("CHR_QD_", "") in legacy:
+            continue
         dst = os.path.join(OUT, "characters", os.path.basename(f))
         os.makedirs(os.path.dirname(dst), exist_ok=True)
         shutil.copy2(f, dst)
