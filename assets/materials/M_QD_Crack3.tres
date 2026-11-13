@@ -1,0 +1,11 @@
+[gd_resource type="StandardMaterial3D" load_steps=2 format=3]
+
+[ext_resource type="Texture2D" path="res://assets/textures/T_QD_Crack3.png" id="1_albedo"]
+
+[resource]
+resource_name = "M_QD_Crack3"
+albedo_texture = ExtResource("1_albedo")
+metallic_specular = 0.2
+roughness = 0.95
+uv1_scale = Vector3(1, 1, 1)
+texture_filter = 4

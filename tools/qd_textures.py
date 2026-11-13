@@ -349,6 +349,40 @@ def painted(size, r, seed, base=3, chips=None, grime=None, panels=True, bolts=No
     return a
 
 
+def clean_panel(size, r, base=3, bolts=None, seam=True, ribs=0, wear=None, seed=1):
+    """Asset-overhaul paint: ONE flat colour, a lit top/left edge and a shaded bottom/right edge (the panel seam), optional bolts at
+    the corners, optional pressed ribs, and a few chips ONLY on the edges. No noise, no grime: it reads as clean stylised paint."""
+    rng = np.random.default_rng(seed)
+    a = canvas(size, size)
+    a[:, :] = r[base]
+    hi, lo = r[min(len(r) - 1, base + 1)], r[max(0, base - 1)]
+    if seam:
+        for i in range(size):
+            put(a, i, 0, hi)
+            put(a, 0, i, hi)
+            put(a, i, size - 1, lo)
+            put(a, size - 1, i, lo)
+            put(a, i, size - 2, r[max(0, base - 1)]) if size > 32 else None
+    for k in range(ribs):
+        y = int((k + 1) * size / (ribs + 1))
+        for x in range(2, size - 2):
+            put(a, x, y, lo)
+            put(a, x, y - 1, hi)
+    if bolts:
+        br, blv = bolts
+        for (x, y) in ((3, 3), (size - 5, 3), (3, size - 5), (size - 5, size - 5)):
+            rect(a, x, y, 2, 2, br[blv])
+            put(a, x, y, br[min(len(br) - 1, blv + 1)])
+    if wear:
+        wr, wlv = wear
+        for k in range(max(2, size // 12)):                 # sparse chips, only along the edges
+            edge = int(rng.integers(0, 4))
+            t = int(rng.integers(3, size - 3))
+            x, y = [(t, 1), (t, size - 2), (1, t), (size - 2, t)][edge]
+            put(a, x, y, wr[wlv])
+    return a
+
+
 def tread(w, h, r):
     a = canvas(w, h)
     a[:] = r[1]
@@ -523,12 +557,11 @@ def main():
     save("T_QD_ExcavatedDirt", calm_ground(128, soil, 22, base=3))
     save("T_QD_Corrugated", corrugated(64, metal, rust, 31), rough=0.6, metal_spec=0.5)
     save("T_QD_CorrugatedRed", corrugated(64, red, rust, 32), rough=0.7, metal_spec=0.4)
-    save("T_QD_PaintYellow", painted(64, [mustard[0], mustard[1], mustard[2], mustard[3], mustard[4], yel[-1]], 41, base=3,
-                                      chips=(metal, 2), grime=(soil, 1), bolts=(metal, 3)), rough=0.75, metal_spec=0.35)
-    save("T_QD_PaintRed", painted(64, red, 42, base=3, chips=(metal, 2), grime=(soil, 1), bolts=(metal, 3)), rough=0.75, metal_spec=0.35)
-    save("T_QD_PaintOrange", painted(64, orange, 43, base=2, chips=(metal, 2), grime=(soil, 1)), rough=0.75, metal_spec=0.35)
-    save("T_QD_SteelPlate", painted(64, metal, 44, base=2, chips=(rust, 2), grime=(rust, 1), bolts=(metal, 3)), rough=0.6, metal_spec=0.5)
-    save("T_QD_SteelGreen", painted(64, green, 45, base=1, chips=(metal, 2), grime=(soil, 1), bolts=(metal, 3)), rough=0.7, metal_spec=0.4)
+    save("T_QD_PaintYellow", clean_panel(64, [mustard[0], mustard[1], mustard[2], mustard[3], mustard[4], yel[-1]], base=3, bolts=(metal, 3), wear=(metal, 3), seed=41), rough=0.8, metal_spec=0.2)
+    save("T_QD_PaintRed", clean_panel(64, red, base=3, bolts=(metal, 3), wear=(metal, 3), seed=42), rough=0.8, metal_spec=0.2)
+    save("T_QD_PaintOrange", clean_panel(64, orange, base=3, bolts=(metal, 3), wear=(metal, 3), seed=43), rough=0.8, metal_spec=0.2)
+    save("T_QD_SteelPlate", clean_panel(64, metal, base=2, bolts=(metal, 4), ribs=2, wear=(metal, 4), seed=44), rough=0.65, metal_spec=0.3)
+    save("T_QD_SteelGreen", clean_panel(64, green, base=2, bolts=(metal, 3), ribs=1, wear=(metal, 3), seed=45), rough=0.8, metal_spec=0.2)
     phase5(stone, conc, soil, ink, tar, metal, rust)
     save("T_QD_Tire", tread(64, 64, rubber), rough=1.0, metal_spec=0.1)
     save("T_QD_Belt", belt(32, 32, rubber, metal), rough=1.0, metal_spec=0.1)

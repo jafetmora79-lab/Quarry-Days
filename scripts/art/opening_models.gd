@@ -22,18 +22,20 @@ static func part(id: String) -> Node3D:
 			for x in [-0.1, 0.1]:
 				MeshKit.frustum_into(steel, Vector3(x, 0.27, 0.05), 0.025, 0.02, 0.05, 6)
 			MeshKit.box_into(accent, Vector3(0, 0.14, 0.1), Vector3(0.2, 0.08, 0.01))
-		"hose":           # a hydraulic hose wound into a coil, with a brass fitting crimped on each end
+		"hose":           # a hydraulic hose wound into a three-turn coil, with a brass fitting crimped on each end
 			var pts := []
-			for k in range(0, 25):
-				var t := float(k) / 24.0
-				var ang := TAU * 2.0 * t
-				var rad := 0.2 - 0.04 * t
-				pts.append(Vector3(cos(ang) * rad, 0.035 + 0.075 * t, sin(ang) * rad))
-			MeshKit.tube_into(dark, pts, 0.032, 6)
+			for k in range(0, 37):
+				var t := float(k) / 36.0
+				var ang := TAU * 3.0 * t
+				var rad := 0.21 - 0.05 * t
+				pts.append(Vector3(cos(ang) * rad, 0.03 + 0.1 * t, sin(ang) * rad))
+			MeshKit.tube_into(dark, pts, 0.02, 6)
 			var p0: Vector3 = pts[0]
 			var p1: Vector3 = pts[pts.size() - 1]
-			MeshKit.frustum_into(accent, p0 + Vector3(0.0, -0.035, 0.0), 0.04, 0.04, 0.07, 6)         # the ends stand a little proud of the coil
-			MeshKit.frustum_into(accent, p1 + Vector3(0.0, -0.035, 0.0), 0.04, 0.04, 0.07, 6)
+			MeshKit.frustum_into(accent, p0 + Vector3(0.0, -0.03, 0.0), 0.034, 0.034, 0.07, 6)    # the ends stand proud of the coil
+			MeshKit.frustum_into(accent, p1 + Vector3(0.0, -0.03, 0.0), 0.034, 0.034, 0.07, 6)
+			MeshKit.box_into(steel, p0 + Vector3(0.0, 0.05, 0.0), Vector3(0.05, 0.02, 0.05))      # hex nuts
+			MeshKit.box_into(steel, p1 + Vector3(0.0, 0.05, 0.0), Vector3(0.05, 0.02, 0.05))
 		"fuel":           # a red jerry can with a spout and a handle
 			MeshKit.box_into(dark, Vector3(0, 0.22, 0), Vector3(0.34, 0.44, 0.16), Vector2(0.96, 0.96))
 			MeshKit.box_into(steel, Vector3(0, 0.46, 0.0), Vector3(0.18, 0.04, 0.05))
@@ -45,6 +47,7 @@ static func part(id: String) -> Node3D:
 		mats["accent"] = MeshKit.flat(Color(0.9, 0.85, 0.7))
 	if id == "hose":
 		mats["accent"] = MeshKit.flat(Color(0.75, 0.55, 0.2))
+		mats["dark"] = MeshKit.flat(Color(0.2, 0.24, 0.3))       # blue-grey rubber, so the coil does not read as a black tyre
 	_inst(n, dark, mats["dark"])
 	_inst(n, steel, mats["steel"])
 	_inst(n, accent, mats["accent"])

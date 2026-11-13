@@ -131,55 +131,67 @@ static func build_tool(id: String) -> Node3D:
 			b.box("red", Vector3(0, 0.56, 0.05), Vector3(0.074, 0.03, 0.05))       # painted stripe
 			b.box("dark", Vector3(0, 0.58, 0.285), Vector3(0.08, 0.1, 0.02))       # rubber bumper on the blade
 			b.box("bright", Vector3(0, 0.52, -0.33), Vector3(0.02, 0.02, 0.05))    # hardened tip
-		"hand_splitter":       # wedge between two jaw plates on a column, with a long pumping lever
-			b.box("dark", Vector3(0, 0.05, 0), Vector3(0.044, 0.15, 0.044))
-			b.cyl("steel", Vector3(0, 0.1, 0), 0.034, 0.03, 0.3, 8)
-			b.box("steel", Vector3(0, 0.42, 0), Vector3(0.05, 0.1, 0.16))           # head block
-			b.box("bright", Vector3(0, 0.485, -0.03), Vector3(0.026, 0.12, 0.085), Vector2(1.0, 0.1))   # the wedge
-			for z in [-0.075, 0.075]:
-				b.box("steel", Vector3(0, 0.46, z), Vector3(0.07, 0.1, 0.014))      # jaw plates
-			b.along_x("bright", Vector3(0.0, 0.3, 0.0), 0.018, 0.12, 6)           # pivot bolt through the column
+		"hand_splitter":       # a feather-and-wedge splitter: rubber grip, steel column, jaw block with two plates and a wedge, pumping lever
+			b.cyl("dark", Vector3(0, -0.05, 0), 0.03, 0.034, 0.2, 8)               # rubber grip
+			b.cyl("steel", Vector3(0, 0.15, 0), 0.05, 0.05, 0.016, 8)               # hand guard
+			b.cyl("steel", Vector3(0, 0.166, 0), 0.032, 0.03, 0.25, 8)              # column
+			b.box("steel", Vector3(0, 0.46, 0), Vector3(0.07, 0.09, 0.15))          # jaw block, standing on the column
+			for z in [-0.083, 0.083]:
+				b.box("steel", Vector3(0, 0.47, z), Vector3(0.06, 0.12, 0.016))      # the two jaw plates, flat against the block
+			b.box("bright", Vector3(0, 0.575, 0), Vector3(0.035, 0.1, 0.12), Vector2(0.35, 1.0))   # the wedge, seated between the plates
+			b.along_z("bright", Vector3(0, 0.47, 0.105), 0.016, 0.016, 0.21, 6)      # cross bolt through both plates and the block
+			b.along_x("bright", Vector3(0.0, 0.3, 0.0), 0.018, 0.13, 6)             # pivot bolt through the column
 			var lever := Node3D.new()
 			lever.name = "Lever"
 			lever.position = Vector3(0, 0.3, 0.0)
 			n.add_child(lever)
 			var lb := Builder.new()
-			lb.box("orange", Vector3(0, 0.0, 0.19), Vector3(0.05, 0.03, 0.4))     # the lever's eye wraps the pivot bolt
-			lb.box("dark", Vector3(0, 0.0, 0.33), Vector3(0.04, 0.04, 0.1))
+			lb.box("orange", Vector3(0, 0.0, 0.0), Vector3(0.1, 0.06, 0.08))        # the lever's eye wraps the column
+			lb.box("orange", Vector3(0, 0.0, 0.22), Vector3(0.036, 0.04, 0.4))      # arm
+			lb.box("dark", Vector3(0, 0.0, 0.39), Vector3(0.05, 0.05, 0.12))        # hand grip on the arm's end
 			lb.finish(lever)
 			n.set_meta("lever", lever)
-		"powered_hammer":      # motor housing, vented, impact barrel with a reciprocating hammer face, pistol grip and cable
-			b.box("orange", Vector3(0, 0.12, 0.0), Vector3(0.12, 0.14, 0.3))
+		"powered_hammer":      # demolition hammer: orange motor housing, vented, clamped barrel, pistol grip, top handle, cable and a chisel bit
+			b.box("orange", Vector3(0, 0.12, 0.0), Vector3(0.13, 0.16, 0.3), Vector2(0.92, 0.95))   # housing
+			b.box("dark", Vector3(0, 0.12, 0.165), Vector3(0.11, 0.13, 0.03))       # rubber end cap
 			for z in [-0.06, -0.02, 0.02, 0.06]:
-				b.box("dark", Vector3(0.062, 0.13, z), Vector3(0.006, 0.08, 0.014))  # vent slats
-			b.box("dark", Vector3(0, 0.0, 0.07), Vector3(0.05, 0.17, 0.07), Vector2(0.9, 0.9))
-			b.box("steel", Vector3(0, 0.08, 0.0), Vector3(0.02, 0.04, 0.03))       # trigger
-			b.box("dark", Vector3(0, 0.215, 0.1), Vector3(0.1, 0.03, 0.04))        # top handle bar
-			b.along_z("steel", Vector3(0, 0.12, -0.15), 0.042, 0.04, 0.17, 8)
-			b.box("dark", Vector3(0, 0.12, 0.2), Vector3(0.02, 0.02, 0.18))        # cable
-			b.box("dark", Vector3(0, 0.06, 0.34), Vector3(0.02, 0.02, 0.16))
+				b.box("dark", Vector3(0.067, 0.13, z), Vector3(0.012, 0.08, 0.016))  # vent slats, set into the side
+				b.box("dark", Vector3(-0.067, 0.13, z), Vector3(0.012, 0.08, 0.016))
+			b.box("dark", Vector3(0, 0.0, 0.07), Vector3(0.055, 0.19, 0.075), Vector2(0.9, 0.9))   # pistol grip, hanging from the housing
+			b.box("steel", Vector3(0, 0.07, 0.02), Vector3(0.022, 0.05, 0.03))      # trigger in front of the grip
+			b.box("dark", Vector3(0, 0.215, 0.09), Vector3(0.1, 0.036, 0.1))        # top handle
+			b.along_z("steel", Vector3(0, 0.12, -0.15), 0.045, 0.045, 0.14, 8)      # barrel
+			b.along_z("steel", Vector3(0, 0.12, -0.18), 0.054, 0.054, 0.035, 8)     # clamp ring round the barrel
+			b.box("dark", Vector3(-0.095, 0.12, -0.17), Vector3(0.07, 0.034, 0.034))   # side grip bolted to the clamp
+			MeshKit.tube_into(b.s("dark"), [Vector3(0, 0.12, 0.18), Vector3(0, 0.1, 0.26), Vector3(0, 0.04, 0.33), Vector3(0, -0.04, 0.38)], 0.014, 6)   # the cable leaves the end cap
 			var ram := Node3D.new()
-			ram.position = Vector3(0, 0.12, -0.33)
+			ram.position = Vector3(0, 0.12, -0.32)
 			n.add_child(ram)
 			var rb := Builder.new()
-			rb.box("bright", Vector3(0, 0, 0.0), Vector3(0.085, 0.085, 0.05))
-			rb.box("steel", Vector3(0, 0, 0.05), Vector3(0.05, 0.05, 0.08))
+			rb.box("bright", Vector3(0, 0, 0.0), Vector3(0.07, 0.07, 0.05))         # the hammer collar rides out of the barrel
+			rb.box("steel", Vector3(0, 0, 0.06), Vector3(0.05, 0.05, 0.1))          # and back into it
+			rb.box("bright", Vector3(0, 0, -0.1), Vector3(0.028, 0.028, 0.18))      # chisel bit
+			rb.box("bright", Vector3(0, 0, -0.2), Vector3(0.014, 0.014, 0.04), Vector2(0.4, 0.4))
 			rb.finish(ram)
 			n.set_meta("spinner", ram)
-		"pneumatic_chisel":    # metal housing, two grips, air hose, vibrating chisel
-			b.cyl("steel", Vector3(0, -0.4, 0), 0.05, 0.043, 0.36, 8)
-			b.cyl("blue", Vector3(0, -0.26, 0), 0.054, 0.054, 0.06, 8)             # colour band
-			b.box("steel", Vector3(0, 0.0, 0), Vector3(0.34, 0.03, 0.03))          # handles
+		"pneumatic_chisel":    # air chisel: ribbed steel body with a colour band, T-handle, air inlet with its hose, spring retainer and the vibrating chisel
+			b.cyl("steel", Vector3(0, -0.4, 0), 0.054, 0.048, 0.37, 8)             # body
+			b.cyl("blue", Vector3(0, -0.27, 0), 0.058, 0.058, 0.05, 8)             # colour band
+			b.cyl("steel", Vector3(0, -0.04, 0), 0.062, 0.058, 0.05, 8)            # top cap
+			b.cyl("dark", Vector3(0, -0.435, 0), 0.058, 0.058, 0.035, 8)           # spring retainer at the nose
+			b.cyl("bright", Vector3(0, 0.01, 0), 0.034, 0.03, 0.04, 6)             # post up into the handle
+			b.box("steel", Vector3(0, 0.04, 0), Vector3(0.34, 0.04, 0.04))         # T-handle bar, sitting on the post
 			for x in [-0.15, 0.15]:
-				b.box("dark", Vector3(x, 0.0, 0), Vector3(0.09, 0.05, 0.05))
-			b.cyl("bright", Vector3(0, -0.03, 0.0), 0.03, 0.026, 0.06, 6)
-			MeshKit.tube_into(b.s("dark"), [Vector3(0, 0.0, 0.03), Vector3(0, 0.05, 0.14), Vector3(0, 0.03, 0.24), Vector3(0, -0.06, 0.3), Vector3(0, -0.16, 0.34), Vector3(0, -0.26, 0.36)], 0.016, 6)   # the air hose, one piece, curving back and down
+				b.box("dark", Vector3(x, 0.04, 0), Vector3(0.1, 0.06, 0.06))       # rubber grips
+			b.box("bright", Vector3(0.0, -0.01, 0.06), Vector3(0.04, 0.04, 0.05))  # air inlet nipple on the cap
+			MeshKit.tube_into(b.s("dark"), [Vector3(0, -0.01, 0.085), Vector3(0, 0.0, 0.17), Vector3(0, -0.04, 0.26), Vector3(0, -0.14, 0.32), Vector3(0, -0.26, 0.34)], 0.017, 6)   # the air hose, one piece, from the inlet
 			var chisel := Node3D.new()
-			chisel.position = Vector3(0, -0.42, 0)
+			chisel.position = Vector3(0, -0.44, 0)
 			n.add_child(chisel)
 			var cb := Builder.new()
-			cb.box("bright", Vector3(0, -0.1, 0), Vector3(0.04, 0.2, 0.014), Vector2(1.0, 0.5))
-			cb.box("steel", Vector3(0, 0.0, 0), Vector3(0.05, 0.03, 0.05))
+			cb.box("steel", Vector3(0, 0.0, 0), Vector3(0.05, 0.04, 0.05))         # collar, sliding in the retainer
+			cb.box("bright", Vector3(0, -0.08, 0), Vector3(0.032, 0.14, 0.032))    # shank
+			cb.box("bright", Vector3(0, -0.17, 0), Vector3(0.05, 0.05, 0.012), Vector2(0.3, 1.0))   # chisel blade
 			cb.finish(chisel)
 			n.set_meta("spinner", chisel)
 	b.finish(n)

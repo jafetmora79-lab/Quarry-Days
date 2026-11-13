@@ -61,7 +61,7 @@ const M_BRUSHED := "res://assets/materials/M_QD_MetalBrushed.tres"      # Quarry
 const M_RUSTED := VEIL + "Materials_Godot/Furniture/M_Furn_MetalRusted.tres"
 const M_RUBBER := VEIL + "Materials_Godot/Furniture/M_Furn_Rubber.tres"
 const M_WOOD := VEIL + "Materials_Godot/Furniture/M_Furn_WoodLight.tres"
-const M_GLASS := VEIL + "05_Vehicles/Shared_Materials/M_Veh_Glass_Dirty.tres"
+const M_GLASS := "res://assets/materials/M_QD_Glass.tres"      # clean smoked glass: the Veil dirty-glass texture read as speckle noise on cabs
 const ROCK_MAT := {"limestone": "RockLimestone", "coal": "RockCoal", "iron_ore": "RockIron", "crushed_stone": "RockGravel", "copper_ore": "RockCopper", "gold_ore": "RockGold", "soil": "ExcavatedDirt"}
 
 var game

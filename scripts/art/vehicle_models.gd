@@ -4,7 +4,7 @@ class_name VehicleModels
 ## side profiles, beveled panels, faceted wheels with tread texture, hydraulic rams and glass, using the
 ## Quarry Days / THE VEIL pixel materials. Vehicles face -Z. Only visuals: collision stays one box.
 
-const GLASS := "res://THE_VEIL_ASSETS_V2/05_Vehicles/Shared_Materials/M_Veh_Glass_Dirty.tres"
+const GLASS := "res://assets/materials/M_QD_Glass.tres"
 
 static func _soups(keys: Array) -> Dictionary:
 	var d := {}
