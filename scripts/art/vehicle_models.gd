@@ -13,6 +13,7 @@ static func _soups(keys: Array) -> Dictionary:
 	return d
 
 static func _emit(parent: Node3D, parts: Dictionary) -> void:
+	MeshKit.repair(parts)
 	for key in parts:
 		var s: MeshKit.Soup = parts[key]
 		if s.verts.size() > 0:
@@ -143,6 +144,7 @@ static func truck(v) -> void:
 	MeshKit.frustum_into(p["SteelPlate"], Vector3(0.9, 1.4, -1.0), 0.07, 0.06, 1.1, 6)            # exhaust
 	for x in [-1.08, 1.08]:
 		MeshKit.box_into(p["SteelPlate"], Vector3(x, 1.85, -1.75), Vector3(0.04, 0.22, 0.14))      # mirrors
+		MeshKit.box_into(p["SteelPlate"], Vector3(x * 0.975, 1.85, -1.75), Vector3(0.1, 0.03, 0.03))   # and the arm that holds each one to the cab
 	for z in [-1.6, 1.3]:
 		for x in [-1.0, 1.0]:
 			MeshKit.box_into(p[cab_paint if z < 0 else "SteelPlate"], Vector3(x, 1.12, z), Vector3(0.52, 0.06, 1.15 if z < 0 else 1.9), Vector2(1.0, 0.85))
@@ -151,8 +153,8 @@ static func truck(v) -> void:
 	var glass := MeshKit.Soup.new()
 	var ws := PackedVector2Array([Vector2(-1.8, 1.62), Vector2(-1.57, 2.2), Vector2(-1.55, 2.2), Vector2(-1.78, 1.62)])
 	MeshKit.extrude_into(glass, ws, 1.8, _xf(Vector3(0, 0, -0.012)))
-	for x in [-1.005, 1.005]:
-		MeshKit.box_into(glass, Vector3(x, 1.88, -1.25), Vector3(0.01, 0.55, 0.5))
+	for x in [-1.012, 1.012]:
+		MeshKit.box_into(glass, Vector3(x, 1.88, -1.25), Vector3(0.01, 0.55, 0.5))      # side windows sit just outside the cab skin, not in its plane
 	MeshKit.inst(v.model_root, glass.mesh(), MeshKit.mat(GLASS))
 	var lamps := MeshKit.Soup.new()
 	for x in [-0.78, 0.78]:
@@ -177,7 +179,7 @@ static func truck(v) -> void:
 		for z in [-0.6, -1.3, -2.0]:
 			MeshKit.box_into(b["SteelPlate"], Vector3(x * 1.04, 0.5, z), Vector3(0.05, 0.75, 0.08))    # side ribs
 	MeshKit.box_into(b[bed_paint], Vector3(0, 0.62, -2.86), Vector3(2.1, 1.1, 0.1))          # headboard
-	MeshKit.box_into(b[bed_paint], Vector3(0, 1.15, -3.05), Vector3(2.0, 0.06, 0.5))          # cab guard
+	MeshKit.box_into(b[bed_paint], Vector3(0, 1.15, -3.05), Vector3(1.96, 0.06, 0.5))         # cab guard
 	MeshKit.box_into(b["Hazard"], Vector3(0, 0.95, -0.02), Vector3(2.1, 0.08, 0.03))
 	for x in [-0.4, 0.4]:
 		MeshKit.drum_into(b["SteelPlate"], Vector3(x, 0.0, 0.0), 0.09, 0.22, 6)                   # rear hinges
@@ -230,9 +232,9 @@ static func excavator(v) -> void:
 	v.model_root.add_child(v.turret)
 	_emit(v.turret, u)
 	var glass := MeshKit.Soup.new()
-	MeshKit.box_into(glass, Vector3(-0.45, 1.95, -0.62), Vector3(0.7, 0.8, 0.02))
-	MeshKit.box_into(glass, Vector3(-0.78, 1.95, -0.22), Vector3(0.02, 0.8, 0.68))
-	MeshKit.box_into(glass, Vector3(-0.12, 1.95, -0.22), Vector3(0.02, 0.8, 0.68))
+	MeshKit.box_into(glass, Vector3(-0.45, 1.95, -0.642), Vector3(0.7, 0.8, 0.02))
+	MeshKit.box_into(glass, Vector3(-0.802, 1.95, -0.22), Vector3(0.02, 0.8, 0.68))
+	MeshKit.box_into(glass, Vector3(-0.098, 1.95, -0.22), Vector3(0.02, 0.8, 0.68))
 	MeshKit.inst(v.turret, glass.mesh(), MeshKit.mat(GLASS))
 	var lamps := MeshKit.Soup.new()
 	MeshKit.box_into(lamps, Vector3(-0.45, 2.34, -0.66), Vector3(0.4, 0.07, 0.05))

@@ -92,6 +92,7 @@ func _soups(keys: Array) -> Dictionary:
 	return d
 
 func _emit(parent: Node3D, parts: Dictionary) -> void:
+	MeshKit.repair(parts)
 	for k in parts:
 		if parts[k].verts.size() > 0:
 			MeshKit.inst(parent, parts[k].mesh(), MeshKit.mat(k))

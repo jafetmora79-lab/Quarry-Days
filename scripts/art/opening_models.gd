@@ -22,14 +22,18 @@ static func part(id: String) -> Node3D:
 			for x in [-0.1, 0.1]:
 				MeshKit.frustum_into(steel, Vector3(x, 0.27, 0.05), 0.025, 0.02, 0.05, 6)
 			MeshKit.box_into(accent, Vector3(0, 0.14, 0.1), Vector3(0.2, 0.08, 0.01))
-		"hose":           # a coil of hydraulic hose with brass fittings
-			for k in range(5):
-				var a := TAU * float(k) / 5.0
-				MeshKit.box_into(dark, Vector3(cos(a) * 0.2, 0.05 + 0.04 * (k % 2), sin(a) * 0.2), Vector3(0.18, 0.06, 0.07), Vector2.ONE)
-			MeshKit.frustum_into(dark, Vector3(0, 0.0, 0), 0.24, 0.24, 0.07, 10)
-			MeshKit.frustum_into(dark, Vector3(0, 0.07, 0), 0.19, 0.19, 0.07, 10)
-			MeshKit.box_into(accent, Vector3(0.26, 0.06, 0), Vector3(0.08, 0.07, 0.07))
-			MeshKit.box_into(accent, Vector3(-0.26, 0.06, 0), Vector3(0.08, 0.07, 0.07))
+		"hose":           # a hydraulic hose wound into a coil, with a brass fitting crimped on each end
+			var pts := []
+			for k in range(0, 25):
+				var t := float(k) / 24.0
+				var ang := TAU * 2.0 * t
+				var rad := 0.2 - 0.04 * t
+				pts.append(Vector3(cos(ang) * rad, 0.035 + 0.075 * t, sin(ang) * rad))
+			MeshKit.tube_into(dark, pts, 0.032, 6)
+			var p0: Vector3 = pts[0]
+			var p1: Vector3 = pts[pts.size() - 1]
+			MeshKit.frustum_into(accent, p0 + Vector3(0.0, -0.035, 0.0), 0.04, 0.04, 0.07, 6)         # the ends stand a little proud of the coil
+			MeshKit.frustum_into(accent, p1 + Vector3(0.0, -0.035, 0.0), 0.04, 0.04, 0.07, 6)
 		"fuel":           # a red jerry can with a spout and a handle
 			MeshKit.box_into(dark, Vector3(0, 0.22, 0), Vector3(0.34, 0.44, 0.16), Vector2(0.96, 0.96))
 			MeshKit.box_into(steel, Vector3(0, 0.46, 0.0), Vector3(0.18, 0.04, 0.05))

@@ -23,7 +23,9 @@ def main():
         groups.setdefault(group, {}).setdefault(sub, []).append({"name": name, "file": path})
 
     # Veil asset pack
-    veil_root = os.path.join(ROOT, "THE_VEIL_ASSETS_V2")
+    veil_root = os.path.join(ROOT, "assets", "veil_qd")           # the repaired Quarry Days copies (tools/repair_glb.py)
+    if not os.path.isdir(veil_root):
+        veil_root = os.path.join(ROOT, "THE_VEIL_ASSETS_V2")
     for f in sorted(glob.glob(os.path.join(veil_root, "**", "*.glb"), recursive=True)):
         rel = os.path.relpath(f, veil_root).replace(os.sep, "/")
         dst = os.path.join(OUT, "veil", rel)

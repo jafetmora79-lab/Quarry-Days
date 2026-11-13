@@ -57,7 +57,7 @@ const M_METAL_DOOR := VEIL + "Materials_Godot/Commercial/M_Com_MetalDoorPainted.
 const M_LINO := VEIL + "Materials_Godot/Interiors/M_Int_Linoleum.tres"
 const M_DRYWALL := VEIL + "Materials_Godot/Interiors/M_Int_DrywallLight.tres"
 const M_BASEMENT := VEIL + "Materials_Godot/Interiors/M_Int_BasementConcrete.tres"
-const M_BRUSHED := VEIL + "Materials_Godot/Furniture/M_Furn_MetalBrushed.tres"
+const M_BRUSHED := "res://assets/materials/M_QD_MetalBrushed.tres"      # Quarry Days copy of the Veil material, much less shiny
 const M_RUSTED := VEIL + "Materials_Godot/Furniture/M_Furn_MetalRusted.tres"
 const M_RUBBER := VEIL + "Materials_Godot/Furniture/M_Furn_Rubber.tres"
 const M_WOOD := VEIL + "Materials_Godot/Furniture/M_Furn_WoodLight.tres"
@@ -99,6 +99,7 @@ func _material(key: String) -> Material:
 	return MeshKit.mat(key)
 
 func _flush() -> void:
+	MeshKit.repair(batch)
 	for key in batch:
 		var s: MeshKit.Soup = batch[key]
 		if s.verts.size() > 0:
@@ -333,6 +334,24 @@ func _walls(center: Vector3, ext_key: String, int_key: String, h := 2.8) -> void
 	for x in [-0.76, 0.76]:
 		bx(M_TRIM, c + Vector3(x, 1.25, -2.4), Vector3(0.1, 2.5, 0.08))                    # door jambs
 
+## A wall window built for the wall it sits in: a shallow painted frame, mullions and a glass pane set a hair proud of the wall face
+## (never coplanar with it), and a sill. `at` is the middle of the window on the wall's outer face; `yaw` turns +Z to the outward normal.
+func _window(at: Vector3, yaw: float, w: float, h: float, hung := true) -> void:
+	var basis := Basis(Vector3.UP, yaw)
+	var t := 0.07
+	var parts := [
+		[M_TRIM, Vector3(0, h * 0.5 - t * 0.5, 0.03), Vector3(w, t, 0.06)],
+		[M_TRIM, Vector3(0, -h * 0.5 + t * 0.5, 0.03), Vector3(w, t, 0.06)],
+		[M_TRIM, Vector3(-w * 0.5 + t * 0.5, 0, 0.03), Vector3(t, h - 2.0 * t, 0.06)],
+		[M_TRIM, Vector3(w * 0.5 - t * 0.5, 0, 0.03), Vector3(t, h - 2.0 * t, 0.06)],
+		[M_GLASS, Vector3(0, 0, 0.012), Vector3(w - 2.0 * t + 0.02, h - 2.0 * t + 0.02, 0.01)],
+		[M_TRIM, Vector3(0, 0, 0.028), Vector3(0.03, h - 2.0 * t, 0.044)],
+		[M_TRIM, Vector3(0, -h * 0.5 - 0.02, 0.07), Vector3(w + 0.14, 0.04, 0.14)]]
+	if hung:
+		parts.append([M_TRIM, Vector3(0, 0.02, 0.028), Vector3(w - 2.0 * t, 0.04, 0.044)])
+	for p in parts:
+		bx(p[0], at + basis * p[1], p[2], yaw)
+
 func _gable_roof(center: Vector3, key: String, w: float, d: float, h: float, rise: float) -> void:
 	var prof := PackedVector2Array([Vector2(-d * 0.5, 0), Vector2(d * 0.5, 0), Vector2(d * 0.5, 0.12), Vector2(0, rise + 0.12), Vector2(-d * 0.5, 0.12)])
 	MeshKit.extrude_into(soup(key), prof, w, Transform3D(Basis(), center + Vector3(0, h, 0)))   # ridge along X
@@ -353,11 +372,12 @@ func _office() -> void:
 	_walls(c, M_SIDING, M_DRYWALL)
 	_gable_roof(c, "CorrugatedRed", 5.6, 5.6, 2.8, 1.1)
 	quad_flat(M_LINO, c, Vector2(4.6, 4.5), 0.0, 0.165)
-	_sign(root, "Sign_Office", c + Vector3(0, 2.5, -2.62), Vector2(2.2, 0.55), PI)
-	for z in [-0.9, 1.0]:
-		prop(P_WINDOW, c + Vector3(-2.53, 1.05, z), -PI * 0.5)
-		prop(P_WINDOW, c + Vector3(2.53, 1.05, z), PI * 0.5)
-	prop(P_WINDOW_WIDE, c + Vector3(1.0, 1.0, 2.48), 0.0)
+	_sign(root, "Sign_Office", c + Vector3(0, 2.5, -2.51), Vector2(2.2, 0.55), PI)
+	for z in [-0.35, 1.55]:
+		_window(c + Vector3(-2.52, 1.7, z), -PI * 0.5, 1.1, 1.3)
+	for z in [-1.45, 0.45]:
+		_window(c + Vector3(2.52, 1.7, z), PI * 0.5, 1.1, 1.3)
+	_window(c + Vector3(1.8, 1.7, 2.47), 0.0, 1.6, 1.4, false)
 	prop(P_WALL_LAMP, c + Vector3(1.0, 2.3, -2.5), PI)
 	light(c + Vector3(0, 2.4, 0.3), Color(1.0, 0.86, 0.62), 1.1, 6.0)
 	# interior: the management desk keeps its collision; the THE VEIL desk + computer sits on it
@@ -395,10 +415,10 @@ func _home() -> void:
 	_walls(c, M_SIDING, M_DRYWALL)
 	_gable_roof(c, "Corrugated", 5.6, 5.6, 2.8, 1.0)
 	quad_flat(M_LINO, c, Vector2(4.6, 4.5), 0.0, 0.165)
-	_sign(root, "Sign_Home", c + Vector3(0, 2.5, -2.62), Vector2(1.4, 0.35), PI)
-	for z in [-0.9, 1.0]:
-		prop(P_WINDOW, c + Vector3(2.53, 1.05, z), PI * 0.5)
-	prop(P_WINDOW, c + Vector3(-2.53, 1.05, 0.0), -PI * 0.5)
+	_sign(root, "Sign_Home", c + Vector3(0, 2.5, -2.51), Vector2(1.4, 0.35), PI)
+	for z in [-1.45, 0.45]:
+		_window(c + Vector3(2.52, 1.7, z), PI * 0.5, 1.1, 1.3)
+	_window(c + Vector3(-2.52, 1.7, 0.55), -PI * 0.5, 1.1, 1.3)
 	prop(P_WALL_LAMP, c + Vector3(-1.0, 2.3, -2.5), PI)
 	light(c + Vector3(0, 2.4, 0.3), Color(1.0, 0.84, 0.58), 1.0, 6.0)
 	# bed in the back-left corner (collision body "Bed" is built by main), bedside table with a lamp
@@ -600,6 +620,7 @@ func dress_pile(body: StaticBody3D, res: String, seed: int) -> void:
 # them). `g` = local height of the ground below the parent's origin.
 
 func _parts(parent: Node3D, parts: Dictionary) -> Dictionary:
+	MeshKit.repair(parts)
 	var out := {}
 	for key in parts:
 		var s: MeshKit.Soup = parts[key]
@@ -629,6 +650,7 @@ func crusher_model(parent: Node3D, g: float, tier := 1) -> void:
 	MeshKit.box_into(p["SteelPlate"], Vector3(-0.32, g + 1.34, -0.42), Vector3(0.42, 0.3, 0.36))  # motor
 	var chute := PackedVector2Array([Vector2(-0.55, 0.42), Vector2(-0.55, 0.32), Vector2(-1.0, 0.08), Vector2(-1.0, 0.18)])
 	MeshKit.extrude_into(p["SteelPlate"], chute, 0.9, Transform3D(Basis(), Vector3(0, g, 0)))      # discharge chute (-Z)
+	MeshKit.drum_into(p["SteelPlate"], Vector3(0, g + 0.78, 0.05), 0.045, 1.76, 8)                    # flywheel shaft through the housing
 	_parts(parent, p)
 	var wheels := []
 	for x in [-0.78, 0.78]:
@@ -779,8 +801,10 @@ func output_model(parent: Node3D, g: float) -> void:
 			[Vector3(-0.68, 0, 0), Vector3(0.06, 0.62, 1.4)], [Vector3(0.68, 0, 0), Vector3(0.06, 0.62, 1.4)]]:
 		MeshKit.box_into(p["SteelGreen"], side[0] + Vector3(0, g + 0.79, 0), side[1])               # bin walls
 	MeshKit.box_into(p["Hazard"], Vector3(0, g + 1.12, -0.7), Vector3(1.42, 0.08, 0.02))
-	for y in range(5):                                                                             # side ladder
-		MeshKit.box_into(p["SteelPlate"], Vector3(0.74, g + 0.15 + y * 0.22, 0.0), Vector3(0.04, 0.03, 0.36))
+	for z in [-0.19, 0.19]:
+		MeshKit.box_into(p["SteelPlate"], Vector3(0.725, g + 0.6, z), Vector3(0.04, 0.95, 0.03))        # ladder rails, bolted to the bin wall
+	for y in range(5):                                                                             # rungs between the rails
+		MeshKit.box_into(p["SteelPlate"], Vector3(0.735, g + 0.2 + y * 0.2, 0.0), Vector3(0.03, 0.03, 0.4))
 	_parts(parent, p)
 
 func dress_output(body: StaticBody3D) -> void:

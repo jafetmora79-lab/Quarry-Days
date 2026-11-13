@@ -1,0 +1,1983 @@
+{
+ "models/characters/CHR_QD_Clerk.glb": {
+  "triangles": 2940,
+  "materials": [
+   "QD_Clerk_Top",
+   "QD_Clerk_TopCuff",
+   "QD_Clerk_Shirt",
+   "QD_Clerk_Pants",
+   "QD_Clerk_PantsHem",
+   "QD_Clerk_Skin",
+   "QD_Clerk_Sole",
+   "QD_Clerk_Badge",
+   "QD_Clerk_Hair",
+   "QD_Clerk_Head",
+   "QD_Clerk_Shoes",
+   "QD_Clerk_Gear"
+  ],
+  "defects": [
+   "redundant_coplanar:10"
+  ],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 32,
+   "clusters": 1
+  },
+  "size": [
+   1.059,
+   1.67,
+   0.424
+  ]
+ },
+ "models/characters/CHR_QD_Hauler.glb": {
+  "triangles": 3124,
+  "materials": [
+   "QD_Hauler_Top",
+   "QD_Hauler_TopCuff",
+   "QD_Hauler_Shirt",
+   "QD_Hauler_Pants",
+   "QD_Hauler_PantsHem",
+   "QD_Hauler_Skin",
+   "QD_Hauler_Sole",
+   "QD_Hauler_Badge",
+   "QD_Hauler_Hair",
+   "QD_Hauler_Head",
+   "QD_Hauler_Shoes",
+   "QD_Hauler_Gear"
+  ],
+  "defects": [
+   "degenerate_triangles:20",
+   "redundant_coplanar:4"
+  ],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 38,
+   "clusters": 1
+  },
+  "size": [
+   1.193,
+   1.811,
+   0.373
+  ]
+ },
+ "models/characters/CHR_QD_Miner.glb": {
+  "triangles": 3124,
+  "materials": [
+   "QD_Miner_Top",
+   "QD_Miner_TopCuff",
+   "QD_Miner_Shirt",
+   "QD_Miner_Pants",
+   "QD_Miner_PantsHem",
+   "QD_Miner_Skin",
+   "QD_Miner_Sole",
+   "QD_Miner_Badge",
+   "QD_Miner_Hair",
+   "QD_Miner_Head",
+   "QD_Miner_Shoes",
+   "QD_Miner_Gear"
+  ],
+  "defects": [
+   "degenerate_triangles:20",
+   "redundant_coplanar:4"
+  ],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 42,
+   "clusters": 1
+  },
+  "size": [
+   1.253,
+   1.861,
+   0.383
+  ]
+ },
+ "models/characters/CHR_QD_Operator.glb": {
+  "triangles": 3148,
+  "materials": [
+   "QD_Operator_Top",
+   "QD_Operator_TopCuff",
+   "QD_Operator_Shirt",
+   "QD_Operator_Pants",
+   "QD_Operator_PantsHem",
+   "QD_Operator_Skin",
+   "QD_Operator_Sole",
+   "QD_Operator_Badge",
+   "QD_Operator_Hair",
+   "QD_Operator_Head",
+   "QD_Operator_Shoes",
+   "QD_Operator_Gear"
+  ],
+  "defects": [
+   "degenerate_triangles:20",
+   "redundant_coplanar:7"
+  ],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 44,
+   "clusters": 1
+  },
+  "size": [
+   1.17,
+   1.791,
+   0.369
+  ]
+ },
+ "models/procedural/buildings__garage.glb": {
+  "triangles": 1844,
+  "materials": [
+   "M_QD_Corrugated",
+   "M_QD_Sign_Garage",
+   "M_QD_Sign_Safety",
+   "M_Furn_WoodLight",
+   "M_Furn_WoodDark",
+   "M_Res_Pegboard",
+   "M_QD_MetalBrushed",
+   "M_Town_PaintRed",
+   "M_Com_MetalShelving",
+   "M_Furn_Cardboard",
+   "M_Road_CurbConcrete",
+   "M_Com_SignageBacking",
+   "M_Road_RoadPatch",
+   "M_Town_VentGrille",
+   "M_Town_PaintYellow",
+   "M_Furn_PlasticDirty",
+   "M_Town_PaintNavy",
+   "M_Town_PaintBlack",
+   "M_Town_PaintOrange",
+   "M_Town_PaintWhite",
+   "M_Arch_ConcreteFoundation",
+   "M_QD_SteelGreen",
+   "M_QD_Hazard",
+   "M_QD_PaintRed"
+  ],
+  "defects": [
+   "redundant_coplanar:50",
+   "floating_parts:5 clusters (562 tris apart from the main body)"
+  ],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 115,
+   "clusters": 6,
+   "floating_clusters": [
+    {
+     "tris": 238,
+     "min": [
+      -4.5,
+      0.0,
+      18.7
+     ],
+     "max": [
+      -3.75,
+      1.95,
+      20.5
+     ]
+    },
+    {
+     "tris": 156,
+     "min": [
+      -4.28,
+      0.0,
+      16.62
+     ],
+     "max": [
+      -3.52,
+      0.7,
+      17.38
+     ]
+    },
+    {
+     "tris": 96,
+     "min": [
+      12.81,
+      0.0,
+      18.71
+     ],
+     "max": [
+      13.99,
+      0.88,
+      20.53
+     ]
+    },
+    {
+     "tris": 40,
+     "min": [
+      13.79,
+      0.0,
+      16.89
+     ],
+     "max": [
+      14.21,
+      0.39,
+      17.51
+     ]
+    },
+    {
+     "tris": 32,
+     "min": [
+      13.72,
+      0.0,
+      21.28
+     ],
+     "max": [
+      14.25,
+      1.02,
+      21.9
+     ]
+    }
+   ]
+  },
+  "size": [
+   19.8,
+   7.208,
+   8.4
+  ]
+ },
+ "models/procedural/buildings__home.glb": {
+  "triangles": 1046,
+  "materials": [
+   "M_QD_Sign_Home",
+   "M_Town_PaintBlack",
+   "M_Town_LampGlow",
+   "material3",
+   "material4",
+   "material5",
+   "material6",
+   "M_Furn_WoodDark",
+   "M_Res_DetailAtlas",
+   "M_Com_MetalShelving",
+   "M_Furn_Cardboard",
+   "M_QD_MetalBrushed",
+   "M_Arch_SidingWhite",
+   "M_Int_DrywallLight",
+   "M_Arch_ConcreteFoundation",
+   "M_Arch_TrimPainted",
+   "M_QD_Corrugated",
+   "M_Int_Linoleum",
+   "M_Veh_Glass_Dirty",
+   "M_Furn_WoodLight"
+  ],
+  "defects": [
+   "redundant_coplanar:10"
+  ],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 69,
+   "clusters": 1,
+   "blend_material": true
+  },
+  "size": [
+   5.7,
+   3.998,
+   6.28
+  ]
+ },
+ "models/procedural/buildings__office.glb": {
+  "triangles": 1558,
+  "materials": [
+   "M_QD_Sign_Office",
+   "M_Town_PaintBlack",
+   "M_Town_LampGlow",
+   "M_Furn_WoodLight",
+   "M_Furn_PlasticDirty",
+   "M_Res_DetailAtlasGlow",
+   "M_QD_MetalBrushed",
+   "M_Furn_Rubber",
+   "M_Furn_FabricUpholstery",
+   "M_Com4_Atlas",
+   "material10",
+   "material11",
+   "material12",
+   "material13",
+   "material14",
+   "material15",
+   "M_QD_Sign_Upgrades",
+   "M_Furn_WoodDark",
+   "M_Res_DetailAtlas",
+   "M_Furn_Cardboard",
+   "M_Arch_SidingWhite",
+   "M_Int_DrywallLight",
+   "M_Arch_ConcreteFoundation",
+   "M_Arch_TrimPainted",
+   "M_QD_CorrugatedRed",
+   "M_QD_Corrugated",
+   "M_Int_Linoleum",
+   "M_Veh_Glass_Dirty",
+   "M_QD_SteelPlate"
+  ],
+  "defects": [
+   "z_fighting:3",
+   "redundant_coplanar:5"
+  ],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "z_fighting_at": [
+    {
+     "at": [
+      -2.28,
+      0.6,
+      1.93
+     ],
+     "materials": [
+      "M_Com4_Atlas",
+      "M_Int_DrywallLight"
+     ]
+    },
+    {
+     "at": [
+      -2.28,
+      0.6,
+      1.93
+     ],
+     "materials": [
+      "M_Com4_Atlas",
+      "M_Int_DrywallLight"
+     ]
+    },
+    {
+     "at": [
+      -2.28,
+      1.04,
+      1.77
+     ],
+     "materials": [
+      "M_Com4_Atlas",
+      "M_Int_DrywallLight"
+     ]
+    }
+   ],
+   "components": 111,
+   "clusters": 1,
+   "blend_material": true
+  },
+  "size": [
+   5.7,
+   4.098,
+   6.28
+  ]
+ },
+ "models/procedural/buildings__sales_booth_and_order_kiosk.glb": {
+  "triangles": 138,
+  "materials": [
+   "M_QD_Sign_Sales",
+   "M_QD_Sign_Orders",
+   "material2",
+   "M_Furn_WoodLight",
+   "M_QD_SteelGreen",
+   "M_QD_Hazard",
+   "M_QD_SteelPlate",
+   "M_QD_CorrugatedRed"
+  ],
+  "defects": [
+   "floating_parts:1 clusters (40 tris apart from the main body)"
+  ],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 14,
+   "clusters": 2,
+   "floating_clusters": [
+    {
+     "tris": 40,
+     "min": [
+      -2.7,
+      0.0,
+      9.5
+     ],
+     "max": [
+      -0.88,
+      2.65,
+      10.5
+     ]
+    }
+   ]
+  },
+  "size": [
+   7.47,
+   2.864,
+   1.81
+  ]
+ },
+ "models/procedural/buildings__shed.glb": {
+  "triangles": 1010,
+  "materials": [
+   "M_QD_Sign_Storage",
+   "M_Com_MetalShelving",
+   "M_Furn_Cardboard",
+   "M_QD_MetalBrushed",
+   "M_Com4_Atlas",
+   "M_QD_Corrugated",
+   "M_Int_BasementConcrete",
+   "M_Arch_ConcreteFoundation",
+   "M_Arch_TrimPainted",
+   "M_QD_CorrugatedRed",
+   "M_QD_SteelPlate"
+  ],
+  "defects": [
+   "redundant_coplanar:20"
+  ],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 72,
+   "clusters": 1
+  },
+  "size": [
+   5.7,
+   3.698,
+   6.28
+  ]
+ },
+ "models/procedural/carts_and_props__air_compressor.glb": {
+  "triangles": 388,
+  "materials": [
+   "M_QD_PaintRed",
+   "M_Furn_Rubber",
+   "M_QD_SteelPlate",
+   "M_QD_MetalBrushed"
+  ],
+  "defects": [
+   "redundant_coplanar:4"
+  ],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 18,
+   "clusters": 1
+  },
+  "size": [
+   0.678,
+   0.93,
+   1.2
+  ]
+ },
+ "models/procedural/carts_and_props__hand_cart.glb": {
+  "triangles": 556,
+  "materials": [
+   "M_Furn_WoodLight",
+   "M_QD_SteelPlate",
+   "M_Furn_Rubber",
+   "M_QD_MetalBrushed",
+   "M_QD_RockLimestone"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 23,
+   "clusters": 1
+  },
+  "size": [
+   1.02,
+   0.858,
+   2.05
+  ]
+ },
+ "models/procedural/carts_and_props__reinforced_wheelbarrow.glb": {
+  "triangles": 524,
+  "materials": [
+   "M_QD_PaintOrange",
+   "M_QD_SteelPlate",
+   "M_Furn_Rubber",
+   "M_QD_MetalBrushed",
+   "M_QD_RockLimestone"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 25,
+   "clusters": 1
+  },
+  "size": [
+   0.8,
+   1.058,
+   2.21
+  ]
+ },
+ "models/procedural/carts_and_props__wheelbarrow.glb": {
+  "triangles": 452,
+  "materials": [
+   "M_QD_SteelPlate",
+   "M_Furn_Rubber",
+   "M_QD_MetalBrushed",
+   "M_Furn_WoodLight",
+   "M_QD_RockLimestone"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 19,
+   "clusters": 1
+  },
+  "size": [
+   0.676,
+   0.979,
+   1.99
+  ]
+ },
+ "models/procedural/machinery__cone_crusher.glb": {
+  "triangles": 198,
+  "materials": [
+   "M_QD_SteelPlate",
+   "M_QD_SteelGreen",
+   "M_QD_PaintOrange",
+   "M_QD_Hazard"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 9,
+   "clusters": 1
+  },
+  "size": [
+   2.095,
+   1.69,
+   2.25
+  ]
+ },
+ "models/procedural/machinery__conveyor.glb": {
+  "triangles": 168,
+  "materials": [
+   "M_QD_SteelPlate",
+   "M_QD_Belt",
+   "M_QD_Hazard",
+   "M_QD_SteelGreen"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 12,
+   "clusters": 3,
+   "floating_clusters": []
+  },
+  "size": [
+   1.0,
+   0.29,
+   2.061
+  ]
+ },
+ "models/procedural/machinery__conveyor_corner_left.glb": {
+  "triangles": 204,
+  "materials": [
+   "M_QD_SteelPlate",
+   "M_QD_Belt",
+   "M_QD_Hazard",
+   "M_QD_SteelGreen"
+  ],
+  "defects": [
+   "redundant_coplanar:28"
+  ],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 16,
+   "clusters": 3,
+   "floating_clusters": []
+  },
+  "size": [
+   1.54,
+   0.29,
+   1.531
+  ]
+ },
+ "models/procedural/machinery__conveyor_corner_right.glb": {
+  "triangles": 204,
+  "materials": [
+   "M_QD_SteelPlate",
+   "M_QD_Belt",
+   "M_QD_Hazard",
+   "M_QD_SteelGreen"
+  ],
+  "defects": [
+   "redundant_coplanar:26"
+  ],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 16,
+   "clusters": 3,
+   "floating_clusters": []
+  },
+  "size": [
+   1.54,
+   0.29,
+   1.531
+  ]
+ },
+ "models/procedural/machinery__drill_rig.glb": {
+  "triangles": 496,
+  "materials": [
+   "M_QD_Tire",
+   "M_QD_SteelPlate",
+   "M_QD_SteelGreen",
+   "M_QD_PaintYellow",
+   "M_QD_Hazard",
+   "M_Veh_Glass_Dirty"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 29,
+   "clusters": 1,
+   "blend_material": true
+  },
+  "size": [
+   1.84,
+   2.25,
+   4.83
+  ]
+ },
+ "models/procedural/machinery__heavy_breaker.glb": {
+  "triangles": 376,
+  "materials": [
+   "M_QD_Tire",
+   "M_QD_SteelPlate",
+   "M_QD_SteelGreen",
+   "M_QD_PaintOrange",
+   "M_QD_Hazard",
+   "M_Veh_Glass_Dirty",
+   "M_QD_PaintRed"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 21,
+   "clusters": 1,
+   "blend_material": true
+  },
+  "size": [
+   1.84,
+   2.25,
+   6.24
+  ]
+ },
+ "models/procedural/machinery__improved_rig.glb": {
+  "triangles": 496,
+  "materials": [
+   "M_QD_Tire",
+   "M_QD_SteelPlate",
+   "M_QD_SteelGreen",
+   "M_QD_PaintOrange",
+   "M_QD_Hazard",
+   "M_Veh_Glass_Dirty",
+   "M_QD_PaintYellow"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 29,
+   "clusters": 1,
+   "blend_material": true
+  },
+  "size": [
+   1.84,
+   2.25,
+   4.83
+  ]
+ },
+ "models/procedural/machinery__jaw_crusher.glb": {
+  "triangles": 324,
+  "materials": [
+   "M_QD_SteelPlate",
+   "M_QD_SteelGreen",
+   "M_QD_PaintYellow",
+   "M_QD_Hazard"
+  ],
+  "defects": [
+   "redundant_coplanar:10"
+  ],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 22,
+   "clusters": 1
+  },
+  "size": [
+   1.76,
+   1.73,
+   1.875
+  ]
+ },
+ "models/procedural/machinery__output_storage.glb": {
+  "triangles": 204,
+  "materials": [
+   "M_QD_SteelGreen",
+   "M_QD_SteelPlate",
+   "M_QD_Hazard"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 17,
+   "clusters": 1
+  },
+  "size": [
+   1.464,
+   1.16,
+   1.424
+  ]
+ },
+ "models/procedural/machinery__rock_breaker.glb": {
+  "triangles": 376,
+  "materials": [
+   "M_QD_Tire",
+   "M_QD_SteelPlate",
+   "M_QD_SteelGreen",
+   "M_QD_PaintRed",
+   "M_QD_Hazard",
+   "M_Veh_Glass_Dirty"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 21,
+   "clusters": 1,
+   "blend_material": true
+  },
+  "size": [
+   1.84,
+   2.25,
+   6.24
+  ]
+ },
+ "models/procedural/machinery__small_hopper.glb": {
+  "triangles": 276,
+  "materials": [
+   "M_QD_SteelPlate",
+   "M_QD_SteelGreen",
+   "M_QD_Hazard",
+   "M_QD_PaintYellow"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 21,
+   "clusters": 1
+  },
+  "size": [
+   1.515,
+   1.205,
+   1.51
+  ]
+ },
+ "models/procedural/machinery__sorting_table.glb": {
+  "triangles": 336,
+  "materials": [
+   "M_Furn_WoodLight",
+   "M_QD_SteelPlate",
+   "M_QD_PaintYellow",
+   "M_QD_PaintRed",
+   "M_QD_SteelGreen",
+   "M_QD_Hazard"
+  ],
+  "defects": [
+   "z_fighting:1",
+   "redundant_coplanar:30"
+  ],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "z_fighting_at": [
+    {
+     "at": [
+      0.08,
+      1.02,
+      -0.13
+     ],
+     "materials": [
+      "M_QD_PaintYellow",
+      "M_QD_SteelPlate"
+     ]
+    }
+   ],
+   "components": 27,
+   "clusters": 1
+  },
+  "size": [
+   1.5,
+   1.32,
+   0.85
+  ]
+ },
+ "models/procedural/machinery__storage_crate.glb": {
+  "triangles": 168,
+  "materials": [
+   "M_QD_SteelPlate",
+   "M_QD_SteelGreen",
+   "M_QD_Hazard"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 14,
+   "clusters": 1
+  },
+  "size": [
+   2.02,
+   1.294,
+   1.68
+  ]
+ },
+ "models/procedural/repair_parts__battery.glb": {
+  "triangles": 84,
+  "materials": [
+   "material0",
+   "M_QD_SteelPlate",
+   "material2"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 5,
+   "clusters": 1
+  },
+  "size": [
+   0.38,
+   0.31,
+   0.205
+  ]
+ },
+ "models/procedural/repair_parts__fuel.glb": {
+  "triangles": 60,
+  "materials": [
+   "material0",
+   "M_QD_SteelPlate",
+   "material2"
+  ],
+  "defects": [
+   "redundant_coplanar:2"
+  ],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 4,
+   "clusters": 1
+  },
+  "size": [
+   0.34,
+   0.54,
+   0.166
+  ]
+ },
+ "models/procedural/repair_parts__hose.glb": {
+  "triangles": 624,
+  "materials": [
+   "material0",
+   "material1"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 26,
+   "clusters": 1
+  },
+  "size": [
+   0.466,
+   0.145,
+   0.452
+  ]
+ },
+ "models/procedural/tools__flat_chisel.glb": {
+  "triangles": 84,
+  "materials": [
+   "M_Furn_Rubber",
+   "M_QD_SteelPlate",
+   "M_Furn_MetalRusted"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 6,
+   "clusters": 1
+  },
+  "size": [
+   0.088,
+   0.515,
+   0.05
+  ]
+ },
+ "models/procedural/tools__hand_splitter.glb": {
+  "triangles": 140,
+  "materials": [
+   "M_QD_PaintOrange",
+   "M_Furn_Rubber",
+   "M_QD_SteelPlate",
+   "M_QD_MetalBrushed"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 9,
+   "clusters": 1
+  },
+  "size": [
+   0.12,
+   0.57,
+   0.472
+  ]
+ },
+ "models/procedural/tools__hardened_pickaxe.glb": {
+  "triangles": 144,
+  "materials": [
+   "M_Furn_Rubber",
+   "material1",
+   "M_QD_SteelPlate",
+   "M_QD_PaintRed",
+   "M_QD_MetalBrushed"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 7,
+   "clusters": 1
+  },
+  "size": [
+   0.08,
+   0.7,
+   0.65
+  ]
+ },
+ "models/procedural/tools__ladder_1.glb": {
+  "triangles": 72,
+  "materials": [
+   "material0",
+   "M_Furn_Rubber",
+   "material2",
+   "M_Furn_MetalRusted",
+   "M_QD_SteelPlate"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 5,
+   "clusters": 1
+  },
+  "size": [
+   0.048,
+   0.59,
+   0.54
+  ]
+ },
+ "models/procedural/tools__ladder_2.glb": {
+  "triangles": 120,
+  "materials": [
+   "M_Furn_WoodLight",
+   "M_QD_SteelPlate",
+   "M_QD_PaintRed"
+  ],
+  "defects": [
+   "redundant_coplanar:20"
+  ],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 9,
+   "clusters": 1
+  },
+  "size": [
+   0.075,
+   0.662,
+   0.72
+  ]
+ },
+ "models/procedural/tools__ladder_3.glb": {
+  "triangles": 176,
+  "materials": [
+   "M_QD_SteelPlate",
+   "M_QD_PaintYellow",
+   "M_Furn_Rubber"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 14,
+   "clusters": 1
+  },
+  "size": [
+   0.185,
+   0.496,
+   0.995
+  ]
+ },
+ "models/procedural/tools__pneumatic_chisel.glb": {
+  "triangles": 268,
+  "materials": [
+   "M_QD_MetalBrushed",
+   "M_QD_SteelPlate",
+   "material2",
+   "M_Furn_Rubber"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 13,
+   "clusters": 1
+  },
+  "size": [
+   0.39,
+   0.687,
+   0.428
+  ]
+ },
+ "models/procedural/tools__pointed_chisel.glb": {
+  "triangles": 96,
+  "materials": [
+   "M_Furn_Rubber",
+   "M_QD_SteelPlate"
+  ],
+  "defects": [
+   "redundant_coplanar:8"
+  ],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 5,
+   "clusters": 1
+  },
+  "size": [
+   0.06,
+   0.545,
+   0.052
+  ]
+ },
+ "models/procedural/tools__powered_hammer.glb": {
+  "triangles": 176,
+  "materials": [
+   "M_QD_MetalBrushed",
+   "M_QD_SteelPlate",
+   "M_QD_PaintOrange",
+   "M_Furn_Rubber"
+  ],
+  "defects": [
+   "redundant_coplanar:8"
+  ],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 13,
+   "clusters": 1
+  },
+  "size": [
+   0.125,
+   0.315,
+   0.775
+  ]
+ },
+ "models/procedural/tools__repaired_pickaxe.glb": {
+  "triangles": 132,
+  "materials": [
+   "M_Furn_WoodLight",
+   "material1",
+   "M_QD_SteelPlate",
+   "M_QD_MetalBrushed"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 10,
+   "clusters": 1
+  },
+  "size": [
+   0.066,
+   0.595,
+   0.56
+  ]
+ },
+ "models/procedural/tools__sledgehammer.glb": {
+  "triangles": 120,
+  "materials": [
+   "M_Furn_WoodLight",
+   "M_Furn_Rubber",
+   "M_QD_SteelPlate",
+   "M_QD_PaintRed"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 9,
+   "clusters": 1
+  },
+  "size": [
+   0.13,
+   0.915,
+   0.33
+  ]
+ },
+ "models/procedural/tools__steel_pickaxe.glb": {
+  "triangles": 108,
+  "materials": [
+   "M_Furn_WoodLight",
+   "M_Furn_Rubber",
+   "M_QD_SteelPlate",
+   "M_QD_MetalBrushed"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 5,
+   "clusters": 1
+  },
+  "size": [
+   0.068,
+   0.672,
+   0.72
+  ]
+ },
+ "models/procedural/vehicles__excavator.glb": {
+  "triangles": 800,
+  "materials": [
+   "M_QD_PaintYellow",
+   "M_QD_SteelPlate",
+   "M_QD_Tire",
+   "M_QD_Hazard",
+   "M_Veh_Glass_Dirty",
+   "material5",
+   "M_QD_SteelGreen",
+   "M_QD_MetalBrushed"
+  ],
+  "defects": [
+   "redundant_coplanar:2"
+  ],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 43,
+   "clusters": 1,
+   "blend_material": true
+  },
+  "size": [
+   2.12,
+   2.51,
+   4.89
+  ]
+ },
+ "models/procedural/vehicles__loader.glb": {
+  "triangles": 1028,
+  "materials": [
+   "M_QD_PaintYellow",
+   "M_QD_SteelPlate",
+   "M_QD_Hazard",
+   "M_Veh_Glass_Dirty",
+   "material4",
+   "M_QD_Tire",
+   "M_QD_SteelGreen",
+   "M_QD_MetalBrushed"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 49,
+   "clusters": 1,
+   "blend_material": true
+  },
+  "size": [
+   2.5,
+   2.34,
+   4.45
+  ]
+ },
+ "models/procedural/vehicles__truck.glb": {
+  "triangles": 1204,
+  "materials": [
+   "M_QD_PaintRed",
+   "M_QD_SteelPlate",
+   "M_Veh_Glass_Dirty",
+   "material3",
+   "material4",
+   "M_QD_Tire",
+   "M_QD_PaintOrange",
+   "M_QD_Hazard",
+   "M_QD_SteelGreen",
+   "M_QD_MetalBrushed"
+  ],
+  "defects": [
+   "redundant_coplanar:8"
+  ],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 54,
+   "clusters": 1,
+   "blend_material": true
+  },
+  "size": [
+   2.52,
+   2.5,
+   4.75
+  ]
+ },
+ "models/veil/02_Town/Fences/FN_MetalRailing_2.5m.glb": {
+  "triangles": 200,
+  "materials": [
+   "M_Town_PaintBlack"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 24,
+   "clusters": 1
+  },
+  "size": [
+   2.51,
+   1.1,
+   0.08
+  ]
+ },
+ "models/veil/02_Town/Fences/FN_RetainingWall_2.5m.glb": {
+  "triangles": 12,
+  "materials": [
+   "M_Arch_ConcreteFoundation"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 1,
+   "clusters": 1
+  },
+  "size": [
+   2.5,
+   1.2,
+   0.5
+  ]
+ },
+ "models/veil/02_Town/Street_Props/SP_Bench_Wood.glb": {
+  "triangles": 120,
+  "materials": [
+   "M_Town_PaintBlack",
+   "M_Furn_WoodLight"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 8,
+   "clusters": 1
+  },
+  "size": [
+   1.9,
+   0.9,
+   0.6
+  ]
+ },
+ "models/veil/02_Town/Street_Props/SP_Dumpster.glb": {
+  "triangles": 224,
+  "materials": [
+   "M_Town_PaintGreen",
+   "M_Road_RoadPatch",
+   "M_Furn_Rubber",
+   "M_Furn_MetalBrushed",
+   "M_Town_PaintBlack"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 14,
+   "clusters": 1
+  },
+  "size": [
+   1.98,
+   1.19,
+   1.44
+  ]
+ },
+ "models/veil/02_Town/Street_Props/SP_Lamp_Commercial.glb": {
+  "triangles": 124,
+  "materials": [
+   "M_Road_CurbConcrete",
+   "M_Town_PaintGreen",
+   "M_Town_LampGlow"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 9,
+   "clusters": 1
+  },
+  "size": [
+   0.5,
+   6.43,
+   2.5
+  ]
+ },
+ "models/veil/02_Town/Street_Props/SP_Lamp_Wall.glb": {
+  "triangles": 58,
+  "materials": [
+   "M_Town_PaintBlack",
+   "M_Town_LampGlow"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 5,
+   "clusters": 1
+  },
+  "size": [
+   0.2,
+   0.34,
+   0.38
+  ]
+ },
+ "models/veil/02_Town/Street_Props/SP_RoadBarrier.glb": {
+  "triangles": 88,
+  "materials": [
+   "M_Town_PaintWhite",
+   "M_Town_PaintOrange",
+   "M_Town_HazardStripe",
+   "M_Town_LensAmber"
+  ],
+  "defects": [
+   "floating_parts:1 clusters (12 tris apart from the main body)"
+  ],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 9,
+   "clusters": 2,
+   "floating_clusters": [
+    {
+     "tris": 12,
+     "min": [
+      -0.08,
+      1.2,
+      -0.03
+     ],
+     "max": [
+      0.08,
+      1.33,
+      0.03
+     ]
+    }
+   ]
+  },
+  "size": [
+   2.0,
+   1.336,
+   0.741
+  ]
+ },
+ "models/veil/02_Town/Street_Props/SP_TrafficCone.glb": {
+  "triangles": 78,
+  "materials": [
+   "M_Town_PaintBlack",
+   "M_Town_PaintOrange",
+   "M_Town_PaintWhite"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 2,
+   "clusters": 1
+  },
+  "size": [
+   0.36,
+   0.7,
+   0.36
+  ]
+ },
+ "models/veil/02_Town/Street_Props/SP_TrashBin_Public.glb": {
+  "triangles": 176,
+  "materials": [
+   "M_Town_PaintGreen",
+   "M_Town_PaintBlack",
+   "M_Road_RoadPatch"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 7,
+   "clusters": 1
+  },
+  "size": [
+   0.66,
+   1.05,
+   0.67
+  ]
+ },
+ "models/veil/02_Town/Street_Props/SP_UtilityPole_Streetlight.glb": {
+  "triangles": 276,
+  "materials": [
+   "M_Town_PoleWood",
+   "M_Furn_MetalBrushed",
+   "M_Furn_WoodDark",
+   "M_Furn_PlasticDirty",
+   "M_Town_PaintBlack",
+   "M_Com_SignageBacking",
+   "M_Town_LampGlow"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 22,
+   "clusters": 1
+  },
+  "size": [
+   3.72,
+   10.0,
+   0.36
+  ]
+ },
+ "models/veil/02_Town/Utilities/UT_ElectricalCabinet.glb": {
+  "triangles": 90,
+  "materials": [
+   "M_Road_CurbConcrete",
+   "M_Com_SignageBacking",
+   "M_Road_RoadPatch",
+   "M_Town_VentGrille",
+   "M_Furn_MetalBrushed",
+   "M_Town_PaintYellow"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 9,
+   "clusters": 1
+  },
+  "size": [
+   1.2,
+   1.5,
+   0.7
+  ]
+ },
+ "models/veil/02_Town/Utilities/UT_JunctionBox.glb": {
+  "triangles": 42,
+  "materials": [
+   "M_Com_SignageBacking",
+   "M_Furn_MetalBrushed"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 4,
+   "clusters": 1
+  },
+  "size": [
+   0.42,
+   1.12,
+   0.2
+  ]
+ },
+ "models/veil/02_Town/Vegetation/VG_DeadVegetation.glb": {
+  "triangles": 84,
+  "materials": [
+   "M_Grnd_DeadVegetation",
+   "M_Hor_FoliageDead"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 3,
+   "clusters": 1
+  },
+  "size": [
+   1.426,
+   0.974,
+   1.249
+  ]
+ },
+ "models/veil/02_Town/Vegetation/VG_DirtMound.glb": {
+  "triangles": 80,
+  "materials": [
+   "M_Grnd_Soil"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 1,
+   "clusters": 1
+  },
+  "size": [
+   2.674,
+   0.876,
+   1.903
+  ]
+ },
+ "models/veil/02_Town/Vegetation/VG_GravelPile.glb": {
+  "triangles": 25,
+  "materials": [
+   "M_Road_Gravel"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 1,
+   "clusters": 1
+  },
+  "size": [
+   2.328,
+   0.75,
+   2.364
+  ]
+ },
+ "models/veil/02_Town/Vegetation/VG_MudPatch.glb": {
+  "triangles": 8,
+  "materials": [
+   "M_Grnd_Mud"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 1,
+   "clusters": 1
+  },
+  "size": [
+   2.263,
+   0.0,
+   2.25
+  ]
+ },
+ "models/veil/02_Town/Vegetation/VG_RocksSmall.glb": {
+  "triangles": 80,
+  "materials": [
+   "M_Town_Rock"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 4,
+   "clusters": 1
+  },
+  "size": [
+   1.377,
+   0.544,
+   1.026
+  ]
+ },
+ "models/veil/02_Town/Vegetation/VG_TreeStump.glb": {
+  "triangles": 65,
+  "materials": [
+   "M_Grnd_TreeBark",
+   "M_Town_StumpTop"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 5,
+   "clusters": 1
+  },
+  "size": [
+   0.737,
+   0.482,
+   0.748
+  ]
+ },
+ "models/veil/02_Town/Vegetation/VG_Tree_Pine.glb": {
+  "triangles": 181,
+  "materials": [
+   "M_Grnd_TreeBark",
+   "M_Town_PineNeedles"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 31,
+   "clusters": 1
+  },
+  "size": [
+   4.482,
+   8.086,
+   4.406
+  ]
+ },
+ "models/veil/02_Town/Vegetation/VG_Weeds.glb": {
+  "triangles": 6,
+  "materials": [
+   "M_Town_GrassCards"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 3,
+   "clusters": 1
+  },
+  "size": [
+   0.914,
+   0.85,
+   0.8
+  ]
+ },
+ "models/veil/03_Residential/Exterior_Modules/RES_Ext_Door_Back_HalfGlass.glb": {
+  "triangles": 234,
+  "materials": [
+   "M_Arch_TrimPainted",
+   "M_Furn_WoodDark",
+   "M_Furn_WoodPainted",
+   "M_Arch_WindowGlassDirty",
+   "M_Furn_MetalBrushed"
+  ],
+  "defects": [
+   "redundant_coplanar:4"
+  ],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 12,
+   "clusters": 1,
+   "blend_material": true
+  },
+  "size": [
+   1.14,
+   2.227,
+   0.303
+  ]
+ },
+ "models/veil/03_Residential/Exterior_Modules/RES_Ext_Window_DoubleHung_1.1x1.3.glb": {
+  "triangles": 240,
+  "materials": [
+   "M_Arch_TrimPainted",
+   "M_Arch_WindowGlassDirty"
+  ],
+  "defects": [
+   "redundant_coplanar:4",
+   "floating_parts:2 clusters (108 tris apart from the main body)"
+  ],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 12,
+   "clusters": 3,
+   "floating_clusters": [
+    {
+     "tris": 60,
+     "min": [
+      -0.12,
+      -0.05,
+      0.1
+     ],
+     "max": [
+      1.22,
+      1.42,
+      0.17
+     ]
+    },
+    {
+     "tris": 48,
+     "min": [
+      -0.11,
+      -0.05,
+      -0.17
+     ],
+     "max": [
+      1.21,
+      1.39,
+      -0.1
+     ]
+    }
+   ],
+   "blend_material": true
+  },
+  "size": [
+   1.34,
+   1.47,
+   0.34
+  ]
+ },
+ "models/veil/03_Residential/Exterior_Modules/RES_Ext_Window_Picture_1.6x1.4.glb": {
+  "triangles": 168,
+  "materials": [
+   "M_Arch_TrimPainted",
+   "M_Arch_WindowGlassDirty"
+  ],
+  "defects": [
+   "floating_parts:2 clusters (108 tris apart from the main body)"
+  ],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 7,
+   "clusters": 3,
+   "floating_clusters": [
+    {
+     "tris": 60,
+     "min": [
+      -0.12,
+      -0.05,
+      0.1
+     ],
+     "max": [
+      1.72,
+      1.52,
+      0.17
+     ]
+    },
+    {
+     "tris": 48,
+     "min": [
+      -0.11,
+      -0.05,
+      -0.17
+     ],
+     "max": [
+      1.71,
+      1.49,
+      -0.1
+     ]
+    }
+   ],
+   "blend_material": true
+  },
+  "size": [
+   1.84,
+   1.57,
+   0.34
+  ]
+ },
+ "models/veil/03_Residential/Furniture/RES_CardboardBox_Stack.glb": {
+  "triangles": 32,
+  "materials": [
+   "M_Furn_Cardboard"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 3,
+   "clusters": 1
+  },
+  "size": [
+   0.614,
+   1.02,
+   0.531
+  ]
+ },
+ "models/veil/03_Residential/Furniture/RES_DeskChair_Office.glb": {
+  "triangles": 232,
+  "materials": [
+   "M_Furn_Rubber",
+   "M_Furn_MetalBrushed",
+   "M_Furn_FabricUpholstery"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 14,
+   "clusters": 1
+  },
+  "size": [
+   0.567,
+   0.98,
+   0.585
+  ]
+ },
+ "models/veil/03_Residential/Furniture/RES_Desk_Computer.glb": {
+  "triangles": 190,
+  "materials": [
+   "M_Furn_WoodLight",
+   "M_Furn_PlasticDirty",
+   "M_Res_DetailAtlasGlow",
+   "M_Furn_MetalBrushed"
+  ],
+  "defects": [
+   "redundant_coplanar:5"
+  ],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 13,
+   "clusters": 1
+  },
+  "size": [
+   1.2,
+   1.09,
+   0.605
+  ]
+ },
+ "models/veil/03_Residential/Furniture/RES_Shelving_Metal.glb": {
+  "triangles": 304,
+  "materials": [
+   "M_Com_MetalShelving",
+   "M_Furn_Cardboard",
+   "M_Furn_MetalBrushed"
+  ],
+  "defects": [
+   "redundant_coplanar:10"
+  ],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 17,
+   "clusters": 1
+  },
+  "size": [
+   1.2,
+   1.8,
+   0.45
+  ]
+ },
+ "models/veil/03_Residential/Furniture/RES_StorageBin.glb": {
+  "triangles": 40,
+  "materials": [
+   "M_Furn_PlasticDirty",
+   "M_Town_PaintNavy"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 2,
+   "clusters": 1
+  },
+  "size": [
+   0.62,
+   0.39,
+   0.42
+  ]
+ },
+ "models/veil/03_Residential/Furniture/RES_Toolbox.glb": {
+  "triangles": 64,
+  "materials": [
+   "M_Town_PaintRed",
+   "M_Furn_MetalBrushed"
+  ],
+  "defects": [
+   "redundant_coplanar:2"
+  ],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 2,
+   "clusters": 1
+  },
+  "size": [
+   0.5,
+   0.297,
+   0.24
+  ]
+ },
+ "models/veil/03_Residential/Furniture/RES_WallCalendar.glb": {
+  "triangles": 12,
+  "materials": [
+   "M_Furn_Cardboard",
+   "M_Res_DetailAtlas"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 2,
+   "clusters": 1
+  },
+  "size": [
+   0.36,
+   0.5,
+   0.01
+  ]
+ },
+ "models/veil/03_Residential/Furniture/RES_WallClock.glb": {
+  "triangles": 44,
+  "materials": [
+   "M_Furn_WoodDark",
+   "M_Res_DetailAtlas"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 2,
+   "clusters": 1
+  },
+  "size": [
+   0.34,
+   0.34,
+   0.055
+  ]
+ },
+ "models/veil/03_Residential/Furniture/RES_Workbench.glb": {
+  "triangles": 174,
+  "materials": [
+   "M_Furn_WoodLight",
+   "M_Furn_WoodDark",
+   "M_Res_Pegboard",
+   "M_Furn_MetalBrushed"
+  ],
+  "defects": [
+   "redundant_coplanar:10"
+  ],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 16,
+   "clusters": 1
+  },
+  "size": [
+   1.8,
+   1.95,
+   0.75
+  ]
+ },
+ "models/veil/04_Commercial/Shared_Props/COM_DocumentBoxes.glb": {
+  "triangles": 56,
+  "materials": [
+   "M_Com4_Atlas"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 5,
+   "clusters": 1
+  },
+  "size": [
+   0.827,
+   0.8,
+   0.48
+  ]
+ },
+ "models/veil/04_Commercial/Shared_Props/COM_FilingCabinet.glb": {
+  "triangles": 10,
+  "materials": [
+   "M_Com4_Atlas"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 1,
+   "clusters": 1
+  },
+  "size": [
+   0.46,
+   1.32,
+   0.66
+  ]
+ },
+ "models/veil/04_Commercial/Shared_Props/COM_NoticeBoard.glb": {
+  "triangles": 10,
+  "materials": [
+   "M_Com4_Atlas"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 1,
+   "clusters": 1
+  },
+  "size": [
+   1.2,
+   0.8,
+   0.03
+  ]
+ },
+ "models/veil/04_Commercial/Shared_Props/COM_PalletRack.glb": {
+  "triangles": 208,
+  "materials": [
+   "M_Com4_Atlas"
+  ],
+  "defects": [
+   "redundant_coplanar:32"
+  ],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 20,
+   "clusters": 1
+  },
+  "size": [
+   2.7,
+   3.0,
+   1.0
+  ]
+ },
+ "models/veil/04_Commercial/Shared_Props/COM_PalletStack.glb": {
+  "triangles": 130,
+  "materials": [
+   "M_Com4_Atlas"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 13,
+   "clusters": 1
+  },
+  "size": [
+   1.2,
+   1.33,
+   1.0
+  ]
+ },
+ "models/veil/04_Commercial/Shared_Props/COM_WaitingChairs.glb": {
+  "triangles": 90,
+  "materials": [
+   "M_Com4_Atlas"
+  ],
+  "defects": [],
+  "metrics": {
+   "reversed_normal_share": 0.0,
+   "components": 9,
+   "clusters": 1
+  },
+  "size": [
+   1.9,
+   0.88,
+   0.51
+  ]
+ }
+}

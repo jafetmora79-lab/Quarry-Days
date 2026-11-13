@@ -77,6 +77,206 @@ class Soup:
 			m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 		return m
 
+# ------------------------------------------------------------------ geometry repair (Asset Quality Overhaul, Phase A)
+
+const REPAIR_WELD := 0.002          ## m: vertices closer than this are one vertex when finding connected parts
+const REPAIR_LIFT := 0.004          ## m: a detail part that shares a plane with another material is raised this far (a real, physical thickness)
+const REPAIR_PLANE := 0.0015        ## m: two faces closer than this to the same plane are coplanar
+const REPAIR_CELL := 2.0
+
+static func _tri_key(v0: Vector3, v1: Vector3, v2: Vector3) -> String:
+	var ks := [_vk(v0), _vk(v1), _vk(v2)]
+	ks.sort()
+	return "|".join(ks)
+
+static func _vk(v: Vector3) -> String:
+	return "%d,%d,%d" % [roundi(v.x / REPAIR_WELD), roundi(v.y / REPAIR_WELD), roundi(v.z / REPAIR_WELD)]
+
+static func _in_tri(p: Vector3, a: Vector3, b: Vector3, c: Vector3) -> bool:
+	var v0 := c - a
+	var v1 := b - a
+	var v2 := p - a
+	var d00 := v0.dot(v0)
+	var d01 := v0.dot(v1)
+	var d02 := v0.dot(v2)
+	var d11 := v1.dot(v1)
+	var d12 := v1.dot(v2)
+	var den := d00 * d11 - d01 * d01
+	if absf(den) < 1e-14:
+		return false
+	var u := (d11 * d02 - d01 * d12) / den
+	var v := (d00 * d12 - d01 * d02) / den
+	return u > 1e-4 and v > 1e-4 and u + v < 1.0 - 1e-4
+
+static func _overlap(a: Array, b: Array) -> bool:
+	var ca: Vector3 = (a[0] + a[1] + a[2]) / 3.0
+	var cb: Vector3 = (b[0] + b[1] + b[2]) / 3.0
+	var pts_a := [ca, ca + (a[0] - ca) * 0.6, ca + (a[1] - ca) * 0.6, ca + (a[2] - ca) * 0.6]
+	for p in pts_a:
+		if _in_tri(p, b[0], b[1], b[2]):
+			return true
+	var pts_b := [cb, cb + (b[0] - cb) * 0.6, cb + (b[1] - cb) * 0.6, cb + (b[2] - cb) * 0.6]
+	for p in pts_b:
+		if _in_tri(p, a[0], a[1], a[2]):
+			return true
+	return false
+
+## Cleans a set of soups (material key -> Soup) that are about to become meshes of ONE model:
+##  1. degenerate triangles and exact duplicate faces are dropped;
+##  2. wherever two different materials have faces on the very same plane overlapping (the cause of z-fighting: a hazard stripe laid
+##     flush on a panel, a window pane flush with a frame) the smaller connected part is raised by REPAIR_LIFT along the face normal.
+## It moves whole parts, never single faces, so nothing is left cracked. Deterministic. Returns {"dropped": n, "lifted": n}.
+static func repair(parts: Dictionary, lift := REPAIR_LIFT) -> Dictionary:
+	var stats := {"dropped": 0, "lifted": 0}
+	var soups: Array = []
+	for k in parts:
+		var so: Soup = parts[k]
+		stats["dropped"] += _dedupe(so)
+		if so.verts.size() > 0:
+			soups.append(so)
+	if soups.size() < 2:
+		return stats
+	# connected parts per soup (vertices welded), with a size each
+	var comp_of: Array = []         # per soup: PackedInt32Array triangle -> component id (global)
+	var comp_vol: Array = []
+	var comp_soup: Array = []
+	var comp_tris: Array = []
+	for si in range(soups.size()):
+		var so: Soup = soups[si]
+		var nt := so.verts.size() / 3
+		var vid := {}
+		var parent: Array = []
+		var tri_v := PackedInt32Array()
+		tri_v.resize(nt * 3)
+		for t in range(nt):
+			for j in range(3):
+				var key := _vk(so.verts[t * 3 + j])
+				if not vid.has(key):
+					vid[key] = parent.size()
+					parent.append(parent.size())
+				tri_v[t * 3 + j] = vid[key]
+		for t in range(nt):
+			var r0 := _find(parent, tri_v[t * 3])
+			for j in range(1, 3):
+				var rj := _find(parent, tri_v[t * 3 + j])
+				if rj != r0:
+					parent[rj] = r0
+		var local := {}
+		var ids := PackedInt32Array()
+		ids.resize(nt)
+		for t in range(nt):
+			var r := _find(parent, tri_v[t * 3])
+			if not local.has(r):
+				local[r] = comp_vol.size()
+				comp_vol.append(AABB())
+				comp_soup.append(si)
+				comp_tris.append([])
+			var ci: int = local[r]
+			ids[t] = ci
+			comp_tris[ci].append(t)
+			var first: bool = comp_tris[ci].size() == 1
+			var bb: AABB = AABB(so.verts[t * 3], Vector3.ZERO) if first else comp_vol[ci]
+			for j in range(3):
+				bb = bb.expand(so.verts[t * 3 + j])
+			comp_vol[ci] = bb
+		comp_of.append(ids)
+	# faces bucketed by plane (normal direction included, 3 mm slabs) and by 2 m cell; integer keys keep this fast; a few passes settle chains
+	var slab := REPAIR_PLANE * 2.0
+	for _pass in range(4):
+		var buckets := {}
+		var shift: Dictionary = {}
+		for si in range(soups.size()):
+			var so: Soup = soups[si]
+			var verts: PackedVector3Array = so.verts
+			for t in range(verts.size() / 3):
+				var n: Vector3 = so.norms[t * 3]
+				var a0: Vector3 = verts[t * 3]
+				var a1: Vector3 = verts[t * 3 + 1]
+				var a2: Vector3 = verts[t * 3 + 2]
+				var d := n.dot(a0)
+				var nk := (roundi(n.x * 20.0) + 20) * 1681 + (roundi(n.y * 20.0) + 20) * 41 + (roundi(n.z * 20.0) + 20)
+				var dq := floori(d / slab)
+				var frac := d / slab - float(dq)
+				var dn := dq - 1 if frac < 0.5 else dq + 1
+				var x0 := floori(minf(minf(a0.x, a1.x), a2.x) / REPAIR_CELL)
+				var x1 := floori(maxf(maxf(a0.x, a1.x), a2.x) / REPAIR_CELL)
+				var y0 := floori(minf(minf(a0.y, a1.y), a2.y) / REPAIR_CELL)
+				var y1 := floori(maxf(maxf(a0.y, a1.y), a2.y) / REPAIR_CELL)
+				var z0 := floori(minf(minf(a0.z, a1.z), a2.z) / REPAIR_CELL)
+				var z1 := floori(maxf(maxf(a0.z, a1.z), a2.z) / REPAIR_CELL)
+				var tri := [a0, a1, a2]
+				var mine := [si, t, tri, d, comp_of[si][t]]
+				for cx in range(x0, x1 + 1):
+					for cy in range(y0, y1 + 1):
+						for cz in range(z0, z1 + 1):
+							var cell := cy * 4001 + cz
+							for slab_q in [dq, dn]:
+								var bk := Vector4i(nk, slab_q, cx, cell)
+								if not buckets.has(bk):
+									continue
+								for o in buckets[bk]:
+									if o[0] == si or absf(float(o[3]) - d) > REPAIR_PLANE:
+										continue
+									if _overlap(tri, o[2]):
+										var ca: int = mine[4]
+										var cb: int = o[4]
+										var loser := ca if _vol(comp_vol[ca]) <= _vol(comp_vol[cb]) else cb
+										if not shift.has(loser):
+											shift[loser] = {}
+										shift[loser][nk] = n
+							var own := Vector4i(nk, dq, cx, cell)
+							if not buckets.has(own):
+								buckets[own] = []
+							buckets[own].append(mine)
+		for ci in shift:
+			var so: Soup = soups[comp_soup[ci]]
+			var centre: Vector3 = (comp_vol[ci] as AABB).get_center()
+			for t in comp_tris[ci]:
+				for j in range(3):
+					var v: Vector3 = so.verts[t * 3 + j]
+					var add := Vector3.ZERO
+					for nk in shift[ci]:
+						var n: Vector3 = shift[ci][nk]
+						if (v - centre).dot(n) > -0.0001:
+							add += n * lift          # the face on the conflicting side moves out: the part grows 4 mm there and stays attached
+					so.verts[t * 3 + j] = v + add
+			stats["lifted"] += 1
+		if shift.is_empty():
+			break
+	return stats
+
+static func _vol(bb: AABB) -> float:
+	return maxf(bb.size.x, 0.001) * maxf(bb.size.y, 0.001) * maxf(bb.size.z, 0.001)
+
+static func _find(parent: Array, x: int) -> int:
+	while parent[x] != x:
+		parent[x] = parent[parent[x]]
+		x = parent[x]
+	return x
+
+## Drops exact duplicate faces from one soup; returns how many were removed.
+static func _dedupe(so: Soup) -> int:
+	var seen := {}
+	var keep_v := PackedVector3Array()
+	var keep_n := PackedVector3Array()
+	var keep_u := PackedVector2Array()
+	var dropped := 0
+	for t in range(so.verts.size() / 3):
+		var key := _tri_key(so.verts[t * 3], so.verts[t * 3 + 1], so.verts[t * 3 + 2])
+		if seen.has(key):
+			dropped += 1
+			continue
+		seen[key] = true
+		for j in range(3):
+			keep_v.append(so.verts[t * 3 + j])
+			keep_n.append(so.norms[t * 3 + j])
+			keep_u.append(so.uvs[t * 3 + j])
+	if dropped > 0:
+		so.verts = keep_v
+		so.norms = keep_n
+		so.uvs = keep_u
+	return dropped
+
 # ------------------------------------------------------------------ primitives
 
 ## Box centred at `c`; optional `taper` shrinks the top face (x, z) for chunky PSX silhouettes.
@@ -145,6 +345,23 @@ static func frustum_into(s: Soup, c: Vector3, r0: float, r1: float, height: floa
 		if caps:
 			s.tri(xf * (c + Vector3(0, height, 0)), xf * q1, xf * q0)
 			s.tri(xf * c, xf * p0, xf * p1)
+
+## A hose / pipe / cable through a list of points: one prism per leg, each leg overlapping the next at the bends, so it is one
+## connected piece with no gaps. `pts` are in the same space as `xf`.
+static func tube_into(s: Soup, pts: Array, radius: float, seg := 6, xf := Transform3D.IDENTITY) -> void:
+	for i in range(pts.size() - 1):
+		var a: Vector3 = pts[i]
+		var b: Vector3 = pts[i + 1]
+		var d := b - a
+		var len := d.length()
+		if len < 1e-5:
+			continue
+		var dir := d / len
+		var q := Quaternion(Vector3.UP, dir) if dir.dot(Vector3.UP) > -0.9999 else Quaternion(Vector3.RIGHT, PI)
+		var ext := radius * 0.7
+		var start := a - dir * (ext if i > 0 else 0.0)
+		var tl := len + (ext if i > 0 else 0.0) + (ext if i < pts.size() - 2 else 0.0)
+		frustum_into(s, Vector3.ZERO, radius, radius, tl, seg, xf * Transform3D(Basis(q), start))
 
 ## Wheel/drum: cylinder lying along X (axle), centred at c.
 static func drum_into(s: Soup, c: Vector3, radius: float, width: float, seg := 10) -> void:
@@ -278,9 +495,19 @@ static func inst(parent: Node3D, mesh: Mesh, material: Material, pos := Vector3.
 
 ## Instance a THE VEIL GLB prop (cached PackedScene). Returns the instance root.
 static var _scenes := {}
+const VEIL_SRC := "res://THE_VEIL_ASSETS_V2/"
+const VEIL_QD := "res://assets/veil_qd/"      ## Quarry Days copies of the Veil props, repaired by tools/repair_glb.py (the pack itself is never edited)
+
+static func qd_path(path: String) -> String:
+	if path.begins_with(VEIL_SRC):
+		var alt := VEIL_QD + path.substr(VEIL_SRC.length())
+		if ResourceLoader.exists(alt):
+			return alt
+	return path
+
 static func prop(parent: Node3D, path: String, pos: Vector3, yaw := 0.0, scale := 1.0) -> Node3D:
 	if not _scenes.has(path):
-		_scenes[path] = load(path)
+		_scenes[path] = load(qd_path(path))
 	var packed: PackedScene = _scenes[path]
 	if packed == null:
 		return null

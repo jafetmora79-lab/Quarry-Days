@@ -16,6 +16,12 @@
   header { padding:14px 16px 10px; border-bottom:1px solid var(--line); }
   header h1 { margin:0 0 8px; font-size:16px; letter-spacing:.04em; }
   #q { width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--ink); font:inherit; }
+  .chk { display:block; margin-top:8px; font-size:12px; color:var(--dim); }
+  #tally { margin-top:4px; font-size:11px; color:var(--dim); }
+  .bad::after { content:" ⚠"; color:var(--accent); }
+  .item.on.bad::after { color:#fff; }
+  #defects { position:absolute; left:16px; top:70px; max-width:min(420px,60%); font-size:11px; color:var(--dim); pointer-events:none; }
+  #defects b { color:var(--accent); }
   #list { overflow:auto; padding:6px 8px 20px; flex:1; }
   .grp { margin:12px 8px 2px; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--accent); font-weight:700; }
   .sec { margin:8px 8px 2px; font-size:12px; color:var(--dim); }
@@ -44,13 +50,15 @@
 <body>
 <div id="app">
   <aside id="side">
-    <header><h1>QUARRY DAYS · 3D ASSETS</h1><input id="q" type="search" placeholder="Search models" autocomplete="off"></header>
+    <header><h1>QUARRY DAYS · 3D ASSETS</h1><input id="q" type="search" placeholder="Search models" autocomplete="off">
+      <label class="chk"><input id="defonly" type="checkbox"> Only assets with known defects</label><div id="tally"></div></header>
     <div id="list"></div>
   </aside>
   <main>
     <button id="menu">Models</button>
     <div id="stage"></div>
     <div id="info"><h2 id="name"></h2><p id="meta"></p></div>
+    <div id="defects"></div>
     <div id="msg">Loading…</div>
     <div id="bar">
       <button id="rot" class="on">Auto-rotate</button>
@@ -59,6 +67,9 @@
       <button id="flat">Flat shading</button>
       <button id="theme">Light / dark</button>
       <select id="anim" hidden></select>
+      <button id="vfront">Front</button>
+      <button id="vside">Side</button>
+      <button id="vtop">Top</button>
       <button id="reset">Reset view</button>
     </div>
   </main>
@@ -129,6 +140,14 @@ function frame(obj) {
   resetView();
   return { size, r };
 }
+function viewFrom(dx, dy, dz) {
+  if (!home) return;
+  const r = home.pos.length() / 1.8;
+  camera.position.set(home.target.x + dx * r * 2.2, home.target.y + dy * r * 2.2, home.target.z + dz * r * 2.2);
+  controls.target.copy(home.target);
+  controls.autoRotate = false; $("rot").classList.remove("on");
+  controls.update();
+}
 function resetView() { if (home) { camera.position.copy(home.pos); controls.target.copy(home.target); controls.update(); } }
 
 function show(item, push = true) {
@@ -144,6 +163,7 @@ function show(item, push = true) {
     let tris = 0;
     current.traverse((o) => { if (o.isMesh) { const g = o.geometry; tris += (g.index ? g.index.count : g.attributes.position.count) / 3; } });
     $("name").textContent = item.name;
+    $("defects").innerHTML = describe(item.file);
     $("meta").textContent = `${Math.round(tris).toLocaleString()} triangles · ${size.x.toFixed(2)} × ${size.y.toFixed(2)} × ${size.z.toFixed(2)} m · ${item.file.split("/").pop()}`;
     mixer = null;
     const sel = $("anim"); sel.innerHTML = ""; sel.hidden = true;
@@ -160,7 +180,25 @@ function show(item, push = true) {
 }
 
 const all = [];
-fetch("models/manifest.json").then((r) => r.json()).then((manifest) => {
+let audit = {}, baseline = {};
+const DEFECT_TEXT = {
+  z_fighting: "faces of two materials on the same plane (flicker)", redundant_coplanar: "same-material overlapping faces (invisible, wasteful)",
+  duplicate_faces: "duplicate faces", degenerate_triangles: "zero-area triangles", floating_parts: "disconnected parts", reversed_normals: "reversed normals",
+  missing_texture: "missing texture", shiny_metal: "very metallic material", missing_normals: "no normals", paper_thin_axis: "paper-thin geometry", white_material: "untextured white material"
+};
+const SEVERE = (d) => !/^(shiny_metal|redundant_coplanar)/.test(d);
+function describe(file) {
+  const a = audit[file], b = baseline[file];
+  if (!a) return "";
+  const now = a.defects.filter(SEVERE), was = b ? b.defects.filter(SEVERE) : [];
+  const fmt = (list) => list.map((d) => { const k = d.split(":")[0]; return DEFECT_TEXT[k] ? `${DEFECT_TEXT[k]} (${d.split(":").slice(1).join(":")})` : d; }).join("; ");
+  let html = now.length ? `<b>Known defects:</b> ${fmt(now)}` : "<b>No geometric defects detected.</b>";
+  if (was.length && !now.length) html += `<br>Repaired. Before: ${fmt(was)}`;
+  html += "<br>Visual check: UNVERIFIED";
+  return html;
+}
+Promise.all([fetch("models/manifest.json").then((r) => r.json()), fetch("audit/asset_audit.json").then((r) => r.json()).catch(() => ({})), fetch("audit/baseline_audit.json").then((r) => r.json()).catch(() => ({}))]).then(([manifest, au, ba]) => {
+  audit = au; baseline = ba;
   const list = $("list");
   for (const g of manifest) {
     const gh = document.createElement("div"); gh.className = "grp"; gh.textContent = g.group; list.appendChild(gh);
@@ -168,31 +206,40 @@ fetch("models/manifest.json").then((r) => r.json()).then((manifest) => {
       const sh = document.createElement("div"); sh.className = "sec"; sh.textContent = s.title; list.appendChild(sh);
       for (const it of s.items) {
         const b = document.createElement("button");
-        b.className = "item"; b.textContent = it.name; b.dataset.file = it.file;
+        const bad = audit[it.file] && audit[it.file].defects.some(SEVERE);
+        b.className = "item" + (bad ? " bad" : ""); b.textContent = it.name; b.dataset.file = it.file;
         b.onclick = () => show(it);
         list.appendChild(b);
-        all.push({ it, b, sh, gh, text: (it.name + " " + s.title + " " + g.group).toLowerCase() });
+        all.push({ it, b, sh, gh, bad, text: (it.name + " " + s.title + " " + g.group).toLowerCase() });
       }
     }
   }
+  const nbad = all.filter((a) => a.bad).length;
+  $("tally").textContent = `${all.length} models · ${nbad} with known defects (⚠)`;
   const want = decodeURIComponent(location.hash.slice(1));
   const first = all.find((a) => a.it.file === want) || all.find((a) => a.it.file.includes("vehicles__excavator")) || all[0];
   if (first) show(first.it, false);
 });
 
-$("q").addEventListener("input", (e) => {
-  const q = e.target.value.trim().toLowerCase();
+function applyFilter() {
+  const q = $("q").value.trim().toLowerCase();
+  const only = $("defonly").checked;
   const secs = new Set(), grps = new Set();
-  for (const a of all) { const ok = !q || a.text.includes(q); a.b.hidden = !ok; if (ok) { secs.add(a.sh); grps.add(a.gh); } }
+  for (const a of all) { const ok = (!q || a.text.includes(q)) && (!only || a.bad); a.b.hidden = !ok; if (ok) { secs.add(a.sh); grps.add(a.gh); } }
   document.querySelectorAll(".sec").forEach((s) => (s.hidden = !secs.has(s)));
   document.querySelectorAll(".grp").forEach((s) => (s.hidden = !grps.has(s)));
-});
+}
+$("q").addEventListener("input", applyFilter);
+$("defonly").addEventListener("change", applyFilter);
 const toggle = (id, fn) => $(id).addEventListener("click", () => { const on = $(id).classList.toggle("on"); fn(on); });
 toggle("rot", (on) => (controls.autoRotate = on));
 toggle("wire", (on) => { wire = on; applyMaterials(); });
 toggle("grid", (on) => (grid.visible = on));
 toggle("flat", (on) => { flat = on; applyMaterials(); });
 $("reset").onclick = resetView;
+$("vfront").onclick = () => viewFrom(0, 0, 1);
+$("vside").onclick = () => viewFrom(1, 0, 0);
+$("vtop").onclick = () => viewFrom(0.001, 1, 0);
 $("theme").onclick = () => {
   const root = document.documentElement;
   const dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;

@@ -67,6 +67,7 @@ class Builder:
 	func ext(m: String, prof: PackedVector2Array, width: float, at: Vector3) -> void:
 		MeshKit.extrude_into(s(m), prof, width, Transform3D(Basis.IDENTITY, at))
 	func finish(into: Node3D) -> void:
+		MeshKit.repair(soups)
 		for k in soups:
 			var so: MeshKit.Soup = soups[k]
 			if so.verts.size() > 0:
@@ -137,13 +138,13 @@ static func build_tool(id: String) -> Node3D:
 			b.box("bright", Vector3(0, 0.485, -0.03), Vector3(0.026, 0.12, 0.085), Vector2(1.0, 0.1))   # the wedge
 			for z in [-0.075, 0.075]:
 				b.box("steel", Vector3(0, 0.46, z), Vector3(0.07, 0.1, 0.014))      # jaw plates
-			b.cyl("bright", Vector3(0.0, 0.3, 0.05), 0.015, 0.015, 0.1, 6, Transform3D(Basis(Vector3(0, 0, 1), -PI / 2), Vector3(-0.05, 0.3, 0.05)))   # pivot bolt
+			b.along_x("bright", Vector3(0.0, 0.3, 0.0), 0.018, 0.12, 6)           # pivot bolt through the column
 			var lever := Node3D.new()
 			lever.name = "Lever"
-			lever.position = Vector3(0, 0.3, 0.05)
+			lever.position = Vector3(0, 0.3, 0.0)
 			n.add_child(lever)
 			var lb := Builder.new()
-			lb.box("orange", Vector3(0, 0.0, 0.17), Vector3(0.03, 0.03, 0.36))
+			lb.box("orange", Vector3(0, 0.0, 0.19), Vector3(0.05, 0.03, 0.4))     # the lever's eye wraps the pivot bolt
 			lb.box("dark", Vector3(0, 0.0, 0.33), Vector3(0.04, 0.04, 0.1))
 			lb.finish(lever)
 			n.set_meta("lever", lever)
@@ -172,8 +173,7 @@ static func build_tool(id: String) -> Node3D:
 			for x in [-0.15, 0.15]:
 				b.box("dark", Vector3(x, 0.0, 0), Vector3(0.09, 0.05, 0.05))
 			b.cyl("bright", Vector3(0, -0.03, 0.0), 0.03, 0.026, 0.06, 6)
-			for p in [Vector3(0, 0.0, 0.07), Vector3(0, 0.04, 0.14), Vector3(0, 0.02, 0.22), Vector3(0, -0.05, 0.29), Vector3(0, -0.14, 0.34), Vector3(0, -0.24, 0.37)]:
-				b.box("dark", p, Vector3(0.032, 0.032, 0.09))                       # the air hose, curving back and down
+			MeshKit.tube_into(b.s("dark"), [Vector3(0, 0.0, 0.03), Vector3(0, 0.05, 0.14), Vector3(0, 0.03, 0.24), Vector3(0, -0.06, 0.3), Vector3(0, -0.16, 0.34), Vector3(0, -0.26, 0.36)], 0.016, 6)   # the air hose, one piece, curving back and down
 			var chisel := Node3D.new()
 			chisel.position = Vector3(0, -0.42, 0)
 			n.add_child(chisel)
@@ -307,10 +307,9 @@ static func build_prop(id: String) -> Node3D:
 			for x in [-0.22, 0.22]:
 				b.along_x("dark", Vector3(x, 0.14, 0.42), 0.14, 0.07, 10)
 				b.box("steel", Vector3(x * 0.8, 0.2, -0.3), Vector3(0.04, 0.34, 0.04))   # front legs
-			b.box("steel", Vector3(0, 0.86, 0.38), Vector3(0.3, 0.03, 0.03))            # carry handle
-			b.box("steel", Vector3(-0.14, 0.82, 0.38), Vector3(0.03, 0.1, 0.03))
-			b.box("steel", Vector3(0.14, 0.82, 0.38), Vector3(0.03, 0.1, 0.03))
-			for p in [Vector3(0.18, 0.46, -0.5), Vector3(0.26, 0.4, -0.58), Vector3(0.34, 0.3, -0.62), Vector3(0.38, 0.2, -0.56)]:
-				b.box("dark", p, Vector3(0.04, 0.04, 0.1))                                 # coiled hose
+			b.box("steel", Vector3(0, 0.86, 0.38), Vector3(0.31, 0.03, 0.03))           # carry handle, standing on the tank
+			b.box("steel", Vector3(-0.14, 0.76, 0.38), Vector3(0.03, 0.2, 0.03))
+			b.box("steel", Vector3(0.14, 0.76, 0.38), Vector3(0.03, 0.2, 0.03))
+			MeshKit.tube_into(b.s("dark"), [Vector3(0.12, 0.62, -0.46), Vector3(0.2, 0.5, -0.52), Vector3(0.3, 0.42, -0.6), Vector3(0.38, 0.3, -0.62), Vector3(0.4, 0.2, -0.56), Vector3(0.38, 0.14, -0.46)], 0.022, 6)   # hose from the gauge port, coiled round the tank end
 			b.finish(n)
 	return n
