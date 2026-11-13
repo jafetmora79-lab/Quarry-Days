@@ -41,6 +41,27 @@ func run() -> void:
 	check(game.delivery.open_amount < 0.02, "the garage door stays shut with the player right at it")
 	var gw = game.world.get_node_or_null("ServiceTunnel")
 	check(gw != null and gw.get_child_count() > 20, "a tunnel with road, walls and lamps stands behind the portal")
+	# the cleanup is outlined: a beam, ring and label on every item left, and the HUD points at the nearest
+	var left: int = game.prog.cleanup_left()
+	var beams := 0
+	for nd in game.cleanup_nodes.values():
+		if is_instance_valid(nd) and nd.get_node_or_null("Beacon") != null:
+			beams += 1
+	check(left > 0 and beams == left, "every cleanup item left carries a beacon (%d of %d)" % [beams, left])
+	var nxt: Dictionary = game.nearest_cleanup()
+	check(not nxt.is_empty() and game.hud_status_text().contains("Next:") and game.hud_status_text().contains(str(nxt["dir"])), "the HUD names the nearest item and its direction")
+	# no item is hidden inside a machine or a boulder
+	var buried := []
+	for id in game.prog.cleanup_ids():
+		if game.prog.cleanup["cleared"].get(id, false):
+			continue
+		var p2: Vector2 = game.prog.cleanup_pos(str(id))
+		var q := PhysicsPointQueryParameters3D.new()
+		q.position = Vector3(p2.x, 0.6, p2.y)
+		q.collision_mask = 1 | 8
+		if not game.get_world_3d().direct_space_state.intersect_point(q, 1).is_empty():
+			buried.append(id)
+	check(buried.is_empty(), "no cleanup item is buried inside a solid %s" % str(buried))
 	# the old truck waits by the excavator; when Grandpa leaves he walks to it, climbs in and drives out along the lane
 	check(game.truck_node != null, "Walter's truck is still parked while Grandpa waits by the excavator")
 	game._spawn_walter()

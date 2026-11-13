@@ -587,8 +587,73 @@ func _spawn_cleanup() -> void:
 		if not weed:
 			var left: int = prog.heap_units_left(str(id))
 			vis.scale = Vector3.ONE * lerpf(0.5, 1.0, float(left) / float(maxi(1, int(prog.cleanup_cfg().get("heap_units", 5)))))
+		_cleanup_beacon(body, weed)
 		world.add_child(body)
 		cleanup_nodes[id] = body
+
+## A tall yellow beam, a ground ring and a label on every item still left, so the last one is never lost in the grass.
+func _cleanup_beacon(body: Node3D, weed: bool) -> void:
+	var glow := StandardMaterial3D.new()
+	glow.albedo_color = Color(1.0, 0.82, 0.2, 0.55)
+	glow.emission_enabled = true
+	glow.emission = Color(1.0, 0.75, 0.15)
+	glow.emission_energy_multiplier = 1.4
+	glow.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	var beam := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = 0.05
+	cm.bottom_radius = 0.09
+	cm.height = 7.0
+	cm.radial_segments = 6
+	beam.mesh = cm
+	beam.material_override = glow
+	beam.position = Vector3(0, 3.5, 0)
+	beam.name = "Beacon"
+	beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	body.add_child(beam)
+	var ring := MeshInstance3D.new()
+	var rm := CylinderMesh.new()
+	rm.top_radius = 1.0 if weed else 1.3
+	rm.bottom_radius = rm.top_radius
+	rm.height = 0.03
+	rm.radial_segments = 14
+	ring.mesh = rm
+	ring.material_override = glow
+	ring.position = Vector3(0, 0.03, 0)
+	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	body.add_child(ring)
+	var lb := Label3D.new()
+	lb.text = "WEEDS" if weed else "RUBBLE"
+	lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	lb.no_depth_test = true
+	lb.font_size = 28
+	lb.pixel_size = 0.008
+	lb.outline_size = 8
+	lb.modulate = Color(1.0, 0.9, 0.4)
+	lb.position = Vector3(0, 2.2, 0)
+	lb.visibility_range_end = 45.0
+	body.add_child(lb)
+
+## 8-point compass word for a world offset (north is -Z, east is +X).
+func _compass(d: Vector3) -> String:
+	var a := fposmod(atan2(d.x, -d.z), TAU)
+	return ["north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west"][int(round(a / (TAU / 8.0))) % 8]
+
+## The nearest cleanup item still left: {"id", "dist", "dir"} or {}.
+func nearest_cleanup() -> Dictionary:
+	var here: Vector3 = driving.global_position if driving else player.global_position
+	var best := {}
+	var bd := INF
+	for id in prog.cleanup_ids():
+		if prog.cleanup["cleared"].get(id, false):
+			continue
+		var p2: Vector2 = prog.cleanup_pos(str(id))
+		var d := Vector3(p2.x, 0.0, p2.y) - Vector3(here.x, 0.0, here.z)
+		if d.length() < bd:
+			bd = d.length()
+			best = {"id": str(id), "dist": d.length(), "dir": _compass(d), "weed": str(id).begins_with("w")}
+	return best
 
 ## One strike on a weed clump or rubble heap. Weeds fall after `weed_hp` damage; a heap gives one stone (into the
 ## bag) per `heap_unit_hp` damage and is gone when its stone is used up. Nothing is lost when the bag is full.
@@ -654,7 +719,13 @@ func _finish_debris(id: String, node: Node3D, what: String) -> void:
 		hud.popup_resource("copper_ore", 1, "Weeds cut")
 	var last := prog.clear_cleanup_item(id)
 	if not last:
-		_notify("Site cleanup: %d left." % prog.cleanup_left())
+		var nx := nearest_cleanup()
+		var more := ""
+		if not nx.is_empty():
+			more = " Nearest: %s, %d m %s - follow the yellow beam." % ["weeds" if nx["weed"] else "rubble", int(nx["dist"]), nx["dir"]]
+		_notify("Site cleanup: %d left.%s" % [prog.cleanup_left(), more])
+		if prog.cleanup_left() <= 3 and hud:
+			hud.toast("Almost clean", "%d left. Look for the yellow beams." % prog.cleanup_left(), "info")
 
 ## The whole site is clean: Walt's letter arrives with money, and the hillside opens.
 func _on_site_cleared() -> void:
@@ -4176,7 +4247,7 @@ func _driving_hud() -> String:
 		elif soil_target(driving) >= 0:
 			hint = "  >> HOLD LEFT CLICK dig soil"
 		else:
-			hint = "  ARROWS swing/boom  Z X stick  C V bucket  N survey"
+			hint = "  WASD tracks  MOUSE spins the cab  UP/DOWN boom  Z X stick  C V bucket  N survey"
 	var controls := "WASD drive  Mouse look  %sright click %s  Space brake  R recover  E exit" % [lmb, "dump bucket" if driving.has_bucket() else "raise bed / unload"]
 	return "%s  %.1f m/s   %s %d/%d%s%s" % [str(rec.get("name", fleet.spec(driving.vtype)["title"])).to_upper(), absf(driving.speed), load_label, fleet.cargo_total(rec), fleet.capacity(rec), cargo, hint]
 
@@ -5476,6 +5547,9 @@ func hud_status_text() -> String:
 	var lines := []
 	if prog.cleanup_active():
 		lines.append("Site cleanup %d/%d" % [prog.cleanup_total() - prog.cleanup_left(), prog.cleanup_total()])
+		var nx := nearest_cleanup()
+		if not nx.is_empty():
+			lines.append("%s: %s %d m %s" % ["LAST ONE" if prog.cleanup_left() == 1 else "Next", "weeds" if nx["weed"] else "rubble", int(nx["dist"]), nx["dir"]])
 	var done := 0
 	for id in Business.MILESTONES:
 		if business.milestones[id]:

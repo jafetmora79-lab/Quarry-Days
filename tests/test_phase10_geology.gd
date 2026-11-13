@@ -98,6 +98,9 @@ func run() -> void:
 		v.joint_in["swing"] = 0.0
 		check(v.swing > 0.8 and absf(v.turret.rotation.y - v.swing) < 0.01, "the upper body swings")
 		check(v.work_point().distance_to(w0) > 1.0, "the bucket's reach follows the swing")
+		var sw0: float = v.swing
+		v.rotate_camera(Vector2(-200.0, 0.0))
+		check(absf(angle_difference(v.swing, sw0)) > 0.4, "the mouse spins the cab")
 		var w1: Vector3 = v.work_point()
 		v.joint_in["stick"] = 1.0
 		await frames(60)

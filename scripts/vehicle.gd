@@ -181,7 +181,10 @@ func bed_center() -> Vector3:
 # ------------------------------------------------------------------ driving
 
 func rotate_camera(rel: Vector2) -> void:
-	cam_yaw -= rel.x * 0.003
+	if vkind == "excavator" and turret != null:
+		swing = wrapf(swing - rel.x * 0.003, -PI, PI)      # the mouse spins the cab on its slewing ring; the tracks stay put (WASD)
+	else:
+		cam_yaw -= rel.x * 0.003
 	cam_pitch = clampf(cam_pitch - rel.y * 0.003, -1.1, 0.25)
 
 func control(delta: float) -> void:
@@ -279,7 +282,7 @@ func _pull_camera_in() -> void:
 
 func _animate(delta: float) -> void:
 	if driven:
-		cam_pivot.rotation = Vector3(cam_pitch, cam_yaw, 0)
+		cam_pivot.rotation = Vector3(cam_pitch, swing if (vkind == "excavator" and turret != null) else cam_yaw, 0)
 		_pull_camera_in()
 		if absf(speed) > 1.0:
 			cam_yaw = lerp_angle(cam_yaw, 0.0, delta * 0.6)
@@ -358,7 +361,7 @@ func _joints(delta: float) -> void:
 		_keys_live = false         # the driver got out with a key held
 		for k in joint_in:
 			joint_in[k] = 0.0
-	swing = clampf(swing + float(joint_in["swing"]) * 1.1 * delta, -PI * 0.75, PI * 0.75)
+	swing = wrapf(swing + float(joint_in["swing"]) * 1.1 * delta, -PI, PI)
 	boom_m = clampf(boom_m + float(joint_in["boom"]) * 0.9 * delta, -1.0, 1.0)
 	stick_m = clampf(stick_m + float(joint_in["stick"]) * 0.9 * delta, -1.0, 1.0)
 	curl_m = clampf(curl_m + float(joint_in["curl"]) * 0.9 * delta, -1.0, 1.0)
