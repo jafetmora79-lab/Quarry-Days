@@ -163,15 +163,15 @@ static func build_tool(id: String) -> Node3D:
 			b.along_z("steel", Vector3(0, 0.12, -0.15), 0.045, 0.045, 0.14, 8)      # barrel
 			b.along_z("steel", Vector3(0, 0.12, -0.18), 0.054, 0.054, 0.035, 8)     # clamp ring round the barrel
 			b.box("dark", Vector3(-0.095, 0.12, -0.17), Vector3(0.07, 0.034, 0.034))   # side grip bolted to the clamp
-			MeshKit.tube_into(b.s("dark"), [Vector3(0, 0.12, 0.18), Vector3(0, 0.1, 0.26), Vector3(0, 0.04, 0.33), Vector3(0, -0.04, 0.38)], 0.014, 6)   # the cable leaves the end cap
+			MeshKit.tube_into(b.s("dark"), [Vector3(0, 0.12, 0.17), Vector3(0, 0.09, 0.21), Vector3(0, 0.03, 0.235), Vector3(0, -0.04, 0.24)], 0.014, 6)   # the cable leaves the end cap
 			var ram := Node3D.new()
 			ram.position = Vector3(0, 0.12, -0.32)
 			n.add_child(ram)
 			var rb := Builder.new()
 			rb.box("bright", Vector3(0, 0, 0.0), Vector3(0.07, 0.07, 0.05))         # the hammer collar rides out of the barrel
 			rb.box("steel", Vector3(0, 0, 0.06), Vector3(0.05, 0.05, 0.1))          # and back into it
-			rb.box("bright", Vector3(0, 0, -0.1), Vector3(0.028, 0.028, 0.18))      # chisel bit
-			rb.box("bright", Vector3(0, 0, -0.2), Vector3(0.014, 0.014, 0.04), Vector2(0.4, 0.4))
+			rb.box("bright", Vector3(0, 0, -0.07), Vector3(0.028, 0.028, 0.12))      # chisel bit
+			rb.box("bright", Vector3(0, 0, -0.15), Vector3(0.014, 0.014, 0.04), Vector2(0.4, 0.4))
 			rb.finish(ram)
 			n.set_meta("spinner", ram)
 		"pneumatic_chisel":    # air chisel: ribbed steel body with a colour band, T-handle, air inlet with its hose, spring retainer and the vibrating chisel

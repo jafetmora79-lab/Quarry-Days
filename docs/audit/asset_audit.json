@@ -253,7 +253,7 @@
    "M_Arch_TrimPainted",
    "M_QD_Corrugated",
    "M_Int_Linoleum",
-   "M_Veh_Glass_Dirty",
+   "M_QD_Glass",
    "M_Furn_WoodLight"
   ],
   "defects": [
@@ -262,8 +262,7 @@
   "metrics": {
    "reversed_normal_share": 0.0,
    "components": 69,
-   "clusters": 1,
-   "blend_material": true
+   "clusters": 1
   },
   "size": [
    5.7,
@@ -301,7 +300,7 @@
    "M_QD_CorrugatedRed",
    "M_QD_Corrugated",
    "M_Int_Linoleum",
-   "M_Veh_Glass_Dirty",
+   "M_QD_Glass",
    "M_QD_SteelPlate"
   ],
   "defects": [
@@ -346,8 +345,7 @@
     }
    ],
    "components": 111,
-   "clusters": 1,
-   "blend_material": true
+   "clusters": 1
   },
   "size": [
    5.7,
@@ -605,14 +603,13 @@
    "M_QD_SteelGreen",
    "M_QD_PaintYellow",
    "M_QD_Hazard",
-   "M_Veh_Glass_Dirty"
+   "M_QD_Glass"
   ],
   "defects": [],
   "metrics": {
    "reversed_normal_share": 0.0,
    "components": 29,
-   "clusters": 1,
-   "blend_material": true
+   "clusters": 1
   },
   "size": [
    1.84,
@@ -628,15 +625,14 @@
    "M_QD_SteelGreen",
    "M_QD_PaintOrange",
    "M_QD_Hazard",
-   "M_Veh_Glass_Dirty",
+   "M_QD_Glass",
    "M_QD_PaintRed"
   ],
   "defects": [],
   "metrics": {
    "reversed_normal_share": 0.0,
    "components": 21,
-   "clusters": 1,
-   "blend_material": true
+   "clusters": 1
   },
   "size": [
    1.84,
@@ -652,15 +648,14 @@
    "M_QD_SteelGreen",
    "M_QD_PaintOrange",
    "M_QD_Hazard",
-   "M_Veh_Glass_Dirty",
+   "M_QD_Glass",
    "M_QD_PaintYellow"
   ],
   "defects": [],
   "metrics": {
    "reversed_normal_share": 0.0,
    "components": 29,
-   "clusters": 1,
-   "blend_material": true
+   "clusters": 1
   },
   "size": [
    1.84,
@@ -717,14 +712,13 @@
    "M_QD_SteelGreen",
    "M_QD_PaintRed",
    "M_QD_Hazard",
-   "M_Veh_Glass_Dirty"
+   "M_QD_Glass"
   ],
   "defects": [],
   "metrics": {
    "reversed_normal_share": 0.0,
    "components": 21,
-   "clusters": 1,
-   "blend_material": true
+   "clusters": 1
   },
   "size": [
    1.84,
@@ -850,21 +844,22 @@
   ]
  },
  "models/procedural/repair_parts__hose.glb": {
-  "triangles": 624,
+  "triangles": 936,
   "materials": [
    "material0",
-   "material1"
+   "M_QD_SteelPlate",
+   "material2"
   ],
   "defects": [],
   "metrics": {
    "reversed_normal_share": 0.0,
-   "components": 26,
+   "components": 40,
    "clusters": 1
   },
   "size": [
-   0.466,
-   0.145,
-   0.452
+   0.468,
+   0.19,
+   0.448
   ]
  },
  "models/procedural/tools__flat_chisel.glb": {
@@ -887,7 +882,7 @@
   ]
  },
  "models/procedural/tools__hand_splitter.glb": {
-  "triangles": 140,
+  "triangles": 228,
   "materials": [
    "M_QD_PaintOrange",
    "M_Furn_Rubber",
@@ -897,13 +892,13 @@
   "defects": [],
   "metrics": {
    "reversed_normal_share": 0.0,
-   "components": 9,
+   "components": 10,
    "clusters": 1
   },
   "size": [
-   0.12,
-   0.57,
-   0.472
+   0.13,
+   0.675,
+   0.555
   ]
  },
  "models/procedural/tools__hardened_pickaxe.glb": {
@@ -989,23 +984,23 @@
   ]
  },
  "models/procedural/tools__pneumatic_chisel.glb": {
-  "triangles": 268,
+  "triangles": 332,
   "materials": [
-   "M_QD_MetalBrushed",
    "M_QD_SteelPlate",
+   "M_QD_MetalBrushed",
    "material2",
    "M_Furn_Rubber"
   ],
   "defects": [],
   "metrics": {
    "reversed_normal_share": 0.0,
-   "components": 13,
+   "components": 14,
    "clusters": 1
   },
   "size": [
-   0.39,
-   0.687,
-   0.428
+   0.4,
+   0.705,
+   0.417
   ]
  },
  "models/procedural/tools__pointed_chisel.glb": {
@@ -1029,25 +1024,23 @@
   ]
  },
  "models/procedural/tools__powered_hammer.glb": {
-  "triangles": 176,
+  "triangles": 352,
   "materials": [
    "M_QD_MetalBrushed",
    "M_QD_SteelPlate",
    "M_QD_PaintOrange",
    "M_Furn_Rubber"
   ],
-  "defects": [
-   "redundant_coplanar:8"
-  ],
+  "defects": [],
   "metrics": {
    "reversed_normal_share": 0.0,
-   "components": 13,
+   "components": 23,
    "clusters": 1
   },
   "size": [
-   0.125,
-   0.315,
-   0.775
+   0.203,
+   0.328,
+   0.742
   ]
  },
  "models/procedural/tools__repaired_pickaxe.glb": {
@@ -1117,7 +1110,7 @@
    "M_QD_SteelPlate",
    "M_QD_Tire",
    "M_QD_Hazard",
-   "M_Veh_Glass_Dirty",
+   "M_QD_Glass",
    "material5",
    "M_QD_SteelGreen",
    "M_QD_MetalBrushed"
@@ -1128,8 +1121,7 @@
   "metrics": {
    "reversed_normal_share": 0.0,
    "components": 43,
-   "clusters": 1,
-   "blend_material": true
+   "clusters": 1
   },
   "size": [
    2.12,
@@ -1143,7 +1135,7 @@
    "M_QD_PaintYellow",
    "M_QD_SteelPlate",
    "M_QD_Hazard",
-   "M_Veh_Glass_Dirty",
+   "M_QD_Glass",
    "material4",
    "M_QD_Tire",
    "M_QD_SteelGreen",
@@ -1153,8 +1145,7 @@
   "metrics": {
    "reversed_normal_share": 0.0,
    "components": 49,
-   "clusters": 1,
-   "blend_material": true
+   "clusters": 1
   },
   "size": [
    2.5,
@@ -1167,7 +1158,7 @@
   "materials": [
    "M_QD_PaintRed",
    "M_QD_SteelPlate",
-   "M_Veh_Glass_Dirty",
+   "M_QD_Glass",
    "material3",
    "material4",
    "M_QD_Tire",
@@ -1182,8 +1173,7 @@
   "metrics": {
    "reversed_normal_share": 0.0,
    "components": 54,
-   "clusters": 1,
-   "blend_material": true
+   "clusters": 1
   },
   "size": [
    2.52,
