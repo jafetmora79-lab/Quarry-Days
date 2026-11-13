@@ -2418,10 +2418,13 @@ func _decorate_starter() -> void:
 	var v := _starter_vehicle()
 	if v == null or v.model_root == null:
 		return
-	var old := v.model_root.get_node_or_null("OpeningParts")
-	if old:
-		old.free()
-	OpeningModels.fitted(v.model_root, prog.repair_done("battery"), prog.repair_done("hose"), prog.repair_done("fuel"))
+	var cab: Node3D = v.turret if v.turret != null else v.model_root
+	for holder in [v.model_root, cab]:
+		for nm in ["OpeningParts", "OpeningGround"]:
+			var old: Node = holder.get_node_or_null(nm)
+			if old:
+				old.free()
+	OpeningModels.fitted(cab, prog.repair_done("battery"), prog.repair_done("hose"), prog.repair_done("fuel"), v.model_root)
 
 func _spawn_repair_parts() -> void:
 	var natural := natural_start_enabled and prog.natural_start()
@@ -4864,6 +4867,7 @@ var walter_dialog: QuarryWalterDialog
 var walter_visit := ""        ## visit id Walter has come for ("" while he is not around)
 var walter_intro_running := false
 var walter_mode := ""         ## "", "arriving", "waiting", "leaving"
+var walter_wave_t := 0.0      ## seconds left of his farewell wave before he starts to walk off
 var walter_pose := "idle"
 var walter_path: PackedVector3Array = PackedVector3Array()
 var walter_path_i := 0
@@ -4935,6 +4939,7 @@ func _spawn_walter(at := Vector3.INF, face_to := Vector3.ZERO, npc := "walter") 
 	if not found.is_empty():
 		var r := VeilRig.new()
 		r.setup(found[0], 3.3)
+		r.elder = npc == "walter"          # Grandpa: stooped, a careful limping step, fidgets while he waits
 		root.set_meta("rig", r)
 	world.add_child(root)
 	walter_node = root
@@ -5026,6 +5031,7 @@ func _remove_walter() -> void:
 		walter_node.queue_free()
 	walter_node = null
 	walter_mode = ""
+	walter_wave_t = 0.0
 	walter_path = PackedVector3Array()
 
 ## Walter walks to `goal` along the navigation mesh (a straight line while it is not ready).
@@ -5055,6 +5061,11 @@ func _walter_tick(delta: float) -> void:
 	if walter_node == null or not is_instance_valid(walter_node):
 		return
 	var walking := false
+	if walter_wave_t > 0.0 and (walter_mode == "leaving" or walter_mode == "to_truck"):
+		walter_wave_t -= delta                      # a goodbye wave to the player before he turns and goes
+		if walter_node.has_meta("rig"):
+			walter_node.get_meta("rig").pose(delta, "wave", 0.0, "miner", false)
+		return
 	if walter_mode == "arriving" or walter_mode == "leaving" or walter_mode == "to_truck":
 		walking = _walter_walk(delta)
 		if not walking:
@@ -5251,6 +5262,9 @@ func _walter_leave() -> void:
 	if walter_node == null or not is_instance_valid(walter_node):
 		return
 	walter_pose = "idle"
+	walter_wave_t = 2.0 if player != null and player.global_position.distance_to(walter_node.global_position) < 14.0 else 0.0
+	if walter_wave_t > 0.0:
+		_walter_face_player()
 	if truck_node != null and is_instance_valid(truck_node) and not truck_driving:
 		# he leaves the way he came: over to the truck, in, and off down the road
 		walter_mode = "to_truck"

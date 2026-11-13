@@ -60,6 +60,7 @@ func run() -> void:
 	await process_frame
 	check(prog.story["intro_seen"] and not game.player.locked and (game.walter_mode == "leaving" or game.walter_mode == "to_truck"), "8 the intro finishes: the player is free and Walter walks off to his truck")
 	game.walter_speed = 60.0
+	game.walter_wave_t = 0.0           # skip the farewell wave: this step only checks the walk
 	await frames(60)
 	check(game.walter_node == null, "8b he walks all the way out of the yard before he is removed")
 	game.walter_speed = 1.7
@@ -83,6 +84,7 @@ func run() -> void:
 	game._talk_to_walter()
 	check(game.walter_dialog == null, "12c he cannot be talked to until he has arrived")
 	game.walter_speed = 60.0
+	game.walter_wave_t = 0.0           # skip the farewell wave: this step only checks the walk
 	await frames(90)
 	check(game.walter_mode == "waiting", "12d he arrives and waits")
 	game.player.global_position = game.walter_pos() + Vector3(1.5, 0.2, 0)
@@ -92,7 +94,7 @@ func run() -> void:
 	await process_frame
 	check(prog.story["visits"].get("first_crew", false) and "first_crew" in prog.story["journal"], "14 the visit is remembered and journaled")
 	check(prog.due_visit() == "" and game.walter_mode == "leaving" and not game.player.locked, "15 it does not repeat and Walter walks away")
-	await frames(120)
+	await frames(260)        # includes the two-second farewell wave
 	check(game.walter_node == null, "15b he is gone once he has left the yard")
 	game.state.clock_minutes += 1440.0
 	await frames(3)

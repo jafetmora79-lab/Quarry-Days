@@ -43,6 +43,10 @@ var _yr := 0.0
 var _step_len := 0.8
 var _was_work := false
 var swing_pitch := 0.0                       ## current pickaxe pitch (deg), for tests
+var elder := false                           ## Grandpa's profile: stooped, a slower stride with a slight limp, arms that hardly swing, idle fidgets
+var _elder_k := 0.0                          ## eased 0..1 so the profile blends in instead of popping
+var _last_speed := 0.0                       ## for the lean into a start and the settle after a stop
+var _accel_lean := 0.0
 
 func setup(skeleton: Skeleton3D, seed := 0.0) -> void:
 	skel = skeleton
@@ -134,6 +138,20 @@ var _leg := 0.45
 func _target(state: String, kind: String, p: float, t: float) -> Dictionary:
 	var g := {"lu": 0.0, "lf": 0.0, "ru": 0.0, "rf": 0.0, "lo": 0.0, "ro": 0.0, "lean": 0.0, "knee": 0.0, "twist": 0.0, "head": 0.0, "w": 0.0}
 	match state:
+		"idle":
+			if elder:
+				# an old man's idle: now and then a hand to the small of his back, later a rub of the chin, a shift of weight in between
+				var c := fposmod(t, 19.0)
+				var back := smoothstep(2.0, 3.0, c) * (1.0 - smoothstep(7.0, 8.0, c))
+				var chin := smoothstep(11.0, 12.0, c) * (1.0 - smoothstep(15.0, 16.0, c))
+				g["w"] = maxf(back, chin)
+				g["ru"] = lerpf(-14.0, 52.0, chin / maxf(back + chin, 0.0001))
+				g["rf"] = lerpf(98.0, 128.0 + sin(t * 5.0) * 4.0, chin / maxf(back + chin, 0.0001))
+				g["ro"] = lerpf(20.0, -6.0, chin / maxf(back + chin, 0.0001))
+				g["lu"] = lerpf(8.0, 30.0, chin / maxf(back + chin, 0.0001))
+				g["lf"] = lerpf(12.0, 100.0, chin / maxf(back + chin, 0.0001))
+				g["lean"] = -3.0 * back + 2.0 * chin
+				g["head"] = 5.0 * chin
 		"work":
 			g["w"] = 1.0
 			match kind:
@@ -223,14 +241,40 @@ func _target(state: String, kind: String, p: float, t: float) -> Dictionary:
 			g["lean"] = 5.0
 			g["head"] = 16.0
 		"talk":
-			# Phase 7.5: Walter talking, one hand moving a little
+			# Walter talking: the hands make beat gestures in turn (a stroke, then rest), the head nods on the stresses and drifts as he thinks
+			var pr := pow(maxf(0.0, sin(t * 1.9)), 3.0)
+			var pl := pow(maxf(0.0, sin(t * 1.9 + PI * 0.9)), 3.0) * 0.7
 			g["w"] = 1.0
-			g["ru"] = 10.0 + sin(t * 1.3) * 5.0
-			g["rf"] = 34.0 + sin(t * 2.1) * 16.0
-			g["ro"] = 8.0
+			g["ru"] = 10.0 + sin(t * 1.3) * 5.0 + 26.0 * pr
+			g["rf"] = 34.0 + sin(t * 2.1) * 10.0 + 34.0 * pr
+			g["ro"] = 8.0 + 8.0 * pr
+			g["lu"] = 6.0 + 18.0 * pl
+			g["lf"] = 10.0 + sin(t * 1.7 + 1.0) * 6.0 + 30.0 * pl
+			g["lo"] = 4.0 + 6.0 * pl
+			g["head"] = sin(t * 0.9) * 5.0 + 5.0 * pr - 2.0 * pl
+			g["twist"] = sin(t * 0.6) * 5.0 + 3.0 * (pr - pl)
+			g["lean"] = 1.5 * pr
+		"wave":
+			# a farewell: the right hand comes up and the forearm waves from the elbow, a little nod with it
+			g["w"] = 1.0
+			g["ru"] = 118.0
+			g["rf"] = 52.0 + sin(t * 9.0) * 26.0
+			g["ro"] = 30.0
 			g["lu"] = 6.0
-			g["lf"] = 10.0 + sin(t * 1.7 + 1.0) * 6.0
-			g["head"] = sin(t * 0.9) * 6.0
+			g["lf"] = 12.0
+			g["head"] = 4.0 + sin(t * 2.0) * 3.0
+			g["twist"] = -4.0
+		"chin":
+			# thinking: the right hand rubs the chin, the other arm folded under it
+			g["w"] = 1.0
+			g["ru"] = 52.0
+			g["rf"] = 128.0 + sin(t * 5.0) * 4.0
+			g["ro"] = -6.0
+			g["lu"] = 30.0
+			g["lf"] = 100.0
+			g["lo"] = -14.0
+			g["head"] = 6.0 + sin(t * 0.8) * 2.0
+			g["lean"] = 2.0
 		"offer":
 			# holding something out with the right hand
 			g["w"] = 1.0
@@ -478,6 +522,11 @@ func pose(delta: float, state: String, speed: float, work_kind: String, carrying
 		_phase += delta * clampf(speed, 0.0, 4.0) * PI / _step_len
 	if state == "turn":
 		_turn_phase += delta * 7.0
+	_elder_k = move_toward(_elder_k, 1.0 if elder else 0.0, delta * 2.0)
+	var spd_now := speed if moving else 0.0
+	var acc := (spd_now - _last_speed) / maxf(delta, 0.0001)
+	_last_speed = spd_now
+	_accel_lean = lerpf(_accel_lean, clampf(acc * 2.2, -9.0, 9.0), 1.0 - exp(-7.0 * delta))     # leans into a start, rocks back as it stops
 	var t := _t + _seed
 	var w := _walk
 	var ph := _phase
@@ -491,7 +540,7 @@ func pose(delta: float, state: String, speed: float, work_kind: String, carrying
 	for key in tgt:
 		_cur[key] = lerpf(float(_cur.get(key, 0.0)), float(tgt[key]), f)
 	var k: float = _cur["w"]
-	var lean: float = _cur["lean"] + 3.0 * w * clampf(speed / 2.5, 0.0, 1.0) + 2.5 * _carry
+	var lean: float = _cur["lean"] + 3.0 * w * clampf(speed / 2.5, 0.0, 1.0) + 2.5 * _carry + _accel_lean * (1.0 - k) + 8.0 * _elder_k * (1.0 - 0.5 * k)
 	var knee: float = _cur["knee"]
 	var cu := 20.0 * _carry
 	var cf := 36.0 * _carry
@@ -513,7 +562,7 @@ func pose(delta: float, state: String, speed: float, work_kind: String, carrying
 	for side in ["Left", "Right"]:
 		var out := -1.0 if side == "Left" else 1.0
 		var s := "l" if side == "Left" else "r"
-		var damp := (1.0 - _carry) * (1.0 - 0.7 * float(hold[side]))
+		var damp := (1.0 - _carry) * (1.0 - 0.7 * float(hold[side])) * (1.0 - 0.45 * _elder_k)
 		var swing := -cyc * out * 27.0 * w * damp                 # left arm forward when the right leg is
 		var idle := sin(t * 0.9 + out) * 1.5 * (1.0 - w)
 		var up: float = lerpf(swing + idle + cu, float(_cur[s + "u"]), k)
@@ -527,8 +576,9 @@ func pose(delta: float, state: String, speed: float, work_kind: String, carrying
 	for side in ["Left", "Right"]:
 		var sg := 1.0 if side == "Left" else -1.0
 		var x := xl if side == "Left" else fposmod(xl + 0.5, 1.0)
-		var th := leg_curve(x, a_amp) * w
-		var kn := knee_curve(x) * w
+		var limp := 1.0 - 0.2 * _elder_k * (1.0 if side == "Left" else 0.0)       # the left leg takes a shorter, careful step
+		var th := leg_curve(x, a_amp) * w * limp
+		var kn := knee_curve(x) * w * limp
 		var step := maxf(0.0, sin(_turn_phase) * sg) * 18.0 * _turn
 		var toe := 18.0 * smoothstep(0.45, STANCE, x) * (1.0 - smoothstep(STANCE, STANCE + 0.08, x)) * w
 		_pose_bone(side + "UpperLeg", _q(R, th + a + step))

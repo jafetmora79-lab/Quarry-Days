@@ -55,7 +55,7 @@ static func part(id: String) -> Node3D:
 
 ## The state of the three repairs on the excavator itself (model units of VehicleModels.excavator: hood at y 1.2, z +0.45).
 ## A missing battery shows the empty tray and loose cables; a split hose hangs limp with an oil stain; an unfuelled tank has an open filler.
-static func fitted(parent: Node3D, battery: bool, hose: bool, fuel: bool) -> Node3D:
+static func fitted(parent: Node3D, battery: bool, hose: bool, fuel: bool, ground: Node3D = null) -> Node3D:
 	var n := Node3D.new()
 	n.name = "OpeningParts"
 	var dark := MeshKit.Soup.new()
@@ -85,8 +85,14 @@ static func fitted(parent: Node3D, battery: bool, hose: bool, fuel: bool) -> Nod
 	_inst(n, rust, MeshKit.flat(Color(0.42, 0.2, 0.12)))
 	_inst(n, accent, MeshKit.flat(Color(0.86, 0.66, 0.12)))
 	_inst(n, steel, MeshKit.mat("SteelPlate"))
-	_inst(n, oil, MeshKit.flat(Color(0.05, 0.04, 0.03)))
-	parent.add_child(n)
+	parent.add_child(n)                          # `parent` is the excavator's turret: the tray, filler and hose swing with the cab
+	if ground != null:
+		var g := Node3D.new()                    # the oil on the ground stays where it dripped while the cab turns above it
+		g.name = "OpeningGround"
+		ground.add_child(g)
+		_inst(g, oil, MeshKit.flat(Color(0.05, 0.04, 0.03)))
+	else:
+		_inst(n, oil, MeshKit.flat(Color(0.05, 0.04, 0.03)))
 	return n
 
 ## The natural starting ground. `ok` is a Callable(Vector2) -> bool telling where scenery may stand (clear of the hub, paths, the hillside).

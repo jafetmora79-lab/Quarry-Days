@@ -40,6 +40,11 @@ var boom_m := 0.0
 var stick_m := 0.0
 var curl_m := 0.0
 var _keys_live := false
+var turret_yaw := 0.0         ## what the cab actually shows: it eases toward `swing` (slewing has inertia) instead of snapping
+var _turret_vel := 0.0
+var _turret_roll := 0.0
+var _prev_yaw := 0.0
+var _vib_t := 0.0
 var joint_in := {"swing": 0.0, "boom": 0.0, "stick": 0.0, "curl": 0.0}   ## -1..1 per joint; read from the keys while driven
 var bucket: Node3D
 var bucket_load: MeshInstance3D
@@ -300,9 +305,15 @@ func _animate(delta: float) -> void:
 		travelled = speed * delta
 	for w in wheels:
 		w.rotate_x(-travelled / float(w.get_meta("radius", 0.5)) if w.has_meta("radius") else -travelled / 0.5)
-	for tm in track_mats:
-		var sm := tm as StandardMaterial3D
-		sm.uv1_offset.x = fposmod(sm.uv1_offset.x + float(sm.get_meta("scroll_sign", 1.0)) * travelled, 1.0)
+	# crawler tracks run at different speeds when the machine turns (a skid-steer: the inside track slows, the outside one speeds up)
+	var yaw_d := angle_difference(_prev_yaw, rotation.y) if delta > 0.0 else 0.0
+	_prev_yaw = rotation.y
+	if absf(yaw_d) > 1.0:
+		yaw_d = 0.0
+	for ti in range(track_mats.size()):
+		var sm := track_mats[ti] as StandardMaterial3D
+		var side := -1.0 if ti == 0 else 1.0                  # track_mats are built left (x -0.8) then right (x +0.8)
+		sm.uv1_offset.x = fposmod(sm.uv1_offset.x + float(sm.get_meta("scroll_sign", 1.0)) * (travelled + side * yaw_d * 0.8), 1.0)
 	var n := fleet.cargo_total(data)
 	# cargo visuals ease: material pours out over the dump instead of vanishing in one frame
 	shown_load = move_toward(shown_load, float(n), delta * maxf(4.0, absf(float(n) - shown_load) * 2.2))
@@ -329,6 +340,8 @@ func _animate(delta: float) -> void:
 				guard += 1
 			boom_m = clampf((th - base_th) / 0.45, -1.0, 1.0)
 		arm.rotation.x = th
+		if vkind == "excavator":
+			VehicleModels.update_boom_ram(self)
 		if stick != null:
 			stick.rotation.x = stick_m * 0.7
 		var tilt := sin(clampf(dump_timer / 1.0, 0.0, 1.0) * PI) * 1.1
@@ -381,7 +394,19 @@ func _joints(delta: float) -> void:
 	stick_m = clampf(stick_m + float(joint_in["stick"]) * 0.9 * delta, -1.0, 1.0)
 	curl_m = clampf(curl_m + float(joint_in["curl"]) * 0.9 * delta, -1.0, 1.0)
 	if turret != null:
-		turret.rotation.y = swing
+		# the cab spins up and slows down like a real slewing ring (a short critically-damped ease), leans a touch into the start and stop,
+		# and the engine shakes it very slightly while the machine is working
+		var prev := turret_yaw
+		turret_yaw = lerp_angle(turret_yaw, swing, 1.0 - exp(-14.0 * delta))
+		var vel := angle_difference(prev, turret_yaw) / maxf(delta, 0.0001)
+		var acc := (vel - _turret_vel) / maxf(delta, 0.0001)
+		_turret_vel = vel
+		_turret_roll = lerpf(_turret_roll, clampf(-acc * 0.004, -0.035, 0.035), 1.0 - exp(-12.0 * delta))
+		turret.rotation.y = turret_yaw
+		turret.rotation.z = _turret_roll
+		_vib_t += delta
+		var working := driven or digging
+		turret.position.y = (0.004 * sin(_vib_t * 53.0) + 0.002 * sin(_vib_t * 31.0)) if working else move_toward(turret.position.y, 0.0, delta * 0.05)
 
 func start_unload(target: Dictionary) -> void:
 	unload_target = target

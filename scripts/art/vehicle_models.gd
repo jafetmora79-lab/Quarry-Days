@@ -63,6 +63,39 @@ static func ram(parent: Node3D, a: Vector3, b: Vector3, r := 0.06) -> Node3D:
 	aim(n, a, b)
 	return n
 
+## A hydraulic cylinder that really telescopes: the barrel keeps its length, the rod slides out of it. Returns the node (see aim_telescope).
+static func _telescope(parent: Node3D, r: float) -> Node3D:
+	var n := Node3D.new()
+	n.name = "BoomCylinder"
+	parent.add_child(n)
+	var barrel := MeshKit.Soup.new()
+	MeshKit.frustum_into(barrel, Vector3.ZERO, r, r, 0.6, 6)
+	MeshKit.inst(n, barrel.mesh(), MeshKit.mat("SteelGreen")).name = "Barrel"
+	var rod_pivot := Node3D.new()
+	rod_pivot.name = "Rod"
+	rod_pivot.position.y = 0.45
+	n.add_child(rod_pivot)
+	var rod := MeshKit.Soup.new()
+	MeshKit.frustum_into(rod, Vector3.ZERO, r * 0.5, r * 0.5, 1.0, 6)
+	MeshKit.inst(rod_pivot, rod.mesh(), MeshKit.mat(QuarryArt.M_BRUSHED))
+	return n
+
+## Points the cylinder from `a` to `b` (parent space): unit-length axis, the rod extends to cover the rest of the distance.
+static func aim_telescope(n: Node3D, a: Vector3, b: Vector3) -> void:
+	var d := b - a
+	var len := maxf(0.1, d.length())
+	var y := d / len
+	var x := y.cross(Vector3.FORWARD if absf(y.z) < 0.9 else Vector3.RIGHT).normalized()
+	var z := x.cross(y)
+	n.transform = Transform3D(Basis(x, y, z), a)
+	(n.get_node("Rod") as Node3D).scale.y = maxf(0.05, len - 0.45)
+
+## Boom cylinder: base on the cab below the boom foot, rod end on the boom (the boom hinges on the cab, so both points live in cab space).
+static func update_boom_ram(v) -> void:
+	if not v.has_meta("boom_ram") or v.turret == null or v.arm == null:
+		return
+	aim_telescope(v.get_meta("boom_ram"), Vector3(0.55, 0.62, -0.12), v.arm.transform * Vector3(0, 0.12, -0.9))
+
 static func aim(n: Node3D, a: Vector3, b: Vector3) -> void:
 	var d := b - a
 	var len := maxf(0.05, d.length())
@@ -272,7 +305,8 @@ static func excavator(v) -> void:
 	MeshKit.drum_into(a["SteelPlate"], Vector3(0, -0.1, -1.95), 0.1, 0.34, 6)                                       # elbow pin
 	MeshKit.drum_into(a["SteelPlate"], Vector3(0, 0.0, 0.0), 0.11, 0.36, 8)                                         # boom foot hub: always overlaps the pedestal, whatever the angle
 	_emit(v.arm, a)
-	ram(v.arm, Vector3(0, -0.45, 0.4), Vector3(0, 0.1, -0.85), 0.08)                                                # boom cylinder
+	v.set_meta("boom_ram", _telescope(v.turret, 0.08))                                                              # boom cylinder: its base is fixed on the cab, its rod follows the boom (update_boom_ram)
+	update_boom_ram(v)
 	# the stick hangs from the elbow (v.stick) and the bucket from the stick's tip (v.bucket): three joints, all independent
 	v.stick = Node3D.new()
 	v.stick.position = Vector3(0, -0.1, -1.95)

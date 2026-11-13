@@ -96,6 +96,7 @@ func run() -> void:
 		v.joint_in["swing"] = 1.0
 		await frames(60)
 		v.joint_in["swing"] = 0.0
+		await frames(30)          # the cab eases to a stop
 		check(v.swing > 0.8 and absf(v.turret.rotation.y - v.swing) < 0.01, "the upper body swings")
 		check(v.work_point().distance_to(w0) > 1.0, "the bucket's reach follows the swing")
 		var sw0: float = v.swing
