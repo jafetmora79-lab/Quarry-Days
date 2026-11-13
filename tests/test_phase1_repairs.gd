@@ -106,6 +106,35 @@ func run() -> void:
 	g3._credit_delivery(t_b)
 	check(got == 15 or got > 0, "the truck delivers %d to storage" % got)
 	check(int(t_b.get("origin", {}).get("area_4", 0)) + int(t_b.get("origin", {}).get("area_3", 0)) + got == 15, "delivered units leave the origin record, so they cannot count twice")
+	# mining accounting: pocket minerals opened by staff or rigs are never lost (they lie on the ground as their own mineral)
+	var g4 = await boot(true)
+	var p4 = g4.prog
+	var fid := "hillside_face_01"
+	p4.init_formation(fid)
+	var vs: Array = p4.veins(fid)
+	var vcol: int = int(vs[0]["col"])
+	var cols: Array = p4.state.deposits[fid]["columns"]
+	for i in range(cols.size()):
+		if i != vcol:
+			cols[i] = 0
+	p4._sync_stock(p4.state.deposits[fid])
+	g4._refresh_deposit(fid)
+	p4.cleanup["done"] = true
+	var before: int = g4.vein_pieces.size()
+	var guard := 0
+	while p4.column_units(fid, vcol) > 0 and guard < 80:
+		guard += 1
+		g4._crew_strike_formation(fid, 60, 60, null)
+	var opened: int = 0
+	for k in range(vs.size()):
+		if int(vs[k]["col"]) == vcol and p4.vein_taken(fid, k):
+			opened += int(vs[k]["units"])
+	check(opened > 0, "the crew cut a pocketed column clean (%d mineral units were in it)" % opened)
+	check(g4.vein_pieces.size() - before == opened, "every mineral unit the crew opened lies on the ground as a piece (%d of %d)" % [g4.vein_pieces.size() - before, opened])
+	var resok := true
+	for vp in g4.vein_pieces.values():
+		resok = resok and str(vp["res"]) != "limestone"
+	check(resok, "and they are their own mineral, not limestone")
 	# the dump: the bed tips UP (its front rises above the rear hinge) and the load slides to the tailgate
 	var g2 = await boot(true)
 	g2.state.money = 900000

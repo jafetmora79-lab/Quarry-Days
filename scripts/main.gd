@@ -4618,6 +4618,7 @@ func _phase5_tick(delta: float) -> void:
 		var id := str(ev["formation"])
 		if formation_nodes.has(id):
 			formation_nodes[id].hit(int(ev["column"]))
+			_vein_bonus({"veins": ev.get("veins", [])}, id, int(ev["column"]), "ground")      # the rig's pockets lie beside the face
 			if int(ev["chunks"]) > 0:
 				formation_nodes[id].refresh()
 			else:
@@ -5494,6 +5495,7 @@ func companion_strike(kind: String, col: int, damage: float, who: Node3D) -> voi
 	var ex := prog.extract(kind, col, damage, room, "companion")
 	for i in range(int(ex["units"])):
 		_spawn_formation_piece(kind, col, i)
+	_vein_bonus(ex, kind, col, "ground")       # a pocket the club opens lies on the ground as pieces of its own mineral: nothing vanishes
 	node.hit(col)
 	if int(ex["chunks"]) > 0:
 		node.refresh()
@@ -5699,6 +5701,7 @@ func _crew_strike_formation(kind: String, hits: int, extra: int, w: Node3D) -> v
 	var res := str(state.deposits[kind]["resource"])
 	for i in range(int(ex["units"])):
 		_spawn_formation_piece(kind, col, i)
+	_vein_bonus(ex, kind, col, "ground")
 	node.hit(col)
 	if int(ex["chunks"]) > 0:
 		node.refresh()

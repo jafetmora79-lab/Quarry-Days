@@ -1273,7 +1273,8 @@ func tick_rigs(seconds: float) -> Array:
 		if int(ex["units"]) > 0:
 			var res := str(state.deposits[id]["resource"])
 			r["bin"][res] = int(r["bin"].get(res, 0)) + int(ex["units"])
-			events.append({"rig": r, "formation": id, "column": col, "units": int(ex["units"]), "chunks": int(ex["chunks"]), "emptied": bool(ex["column_emptied"])})
+			area_add(area_of_formation(id), "recovered", int(ex["units"]))        # the rock reached the rig's output bin
+			events.append({"rig": r, "formation": id, "column": col, "units": int(ex["units"]), "chunks": int(ex["chunks"]), "emptied": bool(ex["column_emptied"]), "veins": ex.get("veins", [])})
 	return events
 
 ## World position of a rig's output bin (rigs creep forward from their pad as the face recedes).
