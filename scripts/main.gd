@@ -456,7 +456,8 @@ func _check_introductions() -> void:
 func _start_intro(w: Node3D) -> void:
 	dialog_worker = w
 	dialog = QuarryIntroDialog.new()
-	dialog.setup(str(w.e["name"]), str(w.e.get("personality", "friendly")), str(business.profession(str(w.e["profession"]))["title"]))
+	dialog.setup(str(w.e["name"]), str(w.e.get("personality", "friendly")), str(business.profession(str(w.e["profession"]))["title"]),
+		UiArt.portrait_index(str(w.e["name"]), str(w.e.get("gender", "m")), str(w.e["profession"])))
 	ui.add_child(dialog)
 	dialog.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE)
 	dialog.offset_bottom = -150.0

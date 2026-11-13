@@ -13,6 +13,7 @@ var _done := false
 var lines: Array = []       ## [{speaker, text}]
 var index := 0
 var speaker_label: Label
+var face: TextureRect          ## Grandpa Walt's portrait; hidden for other speakers
 var body: Label
 var next_btn: Button
 var skip_btn: Button
@@ -26,7 +27,14 @@ func setup(entries: Array, is_timed := false) -> void:
 	add_theme_stylebox_override("panel", QuarryTheme.panel_box(QuarryTheme.BG, QuarryTheme.ACCENT, 12, 4))
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 6)
-	add_child(v)
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var hb := HBoxContainer.new()
+	hb.add_theme_constant_override("separation", 10)
+	face = UiArt.portrait_rect(UiArt.GRANDFATHER, 72)
+	face.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	hb.add_child(face)
+	hb.add_child(v)
+	add_child(hb)
 	speaker_label = QuarryTheme.label("", 12, QuarryTheme.ACCENT, true)
 	v.add_child(speaker_label)
 	body = QuarryTheme.label("", QuarryTheme.BODY)
@@ -48,6 +56,7 @@ func setup(entries: Array, is_timed := false) -> void:
 func _show() -> void:
 	var l: Dictionary = lines[index]
 	speaker_label.text = str(l.get("speaker", "WALTER"))
+	face.visible = speaker_label.text.to_upper().contains("WALT")
 	body.text = '"%s"' % str(l.get("text", ""))
 	next_btn.text = "Continue" if index < lines.size() - 1 else "Done"
 	_timer = float(l.get("dur", 4.0))

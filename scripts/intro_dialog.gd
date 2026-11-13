@@ -47,7 +47,7 @@ var suggested := ""
 var personality := "friendly"
 var job := "worker"
 
-func setup(suggest: String, pers: String, job_title: String) -> void:
+func setup(suggest: String, pers: String, job_title: String, portrait_index := -1) -> void:
 	suggested = suggest
 	personality = pers if LINES.has(pers) else "friendly"
 	job = job_title
@@ -57,7 +57,17 @@ func setup(suggest: String, pers: String, job_title: String) -> void:
 	add_theme_stylebox_override("panel", QuarryTheme.panel_box(QuarryTheme.BG, QuarryTheme.ACCENT, 12, 4))
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 6)
-	add_child(v)
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if portrait_index >= 0:
+		var hb := HBoxContainer.new()
+		hb.add_theme_constant_override("separation", 10)
+		var face := UiArt.portrait_rect(portrait_index, 72)
+		face.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		hb.add_child(face)
+		hb.add_child(v)
+		add_child(hb)
+	else:
+		add_child(v)
 	title = QuarryTheme.label("", 12, QuarryTheme.ACCENT, true)
 	v.add_child(title)
 	body = QuarryTheme.label("", QuarryTheme.BODY)

@@ -10,6 +10,7 @@ const WARN := QuarryTheme.WARN
 const GOOD := QuarryTheme.GOOD
 
 var game
+const TAB_ICONS := {"staff": "workers", "hire": "hire", "payroll": "payroll", "production": "production", "equipment": "equipment", "upgrades": "upgrades", "milestones": "milestones", "stats": "stats"}
 var tab := "staff"
 var content: VBoxContainer
 var scroll: ScrollContainer
@@ -52,6 +53,11 @@ func setup(main_node) -> void:
 		b.text = t[1]
 		b.toggle_mode = true
 		b.custom_minimum_size = Vector2(88, 0)
+		if UiArt.has_icon(str(TAB_ICONS.get(t[0], ""))):
+			b.icon = UiArt.icon(str(TAB_ICONS[t[0]]))
+			b.expand_icon = true
+			b.add_theme_constant_override("icon_max_width", 20)
+			b.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		b.pressed.connect(_set_tab.bind(t[0]))
 		tabs.add_child(b)
 		tab_buttons[t[0]] = b
@@ -177,6 +183,7 @@ func _staff(b: QuarryBusiness) -> void:
 		var card := _card()
 		var top := _row()
 		card.add_child(top)
+		top.add_child(UiArt.portrait_rect(UiArt.portrait_index(str(e["name"]), str(e.get("gender", "m")), str(e["profession"])), 48))
 		var title := _label("%s  -  %s   Skill %d   $%.2f/h   Training %d/3" % [e["name"], b.profession(e["profession"])["title"], e["skill"], b.wage(e), e["upgrade"]], ACCENT, QuarryTheme.BODY)
 		top.add_child(title)
 		var task := _label(str(e["task"]), INK if b.can_work(e) else DIM, QuarryTheme.BODY)
@@ -302,6 +309,7 @@ func _hire(b: QuarryBusiness) -> void:
 		var row := _row()
 		card.add_child(row)
 		var prof: Dictionary = b.profession(c["profession"])
+		row.add_child(UiArt.portrait_rect(UiArt.portrait_index(str(c["name"]), str(c.get("gender", "m")), str(c["profession"])), 48))
 		row.add_child(_label("%s  -  %s   Skill %d   $%.2f/h   Hiring fee $%d" % [c["name"], prof["title"], c["skill"], float(c["wage"]) * float(b.cfg.get("wage_scale", 1.0)), b.hire_fee(c)], INK))
 		var reason := b.hire_block_reason(str(c["id"]))
 		var cid := str(c["id"])

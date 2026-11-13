@@ -5,8 +5,12 @@ class_name HudIcon
 var kind := "coin"
 var tint := Color(1, 1, 1, 1)
 
+## HUD kinds that now have pixel art (assets/ui/icons); the others keep their drawn versions.
+const ART := {"coin": "money", "sun": "sun", "flag": "milestones", "hammer": "hammer", "pick": "pickaxe", "bag": "bag"}
+
 func _init(k := "coin", size_px := 14.0) -> void:
 	kind = k
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	custom_minimum_size = Vector2(size_px, size_px)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
@@ -18,6 +22,9 @@ func set_kind(k: String) -> void:
 func _draw() -> void:
 	var s := minf(size.x, size.y)
 	if s < 4.0:
+		return
+	if ART.has(kind) and UiArt.has_icon(str(ART[kind])):
+		draw_texture_rect(UiArt.icon(str(ART[kind])), Rect2(Vector2((size.x - s) * 0.5, (size.y - s) * 0.5), Vector2(s, s)), false, tint)
 		return
 	var c := Vector2(size.x * 0.5, size.y * 0.5)
 	var u := s / 16.0
