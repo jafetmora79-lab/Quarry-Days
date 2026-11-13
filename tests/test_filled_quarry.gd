@@ -202,12 +202,13 @@ func run() -> void:
 	var miner: Dictionary = g3.business.employees[0]
 	check(g3.ui_assign(int(miner["id"]), {"resource": "topsoil"}) == "Assignment updated", "a miner can be assigned to dig topsoil")
 	g3.business.set_shift(int(miner["id"]), 0, 1439)
+	await frames(30)
 	var top0: int = pr3.units_left("q_l1_top")
 	var got := 0
 	for k in range(5400):
 		await physics_frame
 		if pr3.units_left("q_l1_top") < top0 - 5:
-			got = k
+			got = k + 1
 			break
 	check(got > 0, "the miner walked out over the surface and dug topsoil (%d units gone after %d frames)" % [top0 - pr3.units_left("q_l1_top"), got])
 	print("RESULT: %d checks, %d failures" % [checks, failures.size()])
