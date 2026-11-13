@@ -8,6 +8,7 @@ const CARDS := [
 	["employees", "EMPLOYEES", "Your crew: who works for you, hiring and wages.", "workers", "staff"],
 	["machinery", "MACHINERY", "Your fleet and rigs, and ordering new machines.", "equipment", "equipment"],
 	["sales", "SALES", "Sell your stone and choose what the clerk may sell.", "payroll", "sales"],
+	["plan", "QUARRY PLAN", "The four levels: depth, materials, how each one opens.", "milestones", "plan"],
 	["production", "PRODUCTION", "What the quarry made and where it went.", "production", "production"],
 	["upgrades", "UPGRADES", "Rigs, the excavation permit and personal upgrades.", "upgrades", "upgrades"],
 	["milestones", "MILESTONES", "Goals on the way to the next stage.", "milestones", "milestones"],
@@ -181,6 +182,7 @@ func refresh() -> void:
 		child.queue_free()
 	match tab:
 		"home": _home()
+		"plan": _plan()
 		"staff": _staff(b)
 		"hire": _hire(b)
 		"payroll": _payroll(b)
@@ -189,6 +191,38 @@ func refresh() -> void:
 		"milestones": _milestones(b)
 		"upgrades": _upgrades()
 		"stats": _stats(b)
+
+# ------------------------------------------------------------------ quarry plan
+
+## The whole quarry on one page: each of the four levels with its depth, materials and what opens it, then the starter contract.
+func _plan() -> void:
+	var prog: QuarryProgression = game.prog
+	content.add_child(_label("Survey stakes and dashed lines mark the level you are cutting (bright) and the one that opens next (faint) on the ground. Deeper levels appear here until they open.", DIM))
+	for n in range(1, prog.levels().size() + 1):
+		var d := prog.level_def(n)
+		var card := _card()
+		var open := n <= prog.quarry_level
+		var depth := float(d.get("floor_y", -3.6)) if n > 1 else 0.0
+		var head := "LEVEL %d  -  %s" % [n, str(d.get("title", "")).to_upper()]
+		var status := ""
+		if open:
+			status = "OPEN  -  %d%% cut" % int(prog.level_cleared_fraction(n) * 100.0) if prog.level_built(n) else "OPEN"
+		elif n == prog.quarry_level + 1:
+			status = "NEXT  -  opens when %d%% of level %d is cut (now %d%%)" % [int(float(d.get("unlock", 0.6)) * 100.0), n - 1, int(prog.level_cleared_fraction(n - 1) * 100.0)]
+		else:
+			status = "LOCKED  -  opens after level %d" % (n - 1)
+		card.add_child(_label(head, ACCENT if open else INK, QuarryTheme.BODY))
+		var mats := []
+		for m in d.get("materials", []):
+			mats.append(prog.display(str(m)))
+		card.add_child(_label("Floor %.1f m   Materials: %s" % [depth, ", ".join(mats) if not mats.is_empty() else "topsoil, gravel, loose stone, limestone"], DIM, QuarryTheme.BODY))
+		card.add_child(_label(status, GOOD if open else (WARN if n == prog.quarry_level + 1 else DIM), QuarryTheme.BODY))
+	var a1 := prog.area_progress("area_1")
+	if not a1.is_empty():
+		var ac := _card()
+		ac.add_child(_label("STARTER EXCAVATION (Area 1)  -  %d%%%s" % [int(a1["pct"]), "  -  done" if bool(a1["complete"]) else ""], ACCENT, QuarryTheme.BODY))
+		for pt in a1["parts"]:
+			ac.add_child(_label("%s %s: %d / %d" % ["[x]" if int(pt["have"]) >= int(pt["need"]) else "[ ]", str(pt["label"]), int(pt["have"]), int(pt["need"])], INK, QuarryTheme.BODY))
 
 # ------------------------------------------------------------------ home (cards)
 

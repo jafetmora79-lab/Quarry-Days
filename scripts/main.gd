@@ -108,6 +108,7 @@ var _confirm_new := false
 var title_enabled := DisplayServer.get_name() != "headless"      ## the main menu opens on launch (tests run headless and skip it)
 var title: QuarryTitleMenu
 var music: QuarryMusic
+var survey: QuarrySurvey
 var dialog: QuarryIntroDialog         # the introduction with a new employee, while it is open
 var dialog_worker: Node3D
 var _forced_sleep := false
@@ -240,6 +241,8 @@ func _ready() -> void:
 	music = QuarryMusic.new()
 	add_child(music)
 	music.setup(self)
+	survey = QuarrySurvey.new()
+	survey.setup(self)
 	_update_light()
 	_refresh_stage_hud()
 	if autosave_enabled and FileAccess.file_exists(SAVE_PATH):

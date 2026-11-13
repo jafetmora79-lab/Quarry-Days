@@ -55,7 +55,7 @@ func run() -> void:
 	var cards := 0
 	for c in m.content.find_children("*", "Button", true, false):
 		cards += 1
-	check(cards == 7, "seven cards: employees, machinery, sales, production, upgrades, milestones, stats (%d)" % cards)
+	check(cards == 8, "eight cards: employees, machinery, sales, quarry plan, production, upgrades, milestones, stats (%d)" % cards)
 	var all_text := ""
 	m._set_tab("staff")
 	await frames(2)
