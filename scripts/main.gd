@@ -1787,6 +1787,8 @@ func _interact(target: Node3D) -> void:
 
 func _open_menu(kind: String, index := -1) -> void:
 	menu = kind
+	if hud:
+		hud.menu_open = true
 	panel.set_meta("crusher_index",index)
 	panel.visible = kind != "manage"
 	management.visible = kind == "manage"
@@ -1802,6 +1804,8 @@ func _open_menu(kind: String, index := -1) -> void:
 
 func _close_menu() -> void:
 	menu = ""
+	if hud:
+		hud.menu_open = false
 	_confirm_new = false
 	player.tool_view.equip(prog.model_tier(), true)   # always back in hand with the tool you own
 	panel.visible = false

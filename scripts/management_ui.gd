@@ -8,7 +8,7 @@ const CARDS := [
 	["employees", "EMPLOYEES", "Your crew: who works for you, hiring and wages.", "workers", "staff"],
 	["machinery", "MACHINERY", "Your fleet and rigs, and ordering new machines.", "equipment", "equipment"],
 	["sales", "SALES", "Sell your stone and choose what the clerk may sell.", "payroll", "sales"],
-	["plan", "QUARRY PLAN", "The four levels: depth, materials, how each one opens.", "milestones", "plan"],
+	["plan", "QUARRY PLAN", "The levels: depth, materials, how each one opens, and their access roads.", "plan", "plan"],
 	["production", "PRODUCTION", "What the quarry made and where it went.", "production", "production"],
 	["upgrades", "UPGRADES", "Rigs, the excavation permit and personal upgrades.", "upgrades", "upgrades"],
 	["milestones", "MILESTONES", "Goals on the way to the next stage.", "milestones", "milestones"],
@@ -19,6 +19,7 @@ const DIM := QuarryTheme.DIM
 const ACCENT := QuarryTheme.ACCENT
 const WARN := QuarryTheme.WARN
 const GOOD := QuarryTheme.GOOD
+const MONEY := QuarryTheme.MONEY
 
 var game
 const TAB_ICONS := {"staff": "workers", "hire": "hire", "payroll": "payroll", "production": "production", "equipment": "equipment", "upgrades": "upgrades", "milestones": "milestones", "stats": "stats"}
@@ -140,6 +141,7 @@ func _button(text: String, action: Callable, enabled := true) -> Button:
 	b.text = text
 	b.disabled = not enabled
 	b.focus_mode = Control.FOCUS_ALL          # reachable with the arrow keys / a gamepad as well as the mouse
+	b.custom_minimum_size = Vector2(96, 28)           # one width for every action button, so a column of Buy buttons lines up
 	b.pressed.connect(func(): game.ui_click("mgmt_" + text, action, b)) # debounced; shows the money pop-up
 	return b
 
@@ -276,26 +278,54 @@ func _home() -> void:
 	content.add_child(grid)
 	var b: QuarryBusiness = game.business
 	for c in CARDS:
-		var card := Button.new()
-		card.focus_mode = Control.FOCUS_ALL
-		card.custom_minimum_size = Vector2(268, 112)
-		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		card.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		card.clip_text = false
-		card.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		var extra := ""
 		match str(c[0]):
-			"employees": extra = "\n%d of %d hired" % [b.employees.size(), b.max_employees()]
-			"machinery": extra = "\n%d machine(s) in the yard" % game.fleet.vehicles.size()
-		card.text = "%s\n%s%s" % [c[1], c[2], extra]
-		if UiArt.has_icon(str(c[3])):
-			card.icon = UiArt.icon(str(c[3]))
-			card.expand_icon = true
-			card.add_theme_constant_override("icon_max_width", 34)
-			card.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			"employees": extra = "%d of %d hired" % [b.employees.size(), b.max_employees()]
+			"machinery": extra = "%d machine(s) in the yard" % game.fleet.vehicles.size()
+			"sales": extra = "Bag and storage bin sell from here"
+		var card := _home_card(str(c[1]), str(c[2]), extra, str(c[3]))
 		var first: String = str(c[4])
 		card.pressed.connect(func(): _set_tab(first))
 		grid.add_child(card)
+
+## One card of the office computer's home page: the icon on its plate at the left, then the title, what it is for, and one status line. The button itself
+## is empty; the layout lives in child containers (which ignore the mouse), so the whole card is the click target and the arrow keys / gamepad focus it.
+func _home_card(title: String, desc: String, extra: String, icon_name: String) -> Button:
+	var card := Button.new()
+	card.focus_mode = Control.FOCUS_ALL
+	card.custom_minimum_size = Vector2(268, 104)
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card.text = ""
+	var m := MarginContainer.new()
+	m.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	m.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for side in ["left", "right", "top", "bottom"]:
+		m.add_theme_constant_override("margin_" + side, 10)
+	card.add_child(m)
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 12)
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	m.add_child(h)
+	if UiArt.has_icon(icon_name):
+		h.add_child(UiArt.icon_plate(icon_name, 64.0, 7.0))
+	var v := VBoxContainer.new()
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_theme_constant_override("separation", 2)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(v)
+	var t := _label(title, ACCENT, 13, false)
+	t.add_theme_font_override("font", QuarryTheme.bold())
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(t)
+	var d := _label(desc, INK, 11)
+	d.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(d)
+	if extra != "":
+		var e := _label(extra, GOOD, 11, false)
+		e.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		v.add_child(e)
+	return card
 
 # ------------------------------------------------------------------ staff
 
@@ -425,12 +455,36 @@ func _hire(b: QuarryBusiness) -> void:
 		var row := _row()
 		card.add_child(row)
 		var prof: Dictionary = b.profession(c["profession"])
-		row.add_child(UiArt.portrait_rect(UiArt.portrait_index(str(c["name"]), str(c.get("gender", "m")), str(c["profession"]), str(c["id"])), 48))
-		row.add_child(_label("%s  -  %s   Skill %d   $%.2f/h   Hiring fee $%d" % [c["name"], prof["title"], c["skill"], float(c["wage"]) * float(b.cfg.get("wage_scale", 1.0)), b.hire_fee(c)], INK))
+		row.add_theme_constant_override("separation", 12)
+		row.add_child(UiArt.portrait_rect(UiArt.portrait_index(str(c["name"]), str(c.get("gender", "m")), str(c["profession"]), str(c["id"])), 64))
+		var who := VBoxContainer.new()
+		who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		who.alignment = BoxContainer.ALIGNMENT_CENTER
+		who.add_theme_constant_override("separation", 2)
+		row.add_child(who)
+		var nm := _label(str(c["name"]), ACCENT, 13, false)
+		nm.add_theme_font_override("font", QuarryTheme.bold())
+		who.add_child(nm)
+		who.add_child(_label("%s   -   Skill %d" % [prof["title"], int(c["skill"])], INK, 11, false))
+		who.add_child(_label(_describe_profession(str(c["profession"])), DIM, QuarryTheme.BODY))
+		var pay := VBoxContainer.new()
+		pay.custom_minimum_size = Vector2(120, 0)
+		pay.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.add_child(pay)
+		var wage := _label("$%.2f / hour" % (float(c["wage"]) * float(b.cfg.get("wage_scale", 1.0))), INK, 11, false)
+		wage.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		pay.add_child(wage)
+		var fee := _label("Hiring fee $%d" % b.hire_fee(c), MONEY if game.state.money >= b.hire_fee(c) else WARN, 11, false)
+		fee.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		pay.add_child(fee)
 		var reason := b.hire_block_reason(str(c["id"]))
 		var cid := str(c["id"])
-		row.add_child(_button("Hire" if reason == "" else reason, func(): _say(game.ui_hire(cid)), reason == ""))
-		card.add_child(_label(_describe_profession(str(c["profession"])), DIM, QuarryTheme.BODY))
+		var hb := _button("Hire" if reason == "" else "Can't hire", func(): _say(game.ui_hire(cid)), reason == "")
+		hb.custom_minimum_size = Vector2(92, 34)
+		hb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(hb)
+		if reason != "":
+			card.add_child(_label(reason, WARN, QuarryTheme.BODY))
 
 func _describe_profession(p: String) -> String:
 	match p:
@@ -703,13 +757,29 @@ func _stats(b: QuarryBusiness) -> void:
 	var f := _card()
 	f.add_child(_label("FORMATIONS", ACCENT))
 	for id in prog.formation_ids():
+		if not prog.formation_in_world(id):
+			continue                         # only the layers of THIS quarry (the older layout's piles and benches are not part of it)
 		if not st.deposits.has(id):
 			f.add_child(_label("%s  -  lower level (locked)" % prog.fdef(id)["title"], DIM, QuarryTheme.BODY))
 			continue
 		var left := prog.units_left(id)
 		var total := prog.max_units(id)
 		var frac := 1.0 - float(left) / float(maxi(1, total))
-		var bar := ""
-		for k in range(20):
-			bar += "|" if float(k) / 20.0 < frac else "."
-		f.add_child(_label("%-16s [%s] %3d%% excavated   %d / %d %s left" % [prog.fdef(id)["title"], bar, int(frac * 100.0), left, total, prog.display(str(prog.fdef(id)["resource"]))], GOOD if left <= 0 else INK, QuarryTheme.BODY))
+		var line := _row()
+		f.add_child(line)
+		var nm := _label(str(prog.fdef(id)["title"]), GOOD if left <= 0 else INK, QuarryTheme.BODY, false)
+		nm.custom_minimum_size = Vector2(190, 0)
+		line.add_child(nm)
+		var pb := ProgressBar.new()
+		pb.show_percentage = false
+		pb.max_value = 1.0
+		pb.value = frac
+		pb.custom_minimum_size = Vector2(0, 10)
+		pb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		pb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		pb.add_theme_stylebox_override("fill", QuarryTheme.bar_box(GOOD if left <= 0 else ACCENT))
+		line.add_child(pb)
+		var pc := _label("%d%%   %d / %d %s left" % [int(frac * 100.0), left, total, prog.display(str(prog.fdef(id)["resource"]))], DIM, QuarryTheme.BODY, false)
+		pc.custom_minimum_size = Vector2(230, 0)
+		pc.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		line.add_child(pc)

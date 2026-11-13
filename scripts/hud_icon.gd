@@ -10,7 +10,7 @@ const ART := {"coin": "money", "sun": "sun", "flag": "milestones", "hammer": "ha
 
 func _init(k := "coin", size_px := 14.0) -> void:
 	kind = k
-	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR if size_px < 31.0 else CanvasItem.TEXTURE_FILTER_NEAREST        # the 32 px art is smoothed when shown small (nearest would drop pixels)
 	custom_minimum_size = Vector2(size_px, size_px)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 

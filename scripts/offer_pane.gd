@@ -31,7 +31,7 @@ func setup(g) -> void:
 	cs.anti_aliasing = true
 	cs.set_content_margin_all(2)
 	holder.add_theme_stylebox_override("panel", cs)
-	holder.custom_minimum_size = Vector2(286, 226)
+	holder.custom_minimum_size = Vector2(286, 168)       # shorter preview: the name, price, specs and the BUY button all fit under it
 	add_child(holder)
 	title_l = QuarryTheme.label("", QuarryTheme.HEAD, QuarryTheme.ACCENT, true)
 	title_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -41,14 +41,14 @@ func setup(g) -> void:
 	add_child(price_l)
 	have_l = QuarryTheme.label("", QuarryTheme.SMALL, QuarryTheme.DIM)
 	add_child(have_l)
+	buy_btn = Button.new()                       # the BUY button sits right under the price, so it is always on screen; the specs follow
+	buy_btn.custom_minimum_size = Vector2(0, 30)
+	buy_btn.focus_mode = Control.FOCUS_ALL
+	buy_btn.pressed.connect(func(): game.ui_click("offer_buy", _buy, buy_btn))
+	add_child(buy_btn)
 	info = VBoxContainer.new()
 	info.add_theme_constant_override("separation", 3)
 	add_child(info)
-	buy_btn = Button.new()
-	buy_btn.custom_minimum_size = Vector2(0, 28)
-	buy_btn.focus_mode = Control.FOCUS_NONE
-	buy_btn.pressed.connect(func(): game.ui_click("offer_buy", _buy, buy_btn))
-	add_child(buy_btn)
 
 func _buy() -> void:
 	var cb: Callable = offer.get("on_buy", Callable())

@@ -20,6 +20,7 @@ var money_label: Label
 var scroll: ScrollContainer
 var list: VBoxContainer
 var foot: Label
+var bar_box: HBoxContainer          ## the action buttons of a menu (Sell all, Office computer ...): docked under the scrolling list so they are never cut off
 var pane: QuarryOfferPane            # the preview pane (shown when a menu offers things to buy)
 var offers := {}
 var selected_offer := ""
@@ -76,6 +77,10 @@ func setup(g) -> void:
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list.add_theme_constant_override("separation", 6)
 	scroll.add_child(list)
+	bar_box = HBoxContainer.new()
+	bar_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	bar_box.add_theme_constant_override("separation", 8)
+	root.add_child(bar_box)
 	foot = QuarryTheme.label("", FS, DIM)
 	foot.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	foot.custom_minimum_size = Vector2(660, 0)
@@ -101,6 +106,9 @@ func begin(title: String, money := -1, hint := "") -> void:
 	for c in list.get_children():
 		list.remove_child(c)
 		c.queue_free()
+	for c in bar_box.get_children():
+		bar_box.remove_child(c)
+		c.queue_free()
 	buttons.clear()
 	_row_n = 0
 	title_label.text = title
@@ -119,9 +127,9 @@ func text(t: String, color := DIM, centered := false) -> Label:
 	list.add_child(l)
 	return l
 
-func _box(bg: Color, border: Color) -> PanelContainer:
+func _box(bg: Color, border: Color, margin := 8) -> PanelContainer:
 	var p := PanelContainer.new()
-	var s := QuarryTheme.panel_box(bg, border, 8, 2)
+	var s := QuarryTheme.panel_box(bg, border, margin, 2)
 	s.shadow_size = 0
 	p.add_theme_stylebox_override("panel", s)
 	list.add_child(p)
@@ -290,7 +298,7 @@ func row(cells: Array, btns: Array, swatch := Color(0, 0, 0, 0), header := false
 		card = _box(Color(0, 0, 0, 0), Color(0, 0, 0, 0)) # same margins as a row, so columns line up
 		_row_n = 0
 	else:
-		card = _box(Color(0.21, 0.16, 0.11, 0.97) if _row_n % 2 == 0 else Color(0.16, 0.12, 0.085, 0.97), Color(0.36, 0.28, 0.19))
+		card = _box(Color(0.21, 0.16, 0.11, 0.97) if _row_n % 2 == 0 else Color(0.16, 0.12, 0.085, 0.97), Color(0.36, 0.28, 0.19), 5)      # compact rows: eight of them plus the buttons fit the panel
 		_row_n += 1
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 10)
@@ -314,9 +322,6 @@ func row(cells: Array, btns: Array, swatch := Color(0, 0, 0, 0), header := false
 		h.add_child(make_button(str(bd[0]), str(bd[1]), bool(bd[2]), bd[3], float(bd[4]) if bd.size() > 4 else 96.0, str(bd[5]) if bd.size() > 5 else ""))
 
 func button_bar(btns: Array) -> void:
-	var h := HBoxContainer.new()
-	h.alignment = BoxContainer.ALIGNMENT_CENTER
-	h.add_theme_constant_override("separation", 8)
-	list.add_child(h)
+	var h := bar_box
 	for bd in btns:
 		h.add_child(make_button(str(bd[0]), str(bd[1]), bool(bd[2]), bd[3], float(bd[4]) if bd.size() > 4 else 150.0, str(bd[5]) if bd.size() > 5 else "primary"))

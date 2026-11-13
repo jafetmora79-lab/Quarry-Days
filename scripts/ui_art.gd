@@ -53,6 +53,23 @@ static func _tex(path: String) -> Texture2D:
 		_cache[path] = load(path) if ResourceLoader.exists(path) else null
 	return _cache[path]
 
+## The icon on a small framed tile, the way the cards and lists show it: the 32 px art at exactly 2x (64 px) on a dark rounded plate, so every icon
+## is crisp, evenly spaced and the same size, whatever its shape.
+static func icon_plate(name: String, art_px := 64.0, pad := 6.0) -> PanelContainer:
+	var p := PanelContainer.new()
+	var s := StyleBoxFlat.new()
+	s.bg_color = Color(0.1, 0.075, 0.055, 0.95)
+	s.border_color = Color(0.5, 0.38, 0.22)
+	s.set_border_width_all(2)
+	s.set_corner_radius_all(6)
+	s.set_content_margin_all(pad)
+	p.add_theme_stylebox_override("panel", s)
+	p.custom_minimum_size = Vector2(art_px + pad * 2.0 + 4.0, art_px + pad * 2.0 + 4.0)
+	p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.add_child(icon_rect(name, art_px))
+	return p
+
 ## A crisp icon node of a given pixel size.
 static func icon_rect(name: String, px: float) -> TextureRect:
 	return _rect(icon(name), px)
@@ -66,6 +83,7 @@ static func _rect(t: Texture2D, px: float) -> TextureRect:
 	r.custom_minimum_size = Vector2(px, px)
 	r.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	r.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	r.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	# the art is 32 px: shown at a whole multiple it stays crisp (nearest); shown smaller, nearest would drop pixels and shimmer, so it is smoothed instead
+	r.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST if px >= 31.0 else CanvasItem.TEXTURE_FILTER_LINEAR
 	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return r

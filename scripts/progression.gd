@@ -216,6 +216,15 @@ func is_formation(id: String) -> bool:
 func filled_world() -> bool:
 	return natural_start_enabled and natural_start() and cfg.has("quarry_levels_filled")
 
+## True when the formation belongs to the world being played (the blueprint quarry's layers, or the older layout's piles and benches), whatever its level.
+func formation_in_world(id: String) -> bool:
+	if natural_start_enabled and natural_start() and id in cfg.get("starting_formations", []):
+		return false
+	var w := str(fdef(id).get("world", ""))
+	if filled_world():
+		return w == "filled"              # the blueprint quarry has only its own layers
+	return w != "filled"
+
 func formation_active(id: String) -> bool:
 	if natural_start_enabled and natural_start() and id in cfg.get("starting_formations", []):
 		return false                      # Phase 10: the three starting piles are replaced by natural ground (outcrops, boulders, soil)
