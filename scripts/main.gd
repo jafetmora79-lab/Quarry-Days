@@ -4925,7 +4925,7 @@ func _cine_line(i: int) -> void:
 			_cine_keys()
 		"point":
 			walter_pose = "point"
-			var lk: Array = prog.walter_cfg().get("cinematic_look", [-22.3, 1.4, -10.6])
+			var lk: Array = prog.walter_cfg().get("cinematic_look", [-22.3, 1.4, -18.0])
 			var look := Vector3(float(lk[0]), float(lk[1]), float(lk[2]))
 			var wd := look - walter_node.global_position
 			var w_yaw: float = atan2(-wd.x, -wd.z)

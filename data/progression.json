@@ -525,7 +525,7 @@
    "center": [
     -22.3,
     0,
-    -10.6
+    -18.0
    ],
    "cell": 1.9,
    "tier_h": 1.2,
@@ -2201,7 +2201,7 @@
   "cinematic_look": [
    -22.3,
    1.4,
-   -10.6
+   -18.0
   ],
   "level_journal": {
    "cleaned": "level1_records",
