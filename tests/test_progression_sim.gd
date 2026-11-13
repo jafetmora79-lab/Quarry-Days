@@ -24,7 +24,8 @@ func load_json(path: String) -> Dictionary:
 
 const TRIP := 12.0              ## seconds: face -> sales booth -> back (the same figure test_phase5 uses)
 const CLEANUP_AT := 300.0       ## the site is cleared after about five minutes of work
-const FEED_SECONDS := 8.0       ## player time to load/collect one crusher batch
+const FEED_SECONDS := 8.0
+const L2_AT := 6000.0           ## coal and iron come in bulk only once level 2 of the pit is open (about 100 minutes of cutting level 1)       ## player time to load/collect one crusher batch
 
 ## strategy: "manual" (tools and carts first), "crew" (hires as soon as allowed), "processing" (crusher first)
 func simulate(strategy: String, horizon := 14400.0, start_late := false) -> Dictionary:
@@ -64,6 +65,8 @@ func simulate(strategy: String, horizon := 14400.0, start_late := false) -> Dict
 		for res in ["limestone", "coal", "iron_ore"]:
 			if not p.can_mine(res):
 				continue
+			if res != "limestone" and t < L2_AT:
+				continue          # Phase 10: the big starting piles are gone; before level 2 only the small outcrops hold coal and iron
 			var tool_dps: float = p.tool_dps() * p.tool_modifier(res)
 			var aoe := p.tool_aoe()
 			tool_dps *= 1.0 + aoe.x * aoe.y * 0.5        # neighbours on average half of the time at an exposed face
@@ -95,6 +98,8 @@ func simulate(strategy: String, horizon := 14400.0, start_late := false) -> Dict
 		# wages (an in-game hour is 120 real seconds)
 		for e in b.employees:
 			carry -= b.wage(e) / 120.0
+		if p.can_mine("iron_ore") and int(s.lifetime["mined"].get("iron_ore", 0)) == 0:
+			s.note_lifetime("mined", "iron_ore", 8)        # the iron boulder: enough to discover iron
 		if carry >= 1.0:
 			var whole := int(floor(carry))
 			carry -= float(whole)
