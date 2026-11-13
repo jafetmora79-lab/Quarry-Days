@@ -563,12 +563,10 @@ func _yard_boundary() -> void:
 	_sign(root, "Sign_Safety", Vector3(0, 3.25, FENCE_Z + 0.17), Vector2(2.6, 0.85), 0.0)
 
 func _site_props() -> void:
-	prop(P_DUMPSTER, Vector3(-19.0, 0, 6.5), PI * 0.5)
-	solid("Dumpster", Vector3(-19.0, 0.65, 6.5), Vector3(1.2, 1.3, 2.0))
-	if not game.in_hillside_zone(Vector3(-21.2, 0, 0.5), 1.0): # the Phase 6.1 hillside stands here now
-		for z in [-2.0, 0.5, 3.0]:
-			prop(P_RETAIN, Vector3(-21.2, 0, z), PI * 0.5)
-		solid("Retaining wall", Vector3(-21.2, 0.6, 0.5), Vector3(0.4, 1.2, 7.5))
+	# Phase 1: the dumpster stands clear of Grandpa's truck (parked at x -21, z 5) and the old retaining wall north of it is gone: it boxed
+	# the truck in once the hillside rock moved out of the yard
+	prop(P_DUMPSTER, Vector3(-16.6, 0, 6.5), PI * 0.5)
+	solid("Dumpster", Vector3(-16.6, 0.65, 6.5), Vector3(1.2, 1.3, 2.0))
 	for p in [Vector3(-22.0, 0, 9.0), Vector3(19.5, 0, 12.5), Vector3(2.0, 0, 23.8)]:
 		prop(P_POLE, p, 0.0)
 		solid("Light pole", p + Vector3(0, 2.0, 0), Vector3(0.35, 4.0, 0.35))

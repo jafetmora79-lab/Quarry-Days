@@ -347,7 +347,7 @@ func _animate(delta: float) -> void:
 				unload_target = {}
 		var want := 0.95 if unload_timer > 0.0 else 0.0
 		bed_tilt = move_toward(bed_tilt, want, delta * 1.1)
-		bed.rotation.x = -0.95 * smoothstep(0.0, 0.95, bed_tilt) # ram eases in and out
+		bed.rotation.x = 0.95 * smoothstep(0.0, 0.95, bed_tilt) # the front of the bed (-z) rises about the rear hinge; the ram eases in and out
 		VehicleModels.update_truck_ram(self)
 		bed_load.visible = shown_load > 0.2
 		if bed_load.visible:

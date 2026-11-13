@@ -161,7 +161,7 @@ func run() -> void:
 	# ---------------------------------------------------------------- truck bed hinge
 	var tr = vehicle_node("truck")
 	for tilt in [0.0, 0.5, 0.95]:
-		tr.bed.rotation.x = -0.95 * smoothstep(0.0, 0.95, tilt)
+		tr.bed.rotation.x = 0.95 * smoothstep(0.0, 0.95, tilt)
 		await physics_frame
 		var bed_pts := part(tr.bed, [tr.bed_load])
 		var chassis := part(tr.model_root, [tr.bed, tr.bed_load])
