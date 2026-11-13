@@ -23,6 +23,8 @@ const HILLSIDE_ID := "hillside_face_01"
 const HOME_POS := Vector3(-8.6, 0, 18.9)
 const OFFICE_POS := Vector3(-15.5, 0, 12)
 const SHED_POS := Vector3(15.5, 0, 12)
+const TOOLSHED_POS := Vector3(-5.2, 0, 11.0)       ## the tool upgrade shed (it used to be a corner of the office)
+const SELL_ANCHOR := Vector3(-12.3, 0.85, 9.0)     ## where carts and the sales clerk deal: just outside the office door (there is no sales stand any more)
 const SAVE_PATH := "user://quarry_save.json"
 const SAVE_BACKUP := "user://quarry_save.bak"
 const AUTOSAVE_SECONDS := 60.0
@@ -176,7 +178,7 @@ func _ready() -> void:
 	art.build_environment(self)
 	_carve_hillside_site()
 	_build_pit_zone()
-	for spec in [["Office door", OFFICE_POS + Vector3(0, 0, -2.35), -1.0], ["Home door", HOME_POS + Vector3(0, 0, -2.35), 1.0]]:
+	for spec in [["Office door", OFFICE_POS + Vector3(0, 0, -2.35), -1.0], ["Home door", HOME_POS + Vector3(0, 0, -2.35), 1.0], ["Tool shed door", TOOLSHED_POS + Vector3(0, 0, -2.35), -1.0]]:
 		var dr := QuarryDoor.new()
 		dr.build(self, spec[1], spec[2], spec[0])
 		doors.append(dr)
@@ -306,7 +308,7 @@ func _build_quarry() -> void:
 	_floor_piece("Quarry floor east", Vector3((x1 + 29.0) * 0.5, -2.75, (z0 + z1) * 0.5), Vector3(29.0 - x1, 5.5, z1 - z0))
 	_floor_piece("Quarry floor south wall", Vector3((x0 + x1) * 0.5, -3.0, z1 + 0.25), Vector3(x1 - x0, 5.0, 0.5))
 	# The lower pit is open toward the office; the stepped rim provides a walkable entrance.
-	for i in range(8):
+	for i in range(8 if not natural_start_enabled else 0):       # the old pit's rim slabs belong to the legacy layout; in the new one they stood inside the hangar
 		var angle := (float(i) + 0.5) * TAU / 8.0
 		var pos := Vector3(cos(angle)*19, 1.1, -8 + sin(angle)*19)
 		if pos.z > 5 and absf(pos.x) < 8:
@@ -329,20 +331,19 @@ func _build_quarry() -> void:
 	_building("Office", OFFICE_POS, Color(0.48,0.42,0.31))
 	_building("Storage shed", SHED_POS, Color(0.38,0.37,0.31))
 	_building("Home", HOME_POS, Color(0.46,0.38,0.28))
+	_building("Tool shed", TOOLSHED_POS, Color(0.40,0.36,0.30))
 	var bed := _solid(world, "Bed", HOME_POS + Vector3(-1.3, 0.35, 1.3), Vector3(1.0, 0.7, 2.0), Color(0.45,0.3,0.22))
 	bed.set_meta("kind", "bed")
-	var sell := _solid(world,"Selling station",Vector3(-7,0.85,10),Vector3(2.2,1.7,1.25),Color(0.37,0.26,0.14))
-	sell.set_meta("kind","sell")
+	var sell := _solid(world,"Selling anchor",SELL_ANCHOR,Vector3(0.2,0.2,0.2),Color(0.37,0.26,0.14))     # invisible, no collision: carts and the clerk measure from here
+	sell.collision_layer = 0
+	sell.visible = false
+	sell.set_meta("kind","sell_anchor")
 	sell_body = sell
-	var shop := _solid(world,"Upgrade board",OFFICE_POS + Vector3(-2.2, 1.45, -0.4),Vector3(0.14,1.2,2.0),Color(0.15,0.26,0.27))   # the whiteboard inside the office
-	shop.set_meta("kind","upgrades")
 	_build_workbench()
 	var storage := _solid(world,"Storage crate",Vector3(10,0.65,10),Vector3(2,1.3,1.6),Color(0.33,0.23,0.13))
 	storage.set_meta("kind","storage")
 	storage.set_meta("index",0)
 	storage_body = storage
-	var machine_shop := _solid(world,"Crusher order kiosk",Vector3(-2,0.75,10),Vector3(1.4,1.5,1.0),Color(0.30,0.38,0.42))
-	machine_shop.set_meta("kind","shop")
 	for kind in DEPOSIT_INFO:
 		_build_deposit(kind)
 	if natural_start_enabled:
@@ -1110,7 +1111,7 @@ func _too_hard(res: String) -> void:
 func _bag_full_notice() -> void:
 	if bag_full_t <= 0.0:
 		bag_full_t = 2.5
-		_notify("Bag full! Sell at the booth or store at the crate. Extra rock drops beside the formation.")
+		_notify("Bag full! Sell at the office computer or store at the crate. Extra rock drops beside the formation.")
 
 ## Ray from the camera: {"node", "column", "point"} for whatever the crosshair is on.
 func _mining_ray() -> Dictionary:
@@ -1647,7 +1648,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				request_sell(str(t["kind"]), int(t["index"]))
 		return
 	if event.is_action_pressed("place_machine"):
-		_notify("Order machinery at the blue kiosk first.")
+		_notify("Order machinery at the office computer first.")
 	if event.is_action_pressed("interact") and last_target:
 		_interact(last_target)
 
@@ -1700,6 +1701,8 @@ func _open_menu(kind: String, index := -1) -> void:
 	panel.visible = kind != "manage"
 	management.visible = kind == "manage"
 	if kind == "manage":
+		if management.tab in ["sales"]:
+			management.tab = "home"
 		management.refresh()
 	player.locked = true
 	if crusher_audio.playing:
@@ -1871,7 +1874,7 @@ func _draw_cart(p: QuarryStationUI, idx: int) -> void:
 	var title := str(prog.gear_def(id).get("title", id)).to_upper()
 	var near_store := cart_near(id, storage_body)
 	var near_sell := cart_near(id, sell_body)
-	p.begin("%s   %d / %d" % [title, state.cart_total(id), state.cart_cap(id)], state.money, "Load it from your bag, push it (E to let go), unload at the storage crate or sell from it at the selling station.")
+	p.begin("%s   %d / %d" % [title, state.cart_total(id), state.cart_cap(id)], state.money, "Load it from your bag, push it (E to let go), unload at the storage crate or sell from it at the office (beside its door).")
 	for i in range(RESOURCE_ORDER.size()):
 		var key: String = RESOURCE_ORDER[i]
 		var buttons := [["cl_" + key, "LOAD", int(state.inventory[key]) > 0 and state.cart_space(id) > 0, func(): cart_move("load", id, key)],
@@ -1893,13 +1896,13 @@ func _draw_cart(p: QuarryStationUI, idx: int) -> void:
 	if near_store:
 		bar.append(["store_all", "STORE ALL", state.cart_total(id) > 0, func(): cart_move_all("store", id)])
 	p.button_bar(bar)
-	p.text("The crate and the selling station are %s." % ("in reach of this cart" if (near_store or near_sell) else "too far away: push the cart close to one"), QuarryTheme.DIM)
+	p.text("The crate and the office are %s." % ("in reach of this cart" if (near_store or near_sell) else "too far away: push the cart close to one"), QuarryTheme.DIM)
 
 func _draw_sell(p: QuarryStationUI) -> void:
 	var bag_value := 0
 	for key in RESOURCE_ORDER:
 		bag_value += int(round(float(state.inventory[key]) * state.unit_price(key)))
-	p.begin("SALES BOOTH", state.money, "Optional keys: 1-6 sell, 7 sell all, Shift+1-6 clerk on/off")
+	p.begin("SALES", state.money, "Optional keys: 1-6 sell, 7 sell all, Shift+1-6 clerk on/off")
 	var R := HORIZONTAL_ALIGNMENT_RIGHT
 	p.row([["MATERIAL", QuarryTheme.DIM, 120], ["IN BAG", QuarryTheme.DIM, 60, R], ["PRICE EACH", QuarryTheme.DIM, 90, R], ["SALE VALUE", QuarryTheme.DIM, 100, R]], [], Color(0, 0, 0, 0), true)
 	for i in range(RESOURCE_ORDER.size()):
@@ -1909,7 +1912,7 @@ func _draw_sell(p: QuarryStationUI) -> void:
 		var ok: bool = business.authorized[key]
 		p.row([[prog.display(key), QuarryTheme.INK, 120, HORIZONTAL_ALIGNMENT_LEFT, true], [str(n), QuarryTheme.INK if n > 0 else QuarryTheme.DIM, 60, R], [("$%.2f" % price_f) if state.price_mult < 0.995 else ("$%d" % int(price_f)), QuarryTheme.DIM, 90, R], [QuarryTheme.money_text(int(round(float(n) * price_f))), QuarryTheme.MONEY if n > 0 else QuarryTheme.DIM, 100, R, true]],
 			[["clerk_" + key, "Clerk: " + ("on" if ok else "off"), true, func(): menu_act("sell", i, true), 84, "toggle"], ["sell_" + key, "SELL", n > 0, func(): menu_act("sell", i, false), 80, "primary"]], QuarryTheme.RES_COLORS.get(key, Color.WHITE))
-	p.button_bar([["sell_all", "SELL ALL   %s" % QuarryTheme.money_text(bag_value), bag_value > 0, func(): menu_act("sell", 6, false), 260, "primary"]])
+	p.button_bar([["sell_all", "SELL ALL   %s" % QuarryTheme.money_text(bag_value), bag_value > 0, func(): menu_act("sell", 6, false), 260, "primary"], ["office", "OFFICE COMPUTER", true, func(): _open_menu("manage"), 200]])
 	p.text("'Clerk' chooses what the sales clerk may sell for you. It never stops you selling by hand.")
 	if state.price_mult < 0.995:
 		p.text("Small lots: buyers pay %d%% of the full price. The pay rises as your quarry grows." % int(round(state.price_mult * 100.0)), QuarryTheme.DIM)
@@ -1978,7 +1981,7 @@ var workbench_tag: Label3D
 
 func _build_workbench() -> void:
 	# On the office's front wall, left of the door: clear wall, nothing in the way, in view as you walk in.
-	var b := OFFICE_POS + Vector3(-1.5, 0.0, -1.85)
+	var b := TOOLSHED_POS + Vector3(0.0, 0.0, 1.75)       # against the back wall, clear of the door
 	var wood := MeshKit.mat(QuarryArt.M_WOOD)
 	var steel := MeshKit.mat("SteelPlate")
 	var bench := _solid(world, "Workbench", b + Vector3(0, 0.5, 0), Vector3(1.5, 1.0, 0.7), Color(0.40, 0.28, 0.16))
@@ -1998,12 +2001,12 @@ func _build_workbench() -> void:
 	MeshKit.inst(bench, MeshKit.box(Vector3(0.05, 0.12, 0.2)), steel, b + Vector3(0.64, 1.13, 0.05) - bench.position)           # vise jaw
 	MeshKit.inst(bench, MeshKit.box(Vector3(0.32, 0.04, 0.22)), MeshKit.flat(Color(0.66, 0.5, 0.2)), b + Vector3(-0.35, 1.02, 0.0) - bench.position)   # parts tray
 	# pegboard on the wall above, clear of the door, the lamp and the whiteboard
-	MeshKit.inst(world, MeshKit.box(Vector3(1.5, 1.05, 0.04)), MeshKit.flat(Color(0.62, 0.5, 0.34)), Vector3(b.x, 1.78, OFFICE_POS.z - 2.205))
+	MeshKit.inst(world, MeshKit.box(Vector3(1.5, 1.05, 0.04)), MeshKit.flat(Color(0.62, 0.5, 0.34)), Vector3(b.x, 1.78, TOOLSHED_POS.z + 2.205))
 	workbench_tools = Node3D.new()
 	workbench_tools.name = "WorkbenchTools"
 	world.add_child(workbench_tools)
-	workbench_tools.position = Vector3(b.x, 1.72, OFFICE_POS.z - 2.15)
-	workbench_tools.rotation.y = PI * 0.5            # tools are modelled along z: turn them to run along the wall
+	workbench_tools.position = Vector3(b.x, 1.72, TOOLSHED_POS.z + 2.15)
+	workbench_tools.rotation.y = -PI * 0.5            # tools are modelled along z: turn them to run along the wall
 	workbench_tools.scale = Vector3.ONE * 0.8
 	workbench_tag = Label3D.new()
 	workbench_tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
@@ -2011,7 +2014,7 @@ func _build_workbench() -> void:
 	workbench_tag.font_size = 22
 	workbench_tag.pixel_size = 0.005
 	workbench_tag.outline_size = 8
-	workbench_tag.position = Vector3(b.x, 2.5, OFFICE_POS.z - 1.9)
+	workbench_tag.position = Vector3(b.x, 2.5, TOOLSHED_POS.z + 1.9)
 	workbench_tag.visibility_range_end = 9.0
 	world.add_child(workbench_tag)
 	_refresh_workbench()
@@ -2196,7 +2199,7 @@ func _cart_follow(delta: float) -> void:
 		_cart_save_t = 0.0
 		state.cart_pos[id] = [held_cart.global_position.x, held_cart.global_position.y, held_cart.global_position.z, held_cart.rotation.y]
 
-## The cart stands close enough to a station (the storage crate, the selling station) to be unloaded there.
+## The cart stands close enough to a station (the storage crate, the office door) to be unloaded there.
 func cart_near(id: String, station: Node3D, radius := 6.5) -> bool:
 	if not cart_nodes.has(id) or station == null:
 		return false
@@ -2265,6 +2268,7 @@ func _draw_shop(p: QuarryStationUI) -> void:
 		var pok := prog.unlocked("permit")
 		p.item("shop_permit", "Excavation permit", "Opens a 3.5 m lower level with copper and gold.", prog.permit_cost(), "", "BUY", pok, func(): menu_act("shop", 6, false), "" if pok else "Unlocks at the %s stage" % prog.feature_stage_title("permit"))
 	p.text("Rigs work a formation from a drilling pad and fill their own output bin: collect it (E), send a hauler, a belt or the loader.")
+	p.button_bar([["office", "OFFICE COMPUTER", true, func(): _open_menu("manage"), 200]])
 
 ## The offer shown in the pane for a shop card. Something already delivered is simply placed instead of bought.
 func _shop_offer(key: String, digit: int) -> Dictionary:
@@ -3227,7 +3231,7 @@ func _on_milestone(id: String) -> void:
 		_sfx_unlock()
 	match id:
 		"first_employee": _notify("Milestone: First Employee - remote management (M) and +5% productivity unlocked")
-		"mechanized": _notify("Milestone: Mechanized Quarry - conveyor belts unlocked at the kiosk")
+		"mechanized": _notify("Milestone: Mechanized Quarry - conveyor belts unlocked on the office computer")
 		"automated":
 			_notify("Milestone: Automated Business - the east quarry expansion is open!")
 			_set_expansion(true)
@@ -3333,7 +3337,7 @@ func break_spot(slot: int) -> Vector3:
 func workplace(ep: Dictionary) -> Dictionary:
 	match str(ep.get("type", "")):
 		"storage": return {"pos": business.storage_pos, "radius": 2.1, "face": Vector3(-0.3,0,-1)}
-		"sell": return {"pos": Vector3(-7,0,10), "radius": 2.0, "face": Vector3(0,0,1)}
+		"sell": return {"pos": Vector3(SELL_ANCHOR.x, 0, SELL_ANCHOR.z), "radius": 2.0, "face": Vector3(0,0,1)}
 		"crusher":
 			var i := int(ep.get("index", -1))
 			if i < 0 or i >= state.crushers.size():
@@ -5675,17 +5679,13 @@ func hud_status_text() -> String:
 		if shown < 2 and prog.area_available(aid) and not prog.area_complete(aid):
 			var ap := prog.area_progress(aid)
 			if not ap.is_empty():
-				lines.append("%s  %d%%" % [str(ap["title"]), int(ap["pct"])])
-				var bits := []
+				var next_part := ""
 				for pt in ap["parts"]:
-					bits.append("%s %d/%d" % [str(pt["label"]).split(" ")[0], int(pt["have"]), int(pt["need"])])
-				lines.append("  " + "  ".join(bits) + "  (reward $%d)" % int(ap["reward"]))
+					if int(pt["have"]) < int(pt["need"]):
+						next_part = "  -  %s %d/%d" % [str(pt["label"]).split(" ")[0], int(pt["have"]), int(pt["need"])]
+						break
+				lines.append("%s  %d%%%s" % [str(ap["title"]), int(ap["pct"]), next_part])
 				shown += 1
-	var done := 0
-	for id in Business.MILESTONES:
-		if business.milestones[id]:
-			done += 1
-	lines.append("Milestones %d/3" % done)
 	if prog.level_built(prog.quarry_level) and not prog.cleanup_active():
 		lines.append("Quarry level %d: %d%% cut" % [prog.quarry_level, int(prog.level_cleared_fraction(prog.quarry_level) * 100.0)])
 	var running := 0

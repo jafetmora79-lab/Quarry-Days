@@ -1,7 +1,7 @@
 extends CharacterBody3D
 class_name QuarryCart
 ## Phase 9.6: a hand cart or wheelbarrow standing in the yard. It is a real container (QuarryState.cart_load): the player loads it from
-## the bag or the storage crate, pushes (wheelbarrows) or pulls (hand cart) it, and unloads it into the crate or the selling station.
+## the bag or the storage crate, pushes (wheelbarrows) or pulls (hand cart) it, and unloads it into the crate or the office.
 ## Movement is deliberately simple and stable: while held, the cart is eased toward a spot in front of (or behind) the player and slides
 ## along walls through move_and_slide(); if it cannot keep up the main script lets go of it. No rigid-body physics.
 

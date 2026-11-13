@@ -157,24 +157,7 @@ static func natural_ground(world: Node3D, ok: Callable, area: Rect2, seed_value 
 			dirt.tri(Vector3(c.x, 0.03, c.y), Vector3(c.x + cos(a1) * r1, 0.03, c.y + sin(a1) * r1), Vector3(c.x + cos(a0) * r0, 0.03, c.y + sin(a0) * r0))
 		counts["patches"] += 1
 	_inst(root, dirt, MeshKit.mat("ExcavatedDirt"))
-	# scrub: low dark-green mounds, and tufts of dry grass
-	var scrub := MeshKit.Soup.new()
-	var tufts := MeshKit.Soup.new()
-	for i in range(34):
-		var c = pick.call(0.7, true)
-		if c == null:
-			continue
-		MeshKit.rock_into(scrub, Vector3(c.x, 0.0, c.y), Vector3(rng.randf_range(0.6, 1.2), rng.randf_range(0.4, 0.8), rng.randf_range(0.6, 1.2)), 500 + i, 3, 6)
-		counts["scrub"] += 1
-	for i in range(60):
-		var c = pick.call(0.2, false)
-		if c == null:
-			continue
-		for b in range(3):
-			var off := Vector2(rng.randf_range(-0.2, 0.2), rng.randf_range(-0.2, 0.2))
-			MeshKit.frustum_into(tufts, Vector3(c.x + off.x, 0.0, c.y + off.y), 0.07, 0.01, rng.randf_range(0.25, 0.5), 4)
-	_inst(root, scrub, MeshKit.flat(Color(0.2, 0.31, 0.16)))
-	_inst(root, tufts, MeshKit.flat(Color(0.5, 0.46, 0.22)))
+	# (no scrub or grass tufts any more: the site is dirt and stone, and everything green that stands on it is a weed the player can clear)
 	# small scattered rocks, one merged mesh
 	var pebbles := MeshKit.Soup.new()
 	for i in range(70):

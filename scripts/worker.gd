@@ -805,7 +805,7 @@ func _clerk(delta: float) -> void:
 	var ep := {"type": "sell"}
 	var r := goto_workplace(ep, delta)
 	if r == MOVING:
-		e["task"] = "Walking to selling station"
+		e["task"] = "Walking to the office"
 	if r != ARRIVED:
 		return
 	var any := false

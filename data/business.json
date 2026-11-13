@@ -12,22 +12,10 @@
   "crusher_hopper_capacity": 24,
   "crusher_output_capacity": 24,
   "default_shifts": {
-    "miner": [
-      360,
-      840
-    ],
-    "hauler": [
-      420,
-      900
-    ],
-    "operator": [
-      480,
-      960
-    ],
-    "clerk": [
-      600,
-      1080
-    ]
+    "miner": [540, 1020],
+    "hauler": [540, 1020],
+    "operator": [540, 1020],
+    "clerk": [540, 1020]
   },
   "professions": {
     "miner": {

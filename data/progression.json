@@ -2221,7 +2221,7 @@
    }
   },
   "intro2_title": "YOUR FIRST DAY",
-  "intro2": "1. Left click swings your hammer. Cut the weeds and break the rubble heaps. The HUD counts the cleanup.\n\n2. Carry the stone to the SALES booth and press E to sell it.\n\n3. Spend your first money at the UPGRADE board outside the office: a pickaxe comes first.\n\n4. When it gets dark (after 17:00) walk to the house by the garage and press E on the bed to sleep. Sleeping saves the game and starts a new morning.\n\n5. Clean the whole site and Walt sends money, opens the hillside and the north gate."
+  "intro2": "1. Left click swings your hammer. Cut the weeds and break the rubble heaps. The HUD counts the cleanup.\n\n2. Take the stone to the office and sell it on the computer (SALES).\n\n3. Spend your first money at the workbench in the TOOL SHED: a pickaxe comes first.\n\n4. When it gets dark (after 17:00) walk to the house by the garage and press E on the bed to sleep. Sleeping saves the game and starts a new morning.\n\n5. Clean the whole site and Walt sends money, opens the hillside and the north gate."
  },
  "cleanup": {
   "_comment": "Phase 6.2 tutorial, moved to Area 1: the weeds and rubble now lie in the starter cut north of the operations yard (never in the yard). Positions are fixed so saves can store what is left; item ids (w0.., h0..) keep their meaning.",
@@ -3184,9 +3184,9 @@
   "hp": 3.0,
   "spoil": {
    "pos": [
-    -19.0,
+    11.0,
     0.0,
-    -5.0
+    -21.0
    ],
    "radius": 3.2
   },

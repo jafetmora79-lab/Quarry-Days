@@ -800,7 +800,7 @@ func describe_ep(ep: Dictionary) -> String:
 		"conveyor": return "Conveyor #%d" % (int(ep["index"]) + 1)
 		"deposit": return "Loose " + str(ep["resource"]).replace("_", " ")
 		"deposit_site": return "the deposit"
-		"sell": return "the selling station"
+		"sell": return "the office"
 		"rig": return "%s #%d" % [str(prog.machine(str(prog.rigs[int(ep["index"])]["type"]))["title"]), int(ep["index"]) + 1] if ep_valid(ep) else "a rig"
 	return "nothing"
 

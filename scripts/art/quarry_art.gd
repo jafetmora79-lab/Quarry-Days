@@ -81,9 +81,9 @@ func build_environment(main_node) -> void:
 	_cliffs()
 	_office()
 	_shed()
+	_toolshed()
 	_home()
 	_garage()
-	_stations()
 	_site_props()
 	_yard_boundary()
 	_flush()
@@ -228,7 +228,7 @@ func _ground() -> void:
 	quad_flat(M_CONCRETE, Vector3(5.0, 0, 18.7), Vector2(19.6, 7.6), 0.0, 0.075)         # garage slab
 	quad_flat(M_CONCRETE, game.OFFICE_POS, Vector2(6.4, 6.4), 0.0, 0.075)        # office pad
 	quad_flat(M_CONCRETE, game.SHED_POS, Vector2(6.0, 6.0), 0.0, 0.075)         # shed pad
-	quad_flat(M_CONCRETE, Vector3(-7.0, 0, 10.6), Vector2(4.0, 3.2), 0.0, 0.095)         # sales booth
+	quad_flat(M_CONCRETE, game.TOOLSHED_POS, Vector2(6.0, 6.0), 0.0, 0.075)      # tool shed pad
 	for slot in game.fleet.cfg.get("parking", []):                                        # painted bay lines
 		for side in [-1.4, 1.4]:
 			quad_flat("Hazard", Vector3(float(slot[0]) + side, 0, float(slot[2])), Vector2(0.12, 4.2), 0.0, 0.115)
@@ -386,29 +386,11 @@ func _office() -> void:
 	prop(P_CHAIR, c + Vector3(0.1, 0.16, 1.95), PI)
 	prop(P_FILING, c + Vector3(-1.95, 0.16, 1.85), PI * 0.5)
 	prop(P_DOCS, c + Vector3(-1.95, 0.16, 0.9), PI * 0.5)
-	_whiteboard(c + Vector3(-2.23, 1.45, -0.4))
 	prop(P_CLOCK, c + Vector3(1.4, 2.1, 2.2), PI)
 	prop(P_CALENDAR, c + Vector3(2.22, 1.4, 1.2), -PI * 0.5)
 	prop(P_WAITING, c + Vector3(1.85, 0.16, -0.6), -PI * 0.5)
 	solid("Office cabinets", c + Vector3(-1.95, 0.6, 1.4), Vector3(0.6, 1.2, 1.4))
 	# break area
-
-## The upgrade board: a whiteboard on the office's west wall (E to open the upgrades), with the price list scribbled
-## in marker, a pen tray and a magnet or two.
-func _whiteboard(at: Vector3) -> void:
-	bx("SteelPlate", at, Vector3(0.05, 1.18, 1.98))                                    # aluminium frame
-	MeshKit.inst(root, MeshKit.box(Vector3(0.03, 1.06, 1.86)), MeshKit.flat(Color(0.95, 0.96, 0.94)), at + Vector3(0.025, 0, 0))   # board face
-	bx("SteelPlate", at + Vector3(0.06, -0.58, 0), Vector3(0.1, 0.04, 1.2))            # marker tray
-	for k in range(4):
-		var col: Color = [Color(0.80, 0.18, 0.15), Color(0.18, 0.35, 0.75), Color(0.12, 0.12, 0.14), Color(0.20, 0.55, 0.25)][k]
-		MeshKit.inst(root, MeshKit.box(Vector3(0.02, 0.025, 0.14)), MeshKit.flat(col), at + Vector3(0.09, -0.555, -0.35 + k * 0.22))   # markers
-	for row in range(6):                                                              # scribbled price list
-		var w := 0.9 + 0.12 * float((row * 5) % 4)
-		var col2 := Color(0.14, 0.2, 0.45) if row % 2 == 0 else Color(0.12, 0.12, 0.14)
-		MeshKit.inst(root, MeshKit.box(Vector3(0.012, 0.035, w)), MeshKit.flat(col2), at + Vector3(0.045, 0.18 - row * 0.12, -0.3 + (w - 0.9) * 0.2))
-	_sign(root, "Sign_Upgrades", at + Vector3(0.05, 0.42, 0.0), Vector2(1.1, 0.27), PI * 0.5)
-	for z in [-0.78, 0.78]:
-		MeshKit.inst(root, MeshKit.box(Vector3(0.03, 0.06, 0.06)), MeshKit.flat(Color(0.80, 0.18, 0.15)), at + Vector3(0.055, 0.4, z))   # magnets
 
 ## The player's small house by the garage: a bed to sleep in once the day is done (see main.try_sleep).
 func _home() -> void:
@@ -434,6 +416,24 @@ func _home() -> void:
 	prop(P_CLOCK, c + Vector3(1.4, 2.1, 2.2), PI)
 	prop(P_SHELF, c + Vector3(1.9, 0.16, 1.5), -PI * 0.5)
 	prop(P_BOXES, c + Vector3(1.6, 0.16, -1.2), 0.4)
+
+## The tool shed: its own little building for upgrading the player's tools and vehicles. The workbench stands against the back wall
+## (built by main), shelves and a toolchest sit against the side walls, and the doorway and the floor in front of it stay clear.
+func _toolshed() -> void:
+	var c: Vector3 = game.TOOLSHED_POS
+	_walls(c, M_SIDING, M_DRYWALL)
+	_gable_roof(c, "Corrugated", 5.6, 5.6, 2.8, 0.9)
+	quad_flat(M_LINO, c, Vector2(4.6, 4.5), 0.0, 0.165)
+	_sign(root, "Sign_Upgrades", c + Vector3(0, 2.5, -2.51), Vector2(1.6, 0.4), PI)
+	for z in [-0.6, 0.9]:
+		_window(c + Vector3(-2.52, 1.7, z), -PI * 0.5, 1.0, 1.2)
+		_window(c + Vector3(2.52, 1.7, z), PI * 0.5, 1.0, 1.2)
+	prop(P_WALL_LAMP, c + Vector3(1.0, 2.3, -2.5), PI)
+	light(c + Vector3(0, 2.4, 0.2), Color(1.0, 0.88, 0.66), 1.1, 6.0)
+	prop(P_SHELF, c + Vector3(-2.0, 0.16, 0.3), PI * 0.5)
+	prop(P_BOXES, c + Vector3(1.9, 0.16, 0.3), -PI * 0.5)
+	solid("Tool shed shelving", c + Vector3(-2.0, 0.9, 0.3), Vector3(0.6, 1.8, 1.4))
+	solid("Tool shed boxes", c + Vector3(1.9, 0.5, 0.3), Vector3(0.7, 1.0, 1.0))
 
 func _shed() -> void:
 	var c: Vector3 = game.SHED_POS
@@ -512,28 +512,6 @@ func _garage() -> void:
 	light(Vector3(cx - 5, 5.6, 19.0), Color(0.9, 0.95, 1.0), 1.2, 9.0)
 	light(Vector3(cx + 5, 5.6, 19.0), Color(0.9, 0.95, 1.0), 1.2, 9.0)
 
-func _stations() -> void:
-	# Sales booth on the selling-station footprint (2.2 x 1.7 x 1.25 at -7, 10).
-	var s := Vector3(-7, 0, 10)
-	bx(M_WOOD, s + Vector3(0, 1.08, 0), Vector3(2.3, 0.08, 1.35))
-	bx("SteelGreen", s + Vector3(0, 0.52, 0), Vector3(2.2, 1.04, 1.25))
-	bx("Hazard", s + Vector3(0, 0.08, -0.63), Vector3(2.2, 0.16, 0.02))
-	bx("SteelPlate", s + Vector3(-0.6, 1.25, 0.2), Vector3(0.4, 0.26, 0.35), 0.2)        # cash register
-	bx("SteelPlate", s + Vector3(0.6, 1.14, 0.0), Vector3(0.6, 0.05, 0.5))               # weigh scale
-	for x in [-1.0, 1.0]:
-		bx("SteelGreen", s + Vector3(x, 1.75, 0.55), Vector3(0.1, 1.3, 0.1))
-	bx("CorrugatedRed", s + Vector3(0, 2.45, 0.15), Vector3(2.7, 0.08, 1.8), 0.0)
-	_sign(root, "Sign_Sales", s + Vector3(0, 2.66, -0.76), Vector2(1.6, 0.4), PI)
-	# Machinery order kiosk (1.4 x 1.5 x 1.0 at -2, 10).
-	var k := Vector3(-2, 0, 10)
-	bx("SteelPlate", k + Vector3(0, 0.62, 0), Vector3(1.4, 1.24, 1.0), 0.0, Vector2(0.92, 0.8))
-	var screen := PackedVector2Array([Vector2(-0.45, 1.24), Vector2(0.4, 1.24), Vector2(0.4, 1.36), Vector2(-0.45, 1.56)])
-	MeshKit.extrude_into(soup("SteelGreen"), screen, 1.2, Transform3D(Basis(), k))
-	bx("SteelGreen", k + Vector3(0.62, 1.6, 0.42), Vector3(0.08, 1.4, 0.08))
-	_sign(root, "Sign_Orders", k + Vector3(0.62, 2.4, 0.37), Vector2(1.0, 0.5), PI)
-	var glow := MeshKit.inst(root, QuadMesh.new(), MeshKit.flat(Color(0.35, 0.75, 0.6), 1.2), k + Vector3(0, 1.43, -0.27), Vector3(-0.5, PI, 0))
-	glow.scale = Vector3(0.8, 0.28, 1)
-
 ## The operations yard and the quarry are two places. The yard is grey gravel ground inside a fence along its north edge; the only way
 ## out to the quarry is the gate in the middle of that fence, which opens onto a gravel haul road running north into Area 1. Outside
 ## the fence the ground is raw quarry dirt. The fence has colliders (so nothing walks or drives through it) and a gap for the gate.
@@ -579,23 +557,11 @@ func _site_props() -> void:
 	for p in [Vector3(-9.0, 0, 6.2), Vector3(-9.6, 0, 6.6), Vector3(12.6, 0, 4.4)]:
 		prop(P_CONE, p)                                                                   # off the haul road
 	prop(P_JUNCTION, Vector3(-16.7, 0.9, 12.8), -PI * 0.5)
-	for i in range(14):                                                                  # scree at the cliff feet
-		var a := TAU * (i + 0.3) / 14.0
-		if absf(wrapf(a, -PI, PI)) < 0.45 or game.in_hillside_zone(Vector3(cos(a) * 25.5, 0, sin(a) * 25.5), 1.0):
-			continue
-		prop(P_ROCKS, Vector3(cos(a) * 25.5, 0, sin(a) * 25.5), a, 1.3)
-	for p in [Vector3(-16.0, 0, -2.5), Vector3(16.0, 0, -2.5), Vector3(-8.0, 0, -22.5)]:   # clear of the Phase 5 formations
-		if game.in_hillside_zone(p, 1.0):
-			continue
-		prop(P_MOUND, p, p.x, 1.4)
+	# Phase yard pass: the decorative mounds, scree, grass, dead brush and stump that stood about the yard are gone - they looked like
+	# weeds and rubble that could not be cleaned. Only the placed gravel pile and the far-away rocks remain.
 	prop(P_GRAVEL, Vector3(15.5, 0, -13.5), 0.0, 1.2)
-	for p in [Vector3(-24.0, 0, 12.0), Vector3(24.0, 0, -6.0), Vector3(-6.0, 0, 25.5), Vector3(18.0, 0, -18.0), Vector3(-18.0, 0, -18.0)]:
-		if game.in_hillside_zone(p, 0.5):
-			continue
-		prop(P_WEEDS if int(p.x) % 2 == 0 else P_DEAD, p, p.z)
 	for p in [Vector3(46.0, 0, -10.0), Vector3(31.0, 0, 11.0), Vector3(47.0, 0, 11.0)]:
 		prop(P_ROCKS, p, p.x, 1.4)
-	prop(P_STUMP, Vector3(-23.0, 0, 15.0))
 
 func _atmosphere() -> void:
 	var env: Environment = game.sky_light.environment

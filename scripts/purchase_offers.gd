@@ -183,7 +183,7 @@ static func gear(game, id: String, on_buy: Callable) -> Dictionary:
 	var compare := []
 	if kind == "cart":
 		stats.append(_row("Carries", "%d units, in the cart itself" % int(g["capacity"])))
-		stats.append(_row("Use", "%s it (E to grab, F to let go); load and unload at the crate or the selling station" % ("Pull" if id == "hand_cart" else "Push")))
+		stats.append(_row("Use", "%s it (E to grab, F to let go); load and unload at the crate or the office" % ("Pull" if id == "hand_cart" else "Push")))
 		stats.append(_row("Per trip", "%d units with your bag (%d bag + %d cart)" % [game.state.capacity() + int(g["capacity"]), game.state.capacity(), int(g["capacity"])]))
 		var diff: int = int(g["capacity"]) - game.state.cart_capacity()
 		compare.append(_cmp("Fewer trips to sell or store: %s%d units against the best cart you own" % ["+" if diff >= 0 else "", diff], "good" if diff > 0 else "flat"))

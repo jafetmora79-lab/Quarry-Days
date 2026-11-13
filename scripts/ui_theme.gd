@@ -10,8 +10,9 @@ class_name QuarryTheme
 ## Fonts are re-rasterised at the final window scale (canvas_items stretch), so text stays sharp at any DPI.
 
 const BODY := 9
-const SMALL := 8
-const HERO := 16
+## Two text sizes only: BODY for everything, HEAD for titles and the money figure; one smooth typeface (Atkinson Hyperlegible) throughout.
+const SMALL := 9
+const HERO := 12
 const HEAD := 12
 
 const BG := Color(0.13, 0.1, 0.075, 0.95)
@@ -67,9 +68,7 @@ static func bold() -> Font:
 	return _bold if _bold else body()
 
 static func head() -> Font:
-	if _head == null:
-		_head = _pixel("res://assets/fonts/Silkscreen.ttf")
-	return _head if _head else body()
+	return bold()          # titles use the same smooth typeface as the rest of the interface (no pixel font mixed in)
 
 static func panel_box(bg := BG, border := BORDER, margin := 8, radius := 3) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()

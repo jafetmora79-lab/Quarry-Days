@@ -3,6 +3,16 @@ extends Control
 ## Sized for the 960x540 base canvas, which scales cleanly to 1280x720 and 1920x1080.
 
 const TABS := [["staff", "WORKERS"], ["hire", "HIRE"], ["payroll", "PAYROLL"], ["production", "PRODUCTION"], ["equipment", "EQUIPMENT"], ["upgrades", "UPGRADES"], ["milestones", "MILESTONES"], ["stats", "STATS"]]
+## The office computer opens on a grid of cards; each card is one well-separated area. [page id, title, one line, icon, first tab]
+const CARDS := [
+	["employees", "EMPLOYEES", "Your crew: who works for you, hiring and wages.", "workers", "staff"],
+	["machinery", "MACHINERY", "Your fleet and rigs, and ordering new machines.", "equipment", "equipment"],
+	["sales", "SALES", "Sell your stone and choose what the clerk may sell.", "payroll", "sales"],
+	["production", "PRODUCTION", "What the quarry made and where it went.", "production", "production"],
+	["upgrades", "UPGRADES", "Rigs, the excavation permit and personal upgrades.", "upgrades", "upgrades"],
+	["milestones", "MILESTONES", "Goals on the way to the next stage.", "milestones", "milestones"],
+	["stats", "STATS", "Lifetime figures.", "stats", "stats"]]
+const EMPLOYEE_TABS := [["staff", "CREW"], ["hire", "HIRE"], ["payroll", "PAYROLL"]]
 const INK := QuarryTheme.INK
 const DIM := QuarryTheme.DIM
 const ACCENT := QuarryTheme.ACCENT
@@ -11,7 +21,9 @@ const GOOD := QuarryTheme.GOOD
 
 var game
 const TAB_ICONS := {"staff": "workers", "hire": "hire", "payroll": "payroll", "production": "production", "equipment": "equipment", "upgrades": "upgrades", "milestones": "milestones", "stats": "stats"}
-var tab := "staff"
+var tab := "home"
+var back_button: Button
+var subtabs: HBoxContainer
 var content: VBoxContainer
 var scroll: ScrollContainer
 var header: Label
@@ -40,26 +52,26 @@ func setup(main_node) -> void:
 	header = _label("", ACCENT, QuarryTheme.BODY)
 	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(header)
+	back_button = Button.new()
+	back_button.text = "< COMPUTER"
+	back_button.custom_minimum_size = Vector2(110, 28)
+	back_button.pressed.connect(func(): _set_tab("home"))
+	top.add_child(back_button)
 	var close := Button.new()
 	close.text = "CLOSE [Esc]"
 	close.custom_minimum_size = Vector2(110, 28)
 	close.pressed.connect(func(): game._close_menu())
 	top.add_child(close)
-	var tabs := HBoxContainer.new()
-	tabs.add_theme_constant_override("separation", 4)
-	root.add_child(tabs)
-	for t in TABS:
+	subtabs = HBoxContainer.new()
+	subtabs.add_theme_constant_override("separation", 4)
+	root.add_child(subtabs)
+	for t in EMPLOYEE_TABS:
 		var b := Button.new()
 		b.text = t[1]
 		b.toggle_mode = true
-		b.custom_minimum_size = Vector2(88, 0)
-		if UiArt.has_icon(str(TAB_ICONS.get(t[0], ""))):
-			b.icon = UiArt.icon(str(TAB_ICONS[t[0]]))
-			b.expand_icon = true
-			b.add_theme_constant_override("icon_max_width", 20)
-			b.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		b.custom_minimum_size = Vector2(110, 0)
 		b.pressed.connect(_set_tab.bind(t[0]))
-		tabs.add_child(b)
+		subtabs.add_child(b)
 		tab_buttons[t[0]] = b
 	scroll = ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -144,6 +156,9 @@ func _card() -> VBoxContainer:
 	return v
 
 func _set_tab(id: String) -> void:
+	if id == "sales":
+		game._open_menu("sell")                  # the sales window is the station panel; it has a way back to this computer
+		return
 	tab = id
 	confirm_fire = -1
 	status.text = ""
@@ -159,10 +174,13 @@ func refresh() -> void:
 	header.text = "GRANDPA WALT'S QUARRY  -  DAY %d  %s   %s   STAFF %d/%d   STAGE: %s" % [clock / 1440 + 1, game.fmt_time(clock), QuarryTheme.money_text(game.state.money), b.employees.size(), b.max_employees(), str(game.prog.stage_info()["title"]).to_upper()]
 	for id in tab_buttons:
 		tab_buttons[id].button_pressed = id == tab
+	subtabs.visible = tab in ["staff", "hire", "payroll"]
+	back_button.visible = tab != "home"
 	for child in content.get_children():
 		content.remove_child(child)
 		child.queue_free()
 	match tab:
+		"home": _home()
 		"staff": _staff(b)
 		"hire": _hire(b)
 		"payroll": _payroll(b)
@@ -171,6 +189,39 @@ func refresh() -> void:
 		"milestones": _milestones(b)
 		"upgrades": _upgrades()
 		"stats": _stats(b)
+
+# ------------------------------------------------------------------ home (cards)
+
+func _home() -> void:
+	content.add_child(_label("Pick what you want to do. Everything the quarry office can do is behind one of these cards.", DIM))
+	var grid := GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content.add_child(grid)
+	var b: QuarryBusiness = game.business
+	for c in CARDS:
+		var card := Button.new()
+		card.focus_mode = Control.FOCUS_NONE
+		card.custom_minimum_size = Vector2(268, 112)
+		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		card.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		card.clip_text = false
+		card.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		var extra := ""
+		match str(c[0]):
+			"employees": extra = "\n%d of %d hired" % [b.employees.size(), b.max_employees()]
+			"machinery": extra = "\n%d machine(s) in the yard" % game.fleet.vehicles.size()
+		card.text = "%s\n%s%s" % [c[1], c[2], extra]
+		if UiArt.has_icon(str(c[3])):
+			card.icon = UiArt.icon(str(c[3]))
+			card.expand_icon = true
+			card.add_theme_constant_override("icon_max_width", 34)
+			card.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		var first: String = str(c[4])
+		card.pressed.connect(func(): _set_tab(first))
+		grid.add_child(card)
 
 # ------------------------------------------------------------------ staff
 
@@ -194,15 +245,6 @@ func _staff(b: QuarryBusiness) -> void:
 		_assignment_controls(b, e, assign)
 		var line := _row()
 		card.add_child(line)
-		line.add_child(_label("Shift", DIM, QuarryTheme.BODY, false))
-		line.add_child(_button("-", func(): _say(game.ui_shift(id, int(e["shift_start"]) - 30, int(e["shift_end"])))))
-		line.add_child(_label(game.fmt_time(int(e["shift_start"])), INK, QuarryTheme.BODY, false))
-		line.add_child(_button("+", func(): _say(game.ui_shift(id, int(e["shift_start"]) + 30, int(e["shift_end"])))))
-		line.add_child(_label("to", DIM, QuarryTheme.BODY, false))
-		line.add_child(_button("-", func(): _say(game.ui_shift(id, int(e["shift_start"]), int(e["shift_end"]) - 30))))
-		line.add_child(_label(game.fmt_time(int(e["shift_end"])), INK, QuarryTheme.BODY, false))
-		line.add_child(_button("+", func(): _say(game.ui_shift(id, int(e["shift_start"]), int(e["shift_end"]) + 30))))
-		line.add_child(_label("(%.1f h)" % b.shift_hours(e), DIM, QuarryTheme.BODY, false))
 		var spacer := Control.new()
 		spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		line.add_child(spacer)
@@ -217,7 +259,7 @@ func _staff(b: QuarryBusiness) -> void:
 		var today: bool = int(s["day"]) == b.current_day()
 		card.add_child(_label("Today: %d units  -  %.1f h worked  -  paid $%d  -  owed $%.2f   |   Total: %d units, $%d paid" % [
 			int(s["units_today"]) if today else 0, (int(s["minutes_today"]) if today else 0) / 60.0, int(s["paid_today"]) if today else 0,
-			float(e["owed"]), int(s["units_total"]), int(s["paid_total"])], DIM, 11))
+			float(e["owed"]), int(s["units_total"]), int(s["paid_total"])], DIM, QuarryTheme.BODY))
 		if str(e["warning"]) != "":
 			card.add_child(_label("! " + str(e["warning"]), WARN, QuarryTheme.BODY))
 
@@ -246,7 +288,7 @@ func _assignment_controls(b: QuarryBusiness, e: Dictionary, row: HBoxContainer) 
 			for i in range(game.state.crushers.size()):
 				opts.append(["Crusher #%d" % (i + 1), {"crusher": i}])
 			if opts.is_empty():
-				row.add_child(_label("No crusher placed yet - order one at the blue kiosk.", WARN, QuarryTheme.BODY))
+				row.add_child(_label("No crusher placed yet - order one on the office computer (MACHINERY).", WARN, QuarryTheme.BODY))
 			else:
 				row.add_child(_option(opts, a, func(v): _say(game.ui_assign(id, v))))
 				var out: int = b.crusher_outputs[int(a.get("crusher", 0))] if int(a.get("crusher", 0)) < b.crusher_outputs.size() else -1
@@ -273,7 +315,7 @@ func _assignment_controls(b: QuarryBusiness, e: Dictionary, row: HBoxContainer) 
 			var res := b.route_resource(a.get("src", {}), a.get("dst", {}))
 			row.add_child(_label(("carries " + res.replace("_", " ")) if res != "" else "invalid route", DIM if res != "" else WARN, QuarryTheme.BODY))
 		"clerk":
-			row.add_child(_label("Works at the selling station. Choose what may be sold in PRODUCTION.", DIM, QuarryTheme.BODY))
+			row.add_child(_label("Works at the office. Choose what may be sold in PRODUCTION.", DIM, QuarryTheme.BODY))
 
 func _set_route(b: QuarryBusiness, id: int, src: Dictionary, dst: Dictionary, dsts: Array) -> void:
 	if b.route_resource(src, dst) == "":
@@ -298,7 +340,7 @@ func _option(options: Array, current, on_pick: Callable) -> OptionButton:
 # ------------------------------------------------------------------ hire
 
 func _hire(b: QuarryBusiness) -> void:
-	content.add_child(_label("Hiring fee is paid once. Wages are paid every in-game hour worked, only during each worker's shift. If the balance cannot cover wages, work stops and the wages stay owed.", DIM))
+	content.add_child(_label("Hiring fee is paid once. Wages are paid every in-game hour worked, for the hours worked (everyone works the same day, 9:00 to 17:00). If the balance cannot cover wages, work stops and the wages stay owed.", DIM))
 	if b.outstanding_debt > 0.0:
 		content.add_child(_label("Outstanding wages to former staff: $%.2f - paid automatically when funds allow." % b.outstanding_debt, WARN))
 	var list := b.available_candidates()
@@ -321,7 +363,7 @@ func _describe_profession(p: String) -> String:
 		"miner": return "Mines an assigned mineral at its deposits, picks up the pieces and carries them to the storage crate."
 		"operator": return "Runs one crusher: loads the hopper into the machine, starts and monitors it, hands output to an attached output storage."
 		"hauler": return "Carries materials along a chosen route (deposit pieces, storage, crusher, output storage) with limited capacity."
-		"clerk": return "Sells the materials you authorize from the storage crate and output storages at the selling station."
+		"clerk": return "Sells the materials you authorize from the storage crate and output storages at the office."
 	return ""
 
 # ------------------------------------------------------------------ payroll
@@ -339,9 +381,9 @@ func _payroll(b: QuarryBusiness) -> void:
 	for e in b.employees:
 		var s: Dictionary = e["stats"]
 		var is_today: bool = int(s["day"]) == b.current_day()
-		staff.add_child(_label("%s (%s): $%.2f/h x %.1f h shift = $%.2f per day  -  paid today $%d  -  owed $%.2f%s" % [
+		staff.add_child(_label("%s (%s): $%.2f/h x %.1f h day = $%.2f per day  -  paid today $%d  -  owed $%.2f%s" % [
 			e["name"], b.profession(e["profession"])["title"], b.wage(e), b.shift_hours(e), b.wage(e) * b.shift_hours(e),
-			int(s["paid_today"]) if is_today else 0, float(e["owed"]), "  [UNPAID - STOPPED]" if bool(e["suspended"]) else ""], WARN if bool(e["suspended"]) else INK, 11))
+			int(s["paid_today"]) if is_today else 0, float(e["owed"]), "  [UNPAID - STOPPED]" if bool(e["suspended"]) else ""], WARN if bool(e["suspended"]) else INK, QuarryTheme.BODY))
 	var hist := _card()
 	hist.add_child(_label("LAST 7 DAYS", ACCENT))
 	var keys: Array = b.daily.keys()
@@ -428,7 +470,7 @@ func _milestones(b: QuarryBusiness) -> void:
 		jc.add_child(_label(str(je["text"]), INK, QuarryTheme.BODY))
 	var info := [
 		["first_employee", "1. FIRST EMPLOYEE", "Hire your first worker.", "Remote management with M anywhere and +5% staff productivity."],
-		["mechanized", "2. MECHANIZED QUARRY", "Own a crusher and employ a machine operator.", "Conveyor belts at the machinery kiosk and the Front Loader in EQUIPMENT."],
+		["mechanized", "2. MECHANIZED QUARRY", "Own a crusher and employ a machine operator.", "Conveyor belts under MACHINERY and the Front Loader in EQUIPMENT."],
 		["automated", "3. AUTOMATED BUSINESS", "Run an automated production chain: Miner -> Storage -> Hauler/Conveyor -> Crusher -> Output storage -> Sales clerk, until the clerk has sold %d crushed stone." % b.sales_goal(), "Opens the east quarry expansion (new deposits, rubble piles and building space) and the Dump Truck."],
 	]
 	for m in info:
@@ -451,6 +493,10 @@ var equip_sel := ""
 
 func _equipment() -> void:
 	var f: QuarryFleet = game.fleet
+	var order := _row()
+	content.add_child(order)
+	order.add_child(_button("ORDER CRUSHERS, BELTS AND RIGS", func(): game._open_menu("shop")))
+	order.add_child(_label("Crushers, output storage, conveyor belts, sorters and drilling rigs are ordered here, then placed in the yard.", DIM))
 	content.add_child(_label("Heavy machinery is delivered to the equipment parking bays south of the yard. Click a machine to see it, then BUY.", DIM))
 	if equip_sel == "" or not f.cfg["vehicles"].has(equip_sel):
 		equip_sel = str(f.types()[0])
@@ -545,7 +591,7 @@ func _upgrades() -> void:
 		if not st.upgrades[key]:
 			row.add_child(_button("Buy $%d" % int(st.config["upgrades"][key]), func(): game.buy_player_upgrade(k); _say(""), st.money >= int(st.config["upgrades"][key])))
 	var rc := _card()
-	rc.add_child(_label("MINING MACHINES (order at the blue kiosk)", ACCENT))
+	rc.add_child(_label("MINING MACHINES (order under MACHINERY)", ACCENT))
 	if prog.rigs.is_empty():
 		rc.add_child(_label("No rigs yet. Drilling rigs unlock at the %s stage." % prog.feature_stage_title("drill_rig"), DIM, QuarryTheme.BODY))
 	for i in range(prog.rigs.size()):

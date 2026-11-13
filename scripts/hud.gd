@@ -128,9 +128,9 @@ func _build() -> void:
 	# ---- top-right: objective
 	var tr := _panel(Control.PRESET_TOP_RIGHT, QuarryTheme.GOOD)
 	tr.name = "ObjectivePlate"
-	tr.custom_minimum_size = Vector2(310, 0)
+	tr.custom_minimum_size = Vector2(250, 0)
 	tr.set_anchor(SIDE_LEFT, 1.0)
-	tr.offset_left = -320
+	tr.offset_left = -260
 	tr.offset_right = -10
 	tr.offset_top = 10
 	var v2 := _vbox(tr, 3)
@@ -143,16 +143,16 @@ func _build() -> void:
 	srow.add_child(stage_label)
 	objective_label = QuarryTheme.label("", QuarryTheme.BODY)
 	objective_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	objective_label.custom_minimum_size = Vector2(286, 0)
+	objective_label.custom_minimum_size = Vector2(226, 0)
 	v2.add_child(objective_label)
 	objective_bar = _bar(v2, 7, QuarryTheme.ACCENT)
 	objective_detail = QuarryTheme.label("", QuarryTheme.SMALL, QuarryTheme.DIM)
 	objective_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	objective_detail.custom_minimum_size = Vector2(286, 0)
+	objective_detail.custom_minimum_size = Vector2(226, 0)
 	v2.add_child(objective_detail)
 	status_label = QuarryTheme.label("", QuarryTheme.BODY, QuarryTheme.INK)
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	status_label.custom_minimum_size = Vector2(286, 0)
+	status_label.custom_minimum_size = Vector2(226, 0)
 	v2.add_child(status_label)
 	# ---- bottom: tool + bag
 	bottom = HBoxContainer.new()
@@ -365,7 +365,7 @@ func popup_resource(res: String, n: int, text: String) -> void:
 		entry[0].set_meta("age", minf(float(entry[0].get_meta("age")), 0.15))
 		entry[2] = 0.0
 		return
-	var l := QuarryTheme.label("+%d %s" % [n, text.to_upper()], 11, QuarryTheme.RES_COLORS.get(res, QuarryTheme.INK))
+	var l := QuarryTheme.label("+%d %s" % [n, text.to_upper()], 12, QuarryTheme.RES_COLORS.get(res, QuarryTheme.INK))
 	l.set_meta("age", 0.0)
 	l.set_meta("life", 1.05)
 	l.set_meta("origin", size * 0.5 + Vector2(26 + randf_range(-6, 6), -8 + randf_range(-4, 4)))
@@ -396,7 +396,7 @@ func _money_popup(amount: int, gain: bool, anchor: Vector2) -> void:
 		lab.text = ("+" if gain else "-") + QuarryTheme.money_text(int(entry[1]))
 		lab.set_meta("fade_start", maxf(float(lab.get_meta("fade_start")), float(lab.get_meta("age")) + 1.0)) # linger a moment longer
 		return
-	var l := QuarryTheme.label(("+" if gain else "-") + QuarryTheme.money_text(amount), 11, QuarryTheme.MONEY if gain else Color(1.0, 0.33, 0.3), false, true)
+	var l := QuarryTheme.label(("+" if gain else "-") + QuarryTheme.money_text(amount), 12, QuarryTheme.MONEY if gain else Color(1.0, 0.33, 0.3), false, true)
 	l.add_theme_color_override("font_outline_color", Color(0.05, 0.03, 0.02, 0.9))
 	l.add_theme_constant_override("outline_size", 3)
 	popups.add_child(l)
@@ -559,11 +559,22 @@ func refresh_panels() -> void:
 		var reqs := prog.requirement_progress(next)
 		var frac := 1.0
 		var detail := []
+		var done_n := 0
+		var more := 0
 		for r in reqs:
 			frac = minf(frac, float(r[1]) / maxf(0.0001, float(r[2])))
 			var done_r := float(r[1]) >= float(r[2]) - 0.00001
-			# a full checklist: finished requirements stay visible and ticked, so progress is never a surprise
-			detail.append("%s %s%s" % ["[x]" if done_r else "[ ]", r[0], "" if done_r else "  (%s)" % _amount(r)])
+			# compact checklist: only the first few open requirements are spelled out; finished ones are counted so progress is never a surprise
+			if done_r:
+				done_n += 1
+			elif detail.size() < 3:
+				detail.append("[ ] %s  (%s)" % [r[0], _amount(r)])
+			else:
+				more += 1
+		if done_n > 0:
+			detail.append("[x] %d done" % done_n)
+		if more > 0:
+			detail.append("+%d more" % more)
 		objective_label.text = "Next: %s" % str(info["title"])
 		_obj_target = clampf(frac, 0.0, 1.0)
 		objective_detail.text = "\n".join(detail) if not detail.is_empty() else "Ready!"

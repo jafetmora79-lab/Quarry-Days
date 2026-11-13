@@ -1,6 +1,6 @@
 extends PanelContainer
 class_name QuarryStationUI
-## Clickable station menu (sales booth, upgrade board, storage, machinery orders, crusher, rigs, pause).
+## Clickable station menu (sales, tool upgrades, storage, machinery orders, crusher, rigs, pause).
 ## One cozy panel with a header (title, cash, Close), a scrolling list of cards / rows, and a footer hint.
 ## Every action is a visible button; the number-key shortcuts stay as optional extras (see the footer hint).
 ## Buttons report through game.ui_click(), which debounces rapid clicks and shows the money pop-up.
