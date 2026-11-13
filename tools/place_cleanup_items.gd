@@ -26,7 +26,7 @@ func run():
 		while z <= -8.5:
 			var p := Vector2(x, z)
 			var v := Vector3(x, 0, z)
-			var ok: bool = not game.in_pit_corridor(v, 4.0) and not game.in_hillside_zone(v, 2.5) and not game.hub_rect().grow(2.0).has_point(p)
+			var ok: bool = absf(x) > 4.6 and not game.in_pit_corridor(v, 4.0) and not game.in_hillside_zone(v, 2.5) and not game.hub_rect().grow(2.0).has_point(p)
 			for q in solids:
 				if q.distance_to(p) < 2.0:
 					ok = false
@@ -59,7 +59,7 @@ func run():
 			if d > best:
 				best = d
 				bp = c
-		if best < 2.6:
+		if best < 2.1:
 			break                       # no spot left that is at least 2.6 m from every item already placed
 		chosen.append(bp)
 	var out := []

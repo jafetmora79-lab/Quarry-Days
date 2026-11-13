@@ -2231,7 +2231,7 @@
   "heap_unit_hp": 10,
   "weeds": [
    [
-    -21,
+    -21.5,
     -25
    ],
    [
@@ -2243,8 +2243,8 @@
     -8.5
    ],
    [
-    -1,
-    -25
+    -5,
+    -23
    ],
    [
     8,
@@ -2255,32 +2255,16 @@
     -15
    ],
    [
-    -0.5,
-    -16
-   ],
-   [
     13.5,
     -8.5
    ],
    [
-    -7,
-    -17
-   ],
-   [
-    2.5,
-    -11
-   ],
-   [
-    -3,
-    -20.5
-   ],
-   [
-    4.5,
-    -16.5
-   ],
-   [
     -5,
-    -13.5
+    -15
+   ],
+   [
+    -9,
+    -17
    ],
    [
     9.5,
@@ -2293,8 +2277,12 @@
     -11
    ],
    [
-    1,
-    -19
+    5,
+    -16
+   ],
+   [
+    5,
+    -11
    ],
    [
     19,
@@ -2303,18 +2291,6 @@
    [
     -9,
     -14
-   ],
-   [
-    -3.5,
-    -17
-   ],
-   [
-    -1,
-    -13
-   ],
-   [
-    -10,
-    -17
    ]
   ],
   "gift_title": "A LETTER FROM GRANDPA WALT",
@@ -3150,29 +3126,29 @@
    "battery": {
     "title": "Battery",
     "pos": [
-     -13.6,
+     -15.0,
      0.0,
-     8.7
+     2.4
     ],
-    "hint": "The battery is flat and corroded... there is a fresh one on the ground by the workshop door."
+    "hint": "The battery is flat and corroded... there is a fresh one on the ground by the fence, west of the old truck."
    },
    "hose": {
     "title": "Hydraulic hose",
     "pos": [
-     -10.2,
+     -13.0,
      0.0,
-     5.3
+     2.2
     ],
-    "hint": "The boom hose split years ago. I kept a spare coiled beside the old truck."
+    "hint": "The boom hose split years ago. I kept a spare coiled on the ground, a few steps north-west of the old truck."
    },
    "fuel": {
     "title": "Fuel can",
     "pos": [
-     -9.9,
+     -17.0,
      0.0,
-     8.0
+     2.2
     ],
-    "hint": "She's bone dry. There is a can of diesel by the fence."
+    "hint": "She's bone dry. There is a can of diesel by the fence, north-west of the workshop."
    }
   },
   "start_lines": [

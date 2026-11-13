@@ -77,7 +77,7 @@ func run() -> void:
 	# parts
 	var near_ok := true
 	for id in game.opening_parts:
-		near_ok = near_ok and game.opening_parts[id].global_position.distance_to(ex.global_position) < 6.5
+		near_ok = near_ok and game.opening_parts[id].global_position.distance_to(ex.global_position) < 7.5
 	check(near_ok, "B every part lies within a few steps of the machine")
 	var deco0: int = ex.model_root.get_node("OpeningParts").find_children("*", "MeshInstance3D", true, false).size()
 	game._pick_up_part("battery")

@@ -85,6 +85,7 @@ func build_environment(main_node) -> void:
 	_garage()
 	_stations()
 	_site_props()
+	_yard_boundary()
 	_flush()
 	_atmosphere()
 
@@ -532,6 +533,34 @@ func _stations() -> void:
 	_sign(root, "Sign_Orders", k + Vector3(0.62, 2.4, 0.37), Vector2(1.0, 0.5), PI)
 	var glow := MeshKit.inst(root, QuadMesh.new(), MeshKit.flat(Color(0.35, 0.75, 0.6), 1.2), k + Vector3(0, 1.43, -0.27), Vector3(-0.5, PI, 0))
 	glow.scale = Vector3(0.8, 0.28, 1)
+
+## The operations yard and the quarry are two places. The yard is grey gravel ground inside a fence along its north edge; the only way
+## out to the quarry is the gate in the middle of that fence, which opens onto a gravel haul road running north into Area 1. Outside
+## the fence the ground is raw quarry dirt. The fence has colliders (so nothing walks or drives through it) and a gap for the gate.
+const FENCE_Z := -6.35
+const GATE_HALF := 3.6
+func _yard_boundary() -> void:
+	var hub: Rect2 = game.hub_rect()
+	quad_flat(M_GRAVEL, Vector3(hub.get_center().x, 0, hub.get_center().y), hub.size, 0.0, 0.068)                    # the yard's own ground
+	quad_flat(M_GRAVEL, Vector3(0, 0, FENCE_Z - 11.0), Vector2(GATE_HALF * 2.0 - 0.6, 22.0), 0.0, 0.066)              # the haul road beyond the gate
+	var x0 := hub.position.x
+	var x1 := hub.end.x
+	for side in [-1.0, 1.0]:
+		var a: float = GATE_HALF if side > 0.0 else x0
+		var b: float = x1 if side > 0.0 else -GATE_HALF
+		solid("Yard fence", Vector3((a + b) * 0.5, 0.7, FENCE_Z), Vector3(b - a, 1.4, 0.2))
+		var x: float = a
+		while x <= b + 0.01:
+			bx("SteelPlate", Vector3(x, 0.7, FENCE_Z), Vector3(0.14, 1.4, 0.14))                         # posts every 3 m
+			x += 3.0
+		bx(M_WOOD, Vector3((a + b) * 0.5, 1.15, FENCE_Z), Vector3(b - a, 0.07, 0.07))                    # two rails
+		bx(M_WOOD, Vector3((a + b) * 0.5, 0.65, FENCE_Z), Vector3(b - a, 0.07, 0.07))
+	for side in [-1.0, 1.0]:                                                                                # the gate: two tall posts with hazard bands, a lintel and the sign
+		bx("SteelGreen", Vector3(side * GATE_HALF, 1.7, FENCE_Z), Vector3(0.4, 3.4, 0.4))
+		bx("Hazard", Vector3(side * GATE_HALF, 0.55, FENCE_Z - 0.21), Vector3(0.4, 0.8, 0.02), PI)
+	bx("SteelGreen", Vector3(0, 3.25, FENCE_Z), Vector3(GATE_HALF * 2.0 + 0.4, 0.3, 0.3))
+	_sign(root, "Sign_Safety", Vector3(0, 3.25, FENCE_Z - 0.17), Vector2(2.6, 0.85), PI)
+	_sign(root, "Sign_Safety", Vector3(0, 3.25, FENCE_Z + 0.17), Vector2(2.6, 0.85), 0.0)
 
 func _site_props() -> void:
 	prop(P_DUMPSTER, Vector3(-19.0, 0, 6.5), PI * 0.5)

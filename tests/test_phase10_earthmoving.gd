@@ -48,7 +48,7 @@ func run() -> void:
 	var cells := 0
 	for i in range(soil.units.size()):
 		cells += int(soil.active[i])
-	check(soil != null and cells >= 60 and soil.total() == cells * soil.max_units(), "A the working ground starts as a soil field of %d cells, full depth (%d units)" % [cells, soil.total()])
+	check(soil != null and cells >= 40 and soil.total() == cells * soil.max_units(), "A the working ground starts as a soil field of %d cells, full depth (%d units)" % [cells, soil.total()])
 	var shapes_ok := true
 	var enabled := 0
 	for i in range(soil.units.size()):

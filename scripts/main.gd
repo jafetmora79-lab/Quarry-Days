@@ -2372,7 +2372,7 @@ func _build_natural_ground(natural: bool) -> void:
 		return
 	var ok := func(p: Vector2) -> bool:
 		var v := Vector3(p.x, 0.0, p.y)
-		return not in_pit_corridor(v, 5.0) and not in_hillside_zone(v, 4.0) and not hub_rect().grow(3.0).has_point(p) and p.distance_to(Vector2(2.0, -14.0)) > 3.0 and p.distance_to(Vector2(11.5, -11.0)) > 3.0
+		return not in_pit_corridor(v, 5.0) and not in_hillside_zone(v, 4.0) and not hub_rect().grow(3.0).has_point(p) and p.distance_to(Vector2(2.0, -14.0)) > 3.0 and p.distance_to(Vector2(11.5, -11.0)) > 3.0 and absf(p.x) > 4.4 
 	var info := OpeningModels.natural_ground(world, ok, Rect2(-23.0, -29.0, 46.0, 21.5), 1010)
 	natural_root = info["root"]
 	_build_soil()
@@ -2399,7 +2399,7 @@ func _build_soil() -> void:
 	var avoid: Array = [Vector2(2.0, -14.0), Vector2(11.5, -11.0), spoil_pos]
 	for i in range(cols * rows):
 		var p := Vector2(org.x + (float(i % cols) + 0.5) * cell, org.y + (float(i / cols) + 0.5) * cell)
-		var ok := not in_pit_corridor(Vector3(p.x, 0, p.y), 3.0) and not in_hillside_zone(Vector3(p.x, 0, p.y), 1.5) and not hub_rect().has_point(p)
+		var ok := not in_pit_corridor(Vector3(p.x, 0, p.y), 3.0) and not in_hillside_zone(Vector3(p.x, 0, p.y), 1.5) and not hub_rect().has_point(p) and absf(p.x) > 3.6     # the quarry road stays clear
 		for q in solids:
 			if (q as Vector2).distance_to(p) < 2.6:
 				ok = false

@@ -71,6 +71,22 @@ func run() -> void:
 			if ci >= 0:
 				under.append(id)
 	check(under.is_empty(), "no weed or rubble heap lies under soil %s" % str(under))
+	# the repair parts never lie under the old truck, the excavator or Grandpa
+	var clear := true
+	var worst := 99.0
+	for pid in game.opening_parts:
+		var pn: Node3D = game.opening_parts[pid]
+		var tp: Vector3 = game.truck_node.global_position
+		var local: Vector3 = game.truck_node.global_transform.affine_inverse() * pn.global_position
+		var dx: float = maxf(0.0, absf(local.x) - 1.0)
+		var dz: float = maxf(0.0, absf(local.z) - 2.2)
+		var d_truck := Vector2(dx, dz).length()
+		worst = minf(worst, d_truck)
+		for nd in game.vehicle_nodes.values():
+			var dv := Vector2(pn.global_position.x - nd.global_position.x, pn.global_position.z - nd.global_position.z).length()
+			worst = minf(worst, dv - 1.6)
+		worst = minf(worst, Vector2(pn.global_position.x - game.walter_pos().x, pn.global_position.z - game.walter_pos().z).length() - 1.0)
+	check(worst > 1.2, "every repair part lies at least 1.2 m clear of the old truck, the machines and Grandpa (%.1f m)" % worst)
 	# the old truck waits by the excavator; when Grandpa leaves he walks to it, climbs in and drives out along the lane
 	check(game.truck_node != null, "Walter's truck is still parked while Grandpa waits by the excavator")
 	game._spawn_walter()
