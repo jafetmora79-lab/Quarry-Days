@@ -197,7 +197,7 @@ func run() -> void:
 	var f3 := ground_y(game, -15.5, -100.0)
 	var f4 := ground_y(game, -36.5, -125.0)
 	check(absf(ground_y(game, -15.5, -112.0) + 10.8) < 0.2 and absf(f4 + 14.4) < 0.2, "C the level 3 and level 4 roads are open (%.2f, %.2f)" % [ground_y(game, -15.5, -112.0), f4])
-	check(absf(ground_y(game, -30.0, -92.0, -4.0) + 10.8) < 0.3 or true, "C (landing)")
+	check(absf(ground_y(game, -30.0, -92.0, -4.0) + 10.8) < 0.3, "C the landing at the foot of the level 3 ramp is at the level floor (%.2f)" % ground_y(game, -30.0, -92.0, -4.0))
 	# ---- D: a truck drives down all four levels and back up
 	prog.stage = prog.stage_index("deep")
 	game.state.money = 900000

@@ -976,8 +976,17 @@ func _spawn_piece(kind: String, generation: int, i: int) -> void:
 		art.dress_piece(body, str(info["resource"]), i + generation)
 	ground_pieces[str(body.get_meta("piece_id"))] = body
 
+## Loose pieces carry their column in the id. New ids are PIECE_V2 + generation * 10000 + column (any column of any formation,
+## including the 100+ columns of the big pit benches); ids below PIECE_V2 are from older saves (generation * 100 + column).
+const PIECE_V2 := 100000000
+static func piece_code(generation: int, col: int) -> int:
+	return PIECE_V2 + generation * 10000 + col
+
+static func piece_column(code: int) -> int:
+	return (code - PIECE_V2) % 10000 if code >= PIECE_V2 else posmod(code, 100)
+
 func _place_formation_piece(kind: String, generation: int, i: int) -> void:
-	var col := posmod(generation, 100)
+	var col := piece_column(generation)
 	if col >= prog.column_count(kind):
 		col = 0
 	var cell := float(prog.fdef(kind)["cell"])
@@ -1136,7 +1145,7 @@ func player_mine(kind: String, col: int, damage: float, point := Vector3.INF, co
 	if col < 0 or prog.column_units(kind, col) <= 0 or (strict and not prog.column_minable(kind, col)):
 		if strict:
 			# hillside: only exposed rock near the strike point can be cut, never a section behind solid rock
-			col = prog.nearest_column(kind, player.global_position if point == Vector3.INF else point, true, 2.6)
+			col = prog.nearest_column(kind, player.global_position if point == Vector3.INF else point, true, 2.6, "hand")
 			if col < 0:
 				if prog.units_left(kind) > 0:
 					_notify("Nothing to cut here. Mine the exposed face in front of you.")
@@ -1155,6 +1164,11 @@ func player_mine(kind: String, col: int, damage: float, point := Vector3.INF, co
 	var drop_room := maxi(0, int(prog.cfg.get("loose_piece_cap", 36)) - loose_count(kind))
 	if not in_aoe:
 		damage *= prog.tool_modifier(res)
+	var why := prog.extraction_block(kind, col, "hand")
+	if why != "":
+		if not continuous:
+			_notify(why)
+		return 0
 	var ex := prog.extract(kind, col, damage, bag_room + drop_room, "hand")
 	var n := int(ex["units"])
 	var at := node.column_top(col) if point == Vector3.INF else point
@@ -1209,7 +1223,7 @@ func player_mine(kind: String, col: int, damage: float, point := Vector3.INF, co
 func _spawn_formation_piece(kind: String, col: int, i: int) -> void:
 	var d: Dictionary = state.deposits[kind]
 	d["generation"] = int(d.get("generation", 0)) + 1
-	_spawn_piece(kind, int(d["generation"]) * 100 + col, i)
+	_spawn_piece(kind, piece_code(int(d["generation"]), col), i)
 
 func _player_mining(delta: float) -> void:
 	var tv: QuarryToolView = player.tool_view
@@ -2923,6 +2937,13 @@ func _save(quiet := false) -> void:
 	fleet.driving_id = driving.vehicle_id if driving else -1
 	var data := state.snapshot()
 	data["pieces"] = pieces
+	var vps := []
+	for pid in vein_pieces:
+		if ground_pieces.has(pid) and is_instance_valid(ground_pieces[pid]):
+			var vp: Dictionary = vein_pieces[pid]
+			vps.append({"id": pid, "kind": vp["kind"], "col": vp["col"], "res": vp["res"], "i": vp["i"]})
+	data["vein_pieces"] = vps
+	data["vein_seq"] = vein_seq
 	data["phase2"] = business.snapshot()
 	data["phase3"] = fleet.snapshot()
 	data["phase5"] = prog.snapshot()
@@ -2936,7 +2957,12 @@ func _save(quiet := false) -> void:
 		return
 	f.store_string(JSON.stringify(data))
 	f.close()
-	if FileAccess.file_exists(SAVE_PATH):
+	if _save_usable(tmp) == null:                     # never promote a file that would not load
+		DirAccess.remove_absolute(tmp)
+		if not quiet:
+			_notify("Save failed")
+		return
+	if _save_usable(SAVE_PATH) != null:               # only a GOOD current save becomes the backup: a broken one must not overwrite it
 		DirAccess.copy_absolute(SAVE_PATH, SAVE_BACKUP)
 	if DirAccess.rename_absolute(tmp, SAVE_PATH) != OK:
 		DirAccess.remove_absolute(SAVE_PATH)
@@ -2949,13 +2975,25 @@ func _save(quiet := false) -> void:
 	elif placing:
 		pass
 
-## The newest readable save: the main file, or the backup of the one before it.
+## A save is usable only if it parses AND the game state really restores from it (a file that is valid JSON but has lost its
+## state, or was written half-way, is not a save).
+func _save_usable(path: String) -> Variant:
+	if not FileAccess.file_exists(path):
+		return null
+	var d = JSON.parse_string(FileAccess.get_file_as_string(path))
+	if not (d is Dictionary) or not d.has("pieces") or not (d["pieces"] is Array):
+		return null
+	var scratch := State.new(state.config)
+	if not scratch.restore(d):
+		return null
+	return d
+
+## The newest usable save: the main file, or the backup of the one before it.
 func _read_save() -> Variant:
 	for path in [SAVE_PATH, SAVE_BACKUP]:
-		if FileAccess.file_exists(path):
-			var d = JSON.parse_string(FileAccess.get_file_as_string(path))
-			if d is Dictionary and d.has("pieces"):
-				return d
+		var d = _save_usable(path)
+		if d != null:
+			return d
 	return null
 
 func _notification(what: int) -> void:
@@ -3037,6 +3075,11 @@ func _load(quiet := false) -> void:
 			elif LEGACY_DEPOSITS.has(kind):
 				legacy_pieces[kind] = int(legacy_pieces.get(kind, 0)) + 1
 	_restore_legacy_pieces(legacy_pieces)
+	vein_pieces.clear()
+	vein_seq = int(data.get("vein_seq", 0))
+	for vp in data.get("vein_pieces", []):
+		if vp is Dictionary and formation_nodes.has(str(vp.get("kind", ""))) and int(vp.get("col", -1)) < prog.column_count(str(vp["kind"])):
+			_spawn_vein_piece(str(vp["kind"]), int(vp["col"]), str(vp["res"]), int(vp.get("i", 0)), str(vp["id"]))
 	_cine_stop()
 	_remove_walter()
 	_remove_fossil()
@@ -3070,9 +3113,12 @@ func _load(quiet := false) -> void:
 	_ensure_opening()
 	_rebake_nav()
 	var p: Array = state.player_position
-	player.position = Vector3(float(p[0]),maxf(0.05,float(p[1])),float(p[2]))
+	# the quarry has floors below ground level: keep the saved height (a terrace at y -7 is not lifted to the surface), then make
+	# sure there really is ground under it
+	player.position = Vector3(float(p[0]), float(p[1]) + 0.1, float(p[2]))
 	player.rotation.y = state.player_yaw
 	player.velocity = Vector3.ZERO
+	_validate_loaded_position.call_deferred()
 	_update_light()
 	if menu != "":
 		_close_menu()
@@ -3082,6 +3128,18 @@ func _load(quiet := false) -> void:
 	if hud:
 		hud.shown_money = float(state.money)
 		hud.refresh_panels()
+
+## After a load: if there is no floor within 3 m below the restored position (the terrain changed, an old save, a removed machine),
+## the player is put back on the last safe ground instead of falling through the world.
+func _validate_loaded_position() -> void:
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	if player == null or driving != null:
+		return
+	var q := PhysicsRayQueryParameters3D.create(player.global_position + Vector3(0, 0.6, 0), player.global_position + Vector3(0, -3.0, 0), 1 | 8)
+	q.exclude = [player.get_rid()]
+	if get_world_3d().direct_space_state.intersect_ray(q).is_empty():
+		safety.rescue("loaded where there is no ground")
 
 # ===================================================================== Phase 2
 
@@ -3259,7 +3317,7 @@ func nearest_deposit(res: String, from: Vector3) -> String:
 			continue # staff carry company tools: nothing harder than the best owned tool; locked faces stay closed
 		var p: Vector3 = deposit_nodes[kind].global_position
 		if formation_nodes.has(kind):
-			var col := prog.nearest_column(kind, from, true)
+			var col := prog.nearest_column(kind, from, true, INF, "crew")
 			if col < 0:
 				continue
 			p = prog.column_pos(kind, col)
@@ -3963,13 +4021,20 @@ func _driving_input(event: InputEvent) -> bool:
 			return true
 	return false
 
+## Horizontal distance between two points, but only when they are on the same level (within `dy` metres of height): material on
+## another terrace is not "close", whatever its x and z are. INF otherwise.
+func _flat_dist(a: Vector3, b: Vector3, dy := 2.4) -> float:
+	if absf(a.y - b.y) > dy:
+		return INF
+	return Vector2(a.x, a.z).distance_to(Vector2(b.x, b.z))
+
 func _nearest_pile(point: Vector3, radius: float) -> String:
 	var best := ""
 	var best_d := radius
 	for id in pile_nodes:
 		if not fleet.pile_active(id):
 			continue
-		var d := Vector2(point.x, point.z).distance_to(Vector2(pile_nodes[id].global_position.x, pile_nodes[id].global_position.z))
+		var d := _flat_dist(point, pile_nodes[id].global_position)
 		if d < best_d:
 			best_d = d
 			best = id
@@ -3993,7 +4058,7 @@ func loader_primary(v: QuarryVehicle) -> int:
 	for ri in range(prog.rigs.size()):
 		var r: Dictionary = prog.rigs[ri]
 		var bp := prog.rig_bin_pos(r)
-		if fleet.space(rec) > 0 and got == 0 and prog.rig_bin_total(r) > 0 and Vector2(point.x, point.z).distance_to(Vector2(bp.x, bp.z)) < 2.6:
+		if fleet.space(rec) > 0 and got == 0 and prog.rig_bin_total(r) > 0 and _flat_dist(point, bp) < 2.6:
 			var res := prog.rig_resource(r)
 			var n := fleet.add_cargo(rec, res, prog.rig_bin_total(r))
 			prog.rig_take(r, res, n)
@@ -4003,7 +4068,7 @@ func loader_primary(v: QuarryVehicle) -> int:
 		var near := []
 		for id in ground_pieces:
 			var body: Node3D = ground_pieces[id]
-			if not body.is_queued_for_deletion() and Vector2(point.x, point.z).distance_to(Vector2(body.global_position.x, body.global_position.z)) < 2.6:
+			if not body.is_queued_for_deletion() and _flat_dist(point, body.global_position) < 2.6:
 				near.append(id)
 		for id in near:
 			if fleet.space(rec) <= 0:
@@ -4036,7 +4101,7 @@ func excavator_target(v: QuarryVehicle) -> Dictionary:
 	for id in formation_nodes:
 		if prog.formation_locked(id) != "":
 			continue
-		var c := prog.nearest_column(id, wp, true, reach, true)
+		var c := prog.nearest_column(id, wp, true, reach, "excavator")
 		if c < 0:
 			continue
 		var d := prog.column_pos(id, c).distance_to(wp)
@@ -4076,6 +4141,7 @@ func _dig_soil(v: QuarryVehicle, delta: float) -> bool:
 		fleet.add_cargo(rec, "soil", took)
 		soil.refresh()
 		soil_sync_state()
+		nav_dirty = true                 # the walkable surface changed: workers must not path over the soil that was just removed
 		fx.impact(soil.cell_center(i) + Vector3(0, 0.3, 0), "limestone", 0.8)
 		_sfx_at("hit_pick", soil.cell_center(i), -6.0)
 	return true
@@ -4097,6 +4163,11 @@ func _excavator_dig(v: QuarryVehicle, delta: float) -> void:
 	var kind: String = t["kind"]
 	var col: int = t["col"]
 	var room := maxi(0, fleet.space(rec)) + maxi(0, int(prog.cfg.get("loose_piece_cap", 36)) - loose_count(kind))
+	var block := prog.extraction_block(kind, col, "excavator", int(s.get("dig_hardness", 1)))
+	if block != "":
+		v.digging = false
+		_notify(block)
+		return
 	var ex := prog.extract(kind, col, float(s.get("dig_dps", 10.0)) * delta, room, "excavator")
 	var n := int(ex["units"])
 	var node: QuarryFormation = t["node"]
@@ -4124,19 +4195,44 @@ func _vein_bonus(ex: Dictionary, kind: String, col: int, to: String, rec := {}) 
 		var put := 0
 		if to == "player":
 			put = state.add_item(r, n)
-		elif to == "bucket" and not rec.is_empty() and state.inventory.has(r):
-			rec["cargo"][r] = int(rec["cargo"].get(r, 0)) + n   # a pocket is a lucky strike: it rides in the bucket even when the bucket is full
-			put = n
-		else:
-			for i in range(n):
-				_spawn_formation_piece(kind, col, i)
-			put = n
-		if put > 0:
-			hud.toast("Mineral pocket!", "+%d %s" % [put, prog.display(r)], "unlock")
+		elif to == "bucket" and not rec.is_empty():
+			put = fleet.add_cargo(rec, r, n)          # the bucket's real capacity applies; the rest lies on the ground below
+		var left := n - put
+		for k in range(left):
+			_spawn_vein_piece(kind, col, r, k)         # nothing is lost: what does not fit becomes loose pieces of the RIGHT mineral
+		if n > 0:
+			hud.toast("Mineral pocket!", "+%d %s%s" % [n, prog.display(r), "" if left == 0 else " (%d on the ground)" % left], "unlock")
 			fx.impact(formation_nodes[kind].column_top(col) + Vector3(0, 0.4, 0), r, 1.2)
 			_sfx_unlock()
 	if not ex.get("veins", []).is_empty():
 		_survey_refresh()
+
+## A loose piece of a mineral found inside a formation (a pocket's overflow): a normal pickup of THAT resource beside the column. These
+## are saved with their resource (data["vein_pieces"]), so they stay coal or iron after a reload instead of turning into limestone.
+var vein_pieces := {}              ## piece id -> {kind, col, res, i}
+var vein_seq := 0
+
+func _spawn_vein_piece(kind: String, col: int, res: String, i: int, pid := "") -> void:
+	if pid == "":
+		vein_seq += 1
+		pid = "vp_%d" % vein_seq
+	var base := prog.column_pos(kind, col)
+	var out := prog.column_open_dir(kind, col, player.global_position if player else base + Vector3(0, 0, 5))
+	var side := Vector3(out.z, 0, -out.x)
+	var cell := float(prog.fdef(kind)["cell"])
+	var p := base + out * (cell * 0.5 + 0.6) + side * ((float(i % 3) - 1.0) * 0.5)
+	var body := _solid(world, "Loose " + res, p + Vector3(0, 0.27, 0), Vector3(0.44, 0.46, 0.42), TUNE_VEIN_COLOR.get(res, Color.GRAY), float(i))
+	body.collision_layer = 2
+	body.set_meta("kind", "piece")
+	body.set_meta("resource", res)
+	body.set_meta("deposit", kind)
+	body.set_meta("piece_id", pid)
+	if art:
+		art.dress_piece(body, res, i)
+	ground_pieces[pid] = body
+	vein_pieces[pid] = {"kind": kind, "col": col, "res": res, "i": i}
+
+const TUNE_VEIN_COLOR := {"coal": Color(0.16, 0.16, 0.18), "iron_ore": Color(0.62, 0.34, 0.24), "copper_ore": Color(0.5, 0.7, 0.55), "gold_ore": Color(0.95, 0.78, 0.25), "limestone": Color(0.8, 0.78, 0.7)}
 
 ## Nearest place a vehicle can deliver to around `point`.
 func dump_target(point: Vector3, radius: float, from: QuarryVehicle) -> Dictionary:
@@ -4148,13 +4244,13 @@ func dump_target(point: Vector3, radius: float, from: QuarryVehicle) -> Dictiona
 	for i in range(business.outputs.size()):
 		candidates.append([{"type": "output", "index": i}, Business.v3(business.outputs[i]["position"])])
 	for c in candidates:
-		var d := Vector2(point.x, point.z).distance_to(Vector2(c[1].x, c[1].z))
+		var d := _flat_dist(point, c[1])
 		if d < best_d:
 			best_d = d
 			best = {"ep": c[0]}
 	if spoil_node and is_instance_valid(spoil_node) and fleet.cargo_total(fleet.vehicle(from.vehicle_id)) > 0 and int(fleet.vehicle(from.vehicle_id)["cargo"].get("soil", 0)) > 0:
 		var sr := float(prog.cfg["soil"]["spoil"]["radius"])
-		var spoil_d := Vector2(point.x, point.z).distance_to(Vector2(spoil_node.global_position.x, spoil_node.global_position.z))
+		var spoil_d := _flat_dist(point, spoil_node.global_position)
 		if spoil_d < sr + 1.5:
 			best = {"spoil": true}
 			best_d = 0.0
@@ -4162,7 +4258,7 @@ func dump_target(point: Vector3, radius: float, from: QuarryVehicle) -> Dictiona
 		for other in vehicle_nodes.values():
 			if other != from and other.vkind == "truck":
 				var c: Vector3 = other.bed_center()
-				var d := Vector2(point.x, point.z).distance_to(Vector2(c.x, c.z))
+				var d := _flat_dist(point, c)
 				if d < maxf(best_d, 3.2):
 					best_d = d
 					best = {"truck": other}
@@ -5409,7 +5505,7 @@ func companion_strike(kind: String, col: int, damage: float, who: Node3D) -> voi
 	var res := str(state.deposits[kind]["resource"])
 	if not prog.companion_can_break(res, prog.current_day):
 		return
-	if col < 0 or prog.column_units(kind, col) <= 0 or not prog.column_minable(kind, col):
+	if prog.extraction_block(kind, col, "companion", 99) != "":
 		return
 	var node: QuarryFormation = formation_nodes[kind]
 	var room := maxi(0, int(prog.cfg.get("loose_piece_cap", 36)) - loose_count(kind))
@@ -5595,14 +5691,14 @@ func hud_status_text() -> String:
 func formation_column(kind: String, from: Vector3) -> int:
 	if not formation_nodes.has(kind):
 		return -1
-	return prog.nearest_column(kind, from, true)
+	return prog.nearest_column(kind, from, true, INF, "crew")
 
 func _crew_strike_formation(kind: String, hits: int, extra: int, w: Node3D) -> void:
 	var node: QuarryFormation = formation_nodes[kind]
 	var col: int = int(w.mine_col) if w and "mine_col" in w else -1
 	if col < 0 or prog.column_units(kind, col) <= 0:
-		col = prog.nearest_column(kind, w.global_position if w else node.global_position, true)
-	if col < 0:
+		col = prog.nearest_column(kind, w.global_position if w else node.global_position, true, INF, "crew")
+	if col < 0 or prog.extraction_block(kind, col, "crew") != "":
 		return
 	var room := maxi(0, int(prog.cfg.get("loose_piece_cap", 36)) - loose_count(kind))
 	var ex := prog.extract(kind, col, prog.crew_damage(float(hits), float(extra)), room, "crew")

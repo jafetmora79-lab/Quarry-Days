@@ -471,7 +471,7 @@ func column_open_dir(id: String, i: int, from: Vector3) -> Vector3:
 				best = dir
 	return best if best != Vector3.ZERO else Vector3.BACK
 
-func nearest_column(id: String, from: Vector3, exposed_only := true, max_dist := INF, benched := false) -> int:
+func nearest_column(id: String, from: Vector3, exposed_only := true, max_dist := INF, source := "") -> int:
 	if not state.deposits.has(id):
 		return -1
 	var best := -1
@@ -479,7 +479,7 @@ func nearest_column(id: String, from: Vector3, exposed_only := true, max_dist :=
 	for i in range(column_count(id)):
 		if column_units(id, i) <= 0 or column_covered(id, i) or (exposed_only and not column_exposed(id, i)):
 			continue
-		if benched and not column_in_bench(id, i):
+		if source != "" and bench_applies(id, source) and not column_in_bench(id, i):
 			continue
 		var p := column_pos(id, i)
 		var dd := Vector2(p.x, p.z).distance_to(Vector2(from.x, from.z))
@@ -517,6 +517,38 @@ func bench_number(id: String) -> int:
 	if lvl <= 0:
 		return n
 	return clampi(n - lvl + 1, 1, n)
+
+## Which sources must work a benched formation bench by bench (data: "bench_sources"). Hand tools may cut any exposed column; machines
+## and staff follow the benches. One list, used by every extraction path.
+func bench_applies(id: String, source: String) -> bool:
+	return benched(id) and source in fdef(id).get("bench_sources", [])
+
+## THE rule for whether a source may take rock from a column right now: "" when it may, else the reason. Every extraction path
+## (hand tools, staff, the companion, rigs, excavators) asks this before it calls extract(), so they can no longer disagree.
+## `max_hardness` is the hardest rock the source can break; -1 = derive it from the source (tools / best owned tool for staff).
+func extraction_block(id: String, col: int, source := "hand", max_hardness := -1) -> String:
+	if not state.deposits.has(id) or col < 0 or col >= column_count(id):
+		return "Nothing to cut here."
+	var lock := formation_locked(id)
+	if lock != "":
+		return lock
+	if column_units(id, col) <= 0:
+		return "That section is already cut away."
+	if not column_minable(id, col):
+		return "Only exposed rock can be cut: mine the face in front."
+	var res := str(state.deposits[id]["resource"])
+	var hard := int(material(res).get("hardness", 1))
+	var limit := max_hardness
+	if limit < 0:
+		match source:
+			"hand": limit = 99 if can_mine(res) else -2
+			"crew": limit = best_hardness()
+			_: limit = 99
+	if limit == -2 or hard > limit:
+		return "%s is too hard for that." % display(res)
+	if bench_applies(id, source) and not column_in_bench(id, col):
+		return "Work the current bench first: the next one opens when this one is cut."
+	return ""
 
 func column_in_bench(id: String, i: int) -> bool:
 	return not benched(id) or chunks_left(id, i) >= bench_level(id)
@@ -1052,7 +1084,7 @@ func rig_target(r: Dictionary) -> int:
 	var p := pad(str(r["formation"]), int(r["pad"]))
 	if p.is_empty():
 		return -1
-	return nearest_column(str(r["formation"]), p["pos"], false, float(machine(str(r["type"])).get("reach", 4.5)))
+	return nearest_column(str(r["formation"]), p["pos"], false, float(machine(str(r["type"])).get("reach", 4.5)), "rig")
 
 ## Runs every rig for `seconds` of real (unpaused) time. Returns extraction events for the visuals.
 func tick_rigs(seconds: float) -> Array:
@@ -1084,6 +1116,10 @@ func tick_rigs(seconds: float) -> Array:
 			r["cost_acc"] = float(r["cost_acc"]) - due
 			if business:
 				business.record("rig_costs", due)
+		var why := extraction_block(id, col, "rig", int(m.get("max_hardness", 99)))
+		if why != "":
+			r["status"] = why
+			continue
 		r["working"] = true
 		r["status"] = "Drilling"
 		var ex := extract(id, col, rig_dps(r) * seconds, space, "rigs")

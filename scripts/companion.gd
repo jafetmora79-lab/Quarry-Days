@@ -318,7 +318,7 @@ func step(delta: float, player_pos: Vector3, rest_goal := Vector3.INF) -> void:
 		debris = null
 		strike = ""
 	if debris == null and smash_left > 0 and (smash_col < 0 or game.prog.column_units(smash_kind, smash_col) <= 0):
-		smash_col = game.prog.nearest_column(smash_kind, global_position, true, float(game.prog.companion_cfg().get("reach", 14.0)))
+		smash_col = game.prog.nearest_column(smash_kind, global_position, true, float(game.prog.companion_cfg().get("reach", 14.0)), "companion")
 		if smash_col < 0:
 			cancel_smash()
 	if busy():

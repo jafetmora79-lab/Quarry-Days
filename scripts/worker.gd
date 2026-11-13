@@ -679,7 +679,7 @@ func _miner(delta: float) -> void:
 	var ep := {"type": "deposit_site", "id": dep}
 	if game.is_formation(dep):
 		# Stay on one exposed column until it is gone, so the miner keeps working one face.
-		if mine_dep != dep or mine_col < 0 or game.prog.column_units(dep, mine_col) <= 0 or not game.prog.column_exposed(dep, mine_col):
+		if mine_dep != dep or mine_col < 0 or game.prog.column_units(dep, mine_col) <= 0 or game.prog.extraction_block(dep, mine_col, "crew") != "":
 			mine_dep = dep
 			mine_col = game.formation_column(dep, global_position)
 		if mine_col < 0:
