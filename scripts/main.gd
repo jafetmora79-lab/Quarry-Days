@@ -728,7 +728,7 @@ func nearest_cleanup() -> Dictionary:
 		var d := Vector3(p2.x, 0.0, p2.y) - Vector3(here.x, 0.0, here.z)
 		if d.length() < bd:
 			bd = d.length()
-			best = {"id": str(id), "dist": d.length(), "dir": _compass(d), "weed": str(id).begins_with("w")}
+			best = {"id": str(id), "dist": d.length(), "dir": _compass(d), "weed": str(id).begins_with("w"), "pos": Vector3(p2.x, 0.0, p2.y)}
 	return best
 
 ## One strike on a weed clump or rubble heap. Weeds fall after `weed_hp` damage; a heap gives one stone (into the
@@ -1614,7 +1614,7 @@ func _physics_process(delta: float) -> void:
 	if construction and not placement:
 		prompt = _construction_prompt()
 	if driving:
-		prompt = _driving_hud()
+		prompt = str(hud_drive_info().get("action", ""))
 	if placement:
 		prompt = "PLACE %s: %s | left click place | R rotate | G grid %s | Esc cancel%s" % [placement_kind.replace("output","output storage").to_upper(), "VALID" if ghost_valid else "BLOCKED", "on" if grid_snap else "off", placement_hint]
 	hud.set_prompt(prompt)
@@ -4592,6 +4592,41 @@ func truck_finish_unload(v: QuarryVehicle, t: Dictionary) -> int:
 	_notify("Unloaded %d into %s.%s" % [moved, _target_name(t), (" %d stays on the truck (target full or wrong material)." % fleet.cargo_total(rec)) if fleet.cargo_total(rec) > 0 else ""])
 	return moved
 
+## Everything the vehicle plate and the prompt line need while a machine is driven: its name, speed against its top speed, load against capacity (and what
+## it carries), and the one thing the buttons can do right now.
+func hud_drive_info() -> Dictionary:
+	if driving == null or not is_instance_valid(driving):
+		return {}
+	var rec := fleet.vehicle(driving.vehicle_id)
+	if rec.is_empty():
+		return {}
+	var spec: Dictionary = fleet.spec(driving.vtype)
+	var carried := ""
+	var amount := 0
+	for k in rec["cargo"]:
+		if int(rec["cargo"][k]) > amount:
+			carried = str(k)
+			amount = int(rec["cargo"][k])
+	var action := ""
+	var point := driving.work_point()
+	if driving.has_bucket():
+		var pile := _nearest_pile(point, 3.0)
+		if driving.bucket_target < 0.5 and pile != "":
+			action = "Left click: scoop %s (%d)" % [fleet.cfg["piles"][pile]["title"], fleet.piles[pile]["amount"]]
+	if fleet.cargo_total(rec) > 0:
+		var t := dump_target(point, 3.0, driving)
+		if not t.is_empty():
+			action = "Right click: unload into " + _target_name(t)
+	if driving.vkind == "excavator" and action == "":
+		if not excavator_target(driving).is_empty():
+			action = "Hold left click: dig %s" % prog.display(str(excavator_target(driving)["res"]))
+		elif soil_target(driving) >= 0:
+			action = "Hold left click: dig soil"
+		else:
+			action = "Mouse spins the cab  Up/Down boom  Z X stick  C V bucket  N survey"
+	return {"name": str(rec.get("name", spec["title"])).to_upper(), "speed": absf(driving.speed), "max_speed": float(spec.get("max_speed", 6.0)),
+		"load": fleet.cargo_total(rec), "capacity": fleet.capacity(rec), "carried": carried, "action": action, "kind": driving.vkind}
+
 func _driving_hud() -> String:
 	var rec := fleet.vehicle(driving.vehicle_id)
 	var cargo := ""
@@ -5876,7 +5911,8 @@ func _on_quarry_level(n: int) -> void:
 	if pit_zone:
 		pit_zone.request_bake()
 	if hud:
-		hud.toast("Quarry level %d reached" % n, str(prog.level_def(n).get("title", "")), "milestone")
+		var road_note := ("  Build its access road at the office (Quarry Plan, $%d)." % prog.road_cost(n)) if blueprint and prog.level_def(n).has("roads") and not prog.road_built(n) else ""
+		hud.toast("Quarry level %d reached" % n, str(prog.level_def(n).get("title", "")) + road_note, "milestone")
 		_sfx_unlock()
 
 ## The industrial hub's boundary (data/progression.json "world"): the permanent business yard, never excavated.
@@ -5886,8 +5922,46 @@ func hub_rect() -> Rect2:
 	var zs: Array = h.get("z", [-6.0, 23.5])
 	return Rect2(float(xs[0]), float(zs[0]), float(xs[1]) - float(xs[0]), float(zs[1]) - float(zs[0]))
 
+## Where the player is, in words, for the location banner: the yard, the quarry surface, a numbered area, the tunnel.
+func hud_location() -> String:
+	var src: Node3D = driving if driving else player
+	if src == null:
+		return ""
+	var p := src.global_position
+	if not blueprint:
+		return "THE YARD" if hub_rect().has_point(Vector2(p.x, p.z)) else "THE QUARRY"
+	var ar := area_at(p)
+	if ar != "":
+		var def := prog.area_def(ar)
+		var lvl := int(def.get("level", 1))
+		return "QUARRY  -  AREA %d" % (lvl if ar != "area_6" else 5) if lvl > 1 else "QUARRY  -  SURFACE (AREA 1)"
+	if hub_rect().has_point(Vector2(p.x, p.z)):
+		return "THE YARD"
+	if delivery != null and p.x < hub_rect().position.x and p.z > 18.0:
+		return "THE WEST TUNNEL"
+	return "OUTSIDE THE FENCE"
+
+## What the map's objective marker points at: the next loose debris during the cleanup, then the office once a level's access road is waiting to be built.
+func hud_waypoint() -> Dictionary:
+	if prog == null or player == null:
+		return {}
+	if prog.cleanup_active():
+		var nx := nearest_cleanup()
+		if not nx.is_empty() and nx.has("pos"):
+			return {"pos": nx["pos"], "label": "Next debris"}
+	if blueprint:
+		for n in range(2, prog.quarry_level + 1):
+			if not prog.road_built(n) and prog.level_def(n).has("roads"):
+				return {"pos": OFFICE_POS, "label": "Build the level %d road at the office" % n}
+	return {}
+
 func hud_status_text() -> String:
 	var lines := []
+	if blueprint:
+		for n in range(2, prog.quarry_level + 1):
+			if not prog.road_built(n) and prog.level_def(n).has("roads"):
+				lines.append("Level %d is open: build its road at the office computer (Quarry Plan, $%d)" % [n, prog.road_cost(n)])
+				break
 	if prog.cleanup_active():
 		lines.append("Site cleanup %d/%d" % [prog.cleanup_total() - prog.cleanup_left(), prog.cleanup_total()])
 		var nx := nearest_cleanup()

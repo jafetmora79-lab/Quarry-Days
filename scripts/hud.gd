@@ -24,6 +24,20 @@ var income_label: Label
 var badge_label: Label
 var hint_text := "WASD move  SHIFT sprint  left click mine  E use  M manage  B build  F5 save  ESC pause"
 var _income_override := ""
+var minimap: QuarryMinimap
+var map_plate: QuarryPlate
+var loc_label: Label
+var loc_root: Control
+var _loc_text := ""
+var _loc_t := 0.0
+var _loc_check := 0.0
+var drive_plate: QuarryPlate
+var drive_name: Label
+var drive_speed_bar: ProgressBar
+var drive_speed_label: Label
+var drive_load_bar: ProgressBar
+var drive_load_label: Label
+var drive_hint: Label
 var stage_label: Label
 var objective_label: Label
 var objective_bar: ProgressBar
@@ -125,6 +139,61 @@ func _build() -> void:
 	badge_label = QuarryTheme.label("", QuarryTheme.SMALL, QuarryTheme.DIM)   # deliveries waiting, unconnected belts
 	badge_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(badge_label)
+	# ---- under it: the map, with a caption for the objective marker
+	map_plate = QuarryPlate.new(5, QuarryTheme.ACCENT)
+	map_plate.name = "MapPlate"
+	add_child(map_plate)
+	map_plate.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	map_plate.position = Vector2(10, 92)
+	var mv := _vbox(map_plate, 2)
+	minimap = QuarryMinimap.new()
+	minimap.name = "Minimap"
+	mv.add_child(minimap)
+	minimap.setup(game)
+	# ---- top-centre: where you are (fades in on a change)
+	loc_root = Control.new()
+	loc_root.name = "LocationBanner"
+	loc_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(loc_root)
+	loc_root.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	loc_root.set_anchor(SIDE_LEFT, 0.5)
+	loc_root.set_anchor(SIDE_RIGHT, 0.5)
+	loc_root.offset_left = -200
+	loc_root.offset_right = 200
+	loc_root.offset_top = 8
+	loc_root.offset_bottom = 36
+	loc_label = QuarryTheme.label("", QuarryTheme.HEAD, QuarryTheme.ACCENT, true)
+	loc_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	loc_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	loc_root.add_child(loc_label)
+	loc_root.modulate.a = 0.0
+	# ---- bottom-left: the machine you are driving (speed, load, what the right button does)
+	drive_plate = QuarryPlate.new(7, QuarryTheme.MONEY)
+	drive_plate.name = "DrivePlate"
+	drive_plate.visible = false
+	add_child(drive_plate)
+	drive_plate.set_anchor(SIDE_LEFT, 0.0)
+	drive_plate.set_anchor(SIDE_RIGHT, 0.0)
+	drive_plate.set_anchor(SIDE_TOP, 1.0)
+	drive_plate.set_anchor(SIDE_BOTTOM, 1.0)
+	drive_plate.offset_left = 10
+	drive_plate.offset_right = 226
+	drive_plate.offset_bottom = -30
+	drive_plate.offset_top = -128
+	drive_plate.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	var dv := _vbox(drive_plate, 2)
+	drive_name = QuarryTheme.label("", 12, QuarryTheme.ACCENT, true)
+	dv.add_child(drive_name)
+	drive_speed_bar = _bar(dv, 5, QuarryTheme.ACCENT)
+	drive_speed_label = QuarryTheme.label("", QuarryTheme.SMALL, QuarryTheme.DIM)
+	dv.add_child(drive_speed_label)
+	drive_load_bar = _bar(dv, 6, QuarryTheme.GOOD)
+	drive_load_label = QuarryTheme.label("", QuarryTheme.SMALL, QuarryTheme.DIM)
+	dv.add_child(drive_load_label)
+	drive_hint = QuarryTheme.label("", QuarryTheme.SMALL, QuarryTheme.INK)
+	drive_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	drive_hint.custom_minimum_size = Vector2(192, 0)
+	dv.add_child(drive_hint)
 	# ---- top-right: objective
 	var tr := _panel(Control.PRESET_TOP_RIGHT, QuarryTheme.GOOD)
 	tr.name = "ObjectivePlate"
@@ -475,6 +544,11 @@ func _process(delta: float) -> void:
 	_now += delta
 	if game == null or game.state == null:
 		return
+	_update_location(delta)
+	_update_drive_plate()
+	var tlp := get_node_or_null("TopLeftPlate") as Control
+	if tlp != null and map_plate != null:
+		map_plate.position.y = tlp.position.y + tlp.size.y + 6.0       # the map always sits just under the time / money plate, whatever its height
 	var st: QuarryState = game.state
 	# money count-up
 	var target := float(st.money)
@@ -527,6 +601,39 @@ func _process(delta: float) -> void:
 	_update_toasts(delta)
 	if card.visible:
 		card.modulate.a = move_toward(card.modulate.a, 1.0, delta * 4.0)
+
+## The location banner: checked a few times a second, shown for a few seconds when the place changes (never polls the world every frame).
+func _update_location(delta: float) -> void:
+	_loc_check -= delta
+	if _loc_check <= 0.0:
+		_loc_check = 0.25
+		var here: String = game.hud_location()
+		if here != "" and here != _loc_text:
+			_loc_text = here
+			loc_label.text = here
+			_loc_t = 3.2
+	_loc_t = maxf(0.0, _loc_t - delta)
+	loc_root.modulate.a = move_toward(loc_root.modulate.a, clampf(_loc_t / 0.8, 0.0, 1.0) if _loc_t < 0.8 else 1.0, delta * 3.0)
+
+## The vehicle plate: shown only while a machine is driven, in place of the hand tool.
+func _update_drive_plate() -> void:
+	var info: Dictionary = game.hud_drive_info()
+	var driving: bool = not info.is_empty()
+	drive_plate.visible = driving
+	var tp := bottom.get_node_or_null("ToolPlate")
+	if tp != null:
+		tp.visible = not driving
+	if not driving:
+		return
+	drive_name.text = str(info["name"])
+	var mx := maxf(0.1, float(info["max_speed"]))
+	drive_speed_bar.value = clampf(float(info["speed"]) / mx, 0.0, 1.0)
+	drive_speed_label.text = "%.1f m/s   top %.1f" % [float(info["speed"]), mx]
+	var cap := maxi(1, int(info["capacity"]))
+	drive_load_bar.value = clampf(float(info["load"]) / float(cap), 0.0, 1.0)
+	drive_load_label.text = "%s %d / %d%s" % ["BUCKET" if str(info["kind"]) in ["loader", "excavator"] else "BED", int(info["load"]), cap, ("  %s" % game.prog.display(str(info["carried"]))) if str(info["carried"]) != "" else ""]
+	(drive_load_bar.get_theme_stylebox("fill") as StyleBoxFlat).bg_color = QuarryTheme.WARN if int(info["load"]) >= cap else QuarryTheme.GOOD
+	drive_hint.text = str(info["action"]) if str(info["action"]) != "" else "WASD drive  Space brake  R recover  E exit"
 
 func refresh_panels() -> void:
 	var st: QuarryState = game.state
