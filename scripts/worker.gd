@@ -406,22 +406,12 @@ func _check_stuck(delta: float) -> void:
 	sidestep = Vector3(-velocity.z, 0, velocity.x).normalized() * (1.0 if stuck_count % 2 == 0 else -1.0)
 	sidestep_timer = 0.6
 	path_key = "" # force a fresh path
-	if stuck_count >= 4 and path_i < path.size() and not game.is_visible_to_player(global_position) and _hop_is_clear(path[path_i]):
-		# Last-resort recovery, only when the player cannot see it happen, and only a short hop with open ground between: a worker is
-		# never moved through a wall or a rock face (it repaths instead, below)
+	if stuck_count >= 4 and path_i < path.size() and not game.is_visible_to_player(global_position):
+		# Last-resort recovery, only when the player cannot see it happen.
 		global_position = Vector3(path[path_i].x, global_position.y, path[path_i].z)
 		stuck_count = 0
 	elif stuck_count >= 7:
 		e["warning"] = "Route blocked - repathing"
-
-## True when the straight hop to `to` crosses no solid thing (rock, wall, machine) and is short.
-func _hop_is_clear(to: Vector3) -> bool:
-	if _flat(global_position, to) > 3.0:
-		return false
-	var from := global_position + Vector3(0, 0.9, 0)
-	var q := PhysicsRayQueryParameters3D.create(from, Vector3(to.x, from.y, to.z), 1 | 8)
-	q.exclude = [get_rid()]
-	return get_world_3d().direct_space_state.intersect_ray(q).is_empty()
 
 ## Reachable standing point around a workplace (cached until the navmesh changes).
 func access_point(key: String, info: Dictionary) -> Variant:
