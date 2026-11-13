@@ -267,6 +267,8 @@ func _cliffs() -> void:
 		if not n is StaticBody3D:
 			continue
 		var nm := str(n.name)
+		if n.has_meta("fence"):
+			continue
 		var cs: CollisionShape3D = null
 		for c in n.get_children():
 			if c is CollisionShape3D:
@@ -583,9 +585,12 @@ func _pads() -> void:
 ## The blueprint world's surroundings: ground beside the yard, the yard's roads, the quarry's industrial fence, the mountain range to the north,
 ## and the mountain the west tunnel runs into. (The quarry's own surface is drawn by the pit zone; forests by the landscape.)
 func _blueprint_world() -> void:
-	quad_flat("ExcavatedDirt", Vector3(0, 0, 36.0), Vector2(400.0, 88.0), 0.0, 0.02)
-	quad_flat("ExcavatedDirt", Vector3(-180.0, 0, -58.0), Vector2(40.0, 100.0), 0.0, 0.02)
-	quad_flat("ExcavatedDirt", Vector3(180.0, 0, -58.0), Vector2(40.0, 100.0), 0.0, 0.02)
+	var grass := "res://THE_VEIL_ASSETS_V2/Materials_Godot/Ground/M_Grnd_GrassDry.tres"     # dry grass around the property, bare soil inside the quarry fence
+	quad_flat(grass, Vector3(0, 0, 36.0), Vector2(400.0, 88.0), 0.0, 0.02)
+	quad_flat(grass, Vector3(-180.0, 0, -58.0), Vector2(40.0, 100.0), 0.0, 0.02)
+	quad_flat(grass, Vector3(180.0, 0, -58.0), Vector2(40.0, 100.0), 0.0, 0.02)
+	quad_flat(grass, Vector3(0, 0, -176.0), Vector2(420.0, 134.0), 0.0, 0.02)          # the land beyond the quarry up to the mountain range (no sky showing through)
+	_land_detail()
 	_pads()
 	# yard roads: the central road from the quarry gate, the cross road, the west road down to the service lane behind the garage, the lane itself
 	quad_flat(M_ASPHALT, Vector3(0, 0, 2.0), Vector2(7.0, 20.0), 0.0, 0.071)
@@ -612,14 +617,87 @@ func _blueprint_world() -> void:
 	for i in range(14):
 		var x2 := -190.0 + float(i) * 29.0 + rng.randf_range(-8.0, 8.0)
 		MeshKit.rock_into(rs, Vector3(x2, -2.0, rng.randf_range(-128.0, -118.0)), Vector3(rng.randf_range(30.0, 46.0), rng.randf_range(8.0, 15.0), rng.randf_range(16.0, 24.0)), 500 + i, 3, 7)
-	MeshKit.inst(root, rs.mesh(), MeshKit.mat("CliffStrata")).name = "NorthRange"
+	var rock_mat := _mountain_material()
+	MeshKit.inst(root, rs.mesh(), rock_mat).name = "NorthRange"
 	# the west mountain with the tunnel: rock masses beside and above the tunnel (its own walls and roof are built by the delivery system)
 	var ms := MeshKit.Soup.new()
 	MeshKit.rock_into(ms, Vector3(-62.0, -1.0, 6.0), Vector3(74.0, 26.0, 40.0), 611, 4, 8)
 	MeshKit.rock_into(ms, Vector3(-66.0, -1.0, 52.0), Vector3(80.0, 30.0, 50.0), 612, 4, 8)
 	MeshKit.rock_into(ms, Vector3(-38.0, 5.2, 25.4), Vector3(34.0, 12.0, 16.0), 613, 3, 7)
 	MeshKit.rock_into(ms, Vector3(-86.0, -1.0, 27.0), Vector3(40.0, 20.0, 30.0), 614, 3, 7)
-	MeshKit.inst(root, ms.mesh(), MeshKit.mat("CliffStrata")).name = "TunnelMountain"
+	MeshKit.inst(root, ms.mesh(), rock_mat).name = "TunnelMountain"
+
+## The strata rock of the mountains, a touch darker and warmer than the quarry cliffs so the range reads as distant hills rather than pale boulder piles.
+func _mountain_material() -> Material:
+	var base := MeshKit.mat("CliffStrata")
+	if base is StandardMaterial3D:
+		var m := (base as StandardMaterial3D).duplicate() as StandardMaterial3D
+		m.albedo_color = Color(0.66, 0.58, 0.48)
+		return m
+	return base
+
+## Scatter on the land around the property: grass tufts, dark and pale patches, stones and pebbles, drawn as four instanced batches (one draw call each).
+## Kept off the yard, the roads, the quarry and the tunnel mouth.
+func _land_detail() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 4242
+	var tuft := MeshKit.Soup.new()
+	for bl in range(7):
+		var a := rng.randf() * TAU
+		MeshKit.frustum_into(tuft, Vector3(cos(a) * rng.randf_range(0.05, 0.45), 0.0, sin(a) * rng.randf_range(0.05, 0.45)), 0.08, 0.008, rng.randf_range(0.4, 0.95), 4)
+	var stone := MeshKit.Soup.new()
+	MeshKit.rock_into(stone, Vector3.ZERO, Vector3(1.0, 0.6, 1.0), 31, 3, 6)
+	var pebbles := MeshKit.Soup.new()
+	for pk in range(5):
+		MeshKit.rock_into(pebbles, Vector3(rng.randf_range(-0.6, 0.6), 0.0, rng.randf_range(-0.6, 0.6)), Vector3(0.25, 0.15, 0.22), 50 + pk, 2, 5)
+	var patch := MeshKit.Soup.new()
+	for k in range(9):
+		var a0 := float(k) / 9.0 * TAU
+		var a1 := float(k + 1) / 9.0 * TAU
+		patch.tri(Vector3.ZERO, Vector3(sin(a0) * (1.0 + 0.25 * sin(a0 * 3.0)), 0.0, cos(a0) * (1.0 + 0.25 * sin(a0 * 3.0))), Vector3(sin(a1) * (1.0 + 0.25 * sin(a1 * 3.0)), 0.0, cos(a1) * (1.0 + 0.25 * sin(a1 * 3.0))))
+	var hub: Rect2 = game.hub_rect()
+	# kind: [mesh, base colour, spread, count, scale range, lift]
+	var kinds := [
+		[tuft.mesh(), Color(0.56, 0.58, 0.3), 0.22, 900, Vector2(0.8, 1.7), 0.0],
+		[patch.mesh(), Color(0.5, 0.42, 0.27), 0.16, 260, Vector2(1.2, 3.2), 0.03],
+		[stone.mesh(), Color(0.6, 0.57, 0.5), 0.22, 150, Vector2(0.6, 1.6), -0.05],
+		[pebbles.mesh(), Color(0.55, 0.5, 0.42), 0.25, 260, Vector2(0.9, 1.8), 0.0],
+	]
+	for ki in range(kinds.size()):
+		var kd: Array = kinds[ki]
+		var xfs: Array = []
+		var tints: Array = []
+		var tries := 0
+		while xfs.size() < int(kd[3]) and tries < 6000:
+			tries += 1
+			var p := Vector2(rng.randf_range(-196.0, 196.0), rng.randf_range(-112.0, 78.0))
+			if p.x > -131.0 and p.x < 131.0 and p.y > -112.0 and p.y < -4.0:
+				continue                       # inside / at the quarry fence
+			if hub.grow(4.0).has_point(p) or (p.x > -70.0 and p.x < -20.0 and p.y > 16.0 and p.y < 36.0):
+				continue                       # the yard, and the service lane + tunnel approach
+			if p.x > 24.0 and p.x < 56.0 and p.y > -4.0 and p.y < 30.0:
+				continue                       # the east extension
+			var sc: float = rng.randf_range(float(kd[4].x), float(kd[4].y))
+			var basis := Basis(Vector3.UP, rng.randf() * TAU) * Basis.from_scale(Vector3(sc, sc if ki != 1 else 1.0, sc))
+			xfs.append(Transform3D(basis, Vector3(p.x, float(kd[5]), p.y)))
+			var bc: Color = kd[1]
+			var f := rng.randf_range(1.0 - float(kd[2]), 1.0 + float(kd[2]))
+			tints.append(Color(clampf(bc.r * f, 0.0, 1.0), clampf(bc.g * f, 0.0, 1.0), clampf(bc.b * f, 0.0, 1.0)))
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_colors = true
+		mm.mesh = kd[0]
+		mm.instance_count = xfs.size()
+		for q in range(xfs.size()):
+			mm.set_instance_transform(q, xfs[q])
+			mm.set_instance_color(q, tints[q])
+		var mmi := MultiMeshInstance3D.new()
+		mmi.multimesh = mm
+		mmi.name = "LandDetail%d" % ki
+		mmi.material_override = QuarryFormation._decor_material()
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mmi.visibility_range_end = 140.0
+		root.add_child(mmi)
 
 ## The blueprint yard's dressing: a few lamps, the dumpster and cones, drums by the garage. (The old yard's scatter of mounds, scree and brush
 ## is gone: the yard is gravel and buildings; everything green lives in the quarry and the forest.)

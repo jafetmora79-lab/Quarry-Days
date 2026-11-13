@@ -102,7 +102,7 @@ static func theme() -> Theme:
 	t.default_font_size = BODY
 	t.set_constant("line_spacing", "Label", 2)
 	t.set_color("font_color", "Label", INK)
-	t.set_color("font_shadow_color", "Label", Color(0, 0, 0, 0.55))
+	t.set_color("font_shadow_color", "Label", Color(0, 0, 0, 0.0))        # a text shadow is drawn glyph by glyph and is NOT batched (hundreds of draw calls on a busy HUD): plates give the contrast instead; floating text asks for one (label(..., shadow))
 	t.set_constant("shadow_offset_x", "Label", 1)
 	t.set_constant("shadow_offset_y", "Label", 1)
 	t.set_stylebox("panel", "PanelContainer", panel_box())
@@ -128,16 +128,19 @@ static func theme() -> Theme:
 	_theme = t
 	return t
 
-static func label(text: String, size := BODY, color := INK, heading := false, bold_face := false) -> Label:
+static func label(text: String, size := BODY, color := INK, heading := false, bold_face := false, shadow := false) -> Label:
 	var l := Label.new()
 	l.add_theme_constant_override("line_spacing", 2)
 	l.text = text
 	l.add_theme_font_override("font", head() if heading else (bold() if bold_face else body()))
 	l.add_theme_font_size_override("font_size", size)
 	l.add_theme_color_override("font_color", color)
-	l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.6))
-	l.add_theme_constant_override("shadow_offset_x", 1)
-	l.add_theme_constant_override("shadow_offset_y", 1)
+	if shadow:
+		l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.6))     # only for text that floats over the 3D scene (no plate behind it)
+		l.add_theme_constant_override("shadow_offset_x", 1)
+		l.add_theme_constant_override("shadow_offset_y", 1)
+	else:
+		l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.0))
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l
 

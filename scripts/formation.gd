@@ -155,32 +155,109 @@ static func crack_material(stage: int) -> Material:
 			_crack_mats.append(m)
 	return _crack_mats[clampi(stage, 0, 2)]
 
-## Natural surface: scrub mounds, weed tufts and loose boulders standing on the top layer of the filled quarry, merged into three shared meshes
-## and placed on a share of the columns. They belong to the soil they stand on, so cutting that column removes them (see refresh()).
+## Natural surface of the filled quarry: scrub, grass tufts, stones, pebbles and patches of darker and lighter soil standing on the top layer, so the surface is not one
+## flat colour. Everything is drawn as five instanced batches (one draw call each, whatever the count), each instance tinted individually. They belong to the soil
+## they stand on: cutting that column hides them (refresh() collapses their instance to nothing).
+var _decor_groups: Array = []      ## [{"mm": MultiMesh, "base": Array[Transform3D], "col": Array[int], "on": Array[bool]}]
+
 func _build_decor(dd: Dictionary) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = int(dd.get("seed", 1))
 	var density := float(dd.get("density", 0.2))
 	var scrub := MeshKit.Soup.new()
 	MeshKit.rock_into(scrub, Vector3.ZERO, Vector3(1.5, 0.8, 1.5), 61, 3, 6)
-	var weed := MeshKit.Soup.new()
-	for b in range(5):
-		MeshKit.frustum_into(weed, Vector3(rng.randf_range(-0.35, 0.35), 0.0, rng.randf_range(-0.35, 0.35)), 0.09, 0.01, rng.randf_range(0.5, 0.9), 4)
+	var tuft := MeshKit.Soup.new()
+	for bl in range(7):
+		var a := rng.randf() * TAU
+		MeshKit.frustum_into(tuft, Vector3(cos(a) * rng.randf_range(0.05, 0.4), 0.0, sin(a) * rng.randf_range(0.05, 0.4)), 0.07, 0.008, rng.randf_range(0.35, 0.8), 4)
 	var stone := MeshKit.Soup.new()
 	MeshKit.rock_into(stone, Vector3.ZERO, Vector3(1.0, 0.65, 1.0), 77, 3, 6)
-	var meshes := [scrub.mesh(), weed.mesh(), stone.mesh()]
-	var mats := [MeshKit.flat(Color(0.2, 0.31, 0.16)), MeshKit.flat(Color(0.36, 0.5, 0.2)), MeshKit.mat("RockLimestone")]
+	var pebbles := MeshKit.Soup.new()
+	for pk in range(5):
+		MeshKit.rock_into(pebbles, Vector3(rng.randf_range(-0.5, 0.5), 0.0, rng.randf_range(-0.5, 0.5)), Vector3(0.22, 0.14, 0.2), 90 + pk, 2, 5)
+	var patch := MeshKit.Soup.new()          # a low, irregular disc lying on the ground
+	var pn := 9
+	for k in range(pn):
+		var a0 := float(k) / float(pn) * TAU
+		var a1 := float(k + 1) / float(pn) * TAU
+		var r0 := 1.0 + 0.25 * sin(a0 * 3.0 + 1.0)
+		var r1 := 1.0 + 0.25 * sin(a1 * 3.0 + 1.0)
+		patch.tri(Vector3.ZERO, Vector3(sin(a0) * r0, 0.0, cos(a0) * r0), Vector3(sin(a1) * r1, 0.0, cos(a1) * r1))
+	# kind: [mesh, base colour, tint spread, share of the columns that get one, scale range, lift]
+	var kinds := [
+		[scrub.mesh(), Color(0.27, 0.37, 0.19), 0.2, 0.10, Vector2(0.8, 1.35), -0.05],
+		[tuft.mesh(), Color(0.55, 0.58, 0.3), 0.22, 0.30, Vector2(0.8, 1.5), 0.0],
+		[stone.mesh(), Color(0.62, 0.58, 0.5), 0.2, 0.07, Vector2(0.7, 1.4), -0.05],
+		[pebbles.mesh(), Color(0.6, 0.55, 0.47), 0.2, 0.22, Vector2(0.9, 1.6), 0.0],
+		[patch.mesh(), Color(0.55, 0.38, 0.25), 0.16, 0.30, Vector2(0.9, 2.0), 0.035],
+	]
+	var cols_list := []
 	for i in range(prog.column_count(fid)):
-		if prog.column_tiers(fid, i) <= 0 or rng.randf() > density:
+		if prog.column_tiers(fid, i) > 0:
+			cols_list.append(i)
+	for ki in range(kinds.size()):
+		var kd: Array = kinds[ki]
+		var xfs: Array = []
+		var cols: Array = []
+		var tints: Array = []
+		for i in cols_list:
+			if rng.randf() > density * float(kd[3]) * 5.0:
+				continue
+			var lp := _local(i)
+			var sc: float = rng.randf_range(float(kd[4].x), float(kd[4].y))
+			var top := float(prog.column_tiers(fid, i)) * tier_h + float(kd[5])
+			var basis := Basis(Vector3.UP, rng.randf() * TAU) * Basis.from_scale(Vector3(sc, sc * rng.randf_range(0.8, 1.2) if ki != 4 else 1.0, sc))
+			xfs.append(Transform3D(basis, Vector3(lp.x + rng.randf_range(-cell * 0.4, cell * 0.4), top, lp.z + rng.randf_range(-cell * 0.4, cell * 0.4))))
+			cols.append(i)
+			var base_c: Color = kd[1]
+			var f := rng.randf_range(1.0 - float(kd[2]), 1.0 + float(kd[2]))          # one brightness factor: the hue stays natural (dry grass stays dry grass)
+			tints.append(Color(clampf(base_c.r * f, 0.0, 1.0), clampf(base_c.g * f, 0.0, 1.0), clampf(base_c.b * f, 0.0, 1.0)))
+		if xfs.is_empty():
 			continue
-		var k := rng.randi() % 3
-		var lp := _local(i)
-		var mi := MeshKit.inst(self, meshes[k], mats[k])
-		mi.position = Vector3(lp.x + rng.randf_range(-cell * 0.3, cell * 0.3), float(prog.column_tiers(fid, i)) * tier_h - 0.05, lp.z + rng.randf_range(-cell * 0.3, cell * 0.3))
-		mi.rotation.y = rng.randf() * TAU
-		mi.scale = Vector3.ONE * rng.randf_range(0.8, 1.3)
-		mi.visibility_range_end = 90.0
-		decor.append([mi, i])
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_colors = true
+		mm.mesh = kd[0]
+		mm.instance_count = xfs.size()
+		for q in range(xfs.size()):
+			mm.set_instance_transform(q, xfs[q])
+			mm.set_instance_color(q, tints[q])
+		var mmi := MultiMeshInstance3D.new()
+		mmi.multimesh = mm
+		mmi.name = "Decor%d" % ki
+		mmi.material_override = _decor_material()
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mmi.visibility_range_end = 110.0
+		add_child(mmi)
+		var on: Array = []
+		on.resize(xfs.size())
+		on.fill(true)
+		_decor_groups.append({"mm": mm, "base": xfs, "col": cols, "on": on})
+
+static var _decor_mat: StandardMaterial3D
+
+static func _decor_material() -> StandardMaterial3D:
+	if _decor_mat == null:
+		_decor_mat = StandardMaterial3D.new()
+		_decor_mat.vertex_color_use_as_albedo = true
+		_decor_mat.vertex_color_is_srgb = true
+		_decor_mat.albedo_color = Color(1, 1, 1)
+		_decor_mat.roughness = 1.0
+		_decor_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	return _decor_mat
+
+## Shows or hides each decoration with the soil under it (an instance with zero scale draws nothing).
+func _refresh_decor() -> void:
+	for g in _decor_groups:
+		var mm: MultiMesh = g["mm"]
+		var on: Array = g["on"]
+		var cols: Array = g["col"]
+		var base: Array = g["base"]
+		for q in range(cols.size()):
+			var want: bool = prog.chunks_left(fid, int(cols[q])) > 0
+			if want != bool(on[q]):
+				on[q] = want
+				mm.set_instance_transform(q, base[q] if want else Transform3D(Basis.from_scale(Vector3.ZERO), (base[q] as Transform3D).origin))
 
 ## Re-reads the column counts. `instant` skips crumble animations (building, loading).
 func refresh(instant := false) -> void:
@@ -222,11 +299,12 @@ func refresh(instant := false) -> void:
 			for t in range(stack.size()):
 				stack[t].material_override = (mat_new if t % 2 == 0 else mat_new2) if fresh else (mat_old if t % 2 == 0 else mat_old2)
 		_update_cracks(i)
-	for dc in decor:
-		(dc[0] as MeshInstance3D).visible = prog.chunks_left(fid, int(dc[1])) > 0
 	if skin and sig != _skin_sig:
 		_skin_sig = sig
 		_rebuild_skin(sig)
+		_refresh_decor()                 # only when the surface really changed
+	elif not skin:
+		_refresh_decor()
 	label.position = Vector3(0, top_y + 0.7, 0)
 	update_label()
 	if nav_changed and not instant and game:

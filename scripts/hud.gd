@@ -162,7 +162,7 @@ func _build() -> void:
 	loc_root.offset_right = 200
 	loc_root.offset_top = 8
 	loc_root.offset_bottom = 36
-	loc_label = QuarryTheme.label("", QuarryTheme.HEAD, QuarryTheme.ACCENT, true)
+	loc_label = QuarryTheme.label("", QuarryTheme.HEAD, QuarryTheme.ACCENT, true, false, true)
 	loc_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	loc_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	loc_root.add_child(loc_label)
@@ -352,7 +352,7 @@ func _build() -> void:
 	dura_root.offset_top = 18
 	dura_root.offset_bottom = 48
 	dura_bar = _bar(dura_root, 5, QuarryTheme.ACCENT)
-	dura_label = QuarryTheme.label("", QuarryTheme.BODY, QuarryTheme.INK)
+	dura_label = QuarryTheme.label("", QuarryTheme.BODY, QuarryTheme.INK, false, false, true)
 	dura_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	dura_root.add_child(dura_label)
 	dura_root.modulate.a = 0.0
@@ -434,7 +434,7 @@ func popup_resource(res: String, n: int, text: String) -> void:
 		entry[0].set_meta("age", minf(float(entry[0].get_meta("age")), 0.15))
 		entry[2] = 0.0
 		return
-	var l := QuarryTheme.label("+%d %s" % [n, text.to_upper()], 12, QuarryTheme.RES_COLORS.get(res, QuarryTheme.INK))
+	var l := QuarryTheme.label("+%d %s" % [n, text.to_upper()], 12, QuarryTheme.RES_COLORS.get(res, QuarryTheme.INK), false, false, true)
 	l.set_meta("age", 0.0)
 	l.set_meta("life", 1.05)
 	l.set_meta("origin", size * 0.5 + Vector2(26 + randf_range(-6, 6), -8 + randf_range(-4, 4)))

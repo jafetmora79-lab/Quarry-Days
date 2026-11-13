@@ -34,6 +34,7 @@ var ramp_w := 8.0
 var ramp_run := 20.0
 var wall_h := 8.0
 var build_margin := 3.0
+const GRASS_DRY := "res://THE_VEIL_ASSETS_V2/Materials_Godot/Ground/M_Grnd_GrassDry.tres"
 var flat := false              ## the blueprint quarry (new world): attached to the yard, fenced, flat start; no corridor, rim or rock walls
 var level_pits: Array = []     ## Phase 7.2: [{"n", "rect": Rect2 (x, z, w, d) incl. ramp strip, "rw", "y_top", "y_bot", "cols": Rect2}] for quarry levels 2+
 var basin_holes: Array = []    ## Rect2s (local x, z) cut out of the basin floor (the level-2 pit)
@@ -337,12 +338,15 @@ func _build_fence() -> void:
 	var gate := 4.8
 	var t := 0.3
 	var h := 2.2
-	_body("Quarry fence west", Vector3(x0, h * 0.5, (z0f + z1f) * 0.5), Vector3(t, h, z1f - z0f), false)
-	_body("Quarry fence east", Vector3(x1, h * 0.5, (z0f + z1f) * 0.5), Vector3(t, h, z1f - z0f), false)
-	_body("Quarry fence north", Vector3(0, h * 0.5, z0f), Vector3(x1 - x0, h, t), false)
+	var fb := []
+	fb.append(_body("Quarry fence west", Vector3(x0, h * 0.5, (z0f + z1f) * 0.5), Vector3(t, h, z1f - z0f), false))
+	fb.append(_body("Quarry fence east", Vector3(x1, h * 0.5, (z0f + z1f) * 0.5), Vector3(t, h, z1f - z0f), false))
+	fb.append(_body("Quarry fence north", Vector3(0, h * 0.5, z0f), Vector3(x1 - x0, h, t), false))
 	var seg := (x1 - x0) * 0.5 - gate
-	_body("Quarry fence south west", Vector3(x0 + seg * 0.5, h * 0.5, z1f), Vector3(seg, h, t), false)
-	_body("Quarry fence south east", Vector3(x1 - seg * 0.5, h * 0.5, z1f), Vector3(seg, h, t), false)
+	fb.append(_body("Quarry fence south west", Vector3(x0 + seg * 0.5, h * 0.5, z1f), Vector3(seg, h, t), false))
+	fb.append(_body("Quarry fence south east", Vector3(x1 - seg * 0.5, h * 0.5, z1f), Vector3(seg, h, t), false))
+	for b in fb:
+		b.set_meta("fence", true)          # drawn as ONE merged fence mesh (_build_fence_art); the old rim dressing must leave it alone
 	var hb := 9.0
 	_body("Boundary west", Vector3(-plat_w * 0.5 - 1.0, hb * 0.5, (plateau_z0() + plateau_z1()) * 0.5), Vector3(2.0, hb, plat_d + 6.0), false)
 	_body("Boundary east", Vector3(plat_w * 0.5 + 1.0, hb * 0.5, (plateau_z0() + plateau_z1()) * 0.5), Vector3(2.0, hb, plat_d + 6.0), false)
@@ -389,6 +393,43 @@ func _build_barrier() -> void:
 	mi.position.y = -2.0
 
 # ------------------------------------------------------------------ visuals
+
+## The blueprint quarry's industrial fence as ONE merged mesh (posts, rails, a wire-mesh band) plus a few hazard plates: the whole 700 m of fence is
+## two draw calls. The central gate stays open (posts and a lintel on the yard side are drawn by the art layer).
+func _build_fence_art(vis: Node3D) -> void:
+	var f: Array = cfg.get("fence", [-126.0, -100.0, 126.0, 0.0])
+	var x0 := float(f[0])
+	var z0f := float(f[1])
+	var x1 := float(f[2])
+	var z1f := float(f[3])
+	var gate := 4.8
+	var steel := MeshKit.Soup.new()
+	var wire := MeshKit.Soup.new()
+	var runs := [[Vector2(x0, z0f), Vector2(x1, z0f)], [Vector2(x1, z0f), Vector2(x1, z1f)], [Vector2(x0, z1f), Vector2(x0, z0f)],
+		[Vector2(x0, z1f), Vector2(-gate, z1f)], [Vector2(gate, z1f), Vector2(x1, z1f)]]
+	var h := 2.2
+	for r in runs:
+		var a: Vector2 = r[0]
+		var b: Vector2 = r[1]
+		var d := b - a
+		var len := d.length()
+		var yaw := -atan2(d.y, d.x)
+		var n := maxi(1, int(ceil(len / 3.0)))
+		for i in range(n + 1):
+			var p := a + d * (float(i) / float(n))
+			MeshKit.box_into(steel, Vector3(p.x, h * 0.5, p.y), Vector3(0.14, h, 0.14))
+		var c := (a + b) * 0.5
+		var xf := Transform3D(Basis(Vector3.UP, yaw), Vector3(c.x, 0.0, c.y))
+		MeshKit.box_into(steel, Vector3.ZERO, Vector3(len, 0.07, 0.07), Vector2.ONE, Transform3D(xf.basis, xf * Vector3(0, h - 0.05, 0)))
+		MeshKit.box_into(steel, Vector3.ZERO, Vector3(len, 0.07, 0.07), Vector2.ONE, Transform3D(xf.basis, xf * Vector3(0, 0.12, 0)))
+		MeshKit.box_into(wire, Vector3.ZERO, Vector3(len, h - 0.4, 0.02), Vector2.ONE, Transform3D(xf.basis, xf * Vector3(0, h * 0.5 + 0.02, 0)))
+	MeshKit.inst(vis, steel.mesh(), MeshKit.mat("SteelPlate")).name = "FenceFrame"
+	var wm := StandardMaterial3D.new()
+	wm.albedo_color = Color(0.42, 0.45, 0.47, 0.34)
+	wm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	wm.roughness = 1.0
+	MeshKit.inst(vis, wire.mesh(), wm).name = "FenceWire"
+
 
 func _wob(y: float, x: float, z: float) -> float:
 	return y + 0.02 * sin(x * 0.9 + z * 0.4)
@@ -437,35 +478,36 @@ func _build_art() -> void:
 	MeshKit.inst(vis, road.mesh(), MeshKit.mat("GroundRoad"))
 	var plat := MeshKit.Soup.new()
 	_cell_quads(plat, -plat_w * 0.5, plat_w * 0.5, z1, z0, 0.01, 3.0, true)
-	MeshKit.inst(vis, plat.mesh(), MeshKit.mat("ExcavatedDirt"))
+	MeshKit.inst(vis, plat.mesh(), MeshKit.mat(GRASS_DRY if flat else "ExcavatedDirt"))        # the land around the fenced quarry is dry grass; the quarry itself is bare soil
 	var basin := MeshKit.Soup.new()
 	_cell_quads(basin, -hx, hx, zn, zs, basin_y + 0.012, 2.0, false, basin_holes)
 	MeshKit.inst(vis, basin.mesh(), MeshKit.mat("ExcavatedDirt"))
-	# ramp surface
-	var depth := -basin_y
-	var ang := atan2(depth, ramp_run)
-	var length := sqrt(ramp_run * ramp_run + depth * depth)
-	var rs := MeshKit.Soup.new()
-	var rxf := Transform3D(Basis(Vector3.RIGHT, -ang), Vector3(0, -depth * 0.5 + 0.02, zs - ramp_run * 0.5))
 	var hw := ramp_w * 0.5
-	var hl := length * 0.5 + 0.1
-	rs.quad(rxf * Vector3(-hw, 0, -hl), rxf * Vector3(-hw, 0, hl), rxf * Vector3(hw, 0, hl), rxf * Vector3(hw, 0, -hl))
-	MeshKit.inst(vis, rs.mesh(), MeshKit.mat("GroundRoad"))
-	var wedge := MeshKit.Soup.new()   # side faces of the ramp's solid fill (right triangles)
-	for side in [-1.0, 1.0]:
-		var xw: float = side * hw
-		var a := Vector3(xw, 0.0, zs)
-		var b := Vector3(xw, -depth, zs)
-		var c := Vector3(xw, -depth, zs - ramp_run)
-		if side > 0.0:
-			wedge.tri(a, b, c)
-		else:
-			wedge.tri(a, c, b)
-	MeshKit.inst(vis, wedge.mesh(), MeshKit.mat("CutLimestone"))
-	for side in [-1.0, 1.0]:
-		var curb := MeshKit.Soup.new()
-		MeshKit.box_into(curb, Vector3.ZERO, Vector3(0.25, 0.35, length - 0.6), Vector2.ONE, Transform3D(Basis(Vector3.RIGHT, -ang), Vector3(side * (hw + 0.15), -depth * 0.5 + 0.17, zs - ramp_run * 0.5)))
-		MeshKit.inst(vis, curb.mesh(), MeshKit.mat("Hazard"))
+	if not flat:                  # (the blueprint quarry is flush with the plateau: no basin ramp, no curbs)
+		# ramp surface
+		var depth := -basin_y
+		var ang := atan2(depth, ramp_run)
+		var length := sqrt(ramp_run * ramp_run + depth * depth)
+		var rs := MeshKit.Soup.new()
+		var rxf := Transform3D(Basis(Vector3.RIGHT, -ang), Vector3(0, -depth * 0.5 + 0.02, zs - ramp_run * 0.5))
+		var hl := length * 0.5 + 0.1
+		rs.quad(rxf * Vector3(-hw, 0, -hl), rxf * Vector3(-hw, 0, hl), rxf * Vector3(hw, 0, hl), rxf * Vector3(hw, 0, -hl))
+		MeshKit.inst(vis, rs.mesh(), MeshKit.mat("GroundRoad"))
+		var wedge := MeshKit.Soup.new()   # side faces of the ramp's solid fill (right triangles)
+		for side in [-1.0, 1.0]:
+			var xw: float = side * hw
+			var a := Vector3(xw, 0.0, zs)
+			var b := Vector3(xw, -depth, zs)
+			var c := Vector3(xw, -depth, zs - ramp_run)
+			if side > 0.0:
+				wedge.tri(a, b, c)
+			else:
+				wedge.tri(a, c, b)
+		MeshKit.inst(vis, wedge.mesh(), MeshKit.mat("CutLimestone"))
+		for side in [-1.0, 1.0]:
+			var curb := MeshKit.Soup.new()
+			MeshKit.box_into(curb, Vector3.ZERO, Vector3(0.25, 0.35, length - 0.6), Vector2.ONE, Transform3D(Basis(Vector3.RIGHT, -ang), Vector3(side * (hw + 0.15), -depth * 0.5 + 0.17, zs - ramp_run * 0.5)))
+			MeshKit.inst(vis, curb.mesh(), MeshKit.mat("Hazard"))
 	# quarry levels 2-4: floors, haul roads and retaining walls of each pit (see _build_levels)
 	for k in range(level_pits.size()):
 		var lp: Dictionary = level_pits[k]
@@ -502,7 +544,10 @@ func _build_art() -> void:
 			var z1r: float = float(sp["rn"]) + float(p1[0]) if tn else float(sp["rs"]) - float(p1[0])
 			var y0r := float(p0[1]) + 0.02
 			var y1r := float(p1[1]) + 0.02
-			lroad.quad(Vector3(sx0, y0r, z0r), Vector3(sx0, y1r, z1r), Vector3(sx1, y1r, z1r), Vector3(sx1, y0r, z0r))
+			if tn:
+				lroad.quad(Vector3(sx0, y0r, z0r), Vector3(sx0, y1r, z1r), Vector3(sx1, y1r, z1r), Vector3(sx1, y0r, z0r))
+			else:
+				lroad.quad(Vector3(sx0, y0r, z0r), Vector3(sx1, y0r, z0r), Vector3(sx1, y1r, z1r), Vector3(sx0, y1r, z1r))      # the ramp runs the other way: wind it to face up
 			lw.quad(Vector3(xe, y0r, z0r), Vector3(xe, yb, z0r), Vector3(xe, yb, z1r), Vector3(xe, y1r, z1r))
 			lw.quad(Vector3(xe, y0r, z0r), Vector3(xe, y1r, z1r), Vector3(xe, yb, z1r), Vector3(xe, yb, z0r))
 		MeshKit.inst(vis, lroad.mesh(), MeshKit.mat("GroundRoad"))
@@ -527,6 +572,9 @@ func _build_art() -> void:
 				"west": _wall(wsoup, rect.size.y + 1.8, lh, 0.8, sd, 2, -PI * 0.5, Vector3(float(wl[1]) - 0.4, yb, (float(wl[3]) + float(wl[4])) * 0.5))
 				"east": _wall(wsoup, rect.size.y + 1.8, lh, 0.8, sd, 2, PI * 0.5, Vector3(float(wl[1]) + 0.4, yb, (float(wl[3]) + float(wl[4])) * 0.5))
 		MeshKit.inst(vis, wsoup.mesh(), level_rock(int(lp["n"])))
+	if flat:
+		_build_fence_art(vis)       # industrial fencing instead of any rock enclosure
+		return
 	# basin walls (pale cut limestone), facing into the basin
 	var bw := MeshKit.Soup.new()
 	var hgt := -basin_y + 0.4
