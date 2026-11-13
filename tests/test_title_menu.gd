@@ -26,6 +26,9 @@ func boot(with_title: bool, autosave: bool):
 	await frames(8)
 	return game
 func run() -> void:
+	for path in ["user://quarry_save.json", "user://quarry_save.bak", "user://quarry_save.json.tmp"]:
+		if FileAccess.file_exists(path):
+			DirAccess.remove_absolute(path)
 	var g = await boot(true, false)
 	check(g.menu == "title" and g.title != null, "the game opens on the main menu")
 	check(not g.hud.visible and g.player.locked, "the HUD is hidden and the player cannot move behind it")
