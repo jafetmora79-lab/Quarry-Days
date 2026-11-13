@@ -135,6 +135,46 @@ func run() -> void:
 	for vp in g4.vein_pieces.values():
 		resok = resok and str(vp["res"]) != "limestone"
 	check(resok, "and they are their own mineral, not limestone")
+	# machinery placement: the rotated footprint must be supported and clear
+	var g5 = await boot(true)
+	await frames(10)
+	var open_pos := Vector3(8.0, 0.0, 14.0)
+	var base_y: float = 0.0
+	var qd := PhysicsRayQueryParameters3D.create(open_pos + Vector3(0, 3, 0), open_pos - Vector3(0, 2, 0), 1)
+	var hd: Dictionary = g5.get_world_3d().direct_space_state.intersect_ray(qd)
+	if not hd.is_empty():
+		base_y = float(hd["position"].y)
+	open_pos.y = base_y
+	check(g5.footprint_ok(open_pos, 0.0) and g5.footprint_ok(open_pos, 0.7), "open level ground takes a machine at any heading")
+	check(not g5.footprint_ok(open_pos + Vector3(0, 0.6, 0), 0.0), "a machine floating 0.6 m above the ground is refused")
+	check(not g5.footprint_ok(Vector3(-15.6, base_y, 6.5), 0.0) and not g5.footprint_ok(Vector3(-15.6, base_y, 6.5), PI * 0.5), "a machine overlapping the dumpster is refused at either heading")
+	check(not g5.footprint_ok(Vector3(base_y - 8.0, base_y, 40.0), 0.0), "a spot with no ground under it is refused")
+	# conveyors only connect on their own level
+	var cr: Dictionary = {"position": [10.0, base_y, 16.0], "yaw": 0.0, "tier": 1}
+	g5.state.crushers.append(cr)
+	var port: Vector3 = g5.business.crusher_output_port(g5.state.crushers.size() - 1)
+	var belt_pos: Vector3 = port + QuarryBusiness.forward(0.0)
+	var same: Dictionary = g5.business.link_for(Vector3(belt_pos.x, base_y, belt_pos.z), 0.0)
+	var other: Dictionary = g5.business.link_for(Vector3(belt_pos.x, base_y - 3.6, belt_pos.z), 0.0)
+	check(str(same["src"].get("type", "")) == "crusher", "a belt starting at the crusher's chute on the same level connects to it")
+	check(other["src"].is_empty(), "the same belt 3.6 m lower does not connect to it (no physical connection)")
+	g5.state.crushers.pop_back()
+	# saves keep the origin record of a loaded truck
+	var gf = g5.fleet
+	var tr5 = gf.give("truck", Vector3(0, 0, 20), 0.0)
+	gf.add_cargo(tr5, "coal", 12, "area_3")
+	var snap5: Dictionary = JSON.parse_string(JSON.stringify(gf.snapshot()))
+	gf.vehicles.clear()
+	gf.restore(snap5)
+	var back: Dictionary = gf.vehicle(int(tr5["id"]))
+	check(not back.is_empty() and int(back["cargo"].get("coal", 0)) == 12 and int(back.get("origin", {}).get("area_3", 0)) == 12, "a saved truck keeps its cargo and where it came from")
+	# an old save (no origin record) loads as before
+	var old5 := snap5.duplicate(true)
+	for v in old5["vehicles"]:
+		v.erase("origin")
+	gf.restore(old5)
+	var back2: Dictionary = gf.vehicle(int(tr5["id"]))
+	check(int(back2["cargo"].get("coal", 0)) == 12 and not back2.has("origin"), "an old-format save loads with its cargo and no origin")
 	# the dump: the bed tips UP (its front rises above the rear hinge) and the load slides to the tailgate
 	var g2 = await boot(true)
 	g2.state.money = 900000

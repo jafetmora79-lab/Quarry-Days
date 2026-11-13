@@ -2703,8 +2703,12 @@ func menu_act(kind: String, digit: int, shift: bool) -> void:
 						elif not up.is_empty():
 							_notify("Need $%d" % int(up["cost"]))
 
-func placement_valid(pos: Vector3, yaw: float) -> bool:
+const MACHINE_FOOT := Vector2(2.2, 1.6)      ## x (across) and z (along) footprint of a placed machine at yaw 0
+
+func placement_valid(pos: Vector3, yaw: float, machine := true) -> bool:
 	if not in_build_area(pos) or pos.distance_to(Vector3(0,0,8))<2.0 or not _on_ground(pos) or _near_vehicle(pos, 3.0):
+		return false
+	if machine and not footprint_ok(pos, yaw):
 		return false
 	for body in world.get_children():
 		if body == ghost or not body is StaticBody3D or body.name == "Quarry floor" or body.has_meta("ground"):
@@ -2724,6 +2728,37 @@ func placement_valid(pos: Vector3, yaw: float) -> bool:
 		var p: Array = state.crushers[i]["position"]
 		if Vector2(pos.x,pos.z).distance_to(Vector2(float(p[0]),float(p[2])))<2.5:
 			return false
+	return true
+
+## Phase 1: the machine's real (rotated) footprint must stand on level, solid ground - every sample point of it lands on the floor within
+## 0.2 m of the machine's own height on a gentle surface, so nothing floats over a drop or a step - and nothing solid (rock, wall, another
+## machine) may occupy the volume the machine would fill.
+func footprint_ok(pos: Vector3, yaw: float) -> bool:
+	var basis := Basis(Vector3.UP, yaw)
+	var space := get_world_3d().direct_space_state
+	for ox in [-0.5, 0.0, 0.5]:
+		for oz in [-0.5, 0.0, 0.5]:
+			var p: Vector3 = pos + basis * Vector3(ox * MACHINE_FOOT.x, 0.0, oz * MACHINE_FOOT.y)
+			var q := PhysicsRayQueryParameters3D.create(p + Vector3(0, 1.5, 0), p - Vector3(0, 1.2, 0), 1)
+			var h := space.intersect_ray(q)
+			if h.is_empty():
+				return false
+			var body: Node = h["collider"]
+			if not (body.name == "Quarry floor" or body.has_meta("ground")):
+				return false
+			if absf(float(h["position"].y) - pos.y) > 0.2 or float(h["normal"].y) < 0.9:
+				return false
+	var box := BoxShape3D.new()
+	box.size = Vector3(MACHINE_FOOT.x - 0.1, 1.3, MACHINE_FOOT.y - 0.1)
+	var sq := PhysicsShapeQueryParameters3D.new()
+	sq.shape = box
+	sq.transform = Transform3D(basis, pos + Vector3(0, 0.25 + 0.65, 0))
+	sq.collision_mask = 1
+	for hit in space.intersect_shape(sq, 16):
+		var c: Node = hit["collider"]
+		if c == ghost or c.has_meta("ground") or c.name == "Quarry floor" or str(c.get_meta("kind", "")) in ["conveyor", "piece"]:
+			continue
+		return false
 	return true
 
 ## Buildable ground: the original quarry floor, plus the east expansion once it is open.
@@ -3748,7 +3783,7 @@ func machine_snap(kind: String, at: Vector3) -> Dictionary:
 	for cd in cands:
 		var d := Vector2(at.x, at.z).distance_to(Vector2(cd["pos"].x, cd["pos"].z))
 		var pos := Vector3(cd["pos"].x, at.y, cd["pos"].z)
-		if d < best_d and placement_valid(pos, float(cd["yaw"])):
+		if d < best_d and placement_valid(pos, float(cd["yaw"]), false):
 			best_d = d
 			best = cd
 	return best

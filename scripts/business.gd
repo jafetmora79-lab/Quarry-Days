@@ -726,31 +726,36 @@ func _flat(a: Vector3, b: Vector3) -> float:
 	return Vector2(a.x, a.z).distance_to(Vector2(b.x, b.z))
 
 ## Nearest compatible endpoint around `point`. `as_source` picks crusher output sides, else input sides.
-func _endpoint_near(point: Vector3, as_source: bool, skip_conveyor: int) -> Dictionary:
+func _endpoint_near(point: Vector3, as_source: bool, skip_conveyor: int, level := 0.0) -> Dictionary:
+	# Phase 1: a belt only connects to something on its own level (a physical connection): endpoints more than LEVEL_TOL above or below
+	# the belt end are not linked, however close they are in plan
 	for j in range(conveyors.size()):
 		if j == skip_conveyor:
 			continue
 		var ends := conveyor_ends(v3(conveyors[j]["position"]), float(conveyors[j]["yaw"]), str(conveyors[j].get("kind", "straight")))
-		if _flat(point, ends[1] if as_source else ends[0]) < 0.75:
+		var e: Vector3 = ends[1] if as_source else ends[0]
+		if _flat(point, e) < 0.75 and absf(level - v3(conveyors[j]["position"]).y) <= LEVEL_TOL:
 			return {"type": "conveyor", "index": j}
 	for i in range(state.crushers.size()):
-		if _flat(point, crusher_output_port(i) if as_source else crusher_input_port(i)) < 1.0:
+		if _flat(point, crusher_output_port(i) if as_source else crusher_input_port(i)) < 1.0 and absf(level - v3(state.crushers[i]["position"]).y) <= LEVEL_TOL:
 			return {"type": "crusher", "index": i}
 	for i in range(outputs.size()):
-		if _flat(point, v3(outputs[i]["position"])) < 1.7:
+		if _flat(point, v3(outputs[i]["position"])) < 1.7 and absf(level - v3(outputs[i]["position"]).y) <= LEVEL_TOL:
 			return {"type": "output", "index": i}
-	if _flat(point, storage_pos) < 2.0:
+	if _flat(point, storage_pos) < 2.0 and absf(level - storage_pos.y) <= LEVEL_TOL:
 		return {"type": "storage"}
 	if as_source and prog:
 		for i in range(prog.rigs.size()):
-			if _flat(point, prog.rig_bin_pos(prog.rigs[i])) < 1.3:
+			if _flat(point, prog.rig_bin_pos(prog.rigs[i])) < 1.3 and absf(level - prog.rig_bin_pos(prog.rigs[i]).y) <= LEVEL_TOL:
 				return {"type": "rig", "index": i}
 	return {}
+
+const LEVEL_TOL := 0.75
 
 ## Link description for a conveyor at pos/yaw (also used for the placement preview).
 func link_for(pos: Vector3, yaw: float, skip_conveyor := -1, kind := "straight") -> Dictionary:
 	var ends := conveyor_ends(pos, yaw, kind)
-	return {"src": _endpoint_near(ends[0], true, skip_conveyor), "dst": _endpoint_near(ends[1], false, skip_conveyor), "resource": ""}
+	return {"src": _endpoint_near(ends[0], true, skip_conveyor, pos.y), "dst": _endpoint_near(ends[1], false, skip_conveyor, pos.y), "resource": ""}
 
 func compute_links() -> void:
 	links.clear()

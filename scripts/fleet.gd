@@ -190,7 +190,15 @@ func take_origin(v: Dictionary, n: int) -> Dictionary:
 		n -= k
 		if int(o[a]) <= 0:
 			o.erase(a)
+	if o.is_empty():
+		v.erase("origin")          # an empty record is no record (saves stay identical to the old format when nothing is tracked)
 	return out
+
+func _origin_total(v: Dictionary) -> int:
+	var n := 0
+	for a in v.get("origin", {}):
+		n += int(v["origin"][a])
+	return n
 
 func rock_cargo(v: Dictionary) -> int:
 	return cargo_total(v) - int(v["cargo"].get("soil", 0))
@@ -289,14 +297,25 @@ func restore(data: Dictionary) -> void:
 			for o in vehicles:
 				if str(o["type"]) == str(raw["type"]):
 					same += 1
-			vehicles.append({"id": int(raw.get("id", 0)), "type": str(raw["type"]), "position": raw["position"].duplicate(), "yaw": float(raw.get("yaw", 0.0)), "cargo": cargo,
-				"name": str(raw.get("name", "%s %d" % [spec(str(raw["type"]))["title"], same]))})
+			var rec := {"id": int(raw.get("id", 0)), "type": str(raw["type"]), "position": raw["position"].duplicate(), "yaw": float(raw.get("yaw", 0.0)), "cargo": cargo,
+				"name": str(raw.get("name", "%s %d" % [spec(str(raw["type"]))["title"], same]))}
+			var org := {}
+			if raw.get("origin") is Dictionary:
+				for a in raw["origin"]:
+					if int(raw["origin"][a]) > 0:
+						org[str(a)] = int(raw["origin"][a])
+			if not org.is_empty():
+				rec["origin"] = org
+			vehicles.append(rec)
 	next_id = int(data.get("next_id", 1))
 	for v in vehicles:
 		next_id = maxi(next_id, int(v["id"]) + 1)
 		# Never trust a saved load above capacity.
 		while cargo_total(v) > capacity(v):
 			take_cargo(v, v["cargo"].keys()[0], cargo_total(v) - capacity(v))
+		var over: int = _origin_total(v) - rock_cargo(v)      # the record can never claim more rock than the bed holds
+		if over > 0:
+			take_origin(v, over)
 	for k in upgrades:
 		upgrades[k] = bool(data.get("upgrades", {}).get(k, false))
 	var cap := int(cfg.get("pile_max", 30))
