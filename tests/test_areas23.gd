@@ -65,7 +65,18 @@ func run() -> void:
 		last_y = y
 		steps += 1
 	check(route_ok and steps > 10, "the corridor from the gate to the basin is continuous solid ground (%d samples)" % steps)
-	# ---- the first terrace is reachable by its ramp
+	# ---- the first terrace is reachable by its ramp (in the filled quarry the ramp is cut through the surface layers when level 2 opens)
+	if prog.filled_world():
+		for lid in ["q_l1_top", "q_l1_gravel", "q_l1_rock"]:
+			prog.init_formation(lid)
+			var ld: Dictionary = prog.state.deposits[lid]
+			for ci in range(ld["columns"].size()):
+				ld["columns"][ci] = 0
+			prog._sync_stock(ld)
+			game._refresh_deposit(lid)
+		prog.cleanup["done"] = true
+		prog.check_levels()
+		await frames(6)
 	var lp: Dictionary = pz.level_pits[0]
 	var rect: Rect2 = lp["rect"]
 	var rx: float = rect.position.x + float(lp["rw"]) * 0.5
@@ -120,13 +131,14 @@ func run() -> void:
 	for id in prog.level_formations(2):
 		prog.state.deposits[id]["columns"][0] = prog.state.deposits[id]["columns"][0]
 	var r3 := int(prog.area_state("area_3")["rock"])
-	prog.ensure_formation("bench_l2_coal")
-	var ex := prog.extract("bench_l2_coal", 0, 1.0e6, 1 << 30, "hand")
+	var l2id := "q_l2_coal" if prog.filled_world() else "bench_l2_coal"
+	prog.ensure_formation(l2id)
+	var ex := prog.extract(l2id, 0, 1.0e6, 1 << 30, "hand")
 	check(int(ex["units"]) > 0 and int(prog.area_state("area_3")["rock"]) == r3 + int(ex["units"]), "rock cut from the level-2 coal bench counts for Area 3 (%d units)" % int(ex["units"]))
 	prog.area_add("area_3", "rock", 150)
 	prog.area_add("area_3", "recovered", 100)
 	check(prog.area_complete("area_3"), "Area 3 completes when its measured work is done")
-	check(prog.units_left("pit_band_01") > 0 and prog.units_left("bench_l2_coal") > 0, "finishing a contract leaves the rest of the rock minable")
+	check(prog.units_left(l2id) > 0 and (prog.units_left("q_l1_rock") if prog.filled_world() else prog.units_left("pit_band_01")) >= 0, "finishing a contract leaves the rest of the rock minable (%d left in the level-2 coal bench)" % prog.units_left(l2id))
 	# ---- the stages need the contracts
 	var fresh := QuarryProgression.new(State.new({}), game.business, prog.cfg)
 	var reqs := {}

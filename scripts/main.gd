@@ -3252,6 +3252,7 @@ func _load(quiet := false) -> void:
 	business.compute_links()
 	_sync_workers()
 	_sync_vehicles(true)
+	_relocate_pit_vehicles()
 	_ensure_opening()
 	_rebake_nav()
 	var p: Array = state.player_position
@@ -3270,6 +3271,32 @@ func _load(quiet := false) -> void:
 	if hud:
 		hud.shown_money = float(state.money)
 		hud.refresh_panels()
+
+## An old-world save (the pre-dug pit) has machines parked where the new quarry is solid or has a different shape: they are moved to the garage row
+## or the apron, never lost or duplicated. Only the staging lane and the ramp keep what stands on them.
+func _relocate_pit_vehicles() -> void:
+	if pit_zone == null or not prog.migrated_filled:
+		return
+	prog.migrated_filled = false
+	for v in vehicle_nodes.values():
+		var l: Vector3 = pit_zone.to_loc(v.global_position)
+		var in_basin: bool = absf(l.x) <= pit_zone.basin_w * 0.5 + 2.0 and l.z <= pit_zone.basin_zs() and l.z >= pit_zone.basin_zn() - 2.0
+		var access: bool = Rect2(-52.0, -81.0, 64.0, 14.0).has_point(Vector2(l.x, l.z)) or (absf(l.x) <= 6.0 and l.z > -70.0)
+		if not in_basin or access:
+			continue
+		var slot = free_parking_slot(v.vtype)
+		if slot == null:
+			slot = free_fallback_slot(v.vtype)
+		if slot == null:
+			continue
+		v.global_position = slot
+		v.rotation.y = 0.0
+		v.speed = 0.0
+		v.velocity = Vector3.ZERO
+		var rec := fleet.vehicle(v.vehicle_id)
+		if not rec.is_empty():
+			rec["position"] = [slot.x, slot.y, slot.z]
+			rec["yaw"] = 0.0
 
 ## After a load: if there is no floor within 3 m below the restored position (the terrain changed, an old save, a removed machine),
 ## the player is put back on the last safe ground instead of falling through the world.

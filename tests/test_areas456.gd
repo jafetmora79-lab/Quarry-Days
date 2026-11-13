@@ -106,7 +106,7 @@ func run() -> void:
 	for k in ["rock", "recovered", "visited", "shipped"]:
 		prog.area_add("area_6", k, 200 if k != "visited" else 1)
 	check(prog.area_complete("area_6"), "Area 6 completes with its measured work")
-	check(prog.units_left("bench_l4_gold") > 0 and prog.units_left("bench_l3_iron") > 0, "all that rock stays minable after the contracts")
+	check(prog.units_left("q_l4_gold" if prog.filled_world() else "bench_l4_gold") > 0 and prog.units_left("q_l3_iron" if prog.filled_world() else "bench_l3_iron") > 0, "all that rock stays minable after the contracts")
 	# ---- the stages
 	var reqs := {}
 	for s_ in prog.cfg["stages"]:

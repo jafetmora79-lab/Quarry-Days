@@ -27,7 +27,7 @@ var quarry_level := 1                  ## Phase 7.1: the deepest of the four qua
 const SCHEMA := 3                      ## save schema of the progression block: 1 = before Phase 7.1 (no field), 2 = quarry levels, 3 = Phase 9 twelve-stage ladder
 var rigs: Array = []
 var next_rig_id := 1
-var story := {"intro_seen": false, "found": {}, "read": {}, "visits": {}, "journal": [], "fossil": "", "companion": {"state": "none"}, "milestones": {}, "excavator": {"battery": false, "hose": false, "fuel": false, "started": false, "granted": false, "legacy": false, "carry": ""}, "areas": {}}
+var story := {"intro_seen": false, "found": {}, "read": {}, "visits": {}, "journal": [], "fossil": "", "companion": {"state": "none"}, "milestones": {}, "excavator": {"battery": false, "hose": false, "fuel": false, "started": false, "granted": false, "legacy": false, "carry": ""}, "areas": {}, "quarry_world": "filled"}
 ## Phase 6.2 tutorial: weeds and rubble heaps still on the site. "cleared": id -> true, "units": heap id -> units
 ## left (heaps keep their remaining stone when saved), "done": the whole site is clean (hillside unlocked).
 var cleanup := {"cleared": {}, "units": {}, "done": false}
@@ -970,6 +970,74 @@ func open_all_roads() -> int:
 		n += open_roads(lv)
 	return n
 
+var migrated_filled := false      ## set by the migration below; Main moves machines that stood inside the old pit to the yard, then clears it
+
+## A save from the pre-dug pit, loaded into the filled quarry. Nothing is lost and nothing is paid twice: the share of each old level's rock that
+## was already cut is cut from the new level (from its road end outward), every opened level has the layers above it cleared over its rectangle
+## and its haul road open, and the surface layers keep the old surface level's share. No units reach the inventory and no contract counter moves.
+func migrate_filled_world() -> void:
+	if not filled_world() or str(story.get("quarry_world", "")) == "filled":
+		return
+	story["quarry_world"] = "filled"
+	migrated_filled = true
+	var old: Array = cfg.get("quarry_levels", [])
+	var inv: Transform3D = PitZoneScript.gate_transform(cfg.get("pit_zone", {})).affine_inverse()
+	var share := {}
+	for n in range(1, old.size() + 1):
+		var tot := 0
+		var left := 0
+		for id in old[n - 1].get("formations", []):
+			if is_formation(str(id)) and str(fdef(str(id)).get("world", "")) == "legacy":
+				tot += max_units(str(id))
+				left += int(state.deposits.get(str(id), {}).get("stock", max_units(str(id))))
+		share[n] = clampf(1.0 - float(left) / float(maxi(1, tot)), 0.0, 1.0) if tot > 0 else 0.0
+	var lvls := levels()
+	for n in range(2, quarry_level + 1):
+		var r: Array = lvls[n - 1].get("pit", {}).get("rect", [])
+		if r.is_empty():
+			continue
+		for lv in range(1, n):                                  # everything above level n's floor over its rectangle is gone
+			for id in level_formations(lv):
+				if str(fdef(id).get("frame", "")) != "pit":
+					continue
+				ensure_formation(id)
+				for i in range(column_count(id)):
+					var p: Vector3 = inv * column_pos(id, i)
+					if p.x > float(r[0]) and p.x < float(r[2]) and p.z > float(r[1]) and p.z < float(r[3]):
+						state.deposits[id]["columns"][i] = 0
+				_sync_stock(state.deposits[id])
+	for n in range(2, quarry_level + 1):
+		open_roads(n)
+	for n in range(1, lvls.size() + 1):
+		if float(share.get(n, 0.0)) <= 0.0:
+			continue
+		var origin := Vector2(0.0, -68.0)
+		var pr: Array = lvls[n - 1].get("pit", {}).get("rect", [])
+		if not pr.is_empty():
+			origin = Vector2((float(pr[0]) + float(pr[2])) * 0.5, float(pr[3]))
+		var cand := []
+		var total := 0
+		for id in level_formations(n):
+			if str(fdef(id).get("frame", "")) != "pit":
+				continue
+			ensure_formation(id)
+			for i in range(column_count(id)):
+				var p2: Vector3 = inv * column_pos(id, i)
+				cand.append([id, i, Vector2(p2.x, p2.z).distance_to(origin)])
+				total += column_max(id, i)
+		cand.sort_custom(func(a, b): return float(a[2]) < float(b[2]))
+		var to_cut := int(floor(float(share[n]) * float(total)))
+		for c in cand:
+			if to_cut <= 0:
+				break
+			var cur := int(state.deposits[c[0]]["columns"][c[1]])
+			var take := mini(cur, to_cut)
+			state.deposits[c[0]]["columns"][c[1]] = cur - take
+			to_cut -= take
+		for id in level_formations(n):
+			if state.deposits.has(id):
+				_sync_stock(state.deposits[id])
+
 ## Brings a progression save block up to the current schema. Each step only adds what the older format lacked; nothing
 ## in the old data is changed or dropped, so mined rock, stages, machines and rigs carry over untouched.
 static func migrate(data: Dictionary) -> Dictionary:
@@ -1754,6 +1822,7 @@ func restore(raw_data: Dictionary, vehicle_types: Array = []) -> void:
 		story["excavator"]["carry"] = str(ex.get("carry", "")) if str(ex.get("carry", "")) in REPAIR_PARTS and not bool(ex.get(str(ex.get("carry", "")), false)) else ""
 	else:
 		story["excavator"] = {"battery": true, "hose": true, "fuel": true, "started": true, "granted": true, "legacy": true, "carry": ""}
+	story["quarry_world"] = str(st.get("quarry_world", "")) if st is Dictionary else ""        # "" = a save from the pre-dug pit: migrated at the end of restore()
 	story["areas"] = {}
 	if st is Dictionary and st.get("areas", null) is Dictionary:
 		for aid in st["areas"]:
@@ -1817,6 +1886,7 @@ func restore(raw_data: Dictionary, vehicle_types: Array = []) -> void:
 	else:
 		stage = clampi(int(data.get("stage", 0)), 0, stages().size() - 1)
 	check_stages()
+	migrate_filled_world()
 	open_all_roads()
 	if not (st is Dictionary and st.has("milestones")):
 		# a save from before Phase 8.2: what it has already dug counts as reached, with no windfall

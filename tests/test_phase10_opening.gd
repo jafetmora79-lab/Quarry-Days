@@ -48,7 +48,7 @@ func run() -> void:
 	var no_piles := true
 	for id in piles:
 		no_piles = no_piles and not game.formation_nodes.has(id)
-	check(no_piles and game.formation_nodes.has("hillside_face_01") and game.formation_nodes.has("pit_band_01") and game.formation_nodes.has("bench_l2_coal"), "A the three artificial starting piles are gone; the hillside and the pit formations remain")
+	check(no_piles and game.formation_nodes.has("hillside_face_01") and game.formation_nodes.has("q_l1_top") and game.formation_nodes.has("q_l2_coal"), "A the three artificial starting piles are gone; the hillside and the quarry's layered formations remain")
 	check(game.deposit_nodes.has("coal_outcrop") and game.deposit_nodes.has("iron_boulder"), "A coal and iron appear as small natural outcrops")
 	var counts: Dictionary = game.natural_root.get_meta("counts") if game.natural_root else {}
 	check(not counts.is_empty() and counts["boulders"] >= 5 and counts["outcrops"] >= 3 and counts["patches"] >= 6 and counts["scrub"] == 0 and counts["pebbles"] >= 40, "A the site is dirt patches, scattered rocks, boulders and buried outcrops - no scrub %s" % str(counts))

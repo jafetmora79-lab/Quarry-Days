@@ -44,7 +44,7 @@ func nav_end(game, from: Vector3, to: Vector3) -> Vector3:
 func exposed_count(prog: QuarryProgression, all_pit := false) -> int:
 	var n := 0
 	for id in prog.formation_ids():          # the basin bench, or (all_pit) every formation of the pit zone incl. the level 2-4 benches
-		if str(prog.fdef(id).get("frame", "")) != "pit" or (not all_pit and id != BID):
+		if str(prog.fdef(id).get("frame", "")) != "pit" or not prog.formation_active(id) or (not all_pit and id != BID):
 			continue
 		for i in range(prog.column_count(id)):
 			if prog.column_exposed(id, i) and prog.column_units(id, i) > 0:

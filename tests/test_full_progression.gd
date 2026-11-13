@@ -124,6 +124,6 @@ func run() -> void:
 		if prog.area_complete(str(a["id"])):
 			done += 1
 	check(done == 6, "all six area contracts were completed on the way (%d)" % done)
-	check(prog.units_left("hillside_face_01") > 0 and prog.units_left("bench_l4_gold") > 0, "completing them left the rest of the rock in place")
+	check(prog.units_left("hillside_face_01") > 0 and prog.units_left("q_l4_gold" if prog.filled_world() else "bench_l4_gold") > 0, "completing them left the rest of the rock in place")
 	print("RESULT: %d checks, %d failures" % [checks, failures.size()])
 	quit(1 if failures.size() > 0 else 0)

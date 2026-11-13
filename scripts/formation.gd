@@ -44,6 +44,7 @@ var skin := false             # Phase 8.7: one continuous rock surface over all 
 var skin_mi: MeshInstance3D
 var _skin_sig := []
 var label: Label3D
+var decor: Array = []         # [MeshInstance3D, column index]: surface vegetation and loose rock standing on the top layer
 
 func setup(main_node, p: QuarryProgression, id: String) -> void:
 	game = main_node
@@ -137,6 +138,8 @@ func setup(main_node, p: QuarryProgression, id: String) -> void:
 	label.visibility_range_end = 26.0
 	label.visible = not bool(f.get("no_label", false))
 	add_child(label)
+	if f.has("decor"):
+		_build_decor(f["decor"])
 	refresh(true)
 
 static func crack_material(stage: int) -> Material:
@@ -151,6 +154,33 @@ static func crack_material(stage: int) -> Material:
 			m.roughness = 1.0
 			_crack_mats.append(m)
 	return _crack_mats[clampi(stage, 0, 2)]
+
+## Natural surface: scrub mounds, weed tufts and loose boulders standing on the top layer of the filled quarry, merged into three shared meshes
+## and placed on a share of the columns. They belong to the soil they stand on, so cutting that column removes them (see refresh()).
+func _build_decor(dd: Dictionary) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(dd.get("seed", 1))
+	var density := float(dd.get("density", 0.2))
+	var scrub := MeshKit.Soup.new()
+	MeshKit.rock_into(scrub, Vector3.ZERO, Vector3(1.5, 0.8, 1.5), 61, 3, 6)
+	var weed := MeshKit.Soup.new()
+	for b in range(5):
+		MeshKit.frustum_into(weed, Vector3(rng.randf_range(-0.35, 0.35), 0.0, rng.randf_range(-0.35, 0.35)), 0.09, 0.01, rng.randf_range(0.5, 0.9), 4)
+	var stone := MeshKit.Soup.new()
+	MeshKit.rock_into(stone, Vector3.ZERO, Vector3(1.0, 0.65, 1.0), 77, 3, 6)
+	var meshes := [scrub.mesh(), weed.mesh(), stone.mesh()]
+	var mats := [MeshKit.flat(Color(0.2, 0.31, 0.16)), MeshKit.flat(Color(0.36, 0.5, 0.2)), MeshKit.mat("RockLimestone")]
+	for i in range(prog.column_count(fid)):
+		if prog.column_tiers(fid, i) <= 0 or rng.randf() > density:
+			continue
+		var k := rng.randi() % 3
+		var lp := _local(i)
+		var mi := MeshKit.inst(self, meshes[k], mats[k])
+		mi.position = Vector3(lp.x + rng.randf_range(-cell * 0.3, cell * 0.3), float(prog.column_tiers(fid, i)) * tier_h - 0.05, lp.z + rng.randf_range(-cell * 0.3, cell * 0.3))
+		mi.rotation.y = rng.randf() * TAU
+		mi.scale = Vector3.ONE * rng.randf_range(0.8, 1.3)
+		mi.visibility_range_end = 90.0
+		decor.append([mi, i])
 
 ## Re-reads the column counts. `instant` skips crumble animations (building, loading).
 func refresh(instant := false) -> void:
@@ -192,6 +222,8 @@ func refresh(instant := false) -> void:
 			for t in range(stack.size()):
 				stack[t].material_override = (mat_new if t % 2 == 0 else mat_new2) if fresh else (mat_old if t % 2 == 0 else mat_old2)
 		_update_cracks(i)
+	for dc in decor:
+		(dc[0] as MeshInstance3D).visible = prog.chunks_left(fid, int(dc[1])) > 0
 	if skin and sig != _skin_sig:
 		_skin_sig = sig
 		_rebuild_skin(sig)

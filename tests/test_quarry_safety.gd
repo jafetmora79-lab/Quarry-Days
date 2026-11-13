@@ -252,7 +252,7 @@ func run() -> void:
 	await frames(2)
 	var mined_before := {}
 	for id in prog.cfg["formations"]:
-		if prog.fdef(id).get("frame", "") == "pit":
+		if prog.fdef(id).get("frame", "") == "pit" and prog.formation_active(id):
 			mined_before[id] = (prog.state.deposits[id]["columns"] as Array).duplicate()
 	game._save(true)
 	game._load(true)
