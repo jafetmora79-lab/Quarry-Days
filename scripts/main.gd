@@ -105,6 +105,8 @@ var introductions_enabled := DisplayServer.get_name() != "headless"   ## headles
 var autosave_enabled := DisplayServer.get_name() != "headless"   ## tests run headless and never touch the player's save
 var autosave_t := 0.0
 var _confirm_new := false
+var title_enabled := DisplayServer.get_name() != "headless"      ## the main menu opens on launch (tests run headless and skip it)
+var title: QuarryTitleMenu
 var dialog: QuarryIntroDialog         # the introduction with a new employee, while it is open
 var dialog_worker: Node3D
 var _forced_sleep := false
@@ -239,8 +241,11 @@ func _ready() -> void:
 	if autosave_enabled and FileAccess.file_exists(SAVE_PATH):
 		_load(true)                                  # continue where you left off: a launch never starts from scratch over a save
 	_ensure_opening()
-	if not prog.story["intro_seen"]:
+	if title_enabled and not Engine.has_meta("qd_skip_title"):
+		call_deferred("_show_title")
+	elif not prog.story["intro_seen"]:
 		call_deferred("_show_intro")
+	Engine.remove_meta("qd_skip_title") if Engine.has_meta("qd_skip_title") else null
 
 func _audio(path: String, volume: float) -> AudioStreamPlayer:
 	var audio := AudioStreamPlayer.new()
@@ -1574,6 +1579,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		return # screen taps / drags are emulated mouse clicks: only the on-screen buttons act in the world
 	if driving and menu == "" and _driving_input(event):
 		return
+	if menu == "title":
+		return
 	if event.is_action_pressed("ui_cancel"):
 		if placement:
 			_cancel_placement()
@@ -1757,7 +1764,7 @@ func _draw_menu() -> void:
 		"pause":
 			p.begin("PAUSED", -1, "Optional keys:  F5 save   F9 load   Esc resume")
 			p.text("The game saves itself every minute and when you close it. Save now with the button or F5." if not _confirm_new else "Erase your save and start a brand new game? Click NEW GAME again to confirm.", QuarryTheme.DIM if not _confirm_new else QuarryTheme.WARN, true)
-			p.button_bar([["resume", "RESUME", true, func(): _confirm_new = false; _close_menu()], ["save", "SAVE GAME", true, func(): _save()], ["load", "LOAD GAME", true, func(): _load()],
+			p.button_bar([["resume", "RESUME", true, func(): _confirm_new = false; _close_menu()], ["save", "SAVE GAME", true, func(): _save()], ["load", "LOAD GAME", true, func(): _load()], ["main_menu", "MAIN MENU", true, func(): to_main_menu()],
 				["new", "NEW GAME" if not _confirm_new else "ERASE & RESTART", true, func():
 					if _confirm_new:
 						new_game()
@@ -3079,6 +3086,51 @@ func _read_save() -> Variant:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST and autosave_enabled and player != null:
 		_save(true)                                  # closing the window keeps your progress
+
+## The main menu: the world is paused behind it and a film camera shows the quarry.
+func _show_title() -> void:
+	if title != null or player == null:
+		return
+	menu = "title"
+	player.locked = true
+	hud.visible = false
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	title = QuarryTitleMenu.new()
+	ui.add_child(title)
+	title.setup(self, _save_usable(SAVE_PATH) != null or _save_usable(SAVE_BACKUP) != null)
+	title.chosen.connect(_title_chosen)
+
+func _title_chosen(what: String) -> void:
+	match what:
+		"quit":
+			get_tree().quit()
+		"new":
+			if FileAccess.file_exists(SAVE_PATH) or FileAccess.file_exists(SAVE_BACKUP):
+				Engine.set_meta("qd_skip_title", true)         # the reload that follows goes straight into the new game
+				new_game()
+				return
+			_close_title()
+		"continue":
+			_close_title()
+
+func _close_title() -> void:
+	if title == null:
+		return
+	title.release()
+	title.queue_free()
+	title = null
+	menu = ""
+	hud.visible = true
+	player.locked = false
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	if not prog.story["intro_seen"]:
+		call_deferred("_show_intro")
+
+## Back to the main menu (from the pause menu): the game is saved first.
+func to_main_menu() -> void:
+	if autosave_enabled:
+		_save(true)
+	get_tree().reload_current_scene()
 
 ## Erases the save and starts over (asked twice in the pause menu).
 func new_game() -> void:
