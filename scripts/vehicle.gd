@@ -53,6 +53,8 @@ var bed_tilt := 0.0
 var unload_timer := 0.0
 var unload_target := {}
 var wheels: Array = []
+var track_mats: Array = []     ## excavator tread materials: the texture scrolls as the machine moves
+var _prev_pos := Vector3.INF
 # Phase 5: smoothed visuals
 var shown_load := 0.0       ## visual cargo that eases toward the real cargo (spills out / fills in)
 var curl_timer := 0.0       ## loader bucket curl when it scoops
@@ -286,8 +288,21 @@ func _animate(delta: float) -> void:
 		_pull_camera_in()
 		if absf(speed) > 1.0:
 			cam_yaw = lerp_angle(cam_yaw, 0.0, delta * 0.6)
+	# wheels, rollers and tracks follow the distance the machine has really travelled along its heading: driven, delivered by script,
+	# or carried by anything else, they turn the same way
+	var travelled := 0.0
+	if _prev_pos != Vector3.INF:
+		var dp := global_position - _prev_pos
+		if dp.length() < 3.0:
+			travelled = dp.dot(forward())
+	_prev_pos = global_position
+	if absf(travelled) < 0.0005 and absf(speed) > 0.05 and not has_meta("delivering"):
+		travelled = speed * delta
 	for w in wheels:
-		w.rotate_x(-speed * delta / 0.5)
+		w.rotate_x(-travelled / float(w.get_meta("radius", 0.5)) if w.has_meta("radius") else -travelled / 0.5)
+	for tm in track_mats:
+		var sm := tm as StandardMaterial3D
+		sm.uv1_offset.x = fposmod(sm.uv1_offset.x + float(sm.get_meta("scroll_sign", 1.0)) * travelled, 1.0)
 	var n := fleet.cargo_total(data)
 	# cargo visuals ease: material pours out over the dump instead of vanishing in one frame
 	shown_load = move_toward(shown_load, float(n), delta * maxf(4.0, absf(float(n) - shown_load) * 2.2))

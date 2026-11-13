@@ -297,8 +297,8 @@ func _cliffs() -> void:
 	# Close the old gaps between cliff segments (except both sides of the east opening and its road).
 	for i in range(10):
 		var a := (float(i) + 0.5) * TAU / 10.0
-		if i == 0 or i == 9:
-			continue
+		if i == 0 or i == 9 or i == 2:
+			continue          # i == 2 is the south: the service tunnel runs through it (QuarryDelivery._build_tunnel), nothing may fill its mouth
 		var p := Vector3(cos(a) * 28.6, 3.2, sin(a) * 28.6)
 		var yaw := -a - PI / 2
 		solid("Cliff filler", p, Vector3(8.0, 6.4, 3.4), yaw)

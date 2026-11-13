@@ -4678,6 +4678,7 @@ func _build_truck() -> void:
 	pv.add_child(pv.model_root)
 	pv.model_root.scale = Vector3(1.9 / 2.2, 1.7 / 1.8, 4.0 / 4.6)
 	VehicleModels.truck(pv)
+	truck_wheels = pv.wheels
 	root.add_child(pv)
 	world.add_child(root)
 	truck_node = root
@@ -4720,6 +4721,7 @@ func _spawn_walter(at := Vector3.INF, face_to := Vector3.ZERO, npc := "walter") 
 ## Phase 10: Walter's old truck does not sit in the yard for good. When Walter leaves he walks to it, climbs in and drives
 ## out along the open lane to the service gate (the garage door rolls up for it), then on through the tunnel and away.
 var truck_route: Array = []
+var truck_wheels: Array = []       ## the old truck's wheel pivots: they turn with the distance it drives
 var truck_driving := false
 
 func _truck_depart() -> void:
@@ -4763,7 +4765,11 @@ func _truck_step(delta: float) -> void:
 	t.rotation.y = lerp_angle(t.rotation.y, want, clampf(delta * 3.0, 0.0, 1.0))
 	var fwd := -t.global_transform.basis.z
 	var speed := 2.6 if absf(angle_difference(t.rotation.y, want)) > 0.35 else 3.4
-	t.global_position += fwd * minf(speed * delta, to.length())
+	var step := minf(speed * delta, to.length())
+	t.global_position += fwd * step
+	for w in truck_wheels:
+		if is_instance_valid(w):
+			w.rotate_x(-step / float(w.get_meta("radius", 0.5)))
 
 func _truck_leaves(instant := false) -> void:
 	if truck_node == null or not is_instance_valid(truck_node):

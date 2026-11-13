@@ -110,13 +110,14 @@ func _build_tunnel(z0: float) -> void:
 	var parts := Node3D.new()
 	parts.name = "ServiceTunnel"
 	game.world.add_child(parts)
-	var box := func(pos: Vector3, size_v: Vector3, m: Material, collide := false) -> void:
+	var box := func(pos: Vector3, size_v: Vector3, m: Material, collide := false, roll := 0.0) -> void:
 		var mi := MeshInstance3D.new()
 		var bm := BoxMesh.new()
 		bm.size = size_v
 		mi.mesh = bm
 		mi.material_override = m
 		mi.position = pos
+		mi.rotation.z = roll
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		parts.add_child(mi)
 		if collide:
@@ -150,6 +151,9 @@ func _build_tunnel(z0: float) -> void:
 	var k := z0 + 2.0
 	while k < z1 - 1.0:
 		box.call(Vector3(cx, h - 0.05, k), Vector3(w - 0.4, 0.14, 0.18), rib)           # roof rib
+		for sx in [-1.0, 1.0]:
+			box.call(Vector3(cx + sx * (w * 0.5 - 0.55), h - 0.55, k), Vector3(1.1, 0.14, 0.18), rib, false, -sx * PI * 0.25)    # the corner braces make it an arch
+			box.call(Vector3(cx + sx * (w * 0.5 - 0.08), 1.9, k + 1.6), Vector3(0.1, 0.22, 0.5), lamp)                         # wall lights
 		box.call(Vector3(cx, h - 0.16, k + 1.6), Vector3(1.4, 0.08, 0.3), lamp)         # ceiling lamp
 		k += 3.2
 	# the far end: daylight and the street carrying on (sky-coloured glow, road and kerb lines)
@@ -157,6 +161,11 @@ func _build_tunnel(z0: float) -> void:
 	box.call(Vector3(cx, 0.5, z1 - 0.05), Vector3(w, 1.0, 0.1), MeshKit.flat(Color(0.35, 0.37, 0.4), 0.4))
 	for sx in [-1.0, 1.0]:
 		box.call(Vector3(cx + sx * 1.4, 0.06, z1 - 0.12), Vector3(0.14, 0.02, 0.1), line)
+	# the way out: a lit EXIT frame with a green sign, the centre line running right up to it
+	box.call(Vector3(cx, h * 0.5, z1 - 0.2), Vector3(w - 0.3, h - 0.3, 0.06), MeshKit.flat(Color(1.0, 0.98, 0.9), 2.6))      # the daylight beyond
+	box.call(Vector3(cx, h - 0.45, z1 - 0.5), Vector3(2.4, 0.5, 0.08), MeshKit.flat(Color(0.2, 0.85, 0.4), 2.4))           # EXIT sign
+	for sx in [-1.0, 1.0]:
+		box.call(Vector3(cx + sx * (w * 0.5 - 0.2), h * 0.5, z1 - 0.4), Vector3(0.3, h - 0.2, 0.3), rib)                  # portal jambs
 	# dark inside the portal so the opening reads as depth from the garage
 	box.call(Vector3(cx, h + 0.05, z0 - 0.4), Vector3(w + 0.2, 0.12, 0.8), dark)
 

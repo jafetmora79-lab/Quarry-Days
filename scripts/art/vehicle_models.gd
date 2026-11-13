@@ -26,6 +26,7 @@ static func _xf(p: Vector3) -> Transform3D:
 static func wheel(parent: Node3D, pos: Vector3, radius: float, width: float, rim_key: String) -> Node3D:
 	var pivot := Node3D.new()
 	pivot.position = pos
+	pivot.set_meta("radius", radius)          # the vehicle spins it by the distance it has really travelled
 	parent.add_child(pivot)
 	var tire := MeshKit.Soup.new()
 	MeshKit.drum_into(tire, Vector3.ZERO, radius, width, 12)
@@ -36,6 +37,18 @@ static func wheel(parent: Node3D, pos: Vector3, radius: float, width: float, rim
 	MeshKit.drum_into(rim, Vector3(side * (width * 0.5 + 0.03), 0, 0), radius * 0.22, 0.06, 6)
 	MeshKit.inst(pivot, rim.mesh(), MeshKit.mat(rim_key))
 	return pivot
+
+## A solid steel roller on a pivot (rotates about local X) registered with the vehicle's spinning wheels.
+static func _roller(v, pos: Vector3, radius: float, width: float, seg: int) -> void:
+	var pivot := Node3D.new()
+	pivot.position = pos
+	pivot.set_meta("radius", radius)
+	v.model_root.add_child(pivot)
+	var d := MeshKit.Soup.new()
+	MeshKit.drum_into(d, Vector3.ZERO, radius, width, seg)
+	MeshKit.box_into(d, Vector3.ZERO, Vector3(width + 0.02, radius * 0.5, radius * 0.25))          # a spoke, so the rolling is visible
+	MeshKit.inst(pivot, d.mesh(), MeshKit.mat("SteelPlate"))
+	v.wheels.append(pivot)
 
 ## Hydraulic ram between two points (barrel + chrome rod). Returns the node so it can be re-aimed.
 static func ram(parent: Node3D, a: Vector3, b: Vector3, r := 0.06) -> Node3D:
@@ -205,12 +218,20 @@ static func excavator(v) -> void:
 	var paint: String = v.paint_main
 	var p := _soups([paint, "SteelPlate", "Tire", "Hazard"])
 	var u := _soups([paint, "SteelPlate", "Hazard"])      # the upper body: it swings on the slewing ring (v.turret)
+	# crawler tracks: the tread is its own mesh with its own material, whose texture scrolls with the distance travelled; the idlers and
+	# road wheels are pivots that roll (QuarryVehicle._animate)
+	v.track_mats = []
 	for x in [-0.8, 0.8]:
-		MeshKit.box_into(p["Tire"], Vector3(x, 0.32, 0.0), Vector3(0.46, 0.6, 3.3), Vector2(1.0, 0.9))             # crawler tracks
+		var tread := MeshKit.Soup.new()
+		MeshKit.box_into(tread, Vector3(x, 0.32, 0.0), Vector3(0.46, 0.6, 3.3), Vector2(1.0, 0.9))
+		var tmat: StandardMaterial3D = (MeshKit.mat("Tire") as StandardMaterial3D).duplicate()
+		MeshKit.inst(v.model_root, tread.mesh(), tmat)
+		tmat.set_meta("scroll_sign", 1.0 if x < 0.0 else -1.0)       # the two outer faces run their u axis in opposite directions
+		v.track_mats.append(tmat)
 		for z in [-1.45, 1.45]:
-			MeshKit.drum_into(p["SteelPlate"], Vector3(x, 0.33, z), 0.3, 0.5, 8)                                    # idlers
+			_roller(v, Vector3(x, 0.33, z), 0.3, 0.5, 8)                                                            # idlers
 		for z in [-1.0, -0.33, 0.33, 1.0]:
-			MeshKit.drum_into(p["SteelPlate"], Vector3(x, 0.2, z), 0.14, 0.52, 6)                                   # road wheels
+			_roller(v, Vector3(x, 0.2, z), 0.14, 0.52, 6)                                                           # road wheels
 	MeshKit.box_into(p[paint], Vector3(0, 0.68, 0.0), Vector3(1.7, 0.2, 2.6))                                       # undercarriage
 	MeshKit.drum_into(p["SteelPlate"], Vector3(0, 0.84, 0.0), 0.72, 0.18, 12)                                      # slewing ring
 	# upper body: engine hood and counterweight at the back, boom foot at the front
