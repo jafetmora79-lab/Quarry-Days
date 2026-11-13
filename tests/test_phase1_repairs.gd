@@ -40,6 +40,17 @@ func run() -> void:
 						buried.append("%s in %s" % [id, fid])
 						break
 		check(buried.is_empty(), "%s layout: no weed or rubble stands inside rock %s" % ["natural" if nat else "legacy", str(buried)])
+		if nat:
+			# every weed and heap can actually be reached on foot from the yard gate (the last weed used to sit in a sealed pocket)
+			game._rebake_nav()
+			await frames(10)
+			var cut_off := []
+			for cid in prog.cleanup_ids():
+				var cp: Vector2 = prog.cleanup_pos(str(cid))
+				var path: PackedVector3Array = NavigationServer3D.map_get_path(game.nav_map, Vector3(0, 0, -8), Vector3(cp.x, 0, cp.y), true)
+				if path.is_empty() or Vector2(path[path.size() - 1].x - cp.x, path[path.size() - 1].z - cp.y).length() > 1.6:
+					cut_off.append(cid)
+			check(cut_off.is_empty(), "every weed and rubble heap is reachable on foot from the gate %s" % str(cut_off))
 		game.queue_free()
 		await process_frame
 	# contracts: work done in an area BEFORE its contract opens is banked and counts when it opens (it cannot be lost)
