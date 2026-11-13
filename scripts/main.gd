@@ -28,7 +28,7 @@ const SELL_ANCHOR := Vector3(-12.3, 0.85, 9.0)     ## where carts and the sales 
 const SAVE_PATH := "user://quarry_save.json"
 const SAVE_BACKUP := "user://quarry_save.bak"
 const AUTOSAVE_SECONDS := 60.0
-const RESOURCE_ORDER := ["limestone", "coal", "iron_ore", "crushed_stone", "copper_ore", "gold_ore"]
+const RESOURCE_ORDER := ["limestone", "coal", "iron_ore", "crushed_stone", "copper_ore", "gold_ore", "topsoil", "gravel"]
 # Phase 5: the three small starting rocks are replaced by enormous finite formations (data/progression.json).
 # The quarry face stays as the never-empty hand-mining fallback.
 const DEPOSIT_INFO := {"limestone_face": {"pos": Vector3(-12.6, 0, -17.6), "color": Color(0.70, 0.68, 0.58), "pieces": 2, "resource": "limestone", "infinite": true, "yaw": -0.65}}
@@ -1403,12 +1403,12 @@ func area_at(p: Vector3) -> String:
 		if r.has_point(Vector2(l.x, l.z)) and l.y < float(lp["y_bot"]) + 1.6 and l.y > float(lp["y_bot"]) - 1.0:
 			for ad in prog.area_defs():
 				if int(ad.get("level", 0)) == int(lp["n"]) + 0 and ad.get("frame", "") == "pit":
-					var zr: Array = ad.get("z_range", [])
+					var zr: Array = ad.get("z_range_filled", ad.get("z_range", [])) if prog.filled_world() else ad.get("z_range", [])
 					if zr.is_empty() or (l.z >= float(zr[0]) and l.z <= float(zr[1])):
 						return str(ad["id"])
 			return ""
-	if absf(l.x) <= pit_zone.basin_w * 0.5 and l.z <= pit_zone.basin_zs() and l.z >= pit_zone.basin_zn() and l.y > -5.0 and l.y < -2.0:
-		return "area_2"
+	if absf(l.x) <= pit_zone.basin_w * 0.5 and l.z <= pit_zone.basin_zs() and l.z >= pit_zone.basin_zn() and l.y > -5.0 and l.y < (3.0 if prog.filled_world() else -2.0):
+		return "area_2"           # the surface of the quarry (filled quarry: the top of the layers, flush with the plateau)
 	return ""
 
 var _area_check_t := 0.0
@@ -1919,7 +1919,7 @@ func _draw_sell(p: QuarryStationUI) -> void:
 	var bag_value := 0
 	for key in RESOURCE_ORDER:
 		bag_value += int(round(float(state.inventory[key]) * state.unit_price(key)))
-	p.begin("SALES", state.money, "Optional keys: 1-6 sell, 7 sell all, Shift+1-6 clerk on/off")
+	p.begin("SALES", state.money, "Optional keys: 1-8 sell, 9 sell all, Shift+1-8 clerk on/off")
 	var R := HORIZONTAL_ALIGNMENT_RIGHT
 	p.row([["MATERIAL", QuarryTheme.DIM, 120], ["IN BAG", QuarryTheme.DIM, 60, R], ["PRICE EACH", QuarryTheme.DIM, 90, R], ["SALE VALUE", QuarryTheme.DIM, 100, R]], [], Color(0, 0, 0, 0), true)
 	for i in range(RESOURCE_ORDER.size()):
@@ -1929,7 +1929,7 @@ func _draw_sell(p: QuarryStationUI) -> void:
 		var ok: bool = business.authorized[key]
 		p.row([[prog.display(key), QuarryTheme.INK, 120, HORIZONTAL_ALIGNMENT_LEFT, true], [str(n), QuarryTheme.INK if n > 0 else QuarryTheme.DIM, 60, R], [("$%.2f" % price_f) if state.price_mult < 0.995 else ("$%d" % int(price_f)), QuarryTheme.DIM, 90, R], [QuarryTheme.money_text(int(round(float(n) * price_f))), QuarryTheme.MONEY if n > 0 else QuarryTheme.DIM, 100, R, true]],
 			[["clerk_" + key, "Clerk: " + ("on" if ok else "off"), true, func(): menu_act("sell", i, true), 84, "toggle"], ["sell_" + key, "SELL", n > 0, func(): menu_act("sell", i, false), 80, "primary"]], QuarryTheme.RES_COLORS.get(key, Color.WHITE))
-	p.button_bar([["sell_all", "SELL ALL   %s" % QuarryTheme.money_text(bag_value), bag_value > 0, func(): menu_act("sell", 6, false), 260, "primary"], ["office", "OFFICE COMPUTER", true, func(): _open_menu("manage"), 200]])
+	p.button_bar([["sell_all", "SELL ALL   %s" % QuarryTheme.money_text(bag_value), bag_value > 0, func(): menu_act("sell", RESOURCE_ORDER.size(), false), 260, "primary"], ["office", "OFFICE COMPUTER", true, func(): _open_menu("manage"), 200]])
 	p.text("'Clerk' chooses what the sales clerk may sell for you. It never stops you selling by hand.")
 	if state.price_mult < 0.995:
 		p.text("Small lots: buyers pay %d%% of the full price. The pay rises as your quarry grows." % int(round(state.price_mult * 100.0)), QuarryTheme.DIM)
@@ -2644,7 +2644,7 @@ func menu_act(kind: String, digit: int, shift: bool) -> void:
 				business.authorized[RESOURCE_ORDER[digit]] = not business.authorized[RESOURCE_ORDER[digit]]
 			elif digit < RESOURCE_ORDER.size():
 				sell_from_bag([RESOURCE_ORDER[digit]])
-			elif digit == 6:
+			elif digit == RESOURCE_ORDER.size():
 				sell_from_bag(RESOURCE_ORDER)
 		"upgrades":
 			if digit == 0:
@@ -5715,8 +5715,10 @@ func hud_badges() -> Array:
 
 func _on_quarry_level(n: int) -> void:
 	# Phase 8.7: the level's haul road was cut out of its rock (progression.open_roads): show it, and let the crews find the way
-	for fid in prog.level_formations(n):
-		_refresh_deposit(fid)
+	for lv in range(1, n + 1):
+		for fid in prog.level_formations(lv):
+			if formation_nodes.has(fid):
+				_refresh_deposit(fid)
 	if pit_zone:
 		pit_zone.request_bake()
 	if hud:

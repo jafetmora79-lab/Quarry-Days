@@ -1,46 +1,48 @@
 {
-  "starting_money": 100,
-  "backpack_capacity": 18,
-  "storage_capacity": 40,
-  "crusher_price": 2200,
-  "crusher_seconds": 18,
-  "crusher_input_limit": 12,
-  "deposit_regen_minutes": 100,
-  "prices": {
-    "limestone": 5,
-    "coal": 12,
-    "iron_ore": 28,
-    "crushed_stone": 11,
-    "copper_ore": 60,
-    "gold_ore": 140
-  },
-  "upgrades": {
-    "reinforced_pickaxe": 45,
-    "larger_backpack": 55,
-    "faster_mining": 90,
-    "efficient_crusher": 150,
-    "expanded_storage": 120,
-    "hauling_harness": 700
-  },
-  "deposit_stock": {
-    "limestone": 24,
-    "coal": 15,
-    "iron_ore": 8
-  },
-  "deposit_regrow_minutes": {
-    "limestone": 3,
-    "coal": 6,
-    "iron_ore": 12
-  },
-  "quarry_face": {
-    "hits": 5,
-    "pieces": 2
-  },
-  "advanced_speed_mult": 0.45,
-  "advanced_capacity_mult": 2,
-  "cart_capacity": {
-    "hand_cart": 20,
-    "wheelbarrow": 40,
-    "reinforced_wheelbarrow": 70
-  }
+ "starting_money": 100,
+ "backpack_capacity": 18,
+ "storage_capacity": 40,
+ "crusher_price": 2200,
+ "crusher_seconds": 18,
+ "crusher_input_limit": 12,
+ "deposit_regen_minutes": 100,
+ "prices": {
+  "limestone": 5,
+  "coal": 12,
+  "iron_ore": 28,
+  "crushed_stone": 11,
+  "copper_ore": 60,
+  "gold_ore": 140,
+  "topsoil": 1,
+  "gravel": 2
+ },
+ "upgrades": {
+  "reinforced_pickaxe": 45,
+  "larger_backpack": 55,
+  "faster_mining": 90,
+  "efficient_crusher": 150,
+  "expanded_storage": 120,
+  "hauling_harness": 700
+ },
+ "deposit_stock": {
+  "limestone": 24,
+  "coal": 15,
+  "iron_ore": 8
+ },
+ "deposit_regrow_minutes": {
+  "limestone": 3,
+  "coal": 6,
+  "iron_ore": 12
+ },
+ "quarry_face": {
+  "hits": 5,
+  "pieces": 2
+ },
+ "advanced_speed_mult": 0.45,
+ "advanced_capacity_mult": 2,
+ "cart_capacity": {
+  "hand_cart": 20,
+  "wheelbarrow": 40,
+  "reinforced_wheelbarrow": 70
+ }
 }

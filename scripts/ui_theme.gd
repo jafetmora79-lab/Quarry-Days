@@ -26,7 +26,7 @@ const GOOD := Color(0.62, 0.86, 0.48)
 const WARN := Color(1.0, 0.5, 0.38)
 const MONEY := Color(0.99, 0.84, 0.42)
 const RES_COLORS := {"limestone": Color(0.86, 0.83, 0.74), "coal": Color(0.62, 0.64, 0.68), "iron_ore": Color(0.92, 0.55, 0.42),
-	"crushed_stone": Color(0.82, 0.8, 0.72), "copper_ore": Color(0.5, 0.86, 0.66), "gold_ore": Color(1.0, 0.82, 0.32)}
+	"crushed_stone": Color(0.82, 0.8, 0.72), "copper_ore": Color(0.5, 0.86, 0.66), "gold_ore": Color(1.0, 0.82, 0.32), "topsoil": Color(0.62, 0.46, 0.32), "gravel": Color(0.74, 0.7, 0.62)}
 
 static var _body: FontFile
 static var _bold: FontFile

@@ -135,6 +135,7 @@ func setup(main_node, p: QuarryProgression, id: String) -> void:
 	label.pixel_size = 0.008
 	label.outline_size = 8
 	label.visibility_range_end = 26.0
+	label.visible = not bool(f.get("no_label", false))
 	add_child(label)
 	refresh(true)
 

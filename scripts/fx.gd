@@ -14,7 +14,7 @@ var _frag_meshes := {}
 var _dust_meshes := {}
 ## Dust takes the colour of the rock that was struck.
 const DUST_COLORS := {"limestone": Color(0.80, 0.76, 0.66), "coal": Color(0.24, 0.25, 0.28), "iron_ore": Color(0.58, 0.38, 0.31),
-	"crushed_stone": Color(0.68, 0.66, 0.60), "copper_ore": Color(0.52, 0.66, 0.55), "gold_ore": Color(0.88, 0.72, 0.32)}
+	"crushed_stone": Color(0.68, 0.66, 0.60), "copper_ore": Color(0.52, 0.66, 0.55), "gold_ore": Color(0.88, 0.72, 0.32), "topsoil": Color(0.46, 0.33, 0.22), "gravel": Color(0.66, 0.62, 0.55)}
 
 func _ready() -> void:
 	name = "FX"

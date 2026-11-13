@@ -210,9 +210,17 @@ func formation_ids() -> Array:
 func is_formation(id: String) -> bool:
 	return cfg.get("formations", {}).has(id)
 
+## The filled quarry (new games): the basin starts as solid, layered rock flush with the plateau, with centred nested levels under it.
+## Everything else (legacy layout, old test layouts, old-world saves loaded as legacy) keeps the earlier pre-dug pit.
+func filled_world() -> bool:
+	return natural_start_enabled and natural_start() and cfg.has("quarry_levels_filled")
+
 func formation_active(id: String) -> bool:
 	if natural_start_enabled and natural_start() and id in cfg.get("starting_formations", []):
 		return false                      # Phase 10: the three starting piles are replaced by natural ground (outcrops, boulders, soil)
+	var w := str(fdef(id).get("world", ""))
+	if (w == "filled" and not filled_world()) or (w == "legacy" and filled_world()):
+		return false
 	return is_formation(id) and int(fdef(id).get("level", 1)) <= level_unlocked
 
 func dims(id: String) -> Vector2i:
@@ -449,6 +457,13 @@ func column_covered(id: String, i: int) -> bool:
 ## taken through the solid rock in front of it. Free-standing piles keep their old behaviour.
 func column_minable(id: String, i: int) -> bool:
 	return column_units(id, i) > 0 and not column_covered(id, i) and (not bool(fdef(id).get("strict", false)) or column_exposed(id, i))
+
+## A column whose top can be walked on and baked into navigation: not buried under another layer, and either exposed or part of an open
+## (non-strict) surface such as the filled quarry's top layer, which is the ground itself.
+func column_walkable(id: String, i: int) -> bool:
+	if column_units(id, i) <= 0 or column_covered(id, i):
+		return false
+	return not bool(fdef(id).get("strict", false)) or column_exposed(id, i)
 
 ## Outward direction from column i toward open floor (for worker standing spots).
 func column_open_dir(id: String, i: int, from: Vector3) -> Vector3:
@@ -876,6 +891,8 @@ func apply_stage_effects() -> void:
 # ------------------------------------------------------------------ quarry levels (Phase 7.1)
 
 func levels() -> Array:
+	if filled_world():
+		return cfg.get("quarry_levels_filled", [])
 	return cfg.get("quarry_levels", [])
 
 ## 1-based level definition ({} when it does not exist).
@@ -897,6 +914,9 @@ func level_built(n: int) -> bool:
 ## Share (0..1) of a level's rock that has been excavated; 0 for a level that has no formations yet.
 func level_cleared_fraction(n: int) -> float:
 	var ids := level_formations(n)
+	var gate: Array = level_def(n).get("gate", [])
+	if not gate.is_empty():
+		ids = gate.filter(func(g): return is_formation(str(g)))          # "cut" means the gating layer is gone (the bed, i.e. dug right down)
 	if ids.is_empty():
 		return 0.0
 	return cleared_fraction(ids)
@@ -920,9 +940,18 @@ func check_levels() -> void:
 func open_roads(n: int) -> int:
 	var removed := 0
 	var inv: Transform3D = PitZoneScript.gate_transform(cfg.get("pit_zone", {})).affine_inverse()
+	var ids := []
+	if filled_world():
+		# the filled quarry: the road is cut through the level's own rock AND the layers above it, so the way down is open from the surface
+		for lv in range(1, n + 1):
+			for fid in level_formations(lv):
+				if str(fdef(fid).get("frame", "")) == "pit":
+					ids.append(fid)
+	else:
+		ids = level_formations(n)
 	for r in level_def(n).get("roads", []):
 		var rc: Array = r
-		for id in level_formations(n):
+		for id in ids:
 			ensure_formation(id)
 			for i in range(column_count(id)):
 				if column_units(id, i) <= 0:
@@ -1441,6 +1470,8 @@ func natural_start() -> bool:
 	return bool(opening_cfg().get("natural_start", false)) and not bool(story["excavator"].get("legacy", false))
 
 func fossil_cfg() -> Dictionary:
+	if filled_world() and cfg.has("fossil_filled"):
+		return cfg["fossil_filled"]
 	return cfg.get("fossil", {})
 
 ## "" (still buried), "found" (uncovered, undecided), "collector" or "scientist" (decided for good).

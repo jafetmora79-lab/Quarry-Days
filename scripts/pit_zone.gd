@@ -337,6 +337,8 @@ func _build_walls() -> void:
 		_body("Wall south", Vector3(side * (corr_w * 0.5 + seg * 0.5), h * 0.5, z0 + 1.5), Vector3(seg, h, 3.0), false)
 		_body("Corridor wall", Vector3(side * (corr_w * 0.5 + 1.0), 3.0, 1.0 - (corr_len + 1.0) * 0.5 + 0.0), Vector3(2.0, 6.0, corr_len + 1.0), false)
 	# low rim barriers along the basin edge (everywhere except the ramp mouth)
+	if game.prog.filled_world():
+		return                  # the filled quarry is flush with the plateau: nothing to fence off at the rim, you walk straight onto it
 	var rim := 1.0
 	_body("Rim west", Vector3(-hx - 0.15, rim * 0.5, basin_zc()), Vector3(0.3, rim, basin_d + 0.6), false)
 	_body("Rim east", Vector3(hx + 0.15, rim * 0.5, basin_zc()), Vector3(0.3, rim, basin_d + 0.6), false)
@@ -612,7 +614,7 @@ func _collect_sources() -> NavigationMeshSourceGeometryData3D:
 		if not is_instance_valid(f):
 			continue
 		for c in f.get_children():
-			if c is CollisionShape3D and c.has_meta("column") and not c.disabled and game.prog.column_exposed(f.fid, int(c.get_meta("column"))):
+			if c is CollisionShape3D and c.has_meta("column") and not c.disabled and game.prog.column_walkable(f.fid, int(c.get_meta("column"))):
 				src.add_faces(game._box_faces((c.shape as BoxShape3D).size), f.global_transform * c.transform)
 				n += 1
 	last_source_boxes = n

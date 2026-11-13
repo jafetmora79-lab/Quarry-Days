@@ -1,12 +1,12 @@
 extends RefCounted
 class_name QuarryState
 
-const RESOURCE_NAMES := ["limestone", "coal", "iron_ore", "crushed_stone", "copper_ore", "gold_ore"]
+const RESOURCE_NAMES := ["limestone", "coal", "iron_ore", "crushed_stone", "copper_ore", "gold_ore", "topsoil", "gravel"]
 const UPGRADE_NAMES := ["reinforced_pickaxe", "larger_backpack", "faster_mining", "efficient_crusher", "expanded_storage", "hauling_harness"]
 var config: Dictionary
 var money: int
-var inventory := {"limestone": 0, "coal": 0, "iron_ore": 0, "crushed_stone": 0, "copper_ore": 0, "gold_ore": 0}
-var storage := {"limestone": 0, "coal": 0, "iron_ore": 0, "crushed_stone": 0, "copper_ore": 0, "gold_ore": 0}
+var inventory := {"limestone": 0, "coal": 0, "iron_ore": 0, "crushed_stone": 0, "copper_ore": 0, "gold_ore": 0, "topsoil": 0, "gravel": 0}
+var storage := {"limestone": 0, "coal": 0, "iron_ore": 0, "crushed_stone": 0, "copper_ore": 0, "gold_ore": 0, "topsoil": 0, "gravel": 0}
 var upgrades := {}
 var clock_minutes := 480.0
 var player_position := [0.0, 1.0, 8.0]

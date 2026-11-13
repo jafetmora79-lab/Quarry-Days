@@ -8,7 +8,7 @@ signal milestone_reached(id: String)
 
 const PROFESSIONS := ["miner", "operator", "hauler", "clerk"]
 const MINERALS := ["limestone", "coal", "iron_ore", "copper_ore", "gold_ore"]
-const SELL_ORDER := ["gold_ore", "copper_ore", "crushed_stone", "iron_ore", "coal", "limestone"]
+const SELL_ORDER := ["gold_ore", "copper_ore", "crushed_stone", "iron_ore", "coal", "limestone", "gravel", "topsoil"]
 const MILESTONES := ["first_employee", "mechanized", "automated"]
 const CHAIN_STEPS := ["mined", "fed", "processed", "stored", "sold"]
 const TIME_STATS := ["strike_interval", "pickup_seconds", "load_seconds", "downtime", "handle_seconds", "sell_interval"]
@@ -23,7 +23,7 @@ var conveyors: Array = []
 var inventory := {}                    ## delivered, not yet placed: "crusher", "conveyor_left", ...
 var links: Array = []          # runtime, per conveyor: {"src": ep, "dst": ep, "resource": String}
 var crusher_outputs: Array = [] # runtime, per crusher: index of directly attached output storage or -1
-var authorized := {"limestone": false, "coal": false, "iron_ore": false, "crushed_stone": false, "copper_ore": false, "gold_ore": false}
+var authorized := {"limestone": false, "coal": false, "iron_ore": false, "crushed_stone": false, "copper_ore": false, "gold_ore": false, "topsoil": false, "gravel": false}
 var milestones := {"first_employee": false, "mechanized": false, "automated": false}
 var chain := {"mined": false, "fed": false, "processed": false, "stored": false, "sold": false}
 var expansion_unlocked := false
