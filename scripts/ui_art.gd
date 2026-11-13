@@ -14,8 +14,9 @@ const MALE := [0, 2, 3, 4, 6, 7, 10]
 const GRANDFATHER := 9
 const CLERK := 8
 
-static func icon(name: String) -> Texture2D:
-	return _tex(ICON_DIR + name + ".png")
+## The icon art is drawn at 64 px (tools/draw_ui_icons.py) with a 32 px copy ("_s") for small lists and the HUD, so neither size is ever scaled by a fraction.
+static func icon(name: String, small := false) -> Texture2D:
+	return _tex(ICON_DIR + name + ("_s" if small else "") + ".png")
 
 static func has_icon(name: String) -> bool:
 	return ResourceLoader.exists(ICON_DIR + name + ".png")
@@ -72,7 +73,7 @@ static func icon_plate(name: String, art_px := 64.0, pad := 6.0) -> PanelContain
 
 ## A crisp icon node of a given pixel size.
 static func icon_rect(name: String, px: float) -> TextureRect:
-	return _rect(icon(name), px)
+	return _rect(icon(name, px < 48.0), px)
 
 static func portrait_rect(index: int, px: float) -> TextureRect:
 	return _rect(portrait(index), px)
@@ -83,7 +84,6 @@ static func _rect(t: Texture2D, px: float) -> TextureRect:
 	r.custom_minimum_size = Vector2(px, px)
 	r.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	r.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	# the art is 32 px: shown at a whole multiple it stays crisp (nearest); shown smaller, nearest would drop pixels and shimmer, so it is smoothed instead
-	r.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST if px >= 31.0 else CanvasItem.TEXTURE_FILTER_LINEAR
+	r.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR            # smooth, shaded art (not pixel art): bilinear keeps its edges clean at every size
 	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return r

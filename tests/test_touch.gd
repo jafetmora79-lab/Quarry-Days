@@ -43,6 +43,7 @@ func run() -> void:
 	tap(t, t.stick_center, 1, false)
 	check(Input.get_action_strength("move_forward") == 0.0, "releasing the stick stops")
 	# look drag
+	game.player.locked = false          # the opening conversation locks the player; this test is about the drag
 	var yaw0: float = game.player.rotation.y
 	tap(t, Vector2(600, 200), 2, true)
 	var d2 := InputEventScreenDrag.new()

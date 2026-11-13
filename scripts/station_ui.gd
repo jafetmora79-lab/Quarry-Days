@@ -116,6 +116,24 @@ func begin(title: String, money := -1, hint := "") -> void:
 	foot.text = hint
 	foot.visible = hint != ""
 	scroll.set_deferred("scroll_vertical", _scroll_keep)
+	call_deferred("_ensure_focus")
+
+## A menu always has one control focused once it is drawn (a pad or keyboard user is never stranded): the first usable button of the list, else the action bar.
+func _ensure_focus() -> void:
+	if not is_inside_tree() or not visible:
+		return
+	var fo := get_viewport().gui_get_focus_owner()
+	if fo != null and is_instance_valid(fo) and is_ancestor_of(fo) and fo.is_visible_in_tree() and not fo.is_queued_for_deletion() and not (fo is BaseButton and (fo as BaseButton).disabled):
+		return
+	var cands: Array = []
+	cands.append_array(list.find_children("*", "BaseButton", true, false))
+	cands.append_array(bar_box.find_children("*", "BaseButton", true, false))
+	cands.append_array(find_children("*", "BaseButton", true, false))
+	for c in cands:
+		var bt := c as BaseButton
+		if not bt.disabled and bt.focus_mode != Control.FOCUS_NONE and bt.is_visible_in_tree() and not bt.is_queued_for_deletion():
+			bt.grab_focus()
+			return
 
 func text(t: String, color := DIM, centered := false) -> Label:
 	var l := QuarryTheme.label(t, FS, color)
@@ -177,8 +195,8 @@ func make_button(key: String, label: String, enabled: bool, action: Callable, mi
 		b.add_theme_color_override("font_disabled_color", Color(0.55, 0.5, 0.42))
 	b.text = label
 	b.disabled = not enabled
-	b.custom_minimum_size = Vector2(min_w, 24)
-	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(min_w, 40 if game.touch_mode else 24)       # a finger needs a taller target
+	b.focus_mode = Control.FOCUS_ALL                  # reachable with the d-pad / arrow keys, A / Enter presses
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if enabled else Control.CURSOR_ARROW
 	b.pressed.connect(func(): game.ui_click(key, action, b))
 	buttons[key] = b
@@ -295,7 +313,7 @@ var _row_n := 0
 func row(cells: Array, btns: Array, swatch := Color(0, 0, 0, 0), header := false) -> void:
 	var card: PanelContainer
 	if header:
-		card = _box(Color(0, 0, 0, 0), Color(0, 0, 0, 0)) # same margins as a row, so columns line up
+		card = _box(Color(0, 0, 0, 0), Color(0, 0, 0, 0), 5) # same margins as a row, so columns line up
 		_row_n = 0
 	else:
 		card = _box(Color(0.21, 0.16, 0.11, 0.97) if _row_n % 2 == 0 else Color(0.16, 0.12, 0.085, 0.97), Color(0.36, 0.28, 0.19), 5)      # compact rows: eight of them plus the buttons fit the panel

@@ -89,8 +89,8 @@ func run() -> void:
 	# ---- icons are shown at a whole multiple of their 32 px art, crisp; and smoothed when small
 	var big_rect := UiArt.icon_rect("bag", 64.0)
 	var small_rect := UiArt.icon_rect("bag", 16.0)
-	check(big_rect.texture_filter == CanvasItem.TEXTURE_FILTER_NEAREST and big_rect.custom_minimum_size.x == 64.0 and UiArt.icon("bag").get_width() == 32, "the 32 px art is shown at exactly 2x (64 px) with nearest filtering")
-	check(small_rect.texture_filter == CanvasItem.TEXTURE_FILTER_LINEAR, "and smoothed instead of dropping pixels when shown small")
+	check(big_rect.custom_minimum_size.x == 64.0 and big_rect.texture.get_width() == 64 and big_rect.texture_filter == CanvasItem.TEXTURE_FILTER_LINEAR, "the icon art is drawn at 64 px and shown at exactly 64 px, smooth")
+	check(small_rect.texture.get_width() == 32 and UiArt.icon("bag", true).get_width() == 32, "small lists and the HUD use the 32 px copy, so nothing is scaled by a fraction")
 	# ---- the office home page: cards built as icon plate + title + description
 	game._open_menu("manage")
 	await frames(4)

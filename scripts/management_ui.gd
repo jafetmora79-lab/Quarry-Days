@@ -141,7 +141,7 @@ func _button(text: String, action: Callable, enabled := true) -> Button:
 	b.text = text
 	b.disabled = not enabled
 	b.focus_mode = Control.FOCUS_ALL          # reachable with the arrow keys / a gamepad as well as the mouse
-	b.custom_minimum_size = Vector2(96, 28)           # one width for every action button, so a column of Buy buttons lines up
+	b.custom_minimum_size = Vector2(96, 40 if game.touch_mode else 28)           # one width for every action button, so a column of Buy buttons lines up (taller for a finger)
 	b.pressed.connect(func(): game.ui_click("mgmt_" + text, action, b)) # debounced; shows the money pop-up
 	return b
 

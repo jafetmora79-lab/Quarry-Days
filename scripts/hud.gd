@@ -88,6 +88,27 @@ func setup(main_node) -> void:
 	theme = QuarryTheme.theme()
 	_build()
 	shown_money = float(game.state.money)
+	if OS.has_feature("mobile") or game.touch_mode:
+		get_viewport().size_changed.connect(_apply_safe_area)
+		_apply_safe_area()
+
+## Keeps the plates out of a phone's notch and rounded corners: the display's safe area, converted from window pixels to canvas units, as insets
+## (left, top, right, bottom). Zero on a desktop, where the whole window is safe.
+static func safe_insets(safe: Rect2i, window: Vector2i, canvas: Vector2) -> Vector4:
+	if window.x <= 0 or window.y <= 0 or safe.size.x <= 0 or safe.size.y <= 0:
+		return Vector4.ZERO
+	var kx := canvas.x / float(window.x)
+	var ky := canvas.y / float(window.y)
+	return Vector4(maxf(0.0, float(safe.position.x)) * kx, maxf(0.0, float(safe.position.y)) * ky,
+		maxf(0.0, float(window.x - safe.end.x)) * kx, maxf(0.0, float(window.y - safe.end.y)) * ky)
+
+func _apply_safe_area() -> void:
+	var win := DisplayServer.window_get_size()
+	var ins := safe_insets(DisplayServer.get_display_safe_area(), win, get_viewport().get_visible_rect().size)
+	offset_left = ins.x
+	offset_top = ins.y
+	offset_right = -ins.z
+	offset_bottom = -ins.w
 
 func _panel(pos_preset: int, strip := Color(0, 0, 0, 0)) -> PanelContainer:
 	var p := QuarryPlate.new(8, strip)
@@ -602,7 +623,10 @@ func _process(delta: float) -> void:
 	prompt_panel.offset_top = prompt_panel.offset_bottom - prompt_panel.get_combined_minimum_size().y
 	hints.visible = tutorial
 	if tutorial:
-		hints.set_hints(game.hud_hints())
+		var hint_items: Array = game.hud_hints()
+		if game.gamepad != null and game.gamepad.active:
+			hint_items = QuarryGamepad.pad_hints(hint_items, game.driving != null, game.placement)
+		hints.set_hints(hint_items)
 	_update_build_plate(delta)
 	_ease_bars(delta)
 	# durability bar fade

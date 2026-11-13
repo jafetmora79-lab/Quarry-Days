@@ -26,8 +26,9 @@ func run() -> void:
 	var ok := true
 	for n in names:
 		var t := UiArt.icon(n)
-		ok = ok and t != null and t.get_width() == 32 and t.get_height() == 32
-	check(ok, "all 32 icons load at 32 x 32")
+		var ts := UiArt.icon(n, true)
+		ok = ok and t != null and t.get_width() == 64 and t.get_height() == 64 and ts != null and ts.get_width() == 32
+	check(ok, "all 32 icons load at 64 x 64, with a 32 x 32 small copy")
 	var pok := true
 	for i in range(12):
 		var t := UiArt.portrait(i)

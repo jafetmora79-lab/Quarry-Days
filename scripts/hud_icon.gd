@@ -10,7 +10,7 @@ const ART := {"coin": "money", "sun": "sun", "flag": "milestones", "hammer": "ha
 
 func _init(k := "coin", size_px := 14.0) -> void:
 	kind = k
-	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR if size_px < 31.0 else CanvasItem.TEXTURE_FILTER_NEAREST        # the 32 px art is smoothed when shown small (nearest would drop pixels)
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	custom_minimum_size = Vector2(size_px, size_px)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
@@ -24,7 +24,7 @@ func _draw() -> void:
 	if s < 4.0:
 		return
 	if ART.has(kind) and UiArt.has_icon(str(ART[kind])):
-		draw_texture_rect(UiArt.icon(str(ART[kind])), Rect2(Vector2((size.x - s) * 0.5, (size.y - s) * 0.5), Vector2(s, s)), false, tint)
+		draw_texture_rect(UiArt.icon(str(ART[kind]), s < 40.0), Rect2(Vector2((size.x - s) * 0.5, (size.y - s) * 0.5), Vector2(s, s)), false, tint)
 		return
 	var c := Vector2(size.x * 0.5, size.y * 0.5)
 	var u := s / 16.0

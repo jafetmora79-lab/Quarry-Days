@@ -47,6 +47,11 @@ class Icon:
         m = self._mask(fn); layer = Image.new('RGBA', (N, N), color); out = Image.new('RGBA', (N, N), (0, 0, 0, 0)); out.paste(layer, (0, 0), m); self.img.alpha_composite(out)
     def hl(self, pts, w=1.2, a=150):          # a soft highlight stroke
         self.flat(lambda d: d.line([(x * SS, y * SS) for x, y in pts], fill=255, width=int(w * SS), joint='curve'), (255, 255, 255, a))
+    def erase_poly(self, pts):
+        m = self._mask(lambda d: d.polygon([(x * SS, y * SS) for x, y in pts], fill=255))
+        r, g, b, a = self.img.split()
+        a = ImageChops.multiply(a, ImageChops.invert(m))
+        self.img = Image.merge('RGBA', (r, g, b, a))
     def text(self, t, cx, cy, size, color):
         from PIL import ImageFont
         font = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', int(size * SS))
@@ -68,7 +73,8 @@ class Icon:
         a = self.img.split()[3]
         grow = int(outline * SS)
         big = a.filter(ImageFilter.MaxFilter(grow * 2 + 1))
-        shadow = ImageChops.offset(big, 0, 2 * SS).filter(ImageFilter.GaussianBlur(1.5 * SS))
+        shifted = Image.new('L', (N, N), 0); shifted.paste(big, (0, 2 * SS))       # a plain shift (ImageChops.offset wraps the bottom edge round to the top)
+        shadow = shifted.filter(ImageFilter.GaussianBlur(1.5 * SS))
         out = Image.new('RGBA', (N, N), (0, 0, 0, 0))
         sh = Image.new('RGBA', (N, N), (0, 0, 0, 90)); out.paste(sh, (0, 0), shadow)
         ol = Image.new('RGBA', (N, N), PLUM + (255,)); out.paste(ol, (0, 0), big)
@@ -141,8 +147,7 @@ def drill_rig(i):
 def equipment(i):
     i.line([(16, 48), (38, 26)], 10, STEEL)
     i.ell(32, 4, 58, 30, STEEL)
-    i.poly([(46, 4), (62, 4), (62, 18), (53, 16), (50, 12)], (C(44, 26, 40), C(44, 26, 40)))
-    i.ell(40, 12, 50, 22, (C(44, 26, 40), C(44, 26, 40)))
+    i.erase_poly([(45, 17), (62, 0), (64, 10), (60, 16), (52, 17)])          # the open jaw of the spanner, cut out of the head
     i.ell(6, 40, 26, 60, STEEL_D); i.ell(12, 46, 20, 54, (C(60, 66, 84), C(60, 66, 84)))
     i.hl([(20, 44), (36, 28)], 1.8, 160)
 

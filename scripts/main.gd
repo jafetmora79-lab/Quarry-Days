@@ -4,6 +4,7 @@ const State = preload("res://scripts/state.gd")
 const PlayerScript = preload("res://scripts/player.gd")
 const Business = preload("res://scripts/business.gd")
 const WorkerScript = preload("res://scripts/worker.gd")
+const PadScript = preload("res://scripts/gamepad.gd")
 const ManagementScript = preload("res://scripts/management_ui.gd")
 const FleetScript = preload("res://scripts/fleet.gd")
 const VehicleScript = preload("res://scripts/vehicle.gd")
@@ -127,6 +128,7 @@ var cleanup_nodes := {}      # Phase 6.2: weed clumps and rubble heaps still on 
 var debris_dmg := {}         # id -> damage dealt so far
 var _weed_mesh: ArrayMesh
 var _heap_mesh: ArrayMesh
+var gamepad: QuarryGamepad                 # joypad support (see scripts/gamepad.gd)
 var touch_mode := false      # on-screen controls (Android / --touch)
 var touch_mine := false      # MINE button held
 var hillside_retired: Array = [] # rim / cliff bodies the hillside replaced (for tests)
@@ -1392,6 +1394,9 @@ func _setup_ui() -> void:
 		var touch := TouchScript.new()
 		ui.add_child(touch)
 		touch.setup(self)
+	gamepad = PadScript.new()
+	add_child(gamepad)
+	gamepad.setup(self)
 	# Station menus (selling booth, upgrade board, storage, machines): one cozy clickable panel.
 	panel = QuarryStationUI.new()
 	ui.add_child(panel)

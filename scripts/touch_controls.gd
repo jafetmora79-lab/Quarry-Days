@@ -37,9 +37,15 @@ func setup(main_node) -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	z_index = 50
 
+## Where the top-left button column starts: just under the corner map (which the HUD sizes), so the buttons never sit on top of it.
+func _top_base() -> float:
+	if game != null and game.hud != null and game.hud.map_plate != null:
+		return game.hud.map_plate.position.y + game.hud.map_plate.size.y + 34.0
+	return 150.0
+
 func _pos(b: Dictionary) -> Vector2:
 	if b.get("top", false):
-		return Vector2(float(b["x"]), float(b["y"])) # from the top-left corner
+		return Vector2(float(b["x"]), _top_base() + (float(b["y"]) - 150.0)) # from the top-left corner, below the map
 	return Vector2(size.x + float(b["x"]), size.y + float(b["y"]))
 
 func _active(b: Dictionary) -> bool:
