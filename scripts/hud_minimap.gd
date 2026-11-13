@@ -108,6 +108,10 @@ func _draw() -> void:
 		var bm := to_map(bp.x, bp.z)
 		var wide := 3.4 if bp.z > 15.0 and abs(bp.x - (5.0 + game.GARAGE_DX)) < 0.1 else 2.2
 		draw_rect(Rect2(bm - Vector2(wide, 1.6), Vector2(wide * 2.0, 3.2)), Color(0.7, 0.62, 0.48))
+	# The workshop order terminal has a fixed amber marker; the objective marker is independent.
+	var order_pos: Vector3 = game.machinery_station_position()
+	var order_map := to_map(order_pos.x, order_pos.z)
+	draw_rect(Rect2(order_map - Vector2(2, 2), Vector2(4, 4)), QuarryTheme.ACCENT, false, 1.0)
 	# the tunnel and the way in
 	if game.delivery != null:
 		var gp: Vector3 = game.delivery.gate_point()

@@ -5,6 +5,11 @@ class_name QuarryPlayer
 ## 0.75 keeps the feel the game had at its default 1280x720 window (960x540 canvas).
 const MOUSE_LOOK_SCALE := 0.75
 
+@export var walk_speed := 5.25
+@export var sprint_speed := 7.5
+@export var acceleration := 20.0
+@export var braking := 24.0
+
 var camera: Camera3D
 var pitch := 0.0
 var locked := false
@@ -69,22 +74,21 @@ func _process(delta: float) -> void:
 	camera.h_offset = sin(_shake_t * 63.0) * shake * 0.6
 	camera.v_offset = cos(_shake_t * 71.0) * shake * 0.5
 	if tool_view:
-		tool_view.moving = clampf(Vector2(velocity.x, velocity.z).length() / 4.2, 0.0, 1.5) if is_on_floor() else 0.0
+		tool_view.moving = clampf(Vector2(velocity.x, velocity.z).length() / walk_speed, 0.0, 1.5) if is_on_floor() else 0.0
 
 func _physics_process(delta: float) -> void:
 	if locked:
-		velocity.x = move_toward(velocity.x, 0, delta * 20)
-		velocity.z = move_toward(velocity.z, 0, delta * 20)
+		velocity.x = move_toward(velocity.x, 0, delta * braking)
+		velocity.z = move_toward(velocity.z, 0, delta * braking)
 	else:
 		var dir := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 		var wish := global_transform.basis * Vector3(dir.x, 0, dir.y)
-		var speed := 6.0 if Input.is_action_pressed("sprint") else 4.2
+		var speed := sprint_speed if Input.is_action_pressed("sprint") else walk_speed
 		if drive_wish != Vector3.INF:        # scripted walking (tests): a world-space direction instead of the keyboard
 			wish = drive_wish.normalized() if drive_wish.length() > 0.01 else Vector3.ZERO
-			speed = 4.2
 		speed *= speed_mult
-		velocity.x = move_toward(velocity.x, wish.x * speed, delta * 18)
-		velocity.z = move_toward(velocity.z, wish.z * speed, delta * 18)
+		velocity.x = move_toward(velocity.x, wish.x * speed, delta * (braking if wish.length_squared() < 0.01 else acceleration))
+		velocity.z = move_toward(velocity.z, wish.z * speed, delta * (braking if wish.length_squared() < 0.01 else acceleration))
 		_wish_flat = Vector3(wish.x, 0.0, wish.z)
 	if _mantle_t > 0.0:
 		# climbing onto a low ledge: a short, smooth lift (Phase 8.1: one rock tier can be climbed out of)
@@ -119,6 +123,10 @@ func _try_mantle() -> void:
 	var dir := _wish_flat.normalized()
 	var hit := KinematicCollision3D.new()
 	if not test_move(global_transform, dir * 0.2, hit):
+		return
+	# A floor contact is not a ledge. It must not start repeated step-up tweens
+	# and reset horizontal speed while walking slowly over otherwise flat terrain.
+	if hit.get_normal().y >= cos(floor_max_angle):
 		return
 	var c = hit.get_collider()
 	if c == null or not (c is QuarryFormation or (c is Node and ((c as Node).has_meta("ground") or (c as Node).has_meta("climbable")))):

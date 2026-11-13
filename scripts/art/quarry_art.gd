@@ -5,6 +5,8 @@ class_name QuarryArt
 ## body, navigation input and placement rule stays as it was; placeholder meshes are swapped or hidden and
 ## modelled geometry is added on top. Static geometry is batched per material (few draw calls).
 
+const Polish = preload("res://scripts/art/environment_polish.gd")
+
 const VEIL := "res://THE_VEIL_ASSETS_V2/"
 const P_DESK := VEIL + "03_Residential/Furniture/RES_Desk_Computer.glb"
 const P_CHAIR := VEIL + "03_Residential/Furniture/RES_DeskChair_Office.glb"
@@ -92,6 +94,8 @@ func build_environment(main_node) -> void:
 	else:
 		_site_props()
 	_yard_boundary()
+	if game.blueprint:
+		Polish.build(self)
 	_flush()
 	_atmosphere()
 
@@ -103,7 +107,8 @@ func soup(key: String) -> MeshKit.Soup:
 	return batch[key]
 
 func _material(key: String) -> Material:
-	return MeshKit.mat(key)
+	var replacements := {M_ASPHALT: "Asphalt", M_GRAVEL: "Gravel", M_DIRT_ROAD: "Gravel", M_CONCRETE: "Concrete", M_FOUNDATION: "Concrete", M_SIDING: "Siding", M_TRIM: "Trim", M_INDUSTRIAL: "Metal", M_METAL_DOOR: "Metal", "Corrugated": "Metal", "CorrugatedRed": "Roof", M_SOIL: "Soil", M_GRASS: "Grass"}
+	return MeshKit.mat(Polish.material(replacements[key]) if replacements.has(key) else key)
 
 func _flush() -> void:
 	MeshKit.repair(batch)
@@ -187,9 +192,9 @@ func _clear_placeholders() -> void:
 					prop(P_PINE, Vector3(p.x, 0, p.z), float(int(p.x * 7.0 + p.z * 3.0) % 6), 1.0)
 			elif nm.begins_with("Equipment parking sign"):
 				n.queue_free()                                  # the garage carries its own sign now
-			elif nm in ["Quarry floor", "Expansion floor", "Pit cap"] or nm.begins_with("Office ") or nm.begins_with("Home ") or nm.begins_with("Storage shed ") \
+			elif nm in ["Quarry floor", "Expansion floor", "Pit cap"] or nm.begins_with("Office ") or nm.begins_with("Home ") or nm.begins_with("Tool shed ") or nm.begins_with("Storage shed ") \
 					or nm.begins_with("Break bench") or nm.begins_with("Upgrade board") or nm.begins_with("Selling station") \
-					or nm.begins_with("Crusher order kiosk") or nm.begins_with("Management desk"):
+					or nm == "Bed" or nm.begins_with("Crusher order kiosk") or nm.begins_with("Management desk"):
 				_hide(n)
 
 # ------------------------------------------------------------------ ground
@@ -463,6 +468,11 @@ func _shed() -> void:
 ## workbench, shelving and clutter along the walls (clear of the bays).
 var garage_roof: MeshInstance3D
 
+func garage_columns() -> Array:
+	# Parking searches the clear floor dynamically, not only the four painted bay centres.
+	# A portal frame spans the front; only its two end columns touch the floor.
+	return [-4.7 + game.GARAGE_DX, 14.5 + game.GARAGE_DX]
+
 func _garage() -> void:
 	var ox: float = game.GARAGE_DX
 	var x0 := -4.7 + ox
@@ -492,7 +502,7 @@ func _garage() -> void:
 	for x in [x0, x1]:
 		bx(M_FOUNDATION, Vector3(x, 0.2, (z0 + z1) * 0.5), Vector3(0.3, 0.4, z1 - z0))
 	# steel frame: front columns, I-beam, roof trusses
-	for x in [x0, x0 + w / 3.0, x0 + 2.0 * w / 3.0, x1]:
+	for x in garage_columns():
 		bx("SteelGreen", Vector3(x, 3.25, z0 + 0.1), Vector3(0.22, 6.5, 0.22))
 		bx("SteelGreen", Vector3(x, 6.35, (z0 + z1) * 0.5), Vector3(0.18, 0.3, z1 - z0))   # truss
 	bx("SteelGreen", Vector3(cx, 6.45, z0 + 0.1), Vector3(w + 0.3, 0.35, 0.3))
@@ -532,7 +542,7 @@ func _yard_boundary() -> void:
 		_yard_boundary_blueprint()
 		return
 	var hub: Rect2 = game.hub_rect()
-	quad_flat(M_GRAVEL, Vector3(hub.get_center().x, 0, hub.get_center().y), hub.size, 0.0, 0.068)                    # the yard's own ground
+	quad_flat(M_GRAVEL, Vector3(hub.get_center().x, 0, hub.get_center().y), hub.size, 0.0, 0.05)                    # the yard's own ground
 	quad_flat(M_GRAVEL, Vector3(0, 0, FENCE_Z - 11.0), Vector2(7.0, 22.0), 0.0, 0.066)              # the haul road beyond the gate
 	var x0 := hub.position.x
 	var x1 := hub.end.x
@@ -593,48 +603,17 @@ func _blueprint_world() -> void:
 	_land_detail()
 	_pads()
 	# yard roads: the central road from the quarry gate, the cross road, the west road down to the service lane behind the garage, the lane itself
-	quad_flat(M_ASPHALT, Vector3(0, 0, 2.0), Vector2(7.0, 20.0), 0.0, 0.071)
-	quad_flat(M_ASPHALT, Vector3(0, 0, 11.5), Vector2(47.0, 6.0), 0.0, 0.071)
-	quad_flat(M_ASPHALT, Vector3(-19.5, 0, 20.5), Vector2(6.0, 18.0), 0.0, 0.071)
-	quad_flat(M_ASPHALT, Vector3(-6.75, 0, 25.4), Vector2(33.5, 5.0), 0.0, 0.071)
+	Polish.roads(self)
 	for z in [-5.0, 2.0, 9.0]:                                                           # centre dashes on the gate road
-		quad_flat("Hazard", Vector3(0, 0, z), Vector2(0.16, 2.0), 0.0, 0.074)
+		quad_flat("Hazard", Vector3(0, 0, z), Vector2(0.10, 1.4), 0.0, 0.091)
 	# the quarry's industrial fence (the south side, with the central gate, is _yard_boundary)
-	var fx := 126.0
-	var fz0 := -108.0
-	var fz1 := -8.0
-	_fence_line(Vector2(-fx, fz1), Vector2(-fx, fz0), false, 2.0)
-	_fence_line(Vector2(fx, fz1), Vector2(fx, fz0), false, 2.0)
-	_fence_line(Vector2(-fx, fz0), Vector2(fx, fz0), false, 2.0)
-	# the mountain range to the north: not interactable, only seen
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 5150
-	var rs := MeshKit.Soup.new()
-	for i in range(22):
-		var x := -200.0 + float(i) * 19.5 + rng.randf_range(-6.0, 6.0)
-		var h := rng.randf_range(26.0, 52.0) * (1.0 - 0.45 * absf(x) / 220.0)
-		MeshKit.rock_into(rs, Vector3(x, -2.0, rng.randf_range(-170.0, -140.0)), Vector3(rng.randf_range(44.0, 70.0), h, rng.randf_range(36.0, 52.0)), 400 + i, 4, 8)
-	for i in range(14):
-		var x2 := -190.0 + float(i) * 29.0 + rng.randf_range(-8.0, 8.0)
-		MeshKit.rock_into(rs, Vector3(x2, -2.0, rng.randf_range(-128.0, -118.0)), Vector3(rng.randf_range(30.0, 46.0), rng.randf_range(8.0, 15.0), rng.randf_range(16.0, 24.0)), 500 + i, 3, 7)
-	var rock_mat := _mountain_material()
-	MeshKit.inst(root, rs.mesh(), rock_mat).name = "NorthRange"
-	# the west mountain with the tunnel: rock masses beside and above the tunnel (its own walls and roof are built by the delivery system)
-	var ms := MeshKit.Soup.new()
-	MeshKit.rock_into(ms, Vector3(-62.0, -1.0, 6.0), Vector3(74.0, 26.0, 40.0), 611, 4, 8)
-	MeshKit.rock_into(ms, Vector3(-66.0, -1.0, 52.0), Vector3(80.0, 30.0, 50.0), 612, 4, 8)
-	MeshKit.rock_into(ms, Vector3(-38.0, 5.2, 25.4), Vector3(34.0, 12.0, 16.0), 613, 3, 7)
-	MeshKit.rock_into(ms, Vector3(-86.0, -1.0, 27.0), Vector3(40.0, 20.0, 30.0), 614, 3, 7)
-	MeshKit.inst(root, ms.mesh(), rock_mat).name = "TunnelMountain"
+	# PitZone owns this visible fence. Do not stack a second set of rails/posts over it.
+	Polish.north_range(self)
+	Polish.tunnel_hills(self)
 
 ## The strata rock of the mountains, a touch darker and warmer than the quarry cliffs so the range reads as distant hills rather than pale boulder piles.
 func _mountain_material() -> Material:
-	var base := MeshKit.mat("CliffStrata")
-	if base is StandardMaterial3D:
-		var m := (base as StandardMaterial3D).duplicate() as StandardMaterial3D
-		m.albedo_color = Color(0.66, 0.58, 0.48)
-		return m
-	return base
+	return MeshKit.flat(Color(0.42, 0.43, 0.35))
 
 ## Scatter on the land around the property: grass tufts, dark and pale patches, stones and pebbles, drawn as four instanced batches (one draw call each).
 ## Kept off the yard, the roads, the quarry and the tunnel mouth.
@@ -718,12 +697,13 @@ func _site_props_blueprint() -> void:
 ## east and south fences (gaps: the tunnel gate in the west, the east extension's gate), the yard's gravel and the gate posts.
 func _yard_boundary_blueprint() -> void:
 	var hub: Rect2 = game.hub_rect()
-	quad_flat(M_GRAVEL, Vector3(hub.get_center().x, 0, hub.get_center().y), hub.size, 0.0, 0.068)
+	quad_flat(M_GRAVEL, Vector3(hub.get_center().x, 0, hub.get_center().y), hub.size, 0.0, 0.05)
 	quad_flat(M_GRAVEL, Vector3(0, 0, -16.0), Vector2(7.0, 16.0), 0.0, 0.066)                  # the road onto the quarry surface
 	var fz := -8.0
 	var fx := 126.0
-	_fence_line(Vector2(-fx, fz), Vector2(-GATE_HALF, fz), true, 2.0)
-	_fence_line(Vector2(GATE_HALF, fz), Vector2(fx, fz), true, 2.0)
+	# Matching collision stays in the yard bake; the actual fence mesh is drawn once by PitZone.
+	for span in [[-fx, -GATE_HALF], [GATE_HALF, fx]]:
+		solid("Yard fence", Vector3((span[0] + span[1]) * .5, 1.1, fz), Vector3(span[1] - span[0], 2.2, .3))
 	var x0 := hub.position.x
 	var x1 := hub.end.x
 	var z1 := hub.end.y

@@ -1,0 +1,114 @@
+{
+  "engine": "Godot 4.3-stable official",
+  "suites": [
+    {
+      "suite": "test_blueprint_haul",
+      "checks": 13,
+      "failures": 0,
+      "script_errors": 0
+    },
+    {
+      "suite": "test_blueprint_world",
+      "checks": 28,
+      "failures": 0,
+      "script_errors": 0
+    },
+    {
+      "suite": "test_buildings",
+      "checks": 16,
+      "failures": 0,
+      "script_errors": 0
+    },
+    {
+      "suite": "test_delivery",
+      "checks": 18,
+      "failures": 0,
+      "script_errors": 0
+    },
+    {
+      "suite": "test_environment_polish",
+      "checks": 48,
+      "failures": 0,
+      "script_errors": 0
+    },
+    {
+      "suite": "test_hud_polish",
+      "checks": 21,
+      "failures": 0,
+      "script_errors": 0
+    },
+    {
+      "suite": "test_hud_purchase",
+      "checks": 36,
+      "failures": 0,
+      "script_errors": 0
+    },
+    {
+      "suite": "test_integration97",
+      "checks": 13,
+      "failures": 0,
+      "script_errors": 0
+    },
+    {
+      "suite": "test_machinery",
+      "checks": 36,
+      "failures": 0,
+      "script_errors": 0
+    },
+    {
+      "suite": "test_old_save",
+      "checks": 10,
+      "failures": 0,
+      "script_errors": 0
+    },
+    {
+      "suite": "test_quarry_safety",
+      "checks": 25,
+      "failures": 0,
+      "script_errors": 0
+    },
+    {
+      "suite": "test_saves",
+      "checks": 14,
+      "failures": 0,
+      "script_errors": 0
+    },
+    {
+      "suite": "test_site_fixes",
+      "checks": 16,
+      "failures": 0,
+      "script_errors": 0
+    },
+    {
+      "suite": "test_title_menu",
+      "checks": 13,
+      "failures": 0,
+      "script_errors": 0
+    },
+    {
+      "suite": "test_touch",
+      "checks": 11,
+      "failures": 0,
+      "script_errors": 0
+    },
+    {
+      "suite": "test_ui_readability",
+      "checks": 24,
+      "failures": 0,
+      "script_errors": 0
+    },
+    {
+      "suite": "test_wheels_tunnel",
+      "checks": 14,
+      "failures": 0,
+      "script_errors": 0
+    },
+    {
+      "suite": "test_yard_hud_office",
+      "checks": 21,
+      "failures": 0,
+      "script_errors": 0
+    }
+  ],
+  "checks": 377
+}

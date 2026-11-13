@@ -399,6 +399,7 @@ func _build_quarry() -> void:
 	sell.set_meta("kind","sell_anchor")
 	sell_body = sell
 	_build_workbench()
+	_build_machinery_station()
 	var storage := _solid(world,"Storage crate",STORAGE_POS,Vector3(2,1.3,1.6),Color(0.33,0.23,0.13))
 	storage.set_meta("kind","storage")
 	storage.set_meta("index",0)
@@ -426,6 +427,9 @@ func _build_quarry() -> void:
 	daylight = DirectionalLight3D.new()
 	daylight.rotation_degrees = Vector3(-46,-24,0)
 	daylight.light_energy = 1.4
+	daylight.shadow_enabled = true
+	daylight.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	daylight.directional_shadow_max_distance = 70.0
 	add_child(daylight)
 
 ## The blueprint world's ground: one solid ground plane for the yard and everything south and beside it (the quarry's own ground is built by the
@@ -434,15 +438,13 @@ func _build_quarry() -> void:
 func _build_blueprint_ground() -> void:
 	var g := _floor_piece("World floor", Vector3(0, -2.75, 36.0), Vector3(400.0, 5.5, 88.0))        # z -8 .. 80: the yard, the service lane, the land beside them
 	g.name = "Quarry floor"
-	var h := 9.0
-	_solid(world, "Boundary south", Vector3(0, h * 0.5, 80.5), Vector3(400.0, h, 1.0), Color(0.3, 0.3, 0.3)).visible = false
-	_solid(world, "Boundary west", Vector3(-200.5, h * 0.5, 36.0), Vector3(1.0, h, 90.0), Color(0.3, 0.3, 0.3)).visible = false
-	_solid(world, "Boundary east", Vector3(200.5, h * 0.5, 36.0), Vector3(1.0, h, 90.0), Color(0.3, 0.3, 0.3)).visible = false
-	# the yard's west and east edges outside the tunnel: solid so nobody walks out of the property onto the mountain side
-	for part in [[-8.0, 21.3], [29.5, 80.0]]:          # the mountain north and south of the tunnel (the tunnel's own walls and roof stand between them)
-		var m := _solid(world, "Tunnel mountain", Vector3(-62.0, 4.0, (float(part[0]) + float(part[1])) * 0.5), Vector3(76.0, 8.0, float(part[1]) - float(part[0])), Color(0.34, 0.33, 0.3))
-		m.visible = false
-		m.set_meta("nav_skip", true)
+	# Match the visible perimeter fence; no nine-metre invisible walls above it.
+	var h := 2.2
+	_solid(world, "Boundary south", Vector3(0, h * 0.5, 80.0), Vector3(400.0, h, 0.2), Color(0.3, 0.3, 0.3)).visible = false
+	_solid(world, "Boundary west", Vector3(-200.0, h * 0.5, 36.0), Vector3(0.2, h, 88.0), Color(0.3, 0.3, 0.3)).visible = false
+	_solid(world, "Boundary east", Vector3(200.0, h * 0.5, 36.0), Vector3(0.2, h, 88.0), Color(0.3, 0.3, 0.3)).visible = false
+	# The old hidden rectangular tunnel-mountain blockers are replaced by collision
+	# generated from the visible hillside mesh in QuarryEnvironmentPolish.tunnel_hills().
 
 ## Invisible walkable ground block (the art layer draws the surface).
 func _floor_piece(label: String, pos: Vector3, size: Vector3) -> StaticBody3D:
@@ -457,6 +459,14 @@ func _floor_piece(label: String, pos: Vector3, size: Vector3) -> StaticBody3D:
 	body.add_child(cs)
 	world.add_child(body)
 	return body
+
+func machinery_station_position() -> Vector3:
+	return TOOLSHED_POS + Vector3(3.25, 0.0, -1.15)
+
+func _build_machinery_station() -> void:
+	var kiosk := _solid(world, "Machinery ordering terminal", machinery_station_position() + Vector3(0, 0.62, 0), Vector3(0.8, 1.24, 0.65), Color(0.20, 0.36, 0.36))
+	kiosk.set_meta("kind", "shop")
+	kiosk.set_meta("machinery_station", true)
 
 func _building(label: String, pos: Vector3, color: Color) -> void:
 	_solid(world,label+" floor",pos+Vector3(0,0.08,0),Vector3(5,0.16,4.8),color)
@@ -1743,7 +1753,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				request_sell(str(t["kind"]), int(t["index"]))
 		return
 	if event.is_action_pressed("place_machine"):
-		_notify("Order machinery at the office computer first.")
+		_notify("Order machinery at the MACHINERY ORDERS terminal beside the workshop, or at the office computer.")
 	if event.is_action_pressed("interact") and last_target:
 		_interact(last_target)
 

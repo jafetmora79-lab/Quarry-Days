@@ -1,0 +1,431 @@
+
+test_blueprint_haul
+PASS: the new world is the blueprint quarry with the shells of levels 2 to 5
+PASS: cutting the surface opens level 2, but its access road is not built for free (2)
+PASS: the level-2 access road is bought (a paid construction job)
+PASS: cutting level 2 opens level 3, whose road is bought
+PASS: cutting level 3 opens level 4, whose road is bought
+PASS: cutting level 4 opens level 5, whose road is bought
+PASS: the industrial_truck is bought
+PASS: the truck is loaded to capacity (90 units)
+PASS: loaded: from the yard the truck drives down to level 4 (lowest -14.24)
+PASS: loaded: and climbs all the way back out to the plateau (z -10.1, y -0.64)
+PASS: the whole load is still on board: nothing was lost on the ramps
+PASS: loaded: it drives the corridor to the quarry gate (z 7.8)
+PASS: and arrives with its full load
+RESULT: 13 checks, 0 failures
+
+test_blueprint_world
+PASS: the quarry is a wide fenced rectangle about 2.5:1 (252 x 100 m)
+PASS: it starts as flat ground (no hole, no pre-dug pit)
+PASS: five areas / levels: surface plus four dug levels (5)
+PASS: every dug area is centred on the quarry's axis
+PASS: the nested areas shrink by one consistent margin ([12, 12, 12])
+PASS: each level is deeper than the one above ([-1.2, -4.8, -8.4, -12, -14.4])
+PASS: hardness rises with depth ([1, 2, 3, 4])
+PASS: the yard starts directly at the quarry's south fence
+PASS: the yard has no mineable terrain (0 columns)
+PASS: no starter excavation area and no rock corridor
+PASS: the arrival tunnel is in the west, by the garage
+PASS: tool shed upper-left, office upper-right
+PASS: the house is lower-right
+PASS: the machinery garage is lower-left
+PASS: all 40 tutorial weeds and heaps lie inside the quarry (Area 1)
+PASS: clearing the debris does not lower the terrain (topsoil 7015 -> 7015, done true)
+PASS: the first excavation can start in the topsoil
+PASS: the level-2 access road is reachable from the gate over the roads built so far
+PASS: the level-3 access road is reachable from the gate over the roads built so far
+PASS: the level-4 access road is reachable from the gate over the roads built so far
+PASS: the level-5 access road is reachable from the gate over the roads built so far
+PASS: no road exists for free: level 2 is not open and its road is not built
+PASS: the roads are a priced construction job that grows with depth
+PASS: excavating the surface opens level 2
+PASS: the office button buys it: "The crew has cut the level 2 access road ($400). Trucks and excavators can drive down."
+PASS: a built or unopened road is refused with a reason
+PASS: the Quarry Plan page offers a Build road button for the next level
+PASS: after save and load the excavation, the road and the money are all kept (money 103800/103800, topsoil 2865/2865, road true, level 2)
+RESULT: 28 checks, 0 failures
+
+test_buildings
+PASS: A the office, the home and the tool shed have doors
+PASS: A doors start shut
+PASS: B (probe) looking at the closed home door:
+PASS: B E opens the home door
+PASS: B the panel swings aside (1.75 rad)
+PASS: B E closes it again
+PASS: B the office door works too
+PASS: C a worker walking up opens the door for themselves
+PASS: D the hangar exists
+PASS: D the hangar is deeper than before (7.5 m, was 6.4)
+PASS: F the office stands inside the cliff ring
+PASS: F the shed stands inside the cliff ring
+PASS: F the home stands inside the cliff ring
+PASS: F the home has a lane (>1 m) to the garage wall
+PASS: F office and shed mirror each other across the yard
+PASS: F the break area is not in front of the home door
+RESULT: 16 checks, 0 failures
+
+test_delivery
+PASS: A the world has a delivery service
+PASS: A built into the scene
+PASS: B buying a loader is accepted: Front Loader is being driven in through the service door to the equipment parking area.
+PASS: B a delivery job started
+PASS: B the machine starts at the tunnel mouth in the south
+PASS: B it is not drivable while being delivered
+PASS: B a driver sits in the cab
+PASS: B the player cannot get in while it is being delivered
+PASS: B the bay is reserved
+PASS: C the door rolls up before the machine goes through
+PASS: C the driver finished: machine parked, driver gone
+PASS: C it ended on its bay and is a normal machine again
+PASS: C the bay is released
+PASS: C the door closes behind them
+PASS: C the machine stays parked (does not fall or drift)
+PASS: D the player can now drive it
+PASS: E a new hire appears at the service gate
+PASS: E the hire walks in through the garage door (z 21.5)
+RESULT: 18 checks, 0 failures
+
+test_environment_polish
+PASS: integrated blueprint, twelve stages, surface plus four dug levels retained
+PASS: facility locations retained
+PASS: home garden fence solid at (-3.5, 0.7, 0)
+PASS: home garden fence solid at (3.5, 0.7, 0)
+PASS: home garden fence solid at (0, 0.7, 3.5)
+PASS: home garden fence solid at (-2.5, 0.7, -2.6)
+PASS: home garden fence solid at (2.5, 0.7, -2.6)
+PASS: home garden entrance is open and aligned with doorway
+PASS: player exits home/garden and enters office
+PASS: office to workshop is traversable
+PASS: workshop to garage/service tunnel approach is traversable
+PASS: open service tunnel is traversable
+PASS: closed tunnel shutter remains solid
+PASS: yard gate and starter quarry entrance are traversable
+PASS: solid house wall blocks movement
+PASS: visible property fence collision x=-200
+PASS: no invisible nine-metre wall above property fence x=-200
+PASS: visible property fence collision x=200
+PASS: no invisible nine-metre wall above property fence x=200
+PASS: worker nav connects service lane to (-17.125, 0.16, 4.1)
+PASS: worker nav connects service lane to (13.125, 0.16, 4.1)
+PASS: worker nav connects service lane to (17.625, 0.16, 16.9)
+PASS: one restored machinery ordering station, no competing shop
+PASS: terminal is in reach of real interaction ray
+PASS: E opens existing machinery shop with 3D preview
+PASS: machinery confirmation charges exactly once and delivers to existing construction inventory
+PASS: blueprint service-tunnel vehicle delivery starts
+PASS: vehicle order charges its existing price once
+PASS: real west shutter opens and delivery driver completes return route
+PASS: delivered loader occupies its original bay with normal collision
+PASS: delivered vehicle can be entered
+PASS: loader drives out of its bay between solid garage columns
+PASS: delivered vehicle can be exited after braking
+PASS: walking is 5.25 m/s (+25%)
+PASS: sprint is 7.5 m/s (+25%), including directed/controller input
+PASS: smooth braking reaches rest
+PASS: existing cart/carry movement multiplier retained
+PASS: continuous mountain and matching tunnel hillside geometry exists
+PASS: hidden rectangular mountain blockers replaced by collision from the visible mesh
+PASS: original restrained Asphalt texture imported
+PASS: original restrained Gravel texture imported
+PASS: original restrained Siding texture imported
+PASS: original restrained Metal texture imported
+PASS: original restrained Roof texture imported
+PASS: original restrained Trim texture imported
+PASS: original restrained Concrete texture imported
+PASS: original restrained Soil texture imported
+PASS: original restrained Grass texture imported
+RESULT: 48 checks, 0 failures
+
+test_hud_polish
+PASS: the corner map exists ((184, 99))
+PASS: it knows the four dug levels, none open, no road built ({ "t": 4, "o": 0, "r": 0 })
+PASS: it shows the tutorial debris and the machines (40 / 2)
+PASS: the player's arrow is inside the map (94, 82)
+PASS: north is up: the quarry is drawn above the yard
+PASS: the objective marker points at the next debris during the cleanup
+PASS: its caption says what it is (Next debris)
+PASS: once level 2 is open the marker points at the office to build its road (Build the level 2 road at the office)
+PASS: and the status plate says so
+PASS: after the road is bought the map shows it built and the marker is gone
+PASS: standing in the yard: THE YARD
+PASS: standing on the quarry surface: QUARRY  -  SURFACE (AREA 1)
+PASS: near the garage / tunnel end: THE WEST TUNNEL
+PASS: the banner shows the place when it changes
+PASS: and fades away again
+PASS: no vehicle plate on foot
+PASS: driving shows the vehicle plate with a speed gauge (2.0 m/s   top 5.0)
+PASS: with its load and what the buttons do (WASD drive  Space brake  R recover  E exit)
+PASS: the hand-tool plate steps aside while driving
+PASS: and comes back on foot (plate false tool true driving <null>)
+PASS: no HUD piece overlaps another while driving []
+RESULT: 21 checks, 0 failures
+
+test_hud_purchase
+PASS: 1 a vehicle offer has its name, price, cargo, speed, acceleration and best use
+PASS: 1b and can be bought
+PASS: 1c it compares with what you own (Your Dump Truck 1 carries 20: this one carries +24 more)
+PASS: 1d a tool offer compares its power with your current tool
+PASS: 1e a rig offer lists damage, hardness, bin and running cost
+PASS: 1f too little money says how much is missing
+PASS: 2 the workbench shows the next tool's model in a pane beside the list
+PASS: 2b the model turns by itself, smoothly (0.55 rad in a second)
+PASS: 2c in its own world, with its own light, rendering while the shop is open
+PASS: 2d the pane has the name, price, stats and a BUY button
+PASS: 2e
+PASS: 2f the pane sits to the left of the list and inside the panel
+PASS: 3 closing the shop stops the preview rendering
+PASS: 3b BUY in the pane buys once
+PASS: 3c an item you cannot afford has BUY disabled
+PASS: 4 every vehicle, rig, crusher, storage, belt and tool has a preview model built from the game's own code
+PASS: 5 the first machine is shown at once
+PASS: 5b clicking another item shows it and buys nothing
+PASS: 5c a rig shows the real rig model
+PASS: 5d the equipment page shows a pane with the first machine
+PASS: 5e choosing a machine in the list shows it
+PASS: 6 the controls strip uses plain words (W A S D Move | SHIFT Sprint | LEFT CLICK Mine | E Interact | B Build mode | M Management | ESC Pause | )
+PASS: 6b a power tool says HOLD LEFT CLICK
+PASS: 6c the strip is on the screen
+PASS: 7 the HUD sections are warm plates
+PASS: 7b with a clock icon, a tool icon and a mining-power bar
+PASS: 7c the tool shows its mining power and the bag its capacity
+PASS: 8 no blueprint while mining
+PASS: 8b placing a machine shows the blueprint plate and the blueprint in your hands, the tool is put away
+PASS: 8c it shows the structure, rotation, grid snap, valid or blocked ground and the price (BLUEPRINT | Crusher | Turned 0 degrees | Grid snap: ON | Ground: BLOCKED | Cost: $2,200)
+PASS: 8d turning the structure updates the plate
+PASS: 8e leaving build mode puts the tool back
+PASS: 9 the shop panel with its pane fits at 1280x720 ([P: (50, 35), S: (860, 548)] in [P: (0, 0), S: (1280, 720)])
+PASS: 9b HUD plates stay on screen and apart at 1280x720
+PASS: 9 the shop panel with its pane fits at 1920x1080 ([P: (50, 35), S: (860, 540)] in [P: (0, 0), S: (1920, 1080)])
+PASS: 9b HUD plates stay on screen and apart at 1920x1080
+RESULT: 36 checks, 0 failures
+
+test_integration97
+PASS: A the merged configuration has the pit formations, the 12 stages, the gear and the hopper and table gates
+PASS: A a new game has the four-level pit and no carts yet
+PASS: B the wheelbarrow is pushed down the basin ramp onto the pit floor (cart at (2.1, -3.6, -76.9))
+PASS: B and its load is exactly what it carried (25 units)
+PASS: B the player stands on the pit floor, not under it (y -3.62)
+PASS: C the pit floor is a build area for the new machines
+PASS: C the hopper holds coal and the table sorts a batch down in the pit
+PASS: D three save/load rounds change no unit, coin, cart, tool or machine
+PASS: D the hopper, the table (with its sorted rock) and both carts are back, once each
+PASS: E a Phase 9 save loads: gear and carts kept, the cart simply starts empty
+PASS: E an older output bin (no variant) stays a plain 30-unit bin with its gravel
+PASS: E an 8.7 save (no Phase 9 fields) loads with safe empty defaults and the same money
+PASS: E what is saved loads back to the same state (no drift, no duplication)
+RESULT: 13 checks, 0 failures
+
+test_machinery
+PASS: A both are locked at the start
+PASS: A the sorting table opens at Breaking Ground, the hopper later
+PASS: A the small hopper opens at First Employee
+PASS: B the crusher model has a swing jaw, two flywheels, feed hopper, motor and chute (11 parts)
+PASS: B the jaw swings and the flywheels turn while it crushes (0.067 rad)
+PASS: B processing is unchanged: 12 stone in, 12 gravel out
+PASS: B a belt snapped to the chute connects to the crusher's port
+PASS: C the hopper is built as a funnel on a frame, with its own model
+PASS: C it holds 60 units where an output bin holds 30
+PASS: C a bin takes only gravel; the hopper takes any material
+PASS: C it fills to exactly 60 and refuses the rest (60 accepted of 85)
+PASS: C the heap in the funnel shows it is full (1.00)
+PASS: C material can be taken out again
+PASS: C a belt snapped to the hopper connects to it
+PASS: D the sorting table has a work surface, trays and a sweeping arm
+PASS: D rock goes on the table by hand; gravel is not sortable
+PASS: D a batch of 10 starts sorting (8 stay unsorted)
+PASS: D only one batch at a time
+PASS: D the arm sweeps while a batch is sorted (0.24 rad)
+PASS: D nothing is sorted before the batch is done
+PASS: D after 6 seconds 10 units are sorted
+PASS: D sorted rock sells for 130% of the price: $10 instead of $8
+PASS: D the 10 units sold left the table; the other 8 are still there, unsorted
+PASS: D the same units cannot be sold twice
+PASS: D a last batch of 8 is sorted; nothing left to sort
+PASS: D taking sorted rock off the table removes the sorted mark with it
+PASS: E variants and contents survive saving
+PASS: E a running batch survives saving
+PASS: E a damaged save cannot invent sorted rock or unknown machines
+PASS: F selling a sorting table refunds half its price ($100)
+PASS: G ordering the table costs $200 and it arrives in the construction inventory
+PASS: G the hopper costs $1,000 and arrives the same way
+PASS: G the hopper goes into placement (blueprint)
+PASS: G placing it builds a hopper in the yard
+PASS: H the shop previews show the real table and hopper models
+PASS: H previews list price, capacity, speed and benefit; the crusher is named Small Jaw Crusher
+RESULT: 36 checks, 0 failures
+
+test_old_save
+PASS: the old save fixture is there (6863 bytes)
+PASS: the old save loads with its money and soil progress ($480, 9 hauled)
+PASS: its cleanup progress is kept (6 cleared)
+PASS: it enters the Area 1 contract with the work already done counted (hauled 9)
+PASS: and the HUD shows the contract
+PASS: the rest of the site can still be cleared
+PASS: Grandpa's excavator came through the load
+PASS: the migrated save completes the Area 1 contract by playing on
+PASS: the contract reward is paid once on top of the cleanup letter ($900 gained)
+PASS: and not again
+RESULT: 10 checks, 0 failures
+
+test_quarry_safety
+PASS: 1 fresh quarry: no point of any level or ramp has no ground (0 holes, 0 too low)
+PASS: 2 with every level fully excavated there is still ground everywhere (0 holes)
+PASS: 3 the player goes from the pit gate down the basin ramp and through the ramps of levels 2, 3 and 4
+PASS: 3b it ends on the level 4 floor (y -14.42)
+PASS: 4 and walks all the way back up to the plateau (y -0.02)
+PASS: 5 the column under the player is protected
+PASS: 5b no tool, crew, rig or companion can take it out from under them
+PASS: 5c the player's own pick refuses it too
+PASS: 5d a column the player is not on is not protected
+PASS: 6 the safeguard remembers firm ground (4 positions)
+PASS: 6b the player drops three tiers into the sealed pit (y -3.62 -> -7.22)
+PASS: 6c with no way out they are lifted back to firm ground after a few seconds (1 rescues, 0.0 m from the safe spot)
+PASS: 6d one rock tier is a ledge the player can climb out of (y -4.82 -> -3.85)
+PASS: 6e a three-tier wall cannot be climbed
+PASS: 7 every excavated column is still excavated after a save and load
+PASS: 7b and its collision is still gone (no invisible rock)
+PASS: 7c loading twice changes nothing
+PASS: 8 a worker can walk from the pit gate to the basin floor (17 points)
+PASS: 8b and back out again from the basin floor
+PASS: 8 a worker can walk from the pit gate to the level 2 floor (26 points)
+PASS: 8b and back out again from the level 2 floor
+PASS: 8 a worker can walk from the pit gate to the level 3 floor (34 points)
+PASS: 8b and back out again from the level 3 floor
+PASS: 8 a worker can walk from the pit gate to the level 4 floor (45 points)
+PASS: 8b and back out again from the level 4 floor
+RESULT: 25 checks, 0 failures
+
+test_saves
+PASS: A a headless-style session writes nothing on its own
+PASS: A saving writes the save file
+PASS: B a new launch continues: money $4246 (saved $4246), tool 1
+PASS: B the hired worker is back in the world
+PASS: B and the player stands where they left off
+PASS: B the intro letter is not shown again
+PASS: B the pickaxe is in hand
+PASS: C the autosave timer fired
+PASS: C the autosave wrote the latest progress
+PASS: C closing the window saves
+PASS: D a broken save file falls back to the previous good save (backup)
+PASS: D and the game still starts from it (money $7777)
+PASS: E new game needs a second click
+PASS: E with no save, a launch starts a fresh game with the letter
+RESULT: 14 checks, 0 failures
+
+test_site_fixes
+PASS: no leftover expansion cliff blocks or rockfall barrier (0)
+PASS: the management desk stands inside the office, where the art puts it
+PASS: Grandpa waits in the yard in the open, not inside a wall ((-7.2, 0, 15.6))
+PASS: both starter machines exist
+PASS: the excavator and the starter truck stand in garage slots 1 and 2
+PASS: Grandpa's own old truck is parked apart from them (28 m)
+PASS: the storage bin stands inside the fenced quarry ((9, 0.65, -13.5))
+PASS: selling takes the bag AND the storage bin (14 earned for 13 units)
+PASS: 'sell all' includes everything in storage too
+PASS: the shutter hangs in the portal's plane and fills it (6.7 m wide, 4.3 m high)
+PASS: the walkable site spans the whole property (400 m wide), edged by the perimeter fence
+PASS: the cleanup is extensive: 40 weeds and rubble heaps
+PASS: before cleaning the ground is overgrown (948 bushes, tufts, stones, pebbles; 427 soil patches)
+PASS: clearing a weed clears the scrub and stones around it (948 -> 939)
+PASS: when the last piece is cleared every bush, tuft and stone is gone: only dirt is left (0 overgrowth left)
+PASS: the plain soil patches stay (they are just dirt)
+RESULT: 16 checks, 0 failures
+
+test_title_menu
+PASS: the game opens on the main menu
+PASS: the HUD is hidden and the player cannot move behind it
+PASS: a film camera shows the quarry behind the menu
+PASS: and it moves slowly
+PASS: the world is paused behind the menu
+PASS: with no save, CONTINUE is greyed out
+PASS: Esc does nothing on the main menu (no pause menu over it)
+PASS: NEW GAME with no save starts the game, Walt's opening begins (menu  title <null> hud true locked true)
+PASS: the player's own camera is back
+PASS: the pause menu has a MAIN MENU button
+PASS: with a save, CONTINUE is available
+PASS: NEW GAME over a save asks first and does nothing yet
+PASS: CONTINUE enters the game
+RESULT: 13 checks, 0 failures
+
+test_touch
+PASS: touch mode is on with --touch
+PASS: on-screen controls exist
+PASS: controls show during play
+PASS: pushing the stick forward walks forward
+PASS: releasing the stick stops
+PASS: dragging on the right looks around
+PASS: MINE button holds the mining swing
+PASS: releasing MINE stops
+PASS: emulated mouse clicks from touch are ignored in the world
+PASS: controls hide while a menu is open
+PASS: controls return when the menu closes
+RESULT: 11 checks, 0 failures
+
+test_ui_readability
+PASS: 1 body text is Atkinson Hyperlegible, antialiased
+PASS: 2 headings use the same smooth typeface as body text (no pixel font mixed in)
+PASS: 1 font licences are shipped
+PASS: 4 rock textures keep nearest-neighbour filtering
+PASS: 3 every label and button in the sales booth is at least 14 px at 1080p
+PASS: 2 the pixel font is not used for long text
+PASS: 3 body text is 22 px at 1080p
+PASS: 3 headings are 26 px at 1080p
+PASS: 6 the table has a header and six material rows (9)
+PASS: 6 sales table columns line up from the header down
+PASS: 6 rows are separated and tall enough to click
+PASS: 6 Sell and Clerk buttons look different and are easy targets
+PASS: 5 the sales panel is wide enough for its table
+PASS: 5 the table scrolls instead of overflowing
+PASS: 5 upgrades descriptions wrap inside the panel
+PASS: 5 shop descriptions wrap inside the panel
+PASS: 7 canvas fills 1280x720 without bands ((960, 540))
+PASS: 7 canvas fills 1920x1080 without bands ((960, 540))
+PASS: 7 canvas fills 1600x1000 without bands ((960, 600))
+PASS: 7 canvas fills 2560x1080 without bands ((1280, 540))
+PASS: 5 HUD labels use readable sizes
+PASS: 5 HUD panels do not overlap or leave the screen [[P: (10, 10), S: (200, 64)], [P: (700, 10), S: (250, 179)], [P: (230, 444), S: (230, 68)], [P: (150, 397), S: (660, 41)]]
+PASS: 5 the controls strip sits below the tool bar
+PASS: 5 the management desk uses the readable body font and sizes
+RESULT: 24 checks, 0 failures
+
+test_wheels_tunnel
+PASS: loader has 4 wheels or rollers that can turn
+PASS: loader: its wheels turn when it is moved along its heading (3.31 rad)
+PASS: loader: reversing turns them back
+PASS: truck has 6 wheels or rollers that can turn
+PASS: truck: its wheels turn when it is moved along its heading (0.60 rad)
+PASS: truck: reversing turns them back
+PASS: compact_excavator has 12 wheels or rollers that can turn
+PASS: compact_excavator: its wheels turn when it is moved along its heading (30.90 rad)
+PASS: compact_excavator: reversing turns them back
+PASS: the excavator's two tracks have scrolling tread
+PASS: its tread scrolls with the distance, mirrored on the two sides
+PASS: Grandpa's truck has turning wheels (6)
+PASS: a line of sight runs from the garage mouth to the far end of the tunnel (first blocked at z 99.0)
+PASS: the tunnel has its road, arch ribs, braces, wall lights and exit sign (65 parts)
+RESULT: 14 checks, 0 failures
+
+test_yard_hud_office
+PASS: the opening ground has no scrub mounds ({ "boulders": 0, "outcrops": 0, "patches": 0, "scrub": 0, "pebbles": 0 })
+PASS: the old pit's stone rim slabs are gone from the new yard
+PASS: the spoil heap is out in Area 1, not in the yard (z -30.0)
+PASS: the Tool shed is a building of its own
+PASS: the office no longer holds the upgrade board
+PASS: the workbench (tool upgrades) stands inside the tool shed
+PASS: against the back wall, so the doorway and the floor in front of it are clear
+PASS: you can walk from the yard through the door to the workbench
+PASS: the sales stand and the machinery order kiosk are gone
+PASS: the selling anchor is only a point (no object in the yard)
+PASS: the office computer opens on its card grid
+PASS: eight cards: employees, machinery, sales, quarry plan, production, upgrades, milestones, stats (8)
+PASS: a worker is hired for the schedule check (Hired Rosa Quintero. They walk in through the service gate, then head to work during their shift.)
+PASS: the crew page has no schedule controls
+PASS: employees has its sub-pages (crew, hire, payroll)
+PASS: machinery has the order button (crushers, belts, rigs)
+PASS: the sales card opens the sales window
+PASS: new hires work 9:00 to 17:00 (540 to 1020)
+PASS: headings use the same smooth typeface (no pixel font)
+PASS: two text sizes only
+PASS: the objective box is compact (3 lines)
+RESULT: 21 checks, 0 failures

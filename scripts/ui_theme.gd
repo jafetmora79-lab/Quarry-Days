@@ -4,16 +4,15 @@ class_name QuarryTheme
 ## legibility), smooth antialiased and hinted. Silkscreen (SIL OFL 1.1) stays only for headings and decorative
 ## labels. The 3D scene keeps its nearest-neighbour pixel textures; only interface text is smooth.
 ## Warm muted panels with a 2 px border, small rounded corners and a soft drop shadow.
-## Sizes are in the 960x540 base canvas, which the window scales by 1.333 (1280x720) or 2 (1920x1080):
-##   BODY 9  -> 12 px / 18 px on screen      SMALL 8 -> 10.7 px / 16 px (secondary labels, never below 14 px at 1080p)
-##   HEAD 12 -> 16 px / 24 px (Silkscreen, a whole multiple of its 8 px grid at both scales)
-## Fonts are re-rasterised at the final window scale (canvas_items stretch), so text stays sharp at any DPI.
+## Sizes use the existing 960x540 canvas, rerasterised by canvas_items at the final window scale.
+## Body 11 -> 14.7 px at 720p / 22 px at 1080p; secondary text uses the same readable size.
+## Headings 13 -> 17.3 / 26 px. Layout and the existing smooth font are retained.
 
-const BODY := 9
+const BODY := 11
 ## Two text sizes only: BODY for everything, HEAD for titles and the money figure; one smooth typeface (Atkinson Hyperlegible) throughout.
-const SMALL := 9
-const HERO := 12
-const HEAD := 12
+const SMALL := 11
+const HERO := 13
+const HEAD := 13
 
 const BG := Color(0.13, 0.1, 0.075, 0.95)
 const BG_SOFT := Color(0.17, 0.13, 0.095, 0.93)
@@ -133,7 +132,7 @@ static func label(text: String, size := BODY, color := INK, heading := false, bo
 	l.add_theme_constant_override("line_spacing", 2)
 	l.text = text
 	l.add_theme_font_override("font", head() if heading else (bold() if bold_face else body()))
-	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_font_size_override("font_size", maxi(size, HEAD if heading else SMALL))
 	l.add_theme_color_override("font_color", color)
 	if shadow:
 		l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.6))     # only for text that floats over the 3D scene (no plate behind it)

@@ -168,6 +168,7 @@ func _build() -> void:
 	add_child(map_plate)
 	map_plate.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	map_plate.position = Vector2(10, 92)
+	tl.resized.connect(func(): map_plate.position.y = tl.position.y + tl.size.y + 8)
 	var mv := _vbox(map_plate, 2)
 	minimap = QuarryMinimap.new()
 	minimap.name = "Minimap"

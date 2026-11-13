@@ -28,8 +28,8 @@ var day := 1.0
 var sun: MeshInstance3D
 var moon: MeshInstance3D
 
-const SKY_TOP := [Color(0.02, 0.04, 0.10), Color(0.27, 0.50, 0.82)]
-const SKY_HORIZON := [Color(0.05, 0.07, 0.13), Color(0.80, 0.88, 0.94)]
+const SKY_TOP := [Color(0.02, 0.04, 0.10), Color(0.40, 0.60, 0.76)]
+const SKY_HORIZON := [Color(0.05, 0.07, 0.13), Color(0.82, 0.85, 0.80)]
 const GROUND := [Color(0.03, 0.04, 0.06), Color(0.52, 0.55, 0.50)]
 const MTN_BASE := [Color(0.35, 0.36, 0.30), Color(0.40, 0.42, 0.42), Color(0.44, 0.47, 0.52)]
 const MTN_TOP := [Color(0.56, 0.52, 0.45), Color(0.55, 0.55, 0.57), Color(0.60, 0.63, 0.68)]
@@ -227,12 +227,12 @@ func _embankment_height(r: float) -> float:
 ## The blueprint world's forests: dense groves in the strips east and west of the quarry, thinning out south of the quarry fence (east of the yard).
 func _forest_blueprint() -> void:
 	var s := MeshKit.Soup.new()
-	MeshKit.frustum_into(s, Vector3(0, 0.0, 0), 0.18, 0.14, 1.2, 5)
-	MeshKit.frustum_into(s, Vector3(0, 0.9, 0), 1.3, 0.35, 2.0, 6)
-	MeshKit.frustum_into(s, Vector3(0, 2.4, 0), 0.95, 0.2, 1.8, 6)
+	MeshKit.frustum_into(s, Vector3(0, 0.9, 0), 1.3, 0.18, 1.8, 7)
+	MeshKit.frustum_into(s, Vector3(0, 2.1, 0), 1.0, 0.12, 1.7, 7)
+	MeshKit.frustum_into(s, Vector3(0, 3.2, 0), 0.62, 0.01, 1.35, 7)
 	var m := s.mesh()
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.20, 0.36, 0.22)
+	mat.albedo_color = Color(0.17, 0.29, 0.19)
 	mat.roughness = 1.0
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	m.surface_set_material(0, mat)
@@ -268,6 +268,19 @@ func _forest_blueprint() -> void:
 	tree_count = xfs.size()
 	for x in xfs:
 		tree_positions.append((x as Transform3D).origin)
+	var trunks := MeshKit.Soup.new()
+	MeshKit.frustum_into(trunks, Vector3.ZERO, .18, .10, 1.5, 6)
+	var bark := MultiMesh.new()
+	bark.transform_format = MultiMesh.TRANSFORM_3D
+	bark.mesh = trunks.mesh()
+	bark.instance_count = xfs.size()
+	for i in range(xfs.size()): bark.set_instance_transform(i, xfs[i])
+	var trunk_node := MultiMeshInstance3D.new()
+	trunk_node.name = "ForestTrunks"
+	trunk_node.multimesh = bark
+	trunk_node.material_override = MeshKit.flat(Color(.28, .21, .14))
+	trunk_node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(trunk_node)
 
 func _forest() -> void:
 	var s := MeshKit.Soup.new()

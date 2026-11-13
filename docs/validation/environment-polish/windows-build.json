@@ -1,0 +1,12 @@
+{
+  "engine": "4.3-stable official",
+  "architecture": "Windows x86_64",
+  "boot_test": "Wine 10 headless, 180 frames",
+  "exit_code": 0,
+  "script_errors": 0,
+  "native_windows_visual_qa": "pending",
+  "sha256": {
+    "QuarryDays.exe": "66b26ad96df7458ea917b632a73ac7c88bb058db24dbd11a457fd50435ab7b13",
+    "QuarryDays.pck": "b69b8fffca0a2243c08f5df0402d551db371148279da88e6d16f55d54ec85bb3"
+  }
+}

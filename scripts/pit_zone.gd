@@ -347,10 +347,10 @@ func _build_fence() -> void:
 	fb.append(_body("Quarry fence south east", Vector3(x1 - seg * 0.5, h * 0.5, z1f), Vector3(seg, h, t), false))
 	for b in fb:
 		b.set_meta("fence", true)          # drawn as ONE merged fence mesh (_build_fence_art); the old rim dressing must leave it alone
-	var hb := 9.0
-	_body("Boundary west", Vector3(-plat_w * 0.5 - 1.0, hb * 0.5, (plateau_z0() + plateau_z1()) * 0.5), Vector3(2.0, hb, plat_d + 6.0), false)
-	_body("Boundary east", Vector3(plat_w * 0.5 + 1.0, hb * 0.5, (plateau_z0() + plateau_z1()) * 0.5), Vector3(2.0, hb, plat_d + 6.0), false)
-	_body("Boundary north", Vector3(0, hb * 0.5, plateau_z1() - 1.0), Vector3(plat_w + 6.0, hb, 2.0), false)
+	var hb := 2.2
+	_body("Boundary west", Vector3(-plat_w * 0.5, hb * 0.5, (plateau_z0() + plateau_z1()) * 0.5), Vector3(0.2, hb, plat_d), false)
+	_body("Boundary east", Vector3(plat_w * 0.5, hb * 0.5, (plateau_z0() + plateau_z1()) * 0.5), Vector3(0.2, hb, plat_d), false)
+	_body("Boundary north", Vector3(0, hb * 0.5, plateau_z1()), Vector3(plat_w, hb, 0.2), false)
 
 func _build_walls() -> void:
 	if flat:
@@ -479,13 +479,13 @@ func _build_art() -> void:
 	# ground
 	var road := MeshKit.Soup.new()
 	_cell_quads(road, -corr_w * 0.5, corr_w * 0.5, -corr_len, 3.0, 0.015, 1.0)
-	MeshKit.inst(vis, road.mesh(), MeshKit.mat("GroundRoad"))
+	MeshKit.inst(vis, road.mesh(), MeshKit.mat("res://assets/environment/M_Gravel.tres"))
 	var plat := MeshKit.Soup.new()
 	_cell_quads(plat, -plat_w * 0.5, plat_w * 0.5, z1, z0, 0.01, 3.0, true)
-	MeshKit.inst(vis, plat.mesh(), MeshKit.mat(GRASS_DRY if flat else "ExcavatedDirt"))        # the land around the fenced quarry is dry grass; the quarry itself is bare soil
+	MeshKit.inst(vis, plat.mesh(), MeshKit.mat("res://assets/environment/M_Grass.tres" if flat else "ExcavatedDirt"))        # the land around the fenced quarry is dry grass; the quarry itself is bare soil
 	var basin := MeshKit.Soup.new()
 	_cell_quads(basin, -hx, hx, zn, zs, basin_y + 0.012, 2.0, false, basin_holes)
-	MeshKit.inst(vis, basin.mesh(), MeshKit.mat("ExcavatedDirt"))
+	MeshKit.inst(vis, basin.mesh(), MeshKit.mat("res://assets/environment/M_Soil.tres"))
 	var hw := ramp_w * 0.5
 	if not flat:                  # (the blueprint quarry is flush with the plateau: no basin ramp, no curbs)
 		# ramp surface
@@ -496,7 +496,7 @@ func _build_art() -> void:
 		var rxf := Transform3D(Basis(Vector3.RIGHT, -ang), Vector3(0, -depth * 0.5 + 0.02, zs - ramp_run * 0.5))
 		var hl := length * 0.5 + 0.1
 		rs.quad(rxf * Vector3(-hw, 0, -hl), rxf * Vector3(-hw, 0, hl), rxf * Vector3(hw, 0, hl), rxf * Vector3(hw, 0, -hl))
-		MeshKit.inst(vis, rs.mesh(), MeshKit.mat("GroundRoad"))
+		MeshKit.inst(vis, rs.mesh(), MeshKit.mat("res://assets/environment/M_Gravel.tres"))
 		var wedge := MeshKit.Soup.new()   # side faces of the ramp's solid fill (right triangles)
 		for side in [-1.0, 1.0]:
 			var xw: float = side * hw
@@ -527,7 +527,7 @@ func _build_art() -> void:
 			hole.append(level_pits[k + 1]["rect"])
 		var lf := MeshKit.Soup.new()
 		_cell_quads(lf, cols.position.x, cols.end.x, cols.position.y, cols.end.y, yb + 0.012, 3.0, false, hole)
-		MeshKit.inst(vis, lf.mesh(), MeshKit.mat("ExcavatedDirt"))
+		MeshKit.inst(vis, lf.mesh(), MeshKit.mat("res://assets/environment/M_Soil.tres"))
 		var lroad := MeshKit.Soup.new()
 		var fz0 := float(sp["fn"])
 		var fz1 := float(sp["fs"])
@@ -554,7 +554,7 @@ func _build_art() -> void:
 				lroad.quad(Vector3(sx0, y0r, z0r), Vector3(sx1, y0r, z0r), Vector3(sx1, y1r, z1r), Vector3(sx0, y1r, z1r))      # the ramp runs the other way: wind it to face up
 			lw.quad(Vector3(xe, y0r, z0r), Vector3(xe, yb, z0r), Vector3(xe, yb, z1r), Vector3(xe, y1r, z1r))
 			lw.quad(Vector3(xe, y0r, z0r), Vector3(xe, y1r, z1r), Vector3(xe, yb, z1r), Vector3(xe, yb, z0r))
-		MeshKit.inst(vis, lroad.mesh(), MeshKit.mat("GroundRoad"))
+		MeshKit.inst(vis, lroad.mesh(), MeshKit.mat("res://assets/environment/M_Gravel.tres"))
 		MeshKit.inst(vis, lw.mesh(), level_rock(int(lp["n"])))
 		var lang := atan2(rise, run)
 		var ltilt := lang if tn else -lang

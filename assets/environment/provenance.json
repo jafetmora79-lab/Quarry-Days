@@ -1,0 +1,21 @@
+{
+  "source": "Original deterministic Pillow pixel authoring with AI assistance; no third-party art",
+  "tile_size": [
+    256,
+    256
+  ],
+  "materials": [
+    "Asphalt",
+    "Gravel",
+    "Siding",
+    "Metal",
+    "Roof",
+    "Trim",
+    "Concrete",
+    "Soil",
+    "Grass"
+  ],
+  "filter": "nearest with mipmaps and anisotropy",
+  "texel_density": "128 px/m ground, 256 px/m building details",
+  "approval": "Pending Windows visual QA"
+}

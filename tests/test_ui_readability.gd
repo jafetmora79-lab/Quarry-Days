@@ -67,7 +67,7 @@ func run() -> void:
 	check(small_ok, "3 every label and button in the sales booth is at least 14 px at 1080p")
 	check(not pixel_body, "2 the pixel font is not used for long text")
 	var body_px := float(QuarryTheme.BODY) * scale
-	check(body_px >= 16.0 and body_px <= 18.0, "3 body text is %.0f px at 1080p" % body_px)
+	check(body_px >= 20.0 and body_px <= 24.0, "3 body text is %.0f px at 1080p" % body_px)
 	check(float(QuarryTheme.HEAD) * scale >= 20.0 and float(QuarryTheme.HEAD) * scale <= 26.0, "3 headings are %.0f px at 1080p" % (float(QuarryTheme.HEAD) * scale))
 	# column alignment: header cells line up with value cells
 	var rows := []
