@@ -458,7 +458,7 @@ func _start_intro(w: Node3D) -> void:
 	dialog_worker = w
 	dialog = QuarryIntroDialog.new()
 	dialog.setup(str(w.e["name"]), str(w.e.get("personality", "friendly")), str(business.profession(str(w.e["profession"]))["title"]),
-		UiArt.portrait_index(str(w.e["name"]), str(w.e.get("gender", "m")), str(w.e["profession"])))
+		UiArt.portrait_index(str(w.e["name"]), str(w.e.get("gender", "m")), str(w.e["profession"]), str(w.e.get("candidate", ""))))
 	ui.add_child(dialog)
 	dialog.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE)
 	dialog.offset_bottom = -150.0
@@ -4682,76 +4682,7 @@ func _build_truck() -> void:
 	world.add_child(root)
 	truck_node = root
 
-## Grandpa's own look on the shared miner rig: cardigan and cream shirt, old trousers, no safety gear, and a flat wool cap,
-## round glasses, bushy white brows, a white moustache and side tufts on the head socket.
-func _dress_grandpa(body: Node3D) -> void:
-	# the body mesh has one surface per garment: each gets a plain colour in place of the miner's textured work clothes
-	var recolor := {"QD_Miner_Top": Color(0.30, 0.40, 0.30), "QD_Miner_TopCuff": Color(0.24, 0.32, 0.24), "QD_Miner_Shirt": Color(0.90, 0.87, 0.78),
-		"QD_Miner_Pants": Color(0.42, 0.37, 0.30), "QD_Miner_PantsHem": Color(0.36, 0.32, 0.26), "QD_Miner_Shoes": Color(0.22, 0.15, 0.10), "QD_Miner_Sole": Color(0.15, 0.12, 0.10),
-		"QD_Miner_Badge": Color(0.30, 0.40, 0.30)}
-	for mi in body.find_children("*", "MeshInstance3D", true, false):
-		if str(mi.name).contains("Gear"):
-			mi.visible = false     # the miner's pouches: Grandpa carries none of it
-			continue
-		if mi.mesh == null:
-			continue
-		for si in range(mi.mesh.get_surface_count()):
-			var sm: Material = mi.get_active_material(si)
-			if sm is BaseMaterial3D and recolor.has(str(sm.resource_name)):
-				var m: BaseMaterial3D = sm.duplicate()
-				m.albedo_texture = null
-				m.albedo_color = recolor[str(sm.resource_name)]
-				mi.set_surface_override_material(si, m)
-	var skels := body.find_children("*", "Skeleton3D", true, false)
-	if skels.is_empty() or (skels[0] as Skeleton3D).find_bone("Socket_Head") < 0:
-		return
-	var att := BoneAttachment3D.new()
-	att.name = "GrandpaHead"
-	att.bone_name = "Socket_Head"
-	skels[0].add_child(att)
-	var wool := _mat(Color(0.45, 0.46, 0.42))
-	var white := _mat(Color(0.97, 0.97, 0.95))
-	var dark := _mat(Color(0.10, 0.09, 0.08))
-	var gb := func(pos: Vector3, size_v: Vector3, mat: Material) -> void:
-		var m := MeshInstance3D.new()
-		var b := BoxMesh.new()
-		b.size = size_v
-		m.mesh = b
-		m.material_override = mat
-		m.position = pos
-		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		att.add_child(m)
-	# flat cap: a low squashed dome that sits on the skull, with a short peak
-	var dome := MeshInstance3D.new()
-	var sm := SphereMesh.new()
-	sm.radius = 0.135
-	sm.height = 0.13
-	dome.mesh = sm
-	dome.material_override = wool
-	dome.position = Vector3(0, -0.015, 0.005)
-	dome.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	att.add_child(dome)
-	gb.call(Vector3(0, -0.055, -0.14), Vector3(0.2, 0.012, 0.09), wool)
-	# white hair showing at the temples and the back of the neck
-	for sx in [-0.118, 0.118]:
-		gb.call(Vector3(sx, -0.10, 0.0), Vector3(0.014, 0.07, 0.17), white)
-	gb.call(Vector3(0, -0.11, 0.125), Vector3(0.2, 0.08, 0.02), white)
-	# bushy white eyebrows, a full moustache and a small white goatee
-	for sx in [-0.05, 0.05]:
-		gb.call(Vector3(sx, -0.135, -0.14), Vector3(0.075, 0.02, 0.02), white)
-	gb.call(Vector3(0, -0.215, -0.145), Vector3(0.15, 0.03, 0.03), white)
-	for sx in [-0.075, 0.075]:
-		gb.call(Vector3(sx, -0.235, -0.14), Vector3(0.025, 0.04, 0.03), white)
-	gb.call(Vector3(0, -0.265, -0.13), Vector3(0.05, 0.05, 0.03), white)
-	# round wire glasses
-	for sx in [-0.05, 0.05]:
-		gb.call(Vector3(sx, -0.17, -0.148), Vector3(0.06, 0.006, 0.008), dark)
-		gb.call(Vector3(sx, -0.19, -0.148), Vector3(0.06, 0.006, 0.008), dark)
-		gb.call(Vector3(sx - 0.03, -0.18, -0.148), Vector3(0.006, 0.02, 0.008), dark)
-		gb.call(Vector3(sx + 0.03, -0.18, -0.148), Vector3(0.006, 0.02, 0.008), dark)
-	gb.call(Vector3(0, -0.175, -0.148), Vector3(0.03, 0.006, 0.008), dark)
-
-## Walter: the miner model with white hair. Anyone can talk to him with E while he waits.
+## Walter (or Dr. Marsh): their own character model. Anyone can talk to him with E while he waits.
 func _spawn_walter(at := Vector3.INF, face_to := Vector3.ZERO, npc := "walter") -> void:
 	if walter_node != null and is_instance_valid(walter_node):
 		return
@@ -4770,22 +4701,11 @@ func _spawn_walter(at := Vector3.INF, face_to := Vector3.ZERO, npc := "walter") 
 	var model := Node3D.new()
 	model.name = "Model"
 	root.add_child(model)
-	var body: Node3D = (load("res://assets/characters/CHR_QD_Clerk.glb" if npc == "marsh" else "res://assets/characters/CHR_QD_Miner.glb") as PackedScene).instantiate()
+	# their own models (tools/character_cast): Walter's flat cap, glasses, moustache, flannel and stoop are modelled in
+	var body: Node3D = (load("res://assets/characters/CHR_QD_Marsh.glb" if npc == "marsh" else "res://assets/characters/CHR_QD_Walter.glb") as PackedScene).instantiate()
 	model.add_child(body)
 	for gi in body.find_children("*", "GeometryInstance3D", true, false):
 		gi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	for mi in body.find_children("*_Hair", "MeshInstance3D", true, false):
-		if mi.mesh != null and mi.get_active_material(0) is BaseMaterial3D:
-			var m: BaseMaterial3D = mi.get_active_material(0).duplicate()
-			if npc == "walter":
-				m.albedo_texture = null        # the hair texture is dark: white hair needs a plain colour
-			m.albedo_color = Color(0.95, 0.95, 0.93) if npc == "walter" else Color(0.62, 0.32, 0.18)
-			mi.material_override = m
-	body.scale = Vector3.ONE * (0.96 if npc == "walter" else 0.98)
-	if npc == "walter":
-		_dress_grandpa(body)
-		body.scale = Vector3(0.93, 0.89, 0.93)   # a little shorter, and he leans forward a little
-		body.rotation.x = -0.1
 	var found := body.find_children("*", "Skeleton3D", true, false)
 	if not found.is_empty():
 		var r := VeilRig.new()

@@ -244,20 +244,60 @@
     "title": "Characters",
     "items": [
      {
-      "name": "Clerk",
-      "file": "models/characters/CHR_QD_Clerk.glb"
+      "name": "Bram",
+      "file": "models/characters/CHR_QD_Bram.glb"
      },
      {
-      "name": "Hauler",
-      "file": "models/characters/CHR_QD_Hauler.glb"
+      "name": "Dmitri",
+      "file": "models/characters/CHR_QD_Dmitri.glb"
      },
      {
-      "name": "Miner",
-      "file": "models/characters/CHR_QD_Miner.glb"
+      "name": "Felix",
+      "file": "models/characters/CHR_QD_Felix.glb"
      },
      {
-      "name": "Operator",
-      "file": "models/characters/CHR_QD_Operator.glb"
+      "name": "Hana",
+      "file": "models/characters/CHR_QD_Hana.glb"
+     },
+     {
+      "name": "Ines",
+      "file": "models/characters/CHR_QD_Ines.glb"
+     },
+     {
+      "name": "Lucia",
+      "file": "models/characters/CHR_QD_Lucia.glb"
+     },
+     {
+      "name": "Marsh",
+      "file": "models/characters/CHR_QD_Marsh.glb"
+     },
+     {
+      "name": "Nia",
+      "file": "models/characters/CHR_QD_Nia.glb"
+     },
+     {
+      "name": "Omar",
+      "file": "models/characters/CHR_QD_Omar.glb"
+     },
+     {
+      "name": "Petra",
+      "file": "models/characters/CHR_QD_Petra.glb"
+     },
+     {
+      "name": "Rosa",
+      "file": "models/characters/CHR_QD_Rosa.glb"
+     },
+     {
+      "name": "Sofia",
+      "file": "models/characters/CHR_QD_Sofia.glb"
+     },
+     {
+      "name": "Tomas",
+      "file": "models/characters/CHR_QD_Tomas.glb"
+     },
+     {
+      "name": "Walter",
+      "file": "models/characters/CHR_QD_Walter.glb"
      }
     ]
    },

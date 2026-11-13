@@ -13,7 +13,7 @@ var _done := false
 var lines: Array = []       ## [{speaker, text}]
 var index := 0
 var speaker_label: Label
-var face: TextureRect          ## Grandpa Walt's portrait; hidden for other speakers
+var face: TextureRect          ## the speaker's portrait (Walter or Dr. Marsh); hidden for other speakers
 var body: Label
 var next_btn: Button
 var skip_btn: Button
@@ -30,7 +30,7 @@ func setup(entries: Array, is_timed := false) -> void:
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var hb := HBoxContainer.new()
 	hb.add_theme_constant_override("separation", 10)
-	face = UiArt.portrait_rect(UiArt.GRANDFATHER, 72)
+	face = UiArt.portrait_rect(_face_for("WALTER"), 72)
 	face.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	hb.add_child(face)
 	hb.add_child(v)
@@ -53,10 +53,18 @@ func setup(entries: Array, is_timed := false) -> void:
 	row.add_child(skip_btn)
 	_show()
 
+## Portrait index for a speaker: the named-cast render when it exists, else the sheet's grandfather.
+static func _face_for(speaker: String) -> int:
+	var idx := UiArt.named_index("marsh" if speaker.contains("MARSH") else "walter")
+	return idx if idx >= 0 else UiArt.GRANDFATHER
+
 func _show() -> void:
 	var l: Dictionary = lines[index]
 	speaker_label.text = str(l.get("speaker", "WALTER"))
-	face.visible = speaker_label.text.to_upper().contains("WALT")
+	var who := speaker_label.text.to_upper()
+	face.visible = who.contains("WALT") or who.contains("MARSH")
+	if face.visible:
+		face.texture = UiArt.portrait(_face_for(who))
 	body.text = '"%s"' % str(l.get("text", ""))
 	next_btn.text = "Continue" if index < lines.size() - 1 else "Done"
 	_timer = float(l.get("dur", 4.0))
