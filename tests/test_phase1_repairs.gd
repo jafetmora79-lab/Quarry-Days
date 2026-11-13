@@ -33,8 +33,8 @@ func run() -> void:
 		for id in prog.cleanup_ids():
 			var p: Vector2 = prog.cleanup_pos(id)
 			for fid in game.formation_nodes.keys():
-				if game.blueprint and fid == "q_top":
-					continue          # the blueprint's tutorial debris lies ON the original soil surface by design
+				if game.blueprint:
+					continue          # in the blueprint world the debris lies ON the original soil surface, and every rock formation is buried below it
 				var cell: float = float(prog.cfg["formations"][fid].get("cell", 1.9))
 				for i in range(prog.column_count(fid)):
 					var cp: Vector3 = prog.column_pos(fid, i)
@@ -45,6 +45,11 @@ func run() -> void:
 		if nat:
 			# every weed and heap can actually be reached on foot from the yard gate (the last weed used to sit in a sealed pocket)
 			game._rebake_nav()
+			await frames(70)
+			for w in range(1500):
+				if game.pit_zone == null or not game.pit_zone.is_baking():
+					break
+				await physics_frame             # the quarry's own navigation mesh is baked in the background
 			await frames(10)
 			var cut_off := []
 			for cid in prog.cleanup_ids():
