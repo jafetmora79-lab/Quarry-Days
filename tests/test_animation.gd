@@ -32,7 +32,7 @@ func run() -> void:
 	await process_frame
 	game.prog.stage = game.prog.stage_index("large")
 	game.state.money = 50000
-	game.state.clock_minutes = 480.0
+	game.state.clock_minutes = 600.0
 	game.ui_hire("rosa")
 	var w = game.worker_nodes.values()[0]
 	var rig: VeilRig = w.rig

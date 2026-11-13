@@ -172,7 +172,7 @@ func run() -> void:
 	var others := []
 	for h in hits:
 		others.append(str(h["collider"].name))
-	check(others.is_empty() and bc.x - 0.75 > game.OFFICE_POS.x - 2.29 and bc.x + 0.75 < game.OFFICE_POS.x - 0.7 and bc.z - 0.35 > game.OFFICE_POS.z - 2.24, "6a the bench stands clear inside the office, left of the door, against the front wall (%s)" % str(others))
+	check(others.is_empty() and bc.x - 0.75 > game.TOOLSHED_POS.x - 2.29 and bc.x + 0.75 < game.TOOLSHED_POS.x + 2.29 and bc.z + 0.35 < game.TOOLSHED_POS.z + 2.24 and bc.z > game.TOOLSHED_POS.z + 1.0, "6a the bench stands clear inside the tool shed, against the back wall (%s)" % str(others))
 	# the way in is free: walk from the door to the management desk
 	game.player.locked = false
 	game.safety.enabled = false

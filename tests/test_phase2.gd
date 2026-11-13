@@ -224,8 +224,8 @@ func test_upgrades() -> void:
 
 func test_exploits() -> void:
 	var b := make(100)
-	b.state.clock_minutes = 480
-	b.payroll_minute = 480
+	b.state.clock_minutes = 600
+	b.payroll_minute = 600
 	var e := b.hire("rosa")
 	advance(b, 30)
 	var money := b.state.money
@@ -307,8 +307,8 @@ func scene_tests() -> void:
 		track["max"] = maxf(track["max"], d)
 		track["walked"] += d
 		track["last"] = clerk_node.global_position
-		return clerk_node._flat(clerk_node.global_position, Vector3(-7, 0, 10)) < 2.6)
-	check(arrived < 1500 and start_pos.distance_to(Vector3(-7, 0, 10)) > 5.0, "6 clerk walks from the break area to the selling station (%d frames)" % arrived)
+		return clerk_node._flat(clerk_node.global_position, Vector3(game.SELL_ANCHOR.x, 0, game.SELL_ANCHOR.z)) < 2.6)
+	check(arrived < 1500 and start_pos.distance_to(Vector3(game.SELL_ANCHOR.x, 0, game.SELL_ANCHOR.z)) > 5.0, "6 clerk walks from the break area to the office (%d frames)" % arrived)
 	check(track["max"] < 0.6 and track["walked"] > 4.0, "6 worker moves smoothly without teleporting (max step %.2f m, walked %.1f m)" % [track["max"], track["walked"]])
 	game.state.storage["crushed_stone"] = 4
 	game.business.authorized["crushed_stone"] = true
@@ -318,8 +318,8 @@ func scene_tests() -> void:
 	check(int(game.state.storage["crushed_stone"]) == 1, "10 clerk in the world sells stock at the counter")
 	check(int(game.business.day_stats(game.business.current_day())["revenue"]) - rev0 == 33 and game.state.money > m, "10 automated sale awards exactly $33")
 	# --- miner: walks, strikes the deposit, picks up the pieces, delivers them to storage
-	game.state.clock_minutes = 480.0
-	game.business.payroll_minute = 480
+	game.state.clock_minutes = 600.0
+	game.business.payroll_minute = 600
 	for id in game.ground_pieces.keys():
 		game.ground_pieces[id].queue_free()
 		game.ground_pieces.erase(id)

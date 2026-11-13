@@ -37,7 +37,7 @@ func run() -> void:
 	await process_frame
 	game.hud.close_card()
 	await process_frame
-	check(game.doors.size() == 2, "A the office and the home have doors")
+	check(game.doors.size() == 3, "A the office, the home and the tool shed have doors")
 	var home = game.doors[1]
 	var office = game.doors[0]
 	check(not home.want_open and home.open_amount == 0.0, "A doors start shut")

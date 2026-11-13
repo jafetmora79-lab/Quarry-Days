@@ -37,7 +37,7 @@ func run() -> void:
 	root.size = Vector2i(1920, 1080)
 	var body: FontFile = QuarryTheme.body()
 	check(body.get_font_name().contains("Atkinson") and body.antialiasing == TextServer.FONT_ANTIALIASING_GRAY, "1 body text is Atkinson Hyperlegible, antialiased")
-	check((QuarryTheme.head() as FontFile).antialiasing == TextServer.FONT_ANTIALIASING_NONE, "2 only the heading font stays a crisp pixel font")
+	check((QuarryTheme.head() as FontFile).antialiasing == TextServer.FONT_ANTIALIASING_GRAY and QuarryTheme.head().get_font_name().contains("Atkinson"), "2 headings use the same smooth typeface as body text (no pixel font mixed in)")
 	check(FileAccess.file_exists("res://assets/fonts/AtkinsonHyperlegible-OFL.txt") and FileAccess.file_exists("res://assets/fonts/Silkscreen-OFL.txt"), "1 font licences are shipped")
 	# 3D art stays pixelated
 	var m: BaseMaterial3D = MeshKit.mat("RockLimestone")
@@ -55,7 +55,7 @@ func run() -> void:
 	var pixel_body := false
 	for c in all:
 		var px := float(fsize(c)) * scale
-		var is_head := font_of(c) == QuarryTheme.head()
+		var is_head := false          # there is no separate heading typeface any more: one smooth font throughout
 		if px < 14.0:
 			small_ok = false
 		if not is_head and c is Label and fsize(c) < QuarryTheme.SMALL:

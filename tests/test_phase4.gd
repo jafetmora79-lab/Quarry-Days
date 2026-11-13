@@ -173,14 +173,14 @@ func scene_world() -> void:
 	check(not floor_body.get_child(0).visible and floor_body.collision_layer == 1, "1 placeholder floor hidden, its collision unchanged")
 	# 7 building interactions still reachable through the new geometry
 	check(aim(game, Vector3(-15.5, 0.05, 11.4), PI, -0.5) == "office", "7 management desk inside the office is interactable")
-	check(aim(game, Vector3(-7, 0.05, 7.6), PI, -0.3) == "sell", "7 sales booth counter is interactable")
-	check(aim(game, Vector3(-14.7, 0.2, 11.6), PI * 0.5, 0.0) == "upgrades", "7 the upgrade whiteboard inside the office is interactable")
-	check(aim(game, Vector3(-2, 0.05, 7.8), PI, -0.3) == "shop", "7 machinery order kiosk is interactable")
+	check(game.world.get_node_or_null("Selling station") == null, "7 there is no sales stand any more (selling is on the office computer)")
+	check(aim(game, game.TOOLSHED_POS + Vector3(0, 0.05, 0.4), PI, -0.55) == "upgrades", "7 the workbench inside the tool shed is interactable")
+	check(game.world.get_node_or_null("Crusher order kiosk") == null, "7 there is no machinery order kiosk any more (ordering is on the office computer)")
 	check(aim(game, Vector3(10, 0.05, 7.6), PI, -0.3) == "storage", "7 storage bin is interactable")
 	# 8 worker navigation through the dressed quarry
 	await frames(60)
 	var spot: Vector3 = game.break_spot(0)
-	check(path_ok(game, spot, Vector3(-7.0, 0, 12.0)), "8 service gate -> sales booth is walkable")
+	check(path_ok(game, spot, Vector3(game.SELL_ANCHOR.x, 0, game.SELL_ANCHOR.z)), "8 service gate -> the office door (where selling happens) is walkable")
 	check(path_ok(game, spot, Vector3(-10.0, 0, -5.0)), "8 service gate -> stone formation face is walkable")
 	check(path_ok(game, spot, Vector3(10.0, 0, 7.8)), "8 service gate -> storage bin is walkable")
 	check(path_ok(game, Vector3(0, 0, 8), Vector3(5.5, 0, 12.5)) and path_ok(game, Vector3(5.5, 0, 12.5), Vector3(20.0, 0, 7.5)), "8 yard, garage apron and haul road are connected")
