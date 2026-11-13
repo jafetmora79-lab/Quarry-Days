@@ -538,11 +538,11 @@ func _stations() -> void:
 ## out to the quarry is the gate in the middle of that fence, which opens onto a gravel haul road running north into Area 1. Outside
 ## the fence the ground is raw quarry dirt. The fence has colliders (so nothing walks or drives through it) and a gap for the gate.
 const FENCE_Z := -6.35
-const GATE_HALF := 3.6
+const GATE_HALF := 4.8
 func _yard_boundary() -> void:
 	var hub: Rect2 = game.hub_rect()
 	quad_flat(M_GRAVEL, Vector3(hub.get_center().x, 0, hub.get_center().y), hub.size, 0.0, 0.068)                    # the yard's own ground
-	quad_flat(M_GRAVEL, Vector3(0, 0, FENCE_Z - 11.0), Vector2(GATE_HALF * 2.0 - 0.6, 22.0), 0.0, 0.066)              # the haul road beyond the gate
+	quad_flat(M_GRAVEL, Vector3(0, 0, FENCE_Z - 11.0), Vector2(7.0, 22.0), 0.0, 0.066)              # the haul road beyond the gate
 	var x0 := hub.position.x
 	var x1 := hub.end.x
 	for side in [-1.0, 1.0]:

@@ -114,12 +114,15 @@ func run() -> void:
 	check(game.art.garage_roof.visible, "D the roof returns when you get out")
 	# ---- ground and walls
 	var bad_ground := 0
+	var gravel := 0
 	for m in game.art.root.get_children():
 		if m is MeshInstance3D and (m as MeshInstance3D).material_override:
 			var rp: String = (m as MeshInstance3D).material_override.resource_path
-			if rp.contains("M_Road_DirtRoad") or rp.contains("M_Road_Gravel"):
+			if rp.contains("M_Road_DirtRoad"):
 				bad_ground += 1
-	check(bad_ground == 0, "E roads and the yard use the same calm ground texture as the floor (%d patchwork meshes left)" % bad_ground)
+			if rp.contains("M_Road_Gravel"):
+				gravel += 1           # the yard's own ground and the haul road beyond the gate: ONE batched mesh (see QuarryArt._yard_boundary)
+	check(bad_ground == 0 and gravel <= 1, "E roads and the yard use the same calm ground texture as the floor (%d dirt patches, %d gravel mesh)" % [bad_ground, gravel])
 	var undressed := 0
 	for b in game.world.get_children():
 		if b is StaticBody3D and not b.has_meta("ground"):

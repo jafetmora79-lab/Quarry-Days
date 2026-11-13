@@ -553,7 +553,7 @@ func scene_deep() -> void:
 	game.ui_buy_vehicle("loader")
 	game.delivery.finish_all()
 	var loader = game.vehicle_nodes.values()[0]
-	loader.global_position = Vector3(-3.5, 0.1, -4.0)
+	loader.global_position = Vector3(-3.5, 0.1, -4.0)      # through the quarry gate (the yard fence is closed outside it)
 	loader.rotation.y = 0.0
 	loader.speed = 0.0
 	game.enter_vehicle(loader)

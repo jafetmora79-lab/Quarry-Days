@@ -40,21 +40,21 @@ func run() -> void:
 	var gh: float = QuarryArt.GATE_HALF
 	# the fence stands across the whole yard edge, except the gate
 	var fence_ok := true
-	for x in [-22.0, -15.0, -8.0, -4.2, 4.2, 8.0, 15.0, 22.0]:
+	for x in [-22.0, -15.0, -8.0, -5.4, 5.4, 8.0, 15.0, 22.0]:
 		fence_ok = fence_ok and blocked(game, Vector3(x, 0.8, fz + 2.0), Vector3(x, 0.8, fz - 2.0))
 	check(fence_ok, "the yard fence blocks the whole north edge outside the gate")
 	var gate_ok := true
-	for x in [-2.5, -1.0, 0.0, 1.0, 2.5]:
+	for x in [-4.0, -2.5, 0.0, 2.5, 4.0]:
 		gate_ok = gate_ok and not blocked(game, Vector3(x, 0.8, fz + 2.0), Vector3(x, 0.8, fz - 2.0))
 	check(gate_ok, "the gate gap is open (%.1f m wide)" % (gh * 2.0))
 	# a vehicle-sized body fits through the gate
 	var cap := BoxShape3D.new()
-	cap.size = Vector3(3.2, 2.0, 5.0)
+	cap.size = Vector3(3.6, 2.0, 5.6)
 	var qq := PhysicsShapeQueryParameters3D.new()
 	qq.shape = cap
 	qq.transform = Transform3D(Basis(), Vector3(0, 1.3, fz))
 	qq.collision_mask = 1 | 8
-	check(game.get_world_3d().direct_space_state.intersect_shape(qq, 1).is_empty(), "a 3.2 m wide, 5 m long machine passes through the gate")
+	check(game.get_world_3d().direct_space_state.intersect_shape(qq, 1).is_empty(), "a 3.6 m wide, 5.6 m long machine passes through the gate")
 	# nothing to dig or clear in the yard; everything to clear lies beyond the fence
 	var hub: Rect2 = game.hub_rect()
 	var in_yard := 0
