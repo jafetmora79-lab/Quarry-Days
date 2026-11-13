@@ -29,3 +29,12 @@ The yard gate at the north-east edge of Area 1 opens (once Area 1's cleanup is d
 - "Loaded into trucks" counts bucket-to-truck transfers by the player's digging machine, attributed to the area the machine stands in. Loads by staff and haulers are not counted yet.
 - Limitation: Area 6 shares level 4's floor with Area 5 (it is the gold half of it). A deeper level 5 was not built: nesting another pit inside level 4's 12 m-wide rock band with its own ramp would need new pit-zone geometry that could not be checked visually here.
 - `tests/test_full_progression.gd` walks a new game through all 12 stages, satisfying every requirement for real (including all six contracts and the quarry levels), and checks no stage opens early.
+
+## Phase E: verification (headless)
+- `tests/test_full_progression.gd` - a new game through all 12 stages with every requirement met for real, all six contracts, no stage early.
+- `tests/test_loaded_haul.gd` - a FULLY LOADED truck drives down all four pit levels, climbs back out with its whole load, goes round the pit and up the 20 m basin ramp, along the corridor to the quarry gate, and the load is intact. Passes for the standard truck (2.2 m) and the heavy truck (2.5 m).
+- `tests/test_old_save.gd` - a real save written by the Phase 10 build (before the contracts, mid-game) loads, keeps its money/soil/cleanup progress, enters the Area 1 contract with that work counted, and is played on to completion with the reward paid once.
+- Earlier: the pit's own route tests (`test_open_pit.gd`), contracts (`test_area1_contract`, `test_area1_playthrough`, `test_areas23`, `test_areas456`).
+
+### Finding: the basin ramp and the level-2 entrance are far apart
+The 20 m ramp into the basin stands at x 0 (in line with the corridor), but the level-2 haul road leaves the pit at its south-west corner (x -54.5), and the pit lies between them with only a 1 m sliver at the ramp foot. The two are connected the long way round the pit (west edge corridor ~5 m wide, north end, east side), about 330 m. The standard and heavy trucks drive it loaded. **The industrial truck (3.0 m wide, 5.6 m long) cannot take the tight turn at the west corridor** (it can drive every pit level and the ramps). Recommended fix, which changes world geometry and needs a visual check: move the basin ramp to x -54.5 so it runs straight into the level-2 road (all the ramp code uses x 0 in about eight places in `pit_zone.gd`), or widen the west corridor. Not done here.
