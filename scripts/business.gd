@@ -7,7 +7,7 @@ class_name QuarryBusiness
 signal milestone_reached(id: String)
 
 const PROFESSIONS := ["miner", "operator", "hauler", "clerk"]
-const MINERALS := ["limestone", "coal", "iron_ore", "copper_ore", "gold_ore"]
+const MINERALS := ["limestone", "coal", "iron_ore", "copper_ore", "gold_ore", "topsoil", "gravel"]
 const SELL_ORDER := ["gold_ore", "copper_ore", "crushed_stone", "iron_ore", "coal", "limestone", "gravel", "topsoil"]
 const MILESTONES := ["first_employee", "mechanized", "automated"]
 const CHAIN_STEPS := ["mined", "fed", "processed", "stored", "sold"]

@@ -191,5 +191,24 @@ func run() -> void:
 	pr2.migrate_filled_world()
 	check(pr2.units_left("q_l1_top") == again, "and it runs only once")
 	check(pr2.quarry_level == 3, "the old save keeps its quarry level")
+	# ---- H: a hired miner digs the overburden of the filled quarry (navigation over the surface, the stacked layers, the new materials)
+	var g3 = await boot()
+	var pr3: QuarryProgression = g3.prog
+	g3.state.money = 90000
+	pr3.stage = pr3.stage_index("first_employee")
+	g3.state.clock_minutes = 600.0
+	g3.business.payroll_minute = 600
+	g3.ui_hire("rosa")
+	var miner: Dictionary = g3.business.employees[0]
+	check(g3.ui_assign(int(miner["id"]), {"resource": "topsoil"}) == "Assignment updated", "a miner can be assigned to dig topsoil")
+	g3.business.set_shift(int(miner["id"]), 0, 1439)
+	var top0: int = pr3.units_left("q_l1_top")
+	var got := 0
+	for k in range(5400):
+		await physics_frame
+		if pr3.units_left("q_l1_top") < top0 - 5:
+			got = k
+			break
+	check(got > 0, "the miner walked out over the surface and dug topsoil (%d units gone after %d frames)" % [top0 - pr3.units_left("q_l1_top"), got])
 	print("RESULT: %d checks, %d failures" % [checks, failures.size()])
 	quit(1 if failures.size() > 0 else 0)
