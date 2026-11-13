@@ -14,7 +14,7 @@ Reproduced with `HAUL_TRUCK=industrial_truck godot --headless -s tests/test_load
 Crew, companion and rig extraction ignored the pocket minerals (`ex["veins"]`) the extraction opened, so they vanished. They now lie on the ground as pieces of their own mineral (`_vein_bonus(..., "ground")`). Rig output also counts toward the contract's "recovered" total.
 
 ## 4. Navigation and placement
-- A stuck worker is no longer hopped to the next path point unless the hop is short (<= 3 m) and a ray finds nothing solid between (no more passing through walls).
+- NOT FIXED: the stuck-worker recovery still hops a worker to its next path point when the player cannot see it. A ray guard against hopping through solids was tried and reverted: three suites (phase2, phase6_3b, quarry_machines) showed miners that only reach the coal deposit through that hop, so the real fix is their access points / navigation, which needs its own pass.
 - Belts link to a machine or belt only on the same level (`LEVEL_TOL` 0.75 m): `Business._endpoint_near`.
 - `Main.footprint_ok`: a placed machine's rotated footprint (2.2 x 1.6 m) needs level supporting ground under nine sample points (within 0.2 m of its height, gentle slope) and nothing solid in its volume.
 - Terrain changes already rebuild navigation (`nav_dirty` -> `_rebake_nav`; the pit's own region via `request_bake`); existing tests cover this.
@@ -28,4 +28,4 @@ Crew, companion and rig extraction ignored the pocket minerals (`ex["veins"]`) t
 `tests/test_phase1_repairs.gd` (new): nothing buried in rock (both layouts), bank-before-activation, shipments on delivery only and once, crew pockets, footprint/support, belt levels, truck origin save/load, old-format save. Plus `test_loaded_haul` (3 trucks), `test_areas456` (updated), full regression.
 
 ## Not verified / remaining
-Visuals on Windows (wider basin, tunnel, truck bed, wheels). Basin-ramp relocation, a real level 5 and moving the hillside rock out of the yard remain undone. Worker anti-wall hop has no dedicated test (covered only by existing worker suites not failing).
+Visuals on Windows (wider basin, tunnel, truck bed, wheels). Basin-ramp relocation, a real level 5 and moving the hillside rock out of the yard remain undone. The worker teleport-through-walls item (4) is not fixed, see above.
