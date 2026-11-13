@@ -105,6 +105,7 @@ grid.material.opacity = 0.35;
 scene.add(grid);
 
 let current = null, mixer = null, home = null, wire = false, flat = false;
+let loadVersion = 0;
 const clock = new THREE.Clock();
 const loader = new GLTFLoader();
 
@@ -151,11 +152,13 @@ function viewFrom(dx, dy, dz) {
 function resetView() { if (home) { camera.position.copy(home.pos); controls.target.copy(home.target); controls.update(); } }
 
 function show(item, push = true) {
+  const ticket = ++loadVersion;
   document.querySelectorAll(".item").forEach((b) => b.classList.toggle("on", b.dataset.file === item.file));
   $("msg").textContent = "Loading…"; $("msg").hidden = false;
   $("side").classList.remove("open");
   if (push) history.replaceState(null, "", "#" + encodeURIComponent(item.file));
   loader.load(item.file, (gltf) => {
+    if (ticket !== loadVersion) return;
     if (current) scene.remove(current);
     current = gltf.scene;
     scene.add(current);
@@ -176,7 +179,7 @@ function show(item, push = true) {
     }
     applyMaterials();
     $("msg").hidden = true;
-  }, undefined, () => { $("msg").textContent = "Could not load " + item.file; });
+  }, undefined, () => { if (ticket === loadVersion) $("msg").textContent = "Could not load " + item.file; });
 }
 
 const all = [];
@@ -216,9 +219,19 @@ Promise.all([fetch("models/manifest.json").then((r) => r.json()), fetch("audit/a
   }
   const nbad = all.filter((a) => a.bad).length;
   $("tally").textContent = `${all.length} models · ${nbad} with known defects (⚠)`;
-  const want = decodeURIComponent(location.hash.slice(1));
+  const want = requestedFile();
   const first = all.find((a) => a.it.file === want) || all.find((a) => a.it.file.includes("vehicles__excavator")) || all[0];
   if (first) show(first.it, false);
+});
+
+// Shared links and browser Back/Forward may change only the hash, without reloading.
+function requestedFile() {
+  try { return decodeURIComponent(location.hash.slice(1)); }
+  catch { return ""; }
+}
+addEventListener("hashchange", () => {
+  const entry = all.find((a) => a.it.file === requestedFile());
+  if (entry) show(entry.it, false);
 });
 
 function applyFilter() {
