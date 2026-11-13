@@ -70,12 +70,12 @@ func run() -> void:
 	check(day_top.v > night_top.v + 0.3, "E the sky is darker at night and light by day")
 	# rock materials map in world space (continuous across blocks)
 	var hill = game.formation_nodes["hillside_face_01"]
-	var m0: StandardMaterial3D = hill.mat_old
+	var m0: StandardMaterial3D = hill.skin_mi.material_override if hill.skin else hill.mat_old     # Phase 10.3: the hillside is one rock skin
 	check(m0.uv1_triplanar and m0.uv1_world_triplanar, "F hillside rock is mapped in world space")
 	var arc = game.formation_nodes["pit_band_01"]
 	var mmi: MultiMeshInstance3D = arc.find_children("Chunks0", "MultiMeshInstance3D", false, false)[0]
 	check((mmi.material_override as StandardMaterial3D).uv1_world_triplanar, "F the curved bench rock is mapped in world space")
-	check(hill.mat_old == hill.mat_old2 and arc.TONE_OLD[0] == arc.TONE_OLD[1], "F courses share one tone (no stripes between blocks)")
+	check((hill.skin or hill.mat_old == hill.mat_old2) and arc.TONE_OLD[0] == arc.TONE_OLD[1], "F courses share one tone (no stripes between blocks)")
 	# every texture and material the world uses loads
 	var missing := []
 	for path in ["T_QD_CutLimestone", "T_QD_CliffStrata", "T_QD_RockLimestone", "T_QD_RockCoal", "T_QD_RockIron", "T_QD_RockDeep", "T_QD_QuarryFloor", "T_QD_ExcavatedDirt"]:

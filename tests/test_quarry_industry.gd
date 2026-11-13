@@ -142,6 +142,7 @@ func run() -> void:
 	cv.global_position = Vector3(-12.9, 0.1, -10.6)
 	cv.rotation.y = PI * 0.5
 	await frames(4)
+	prog.fdef("hillside_face_01")["benches"] = 0      # Phase 10.3: bench-by-bench digging has its own test; this one is about reach and damage
 	var tgt: Dictionary = game.excavator_target(cv)
 	check(not tgt.is_empty() and tgt["kind"] == "hillside_face_01", "7 an excavator facing the cut finds exposed rock to dig")
 	var rec := fleet.vehicle(cv.vehicle_id)

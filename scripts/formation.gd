@@ -295,6 +295,8 @@ func update_label() -> void:
 		label.modulate = Color(0.75, 0.95, 0.7)
 	else:
 		label.text = "%s\n%d / %d %s" % [str(prog.fdef(fid)["title"]).to_upper(), left, total, prog.display(res).to_upper()]
+		if prog.benched(fid):
+			label.text += "\nBENCH %d OF %d  -  %d%% CUT" % [prog.bench_number(fid), prog.bench_levels(fid), int(prog.bench_progress(fid) * 100.0)]
 		label.modulate = Color(0.98, 0.9, 0.72)
 
 func _update_cracks(i: int) -> void:

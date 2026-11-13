@@ -517,7 +517,7 @@
    "tier_h": 1.2,
    "chunk_units": 30,
    "level": 1,
-   "style": "cut",
+   "style": "cut", "skin": true, "benches": 4, "veins": {"seed": 11, "count": 10, "mix": ["coal", "coal", "iron_ore"]},
    "closed": [
     "W",
     "N",

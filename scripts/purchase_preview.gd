@@ -17,6 +17,8 @@ class PreviewVehicle extends Node3D:
 	var model_root: Node3D
 	var wheels: Array = []
 	var arm: Node3D
+	var turret: Node3D
+	var stick: Node3D
 	var bucket: Node3D
 	var bucket_load: MeshInstance3D
 	var bed: Node3D

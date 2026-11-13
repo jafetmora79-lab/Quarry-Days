@@ -136,6 +136,9 @@ func scene() -> void:
 	for i in range(prog.column_count(HID)):
 		total_chunks += prog.column_tiers(HID, i)
 	var visible_chunks := 0
+	if node.skin:
+		for n in node.shown:      # Phase 10.3: the hillside is one continuous rock skin; the standing chunk counts are in `shown`
+			visible_chunks += int(n)
 	for stack in node.chunks:
 		for mi in stack:
 			if mi.visible:
@@ -231,7 +234,7 @@ func scene() -> void:
 	var shown_ok := true
 	for i in range(72):
 		var want := prog.chunks_left(HID, i)
-		var seen := 0
+		var seen := int(node.shown[i]) if node.skin else 0
 		for mi in node.chunks[i]:
 			if mi.visible:
 				seen += 1
@@ -241,14 +244,14 @@ func scene() -> void:
 	shown_ok = true
 	for i in range(72):
 		var want2 := prog.chunks_left(HID, i)
-		var seen2 := 0
+		var seen2 := int(node.shown[i]) if node.skin else 0
 		for mi in node.chunks[i]:
 			if mi.visible:
 				seen2 += 1
 		shown_ok = shown_ok and seen2 == want2 and (node.shapes[i] as CollisionShape3D).disabled == (want2 <= 0)
 	var wrong := []
 	for i in range(72):
-		var seen3 := 0
+		var seen3 := int(node.shown[i]) if node.skin else 0
 		for mi in node.chunks[i]:
 			if mi.visible:
 				seen3 += 1

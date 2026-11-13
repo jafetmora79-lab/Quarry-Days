@@ -1107,6 +1107,7 @@ func player_mine(kind: String, col: int, damage: float, point := Vector3.INF, co
 			_bag_full_notice()
 	elif bag_room + drop_room <= 0:
 		_bag_full_notice()
+	_vein_bonus(ex, kind, col, "player")
 	if int(ex["chunks"]) > 0:
 		node.refresh()
 	else:
@@ -1497,6 +1498,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		_notify("You let go of the cart.")
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_Q and not placement and not driving and menu == "" and name_dialog == null:
 		cycle_tool()
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_N and not placement and not driving and menu == "" and name_dialog == null:
+		set_survey(not survey_on)
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_U and not placement and not driving and menu == "":
 		safety.rescue("asked to be lifted out")
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_T and not placement and name_dialog == null:
@@ -3788,6 +3791,69 @@ func _exit_spot(v: QuarryVehicle) -> Variant:
 			return p
 	return null
 
+# ------------------------------------------------------------------ Phase 10.3: survey mode
+
+var survey_on := false
+var survey_root: Node3D
+
+## N toggles the survey: every buried mineral pocket of a benched formation lights up through the rock (colour = mineral).
+func set_survey(on: bool) -> void:
+	survey_on = on
+	_survey_refresh()
+	_notify("Survey mode on: mineral pockets glow through the rock. N to switch off." if on else "Survey mode off")
+
+func _survey_refresh() -> void:
+	if survey_root != null and is_instance_valid(survey_root):
+		survey_root.queue_free()
+	survey_root = null
+	if not survey_on:
+		return
+	survey_root = Node3D.new()
+	survey_root.name = "Survey"
+	world.add_child(survey_root)
+	for id in formation_nodes:
+		var all := prog.veins(id)
+		var node: QuarryFormation = formation_nodes[id]
+		for k in range(all.size()):
+			if prog.vein_taken(id, k):
+				continue
+			var vn: Dictionary = all[k]
+			var col := int(vn["col"])
+			if prog.column_units(id, col) <= 0:
+				continue
+			var at: Vector3 = prog.column_pos(id, col)
+			at.y = node.global_position.y + (float(vn["tier"]) + 0.5) * node.tier_h
+			var c: Color = QuarryTheme.RES_COLORS.get(str(vn["res"]), Color.WHITE)
+			var m := StandardMaterial3D.new()
+			m.albedo_color = c
+			m.emission_enabled = true
+			m.emission = c
+			m.emission_energy_multiplier = 1.6
+			m.no_depth_test = true
+			m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			var mi := MeshInstance3D.new()
+			var sm := SphereMesh.new()
+			sm.radius = 0.28
+			sm.height = 0.56
+			sm.radial_segments = 6
+			sm.rings = 3
+			mi.mesh = sm
+			mi.material_override = m
+			mi.position = at
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			survey_root.add_child(mi)
+			var lb := Label3D.new()
+			lb.text = "%s +%d" % [prog.display(str(vn["res"])).to_upper(), int(vn["units"])]
+			lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+			lb.no_depth_test = true
+			lb.font_size = 26
+			lb.pixel_size = 0.008
+			lb.outline_size = 8
+			lb.modulate = c
+			lb.position = Vector3(0, 0.6, 0)
+			lb.visibility_range_end = 30.0
+			mi.add_child(lb)
+
 func _driving_input(event: InputEvent) -> bool:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not touch_mode:
 		driving.rotate_camera(event.relative)
@@ -3810,6 +3876,9 @@ func _driving_input(event: InputEvent) -> bool:
 		driving.digging = false
 		return true
 	if event is InputEventKey and event.pressed and not event.echo:
+		if event.physical_keycode == KEY_N:
+			set_survey(not survey_on)
+			return true
 		if event.physical_keycode == KEY_R:
 			driving.recover()
 			_notify("Vehicle recovered to its last clear position")
@@ -3891,7 +3960,7 @@ func excavator_target(v: QuarryVehicle) -> Dictionary:
 	for id in formation_nodes:
 		if prog.formation_locked(id) != "":
 			continue
-		var c := prog.nearest_column(id, wp, true, reach)
+		var c := prog.nearest_column(id, wp, true, reach, true)
 		if c < 0:
 			continue
 		var d := prog.column_pos(id, c).distance_to(wp)
@@ -3964,10 +4033,34 @@ func _excavator_dig(v: QuarryVehicle, delta: float) -> void:
 		var put := fleet.add_cargo(rec, str(t["res"]), n)
 		for i in range(n - put):
 			_spawn_formation_piece(kind, col, i)
+	_vein_bonus(ex, kind, col, "bucket", rec)
 	if int(ex["chunks"]) > 0:
 		node.refresh()
 	else:
 		node.update_label()
+
+## Phase 10.3: mineral pockets buried in a formation. When the block holding one is cut away, the pocket falls out: its
+## minerals go in the bag (hand tools) or the bucket (excavator); crew and the companion leave them at the foot of the face.
+func _vein_bonus(ex: Dictionary, kind: String, col: int, to: String, rec := {}) -> void:
+	for vn in ex.get("veins", []):
+		var r := str(vn["res"])
+		var n := int(vn["units"])
+		var put := 0
+		if to == "player":
+			put = state.add_item(r, n)
+		elif to == "bucket" and not rec.is_empty() and state.inventory.has(r):
+			rec["cargo"][r] = int(rec["cargo"].get(r, 0)) + n   # a pocket is a lucky strike: it rides in the bucket even when the bucket is full
+			put = n
+		else:
+			for i in range(n):
+				_spawn_formation_piece(kind, col, i)
+			put = n
+		if put > 0:
+			hud.toast("Mineral pocket!", "+%d %s" % [put, prog.display(r)], "unlock")
+			fx.impact(formation_nodes[kind].column_top(col) + Vector3(0, 0.4, 0), r, 1.2)
+			_sfx_unlock()
+	if not ex.get("veins", []).is_empty():
+		_survey_refresh()
 
 ## Nearest place a vehicle can deliver to around `point`.
 func dump_target(point: Vector3, radius: float, from: QuarryVehicle) -> Dictionary:
@@ -4081,6 +4174,8 @@ func _driving_hud() -> String:
 			hint = "  >> HOLD LEFT CLICK dig %s" % prog.display(str(excavator_target(driving)["res"]))
 		elif soil_target(driving) >= 0:
 			hint = "  >> HOLD LEFT CLICK dig soil"
+		else:
+			hint = "  ARROWS swing/boom  Z X stick  C V bucket  N survey"
 	var controls := "WASD drive  Mouse look  %sright click %s  Space brake  R recover  E exit" % [lmb, "dump bucket" if driving.has_bucket() else "raise bed / unload"]
 	return "%s  %.1f m/s   %s %d/%d%s%s" % [str(rec.get("name", fleet.spec(driving.vtype)["title"])).to_upper(), absf(driving.speed), load_label, fleet.cargo_total(rec), fleet.capacity(rec), cargo, hint]
 

@@ -202,6 +202,7 @@ static func update_truck_ram(v) -> void:
 static func excavator(v) -> void:
 	var paint: String = v.paint_main
 	var p := _soups([paint, "SteelPlate", "Tire", "Hazard"])
+	var u := _soups([paint, "SteelPlate", "Hazard"])      # the upper body: it swings on the slewing ring (v.turret)
 	for x in [-0.8, 0.8]:
 		MeshKit.box_into(p["Tire"], Vector3(x, 0.32, 0.0), Vector3(0.46, 0.6, 3.3), Vector2(1.0, 0.9))             # crawler tracks
 		for z in [-1.45, 1.45]:
@@ -211,48 +212,58 @@ static func excavator(v) -> void:
 	MeshKit.box_into(p[paint], Vector3(0, 0.68, 0.0), Vector3(1.7, 0.2, 2.6))                                       # undercarriage
 	MeshKit.drum_into(p["SteelPlate"], Vector3(0, 0.84, 0.0), 0.72, 0.18, 12)                                      # slewing ring
 	# upper body: engine hood and counterweight at the back, boom foot at the front
-	MeshKit.box_into(p[paint], Vector3(0.1, 1.2, 0.45), Vector3(1.7, 0.7, 1.7), Vector2(0.96, 0.9))
-	MeshKit.box_into(p["SteelPlate"], Vector3(0.1, 1.4, 1.45), Vector3(1.7, 0.78, 0.45))                           # counterweight
-	MeshKit.box_into(p["Hazard"], Vector3(0.1, 1.05, 1.69), Vector3(1.6, 0.1, 0.02))
-	MeshKit.frustum_into(p["SteelPlate"], Vector3(0.6, 1.62, 0.85), 0.07, 0.06, 0.65, 6)                           # exhaust
+	MeshKit.box_into(u[paint], Vector3(0.1, 1.2, 0.45), Vector3(1.7, 0.7, 1.7), Vector2(0.96, 0.9))
+	MeshKit.box_into(u["SteelPlate"], Vector3(0.1, 1.4, 1.45), Vector3(1.7, 0.78, 0.45))                           # counterweight
+	MeshKit.box_into(u["Hazard"], Vector3(0.1, 1.05, 1.69), Vector3(1.6, 0.1, 0.02))
+	MeshKit.frustum_into(u["SteelPlate"], Vector3(0.6, 1.62, 0.85), 0.07, 0.06, 0.65, 6)                           # exhaust
 	for z in [0.2, 0.55, 0.9]:
-		MeshKit.box_into(p["SteelPlate"], Vector3(0.1, 1.56, z), Vector3(1.1, 0.02, 0.08))                         # louvres
+		MeshKit.box_into(u["SteelPlate"], Vector3(0.1, 1.56, z), Vector3(1.1, 0.02, 0.08))                         # louvres
 	# cab on the left, glazed on three sides
 	for x in [-0.78, -0.12]:
 		for z in [-0.6, 0.15]:
-			MeshKit.box_into(p["SteelPlate"], Vector3(x, 1.9, z), Vector3(0.06, 0.95, 0.06))
-	MeshKit.box_into(p[paint], Vector3(-0.45, 2.4, -0.22), Vector3(0.82, 0.1, 0.9), Vector2(0.94, 0.92))
-	MeshKit.box_into(p["SteelPlate"], Vector3(-0.45, 1.55, -0.22), Vector3(0.8, 0.06, 0.8))
+			MeshKit.box_into(u["SteelPlate"], Vector3(x, 1.9, z), Vector3(0.06, 0.95, 0.06))
+	MeshKit.box_into(u[paint], Vector3(-0.45, 2.4, -0.22), Vector3(0.82, 0.1, 0.9), Vector2(0.94, 0.92))
+	MeshKit.box_into(u["SteelPlate"], Vector3(-0.45, 1.55, -0.22), Vector3(0.8, 0.06, 0.8))
 	_emit(v.model_root, p)
+	v.turret = Node3D.new()
+	v.turret.name = "Turret"
+	v.model_root.add_child(v.turret)
+	_emit(v.turret, u)
 	var glass := MeshKit.Soup.new()
 	MeshKit.box_into(glass, Vector3(-0.45, 1.95, -0.62), Vector3(0.7, 0.8, 0.02))
 	MeshKit.box_into(glass, Vector3(-0.78, 1.95, -0.22), Vector3(0.02, 0.8, 0.68))
 	MeshKit.box_into(glass, Vector3(-0.12, 1.95, -0.22), Vector3(0.02, 0.8, 0.68))
-	MeshKit.inst(v.model_root, glass.mesh(), MeshKit.mat(GLASS))
+	MeshKit.inst(v.turret, glass.mesh(), MeshKit.mat(GLASS))
 	var lamps := MeshKit.Soup.new()
 	MeshKit.box_into(lamps, Vector3(-0.45, 2.34, -0.66), Vector3(0.4, 0.07, 0.05))
-	MeshKit.inst(v.model_root, lamps.mesh(), MeshKit.flat(Color(1.0, 0.92, 0.7), 0.8))
+	MeshKit.inst(v.turret, lamps.mesh(), MeshKit.flat(Color(1.0, 0.92, 0.7), 0.8))
 	# boom, stick and bucket: v.arm swings the whole assembly, v.bucket curls (QuarryVehicle animates both)
 	v.arm = Node3D.new()
 	v.arm.position = Vector3(0.55, 1.05, -0.5)
-	v.model_root.add_child(v.arm)
+	v.turret.add_child(v.arm)
 	var a := _soups([paint, "SteelPlate"])
 	var boom := PackedVector2Array([Vector2(0.1, -0.15), Vector2(-0.9, 0.25), Vector2(-1.9, 0.0), Vector2(-1.95, -0.2), Vector2(-0.9, 0.05), Vector2(0.1, -0.4)])
 	MeshKit.extrude_into(a[paint], boom, 0.3)
 	MeshKit.drum_into(a["SteelPlate"], Vector3(0, -0.1, -1.95), 0.1, 0.34, 6)                                       # elbow pin
 	_emit(v.arm, a)
 	ram(v.arm, Vector3(0, -0.45, 0.4), Vector3(0, 0.1, -0.85), 0.08)                                                # boom cylinder
+	# the stick hangs from the elbow (v.stick) and the bucket from the stick's tip (v.bucket): three joints, all independent
+	v.stick = Node3D.new()
+	v.stick.position = Vector3(0, -0.1, -1.95)
+	v.arm.add_child(v.stick)
 	v.bucket = Node3D.new()
-	v.bucket.position = Vector3(0, -0.1, -1.95)
-	v.arm.add_child(v.bucket)
-	var b := _soups(["SteelPlate", "Hazard"])
+	v.bucket.position = Vector3(0, -0.7, 0.0)
+	v.stick.add_child(v.bucket)
+	var sk := _soups(["SteelPlate"])
 	var stick := PackedVector2Array([Vector2(0.08, 0.1), Vector2(-0.1, -0.7), Vector2(0.0, -0.75), Vector2(0.18, 0.1)])
-	MeshKit.extrude_into(b["SteelPlate"], stick, 0.2)
-	var shell := PackedVector2Array([Vector2(0.18, -0.55), Vector2(0.05, -0.8), Vector2(-0.3, -0.95), Vector2(-0.62, -0.78), Vector2(-0.64, -0.7), Vector2(-0.32, -0.8), Vector2(0.0, -0.66), Vector2(0.18, -0.45)])
+	MeshKit.extrude_into(sk["SteelPlate"], stick, 0.2)
+	_emit(v.stick, sk)
+	var b := _soups(["SteelPlate", "Hazard"])
+	var shell := PackedVector2Array([Vector2(0.18, -0.55 + 0.7), Vector2(0.05, -0.8 + 0.7), Vector2(-0.3, -0.95 + 0.7), Vector2(-0.62, -0.78 + 0.7), Vector2(-0.64, -0.7 + 0.7), Vector2(-0.32, -0.8 + 0.7), Vector2(0.0, -0.66 + 0.7), Vector2(0.18, -0.45 + 0.7)])
 	MeshKit.extrude_into(b["SteelPlate"], shell, 0.8)
 	for k in range(4):
-		MeshKit.box_into(b["SteelPlate"], Vector3(-0.3 + k * 0.2, -0.96, -0.62), Vector3(0.08, 0.1, 0.14), Vector2(0.6, 0.6))       # teeth
+		MeshKit.box_into(b["SteelPlate"], Vector3(-0.3 + k * 0.2, -0.96 + 0.7, -0.62 + 0.0), Vector3(0.08, 0.1, 0.14), Vector2(0.6, 0.6))       # teeth
 	_emit(v.bucket, b)
-	v.bucket_load = MeshKit.inst(v.bucket, MeshKit.rock(Vector3(0.7, 0.35, 0.5), 43, 3, 6), MeshKit.mat("RockLimestone"), Vector3(-0.28, -0.68, -0.58))
+	v.bucket_load = MeshKit.inst(v.bucket, MeshKit.rock(Vector3(0.7, 0.35, 0.5), 43, 3, 6), MeshKit.mat("RockLimestone"), Vector3(-0.28, -0.68 + 0.7, -0.58))
 	v.bucket_load.visible = false
 

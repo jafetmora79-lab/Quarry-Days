@@ -471,7 +471,7 @@ func column_open_dir(id: String, i: int, from: Vector3) -> Vector3:
 				best = dir
 	return best if best != Vector3.ZERO else Vector3.BACK
 
-func nearest_column(id: String, from: Vector3, exposed_only := true, max_dist := INF) -> int:
+func nearest_column(id: String, from: Vector3, exposed_only := true, max_dist := INF, benched := false) -> int:
 	if not state.deposits.has(id):
 		return -1
 	var best := -1
@@ -479,12 +479,106 @@ func nearest_column(id: String, from: Vector3, exposed_only := true, max_dist :=
 	for i in range(column_count(id)):
 		if column_units(id, i) <= 0 or column_covered(id, i) or (exposed_only and not column_exposed(id, i)):
 			continue
+		if benched and not column_in_bench(id, i):
+			continue
 		var p := column_pos(id, i)
 		var dd := Vector2(p.x, p.z).distance_to(Vector2(from.x, from.z))
 		if dd < best_d and dd <= max_dist:
 			best_d = dd
 			best = i
 	return best
+
+# ------------------------------------------------------------------ Phase 10.3: benches and embedded minerals
+
+## A benched formation is dug one level at a time: the excavator works the top bench of the whole face, and only when no
+## column of it stands that high any more does the next bench down open (like a real quarry's terraces).
+func benched(id: String) -> bool:
+	return int(fdef(id).get("benches", 0)) > 0
+
+func bench_levels(id: String) -> int:
+	var m := 0
+	for r in fdef(id)["tiers"]:
+		for t in r:
+			m = maxi(m, int(t))
+	return m
+
+## The height (in chunks) of the tallest column still standing: the working bench's top.
+func bench_level(id: String) -> int:
+	var m := 0
+	for i in range(column_count(id)):
+		if state.deposits.has(id):
+			m = maxi(m, chunks_left(id, i))
+	return m
+
+## 1-based number of the bench being worked, of bench_count; the count when everything is cut.
+func bench_number(id: String) -> int:
+	var n := bench_levels(id)
+	var lvl := bench_level(id)
+	if lvl <= 0:
+		return n
+	return clampi(n - lvl + 1, 1, n)
+
+func column_in_bench(id: String, i: int) -> bool:
+	return not benched(id) or chunks_left(id, i) >= bench_level(id)
+
+## Share of the CURRENT bench already cut (0..1): the columns of this level that have dropped one step.
+func bench_progress(id: String) -> float:
+	var lvl := bench_level(id)
+	if lvl <= 0:
+		return 1.0
+	var at := 0
+	var tall := 0
+	for i in range(column_count(id)):
+		if int(fdef(id)["tiers"][i / dims(id).x][i % dims(id).x]) >= lvl:
+			tall += 1
+			if chunks_left(id, i) >= lvl:
+				at += 1
+	return 1.0 - float(at) / float(maxi(1, tall))
+
+var _veins := {}
+
+## Mineral pockets buried in a formation, laid out from the formation's own seed so a save never stores them: [{col, tier, res, units}].
+## `tier` is the 0-based chunk (bottom to top) that contains the pocket.
+func veins(id: String) -> Array:
+	if _veins.has(id):
+		return _veins[id]
+	var out := []
+	var v: Dictionary = fdef(id).get("veins", {})
+	if not v.is_empty():
+		var rng := RandomNumberGenerator.new()
+		rng.seed = hash(id) + int(v.get("seed", 1))
+		var mix: Array = v.get("mix", ["coal"])
+		var used := {}
+		var tries := 0
+		while out.size() < int(v.get("count", 6)) and tries < 400:
+			tries += 1
+			var col := rng.randi() % column_count(id)
+			var tmax := column_tiers(id, col)
+			if tmax < 2 or used.has(col):
+				continue
+			used[col] = true
+			out.append({"col": col, "tier": rng.randi() % tmax, "res": str(mix[out.size() % mix.size()]), "units": 3 + rng.randi() % 3})
+	_veins[id] = out
+	return out
+
+func vein_taken(id: String, idx: int) -> bool:
+	return int(idx) in story.get("veins", {}).get(id, [])
+
+## Pockets whose chunk has just been cut away: marks them collected and returns them.
+func collect_veins(id: String, col: int) -> Array:
+	var got := []
+	var left := chunks_left(id, col)
+	var all := veins(id)
+	for k in range(all.size()):
+		var vn: Dictionary = all[k]
+		if int(vn["col"]) == col and int(vn["tier"]) >= left and not vein_taken(id, k):
+			if not story.has("veins"):
+				story["veins"] = {}
+			if not story["veins"].has(id):
+				story["veins"][id] = []
+			story["veins"][id].append(k)
+			got.append(vn)
+	return got
 
 func cleared_fraction(ids: Array = []) -> float:
 	if ids.is_empty():
@@ -526,6 +620,8 @@ func extract(id: String, col: int, damage: float, limit := 1 << 30, source := "h
 	out["units"] = n
 	out["chunks"] = before - chunks_left(id, col)
 	out["column_emptied"] = column_units(id, col) <= 0
+	if int(out["chunks"]) > 0 and not fdef(id).get("veins", {}).is_empty():
+		out["veins"] = collect_veins(id, col)
 	stats["chunks"] = int(stats["chunks"]) + int(out["chunks"])
 	stats[source] = int(stats.get(source, 0)) + n
 	if int(d["stock"]) <= 0 and not bool(d.get("cleared", false)):
@@ -1435,6 +1531,13 @@ func restore(raw_data: Dictionary, vehicle_types: Array = []) -> void:
 		story["excavator"]["carry"] = str(ex.get("carry", "")) if str(ex.get("carry", "")) in REPAIR_PARTS and not bool(ex.get(str(ex.get("carry", "")), false)) else ""
 	else:
 		story["excavator"] = {"battery": true, "hose": true, "fuel": true, "started": true, "granted": true, "legacy": true, "carry": ""}
+	if st is Dictionary and st.get("veins", null) is Dictionary:
+		story["veins"] = {}
+		for fid in st["veins"]:
+			var arr := []
+			for n in st["veins"][fid]:
+				arr.append(int(n))
+			story["veins"][str(fid)] = arr
 	if st is Dictionary:
 		for k in st.get("milestones", {}):
 			story["milestones"][str(k)] = true

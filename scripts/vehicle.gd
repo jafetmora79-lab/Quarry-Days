@@ -33,6 +33,14 @@ var cam_pitch := -0.32
 
 # loader
 var arm: Node3D
+var turret: Node3D            ## excavator: the upper body, swings on the slewing ring
+var stick: Node3D             ## excavator: the stick, hinged at the boom's elbow
+var swing := 0.0              ## manual excavator joints: turret yaw (rad) and boom / stick / bucket (-1..1)
+var boom_m := 0.0
+var stick_m := 0.0
+var curl_m := 0.0
+var _keys_live := false
+var joint_in := {"swing": 0.0, "boom": 0.0, "stick": 0.0, "curl": 0.0}   ## -1..1 per joint; read from the keys while driven
 var bucket: Node3D
 var bucket_load: MeshInstance3D
 var bucket_lift := 0.0
@@ -163,7 +171,8 @@ func work_point() -> Vector3:
 	if vkind == "loader":
 		return global_transform * Vector3(0, 0, -size.z * 0.5 - 1.1)
 	if vkind == "excavator":
-		return global_transform * Vector3(0, 0, -size.z * 0.5 - float(fleet.spec(vtype).get("dig_reach", 4.0)) * 0.55)
+		var reach := float(fleet.spec(vtype).get("dig_reach", 4.0)) * 0.55 * clampf(1.0 + 0.5 * stick_m - 0.35 * boom_m, 0.45, 1.6)
+		return global_transform * (Basis(Vector3.UP, swing) * Vector3(0, 0, -size.z * 0.5 - reach))
 	return global_transform * Vector3(0, 0, size.z * 0.5 + 1.0)
 
 func bed_center() -> Vector3:
@@ -290,10 +299,14 @@ func _animate(delta: float) -> void:
 			dig_phase += delta * 2.4
 			lift = 0.5 + 0.5 * sin(dig_phase)
 			dig_curl = maxf(0.0, -cos(dig_phase)) * 0.6
-		arm.rotation.x = lerpf(-0.12, 0.75, lift)
+		if vkind == "excavator":
+			_joints(delta)
+		arm.rotation.x = lerpf(-0.12, 0.75, lift) + boom_m * 0.45
+		if stick != null:
+			stick.rotation.x = stick_m * 0.7
 		var tilt := sin(clampf(dump_timer / 1.0, 0.0, 1.0) * PI) * 1.1
 		var curl := sin(clampf(curl_timer / 0.6, 0.0, 1.0) * PI) * 0.45 + dig_curl
-		bucket.rotation.x = -arm.rotation.x - tilt + curl # level while lifting, curls back to scoop
+		bucket.rotation.x = -arm.rotation.x - (stick.rotation.x if stick != null else 0.0) - tilt + curl + curl_m * 0.8 # level while lifting, curls back to scoop
 		bucket_load.visible = shown_load > 0.2
 		if bucket_load.visible:
 			bucket_load.scale.y = clampf(shown_load / float(fleet.capacity(data)), 0.2, 1.0)
@@ -318,6 +331,25 @@ func _animate(delta: float) -> void:
 			bed_load.position.z = float(bed_load.get_meta("base_z")) + 0.6 * smoothstep(0.4, 0.95, bed_tilt)
 			if not data["cargo"].is_empty():
 				bed_load.material_override = MeshKit.mat(QuarryArt.ROCK_MAT.get(data["cargo"].keys()[0], "RockLimestone"))
+
+## Manual excavator controls: arrows swing the upper body and raise / lower the boom, Z / X work the stick, C / V curl the bucket.
+func _joints(delta: float) -> void:
+	if driven and turret != null:
+		joint_in["swing"] = float(Input.is_physical_key_pressed(KEY_RIGHT)) - float(Input.is_physical_key_pressed(KEY_LEFT))
+		joint_in["boom"] = float(Input.is_physical_key_pressed(KEY_UP)) - float(Input.is_physical_key_pressed(KEY_DOWN))
+		joint_in["stick"] = float(Input.is_physical_key_pressed(KEY_X)) - float(Input.is_physical_key_pressed(KEY_Z))
+		joint_in["curl"] = float(Input.is_physical_key_pressed(KEY_C)) - float(Input.is_physical_key_pressed(KEY_V))
+		_keys_live = true
+	elif _keys_live:
+		_keys_live = false         # the driver got out with a key held
+		for k in joint_in:
+			joint_in[k] = 0.0
+	swing = clampf(swing + float(joint_in["swing"]) * 1.1 * delta, -PI * 0.75, PI * 0.75)
+	boom_m = clampf(boom_m + float(joint_in["boom"]) * 0.9 * delta, -1.0, 1.0)
+	stick_m = clampf(stick_m + float(joint_in["stick"]) * 0.9 * delta, -1.0, 1.0)
+	curl_m = clampf(curl_m + float(joint_in["curl"]) * 0.9 * delta, -1.0, 1.0)
+	if turret != null:
+		turret.rotation.y = swing
 
 func start_unload(target: Dictionary) -> void:
 	unload_target = target
