@@ -167,8 +167,20 @@ func run() -> void:
 			prog.extract("q_top", i, 1.0e6, 1 << 30, "hand")
 			cleared += 1
 	prog.check_levels()
-	check(prog.quarry_level >= 2 and prog.buy_road(2), "excavating the surface opens level 2 and its road is bought")
+	check(prog.quarry_level >= 2, "excavating the surface opens level 2")
+	var ui_msg: String = game.ui_buy_road(2)
+	check(prog.road_built(2) and ui_msg.contains("access road"), "the office button buys it: \"%s\"" % ui_msg)
+	check(game.ui_buy_road(2).contains("already") and game.ui_buy_road(5).contains("not open"), "a built or unopened road is refused with a reason")
 	await frames(60)          # the cleanup gift from Grandpa is paid a moment after the site is clean
+	game.state.money = maxi(int(game.state.money), 5000)
+	var plan_has_button := false
+	var mui = game.management
+	if mui != null:
+		mui._set_tab("plan")
+		for b in mui.content.find_children("*", "Button", true, false):
+			if (b as Button).text.begins_with("Build road"):
+				plan_has_button = true
+		check(plan_has_button, "the Quarry Plan page offers a Build road button for the next level")
 	var money := int(game.state.money)
 	var left := prog.units_left("q_top")
 	game._save(true)

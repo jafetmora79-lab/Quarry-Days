@@ -217,6 +217,19 @@ func _plan() -> void:
 			mats.append(prog.display(str(m)))
 		card.add_child(_label("Floor %.1f m   Materials: %s" % [depth, ", ".join(mats) if not mats.is_empty() else "topsoil, gravel, loose stone, limestone"], DIM, QuarryTheme.BODY))
 		card.add_child(_label(status, GOOD if open else (WARN if n == prog.quarry_level + 1 else DIM), QuarryTheme.BODY))
+		if prog.filled_world() and n >= 2 and d.has("roads"):
+			# the way down is a construction job: the crew cuts the ramp and floor roads once the level is open, for a fee
+			if prog.road_built(n):
+				card.add_child(_label("Access road: built - trucks and excavators can drive down.", GOOD, QuarryTheme.BODY))
+			else:
+				var rrow := _row()
+				card.add_child(rrow)
+				rrow.add_child(_label("Access road: not built yet. Until it is cut you cannot drive down.", WARN if open else DIM, QuarryTheme.BODY))
+				var rsp := Control.new()
+				rsp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				rrow.add_child(rsp)
+				var ncap := n
+				rrow.add_child(_button("Build road $%d" % prog.road_cost(n), func(): _say(game.ui_buy_road(ncap)), open and game.state.money >= prog.road_cost(n)))
 	var a1 := prog.area_progress("area_1")
 	if not a1.is_empty():
 		var ac := _card()

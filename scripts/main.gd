@@ -4622,6 +4622,16 @@ func _driving_hud() -> String:
 	var controls := "WASD drive  Mouse look  %sright click %s  Space brake  R recover  E exit" % [lmb, "dump bucket" if driving.has_bucket() else "raise bed / unload"]
 	return "%s  %.1f m/s   %s %d/%d%s%s" % [str(rec.get("name", fleet.spec(driving.vtype)["title"])).to_upper(), absf(driving.speed), load_label, fleet.cargo_total(rec), fleet.capacity(rec), cargo, hint]
 
+## The survey crew cuts a level's access road (ramp and floor roads) for a fee. Returns the message for the office screen.
+func ui_buy_road(n: int) -> String:
+	var reason := prog.road_block_reason(n)
+	if reason != "":
+		return reason
+	var cost := prog.road_cost(n)
+	if not prog.buy_road(n):
+		return "The crew could not start the road."
+	return "The crew has cut the level %d access road ($%d). Trucks and excavators can drive down." % [n, cost]
+
 func ui_buy_vehicle(type: String) -> String:
 	if not prog.unlocked(type):
 		return "The %s unlocks at the %s stage" % [fleet.spec(type)["title"], prog.feature_stage_title(type)]
