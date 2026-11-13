@@ -59,7 +59,10 @@ func run() -> void:
 	var all_text := ""
 	m._set_tab("staff")
 	await frames(2)
-	game.ui_hire("rosa")
+	game.state.money = 99999
+	game.prog.stage = game.prog.stage_index("first_employee")
+	var hired: String = game.ui_hire("rosa")
+	check(game.business.employees.size() == 1, "a worker is hired for the schedule check (%s)" % hired)
 	m.refresh()
 	for l in m.content.find_children("*", "Label", true, false):
 		all_text += str(l.text) + " "
