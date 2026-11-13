@@ -39,7 +39,7 @@ func run() -> void:
 	for a in prog.area_defs():
 		ids.append(str(a["id"]))
 	check(ids == ["area_1", "area_2", "area_3", "area_4", "area_5", "area_6"], "six areas have stable ids")
-	check(str(prog.area_def("area_1")["status"]) == "active" and str(prog.area_def("area_2")["status"]) == "planned", "only Area 1 is active so far")
+	check(prog.area_available("area_1") and not prog.area_available("area_2") and str(prog.area_def("area_4")["status"]) == "planned", "Area 1 is open; Area 2 waits for it; Areas 4-6 are still planned")
 	# ---- the yard is clean: every cleanup item lies in Area 1, none in the operations yard
 	var in_area := 0
 	var in_hub := 0

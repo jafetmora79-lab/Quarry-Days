@@ -1194,6 +1194,7 @@ func player_mine(kind: String, col: int, damage: float, point := Vector3.INF, co
 	node.hit(col)
 	if n > 0:
 		var put := state.add_item(res, n)
+		prog.area_add(prog.area_of_formation(kind), "recovered", put)
 		if put > 0:
 			_reward_popup(res, put)
 		for i in range(n - put):
@@ -1375,7 +1376,32 @@ func _look_target() -> Node3D:
 		return hit["collider"]
 	return null
 
+## Which contract area the player (or the machine they drive) is standing in: the yard-side Area 1 by its rectangle, the pit areas by
+## the pit's own frame and floor height (basin floor = Area 2, the level-2 pit = Area 3). "" in the yard or elsewhere.
+func area_at(p: Vector3) -> String:
+	var a1 := prog.area_for_point(p)
+	if a1 != "":
+		return a1
+	if pit_zone == null or not is_instance_valid(pit_zone):
+		return ""
+	var l: Vector3 = pit_zone.to_loc(p)
+	for lp in pit_zone.level_pits:
+		var r: Rect2 = lp["rect"]
+		if r.has_point(Vector2(l.x, l.z)) and l.y < float(lp["y_bot"]) + 1.6 and l.y > float(lp["y_bot"]) - 1.0:
+			return "area_3" if int(lp["n"]) == 2 else ""
+	if absf(l.x) <= pit_zone.basin_w * 0.5 and l.z <= pit_zone.basin_zs() and l.z >= pit_zone.basin_zn() and l.y > -5.0 and l.y < -2.0:
+		return "area_2"
+	return ""
+
+var _area_check_t := 0.0
+
 func _physics_process(delta: float) -> void:
+	_area_check_t -= delta
+	if _area_check_t <= 0.0 and player != null:
+		_area_check_t = 0.5
+		var here := area_at(driving.global_position if driving else player.global_position)
+		if here != "":
+			prog.area_visit(here)
 	_truck_step(delta)
 	if held_cart != null:
 		_cart_follow(delta)
@@ -1625,6 +1651,7 @@ func _interact(target: Node3D) -> void:
 		"piece":
 			var kind := str(target.get_meta("resource"))
 			if state.add_item(kind,1) == 1:
+				prog.area_add(prog.area_of_formation(str(target.get_meta("deposit", ""))), "recovered", 1)
 				ground_pieces.erase(str(target.get_meta("piece_id")))
 				target.queue_free()
 				pickup_audio.play()
@@ -3350,6 +3377,7 @@ func worker_pick_piece(piece: Node3D, e: Dictionary) -> bool:
 	if not ground_pieces.has(id) or business.carry_total(e) >= int(business.stat(e, "carry")):
 		return false
 	ground_pieces.erase(id)
+	prog.area_add(prog.area_of_formation(str(piece.get_meta("deposit", ""))), "recovered", 1)
 	business.carry_add(e, str(piece.get_meta("resource")), 1)
 	piece.queue_free()
 	return true
@@ -4084,6 +4112,7 @@ func loader_primary(v: QuarryVehicle) -> int:
 				break
 			var body: Node3D = ground_pieces[id]
 			if fleet.add_cargo(rec, str(body.get_meta("resource")), 1) == 1:
+				prog.area_add(prog.area_of_formation(str(body.get_meta("deposit", ""))), "recovered", 1)
 				ground_pieces.erase(id)
 				body.queue_free()
 				got += 1
@@ -4188,6 +4217,7 @@ func _excavator_dig(v: QuarryVehicle, delta: float) -> void:
 		_sfx_at("hit_pick", node.column_top(col), -3.0)
 	if n > 0:
 		var put := fleet.add_cargo(rec, str(t["res"]), n)
+		prog.area_add(prog.area_of_formation(kind), "recovered", put)
 		for i in range(n - put):
 			_spawn_formation_piece(kind, col, i)
 	_vein_bonus(ex, kind, col, "bucket", rec)
@@ -5661,9 +5691,10 @@ func hud_status_text() -> String:
 		var nx := nearest_cleanup()
 		if not nx.is_empty():
 			lines.append("%s: %s %d m %s" % ["LAST ONE" if prog.cleanup_left() == 1 else "Next", "weeds" if nx["weed"] else "rubble", int(nx["dist"]), nx["dir"]])
+	var shown := 0
 	for a in prog.area_defs():
 		var aid := str(a["id"])
-		if str(a.get("status", "")) == "active" and not prog.area_complete(aid):
+		if shown < 2 and prog.area_available(aid) and not prog.area_complete(aid):
 			var ap := prog.area_progress(aid)
 			if not ap.is_empty():
 				lines.append("%s  %d%%" % [str(ap["title"]), int(ap["pct"])])
@@ -5671,7 +5702,7 @@ func hud_status_text() -> String:
 				for pt in ap["parts"]:
 					bits.append("%s %d/%d" % [str(pt["label"]).split(" ")[0], int(pt["have"]), int(pt["need"])])
 				lines.append("  " + "  ".join(bits) + "  (reward $%d)" % int(ap["reward"]))
-			break
+				shown += 1
 	var done := 0
 	for id in Business.MILESTONES:
 		if business.milestones[id]:

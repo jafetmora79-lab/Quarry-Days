@@ -182,7 +182,8 @@
      "reinforced"
     ],
     "milestones": [
-     "workshop_upgrade"
+     "workshop_upgrade",
+     "area_2_complete"
     ]
    },
    "unlocks": [
@@ -255,7 +256,10 @@
    "goal": "Earn $45,000 and keep the first bench open. (Further industrial equipment arrives in a later update.)",
    "req": {
     "earned": 45000,
-    "quarry_level": 2
+    "quarry_level": 2,
+    "milestones": [
+     "area_3_complete"
+    ]
    },
    "unlocks": [
     "Existing industrial machines"
@@ -2893,7 +2897,9 @@
   "crusher_built": "Build a crusher",
   "excavator_running": "Repair Grandpa's excavator",
   "soil_hauled": "Haul 24 loads of soil to the spoil heap",
-  "area_1_complete": "Area 1 contract complete"
+  "area_1_complete": "Area 1 contract complete",
+  "area_2_complete": "Area 2 contract complete",
+  "area_3_complete": "Area 3 contract complete"
  },
  "gear": {
   "pointed_chisel": {
@@ -3231,33 +3237,49 @@
     "debris": "all"
    },
    "reward": 300,
-   "note": "One shallow cut just beyond the yard gate: weeds and rubble, a soil field, the first rock face. Everything the player removes here stays removed."
+   "note": "One shallow cut just beyond the yard gate: weeds and rubble, a soil field, the first rock face. Everything the player removes here stays removed.",
+   "requires": []
   },
   {
    "id": "area_2",
    "title": "AREA 2 - UPPER WORKING FACE",
-   "rect": [
-    -23.0,
-    -60.0,
-    23.0,
-    -29.0
-   ],
+   "frame": "pit",
+   "level": 1,
    "formations": [
     "pit_band_01"
    ],
-   "status": "planned",
-   "note": "Extends Area 1 outward on the same ground: a wider face of harder rock with coal."
+   "status": "active",
+   "requires": [
+    "area_1"
+   ],
+   "contract": {
+    "rock": 200,
+    "recovered": 150,
+    "visit": 1
+   },
+   "reward": 800,
+   "note": "Through the quarry gate and down the corridor to the basin: the curved basin bench of the same excavation, a wider face of rock to cut and haul back toward the yard."
   },
   {
    "id": "area_3",
    "title": "AREA 3 - FIRST TERRACE",
-   "level": "bench",
+   "frame": "pit",
+   "level": 2,
    "formations": [
     "bench_l2_coal",
     "bench_l2_iron"
    ],
-   "status": "planned",
-   "note": "The first lower working surface, reached by the existing level-2 ramp."
+   "status": "active",
+   "requires": [
+    "area_1"
+   ],
+   "contract": {
+    "rock": 150,
+    "recovered": 100,
+    "visit": 1
+   },
+   "reward": 1600,
+   "note": "The first lower working surface, cut into the basin floor and reached by the 20 m ramp once enough of the level above is excavated (coal and iron)."
   },
   {
    "id": "area_4",

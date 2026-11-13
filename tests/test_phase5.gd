@@ -189,6 +189,10 @@ func test_stages() -> void:
 	p.state.tool_tier = 2
 	p.state.upgrades["larger_backpack"] = true
 	p.check_stages()
+	check(p.stage == 2, "12 connected quarry: Breaking Ground also needs the Area 2 contract")
+	p.area_state("area_2").merge({"rock": 200, "recovered": 150, "visited": 1}, true)
+	p.area_check("area_2")
+	p.check_stages()
 	check(p.stage == 3 and p.unlocked("crusher") and p.unlocked("output") and not p.unlocked("hire"), "12 Breaking Ground unlocks the crusher and storage, still no staff")
 	p.state.add_income(2200, "sale")
 	p.state.crushers.append({})
