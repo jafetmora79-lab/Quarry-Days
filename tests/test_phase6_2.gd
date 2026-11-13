@@ -45,7 +45,7 @@ func run() -> void:
 	var prog: QuarryProgression = game.prog
 	var cfg: Dictionary = prog.cleanup_cfg()
 	# ---- data and spawn
-	check(prog.cleanup_total() == 26 and cfg["weeds"].size() == 18 and cfg["heaps"].size() == 8, "A the site starts with 18 weed clumps and 8 rubble heaps")
+	check(prog.cleanup_total() == 26 and cfg["weeds_legacy"].size() == 18 and cfg["heaps_legacy"].size() == 8, "A the (old-layout) site starts with 18 weed clumps and 8 rubble heaps")
 	check(game.cleanup_nodes.size() == 26 and prog.cleanup_active(), "A a new game spawns all of them")
 	var clear := true
 	var space: PhysicsDirectSpaceState3D = game.get_world_3d().direct_space_state

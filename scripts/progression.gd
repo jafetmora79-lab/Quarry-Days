@@ -27,7 +27,7 @@ var quarry_level := 1                  ## Phase 7.1: the deepest of the four qua
 const SCHEMA := 3                      ## save schema of the progression block: 1 = before Phase 7.1 (no field), 2 = quarry levels, 3 = Phase 9 twelve-stage ladder
 var rigs: Array = []
 var next_rig_id := 1
-var story := {"intro_seen": false, "found": {}, "read": {}, "visits": {}, "journal": [], "fossil": "", "companion": {"state": "none"}, "milestones": {}, "excavator": {"battery": false, "hose": false, "fuel": false, "started": false, "granted": false, "legacy": false, "carry": ""}}
+var story := {"intro_seen": false, "found": {}, "read": {}, "visits": {}, "journal": [], "fossil": "", "companion": {"state": "none"}, "milestones": {}, "excavator": {"battery": false, "hose": false, "fuel": false, "started": false, "granted": false, "legacy": false, "carry": ""}, "areas": {}}
 ## Phase 6.2 tutorial: weeds and rubble heaps still on the site. "cleared": id -> true, "units": heap id -> units
 ## left (heaps keep their remaining stone when saved), "done": the whole site is clean (hillside unlocked).
 var cleanup := {"cleared": {}, "units": {}, "done": false}
@@ -621,6 +621,107 @@ func collect_veins(id: String, col: int) -> Array:
 			got.append(vn)
 	return got
 
+# ------------------------------------------------------------------ excavation areas (one connected quarry, six contracts)
+
+signal area_completed(id: String)
+
+func area_defs() -> Array:
+	return cfg.get("areas", [])
+
+func area_def(id: String) -> Dictionary:
+	for a in area_defs():
+		if str(a["id"]) == id:
+			return a
+	return {}
+
+## The area whose footprint holds this world point ("" outside every area). Areas share one landscape: this is only bookkeeping.
+func area_for_point(p: Vector3) -> String:
+	for a in area_defs():
+		if a.has("rect"):
+			var r: Array = a["rect"]
+			if p.x >= float(r[0]) and p.x <= float(r[2]) and p.z >= float(r[1]) and p.z <= float(r[3]):
+				return str(a["id"])
+	return ""
+
+func area_of_formation(fid: String) -> String:
+	for a in area_defs():
+		if fid in a.get("formations", []):
+			return str(a["id"])
+	return ""
+
+func area_state(id: String) -> Dictionary:
+	if not story.has("areas"):
+		story["areas"] = {}
+	if not story["areas"].has(id):
+		story["areas"][id] = {"rock": 0, "soil_removed": 0, "soil_hauled": 0, "complete": false, "rewarded": false}
+	return story["areas"][id]
+
+func area_add(id: String, key: String, n: int) -> void:
+	if id == "" or n <= 0 or area_def(id).is_empty() or str(area_def(id).get("status", "")) != "active":
+		return
+	var st := area_state(id)
+	if bool(st["complete"]):
+		st[key] = int(st.get(key, 0)) + n           # work after completion still counts for the stats; nothing is rewarded again
+		return
+	st[key] = int(st.get(key, 0)) + n
+	area_check(id)
+
+## Progress of a contract from the work actually done in that area: [{key, label, have, need}] plus the overall percentage.
+func area_progress(id: String) -> Dictionary:
+	var def := area_def(id)
+	if def.is_empty() or not def.has("contract"):
+		return {}
+	var st := area_state(id)
+	var c: Dictionary = def["contract"]
+	var parts := []
+	var debris_need := 0
+	var debris_have := 0
+	for cid in cleanup_ids():
+		var p2 := cleanup_pos(str(cid))
+		if area_for_point(Vector3(p2.x, 0, p2.y)) == id:
+			debris_need += 1
+			if cleanup["cleared"].get(cid, false) or bool(cleanup["done"]):
+				debris_have += 1
+	if str(c.get("debris", "")) == "all" and debris_need > 0:
+		parts.append({"key": "debris", "label": "Weeds and rubble cleared", "have": debris_have, "need": debris_need})
+	if int(c.get("soil_removed", 0)) > 0:
+		parts.append({"key": "soil_removed", "label": "Soil dug", "have": mini(int(st["soil_removed"]), int(c["soil_removed"])), "need": int(c["soil_removed"])})
+	if int(c.get("soil_hauled", 0)) > 0:
+		parts.append({"key": "soil_hauled", "label": "Soil hauled to the spoil heap", "have": mini(int(st["soil_hauled"]), int(c["soil_hauled"])), "need": int(c["soil_hauled"])})
+	if int(c.get("rock", 0)) > 0:
+		parts.append({"key": "rock", "label": "Rock recovered", "have": mini(int(st["rock"]), int(c["rock"])), "need": int(c["rock"])})
+	var frac := 0.0
+	var done_all := not parts.is_empty()
+	for pt in parts:
+		frac += clampf(float(pt["have"]) / float(maxi(1, int(pt["need"]))), 0.0, 1.0)
+		if int(pt["have"]) < int(pt["need"]):
+			done_all = false
+	return {"parts": parts, "pct": int(floor(100.0 * frac / float(maxi(1, parts.size())))) if not bool(st["complete"]) else 100, "complete": bool(st["complete"]) or done_all, "reward": int(def.get("reward", 0)), "title": str(def["title"])}
+
+func area_complete(id: String) -> bool:
+	return bool(area_state(id)["complete"])
+
+## Completes the contract once its measured work is done: the reward is paid exactly once; unfinished rock stays minable.
+func area_check(id: String) -> void:
+	var st := area_state(id)
+	if bool(st["complete"]):
+		return
+	var pr := area_progress(id)
+	if pr.is_empty() or not bool(pr["complete"]):
+		return
+	st["complete"] = true
+	if not bool(st["rewarded"]):
+		st["rewarded"] = true
+		state.money += int(pr["reward"])
+	check_stages()
+	area_completed.emit(id)
+
+## Old saves (and the legacy start) are already past the starter job: the contract counts as done, with no second reward.
+func area_adopt_legacy() -> void:
+	var st := area_state("area_1")
+	st["complete"] = true
+	st["rewarded"] = true
+
 func cleared_fraction(ids: Array = []) -> float:
 	if ids.is_empty():
 		ids = cfg.get("starting_formations", [])
@@ -665,6 +766,9 @@ func extract(id: String, col: int, damage: float, limit := 1 << 30, source := "h
 		out["veins"] = collect_veins(id, col)
 	stats["chunks"] = int(stats["chunks"]) + int(out["chunks"])
 	stats[source] = int(stats.get(source, 0)) + n
+	var area_id := area_of_formation(id)
+	if area_id != "":
+		area_add(area_id, "rock", n)
 	if int(d["stock"]) <= 0 and not bool(d.get("cleared", false)):
 		d["cleared"] = true
 		formation_cleared.emit(id)
@@ -907,6 +1011,7 @@ func milestone_done(id: String) -> bool:
 		"crusher_built": return state.crushers.size() > 0
 		"excavator_running": return excavator_ready()
 		"soil_hauled": return bool(story["excavator"].get("legacy", false)) or state.soil_dumped >= int(opening_cfg().get("soil_hauled_units", 24))
+		"area_1_complete": return bool(story["excavator"].get("legacy", false)) or area_complete("area_1")
 	if bool(story.get("milestones", {}).get(id, false)):
 		return true
 	return business != null and bool(business.milestones.get(id, false))
@@ -1166,17 +1271,25 @@ func cleanup_cfg() -> Dictionary:
 	return cfg.get("cleanup", {})
 
 ## Item ids: "w0".. for weed clumps, "h0".. for rubble heaps.
+## The new layout puts the debris in Area 1, beyond the yard. The old starting layout (legacy saves, old tests) keeps its old positions,
+## because its three starting piles stand where the new ones would be.
+func _cleanup_list(key: String) -> Array:
+	var c := cleanup_cfg()
+	if natural_start_enabled and natural_start() or not c.has(key + "_legacy"):
+		return c.get(key, [])
+	return c.get(key + "_legacy", [])
+
 func cleanup_ids() -> Array:
 	var out := []
-	for i in range(cleanup_cfg().get("weeds", []).size()):
+	for i in range(_cleanup_list("weeds").size()):
 		out.append("w%d" % i)
-	for i in range(cleanup_cfg().get("heaps", []).size()):
+	for i in range(_cleanup_list("heaps").size()):
 		out.append("h%d" % i)
 	return out
 
 func cleanup_pos(id: String) -> Vector2:
 	var key := "weeds" if id.begins_with("w") else "heaps"
-	var a: Array = cleanup_cfg().get(key, [])[int(id.substr(1))]
+	var a: Array = _cleanup_list(key)[int(id.substr(1))]
 	return Vector2(float(a[0]), float(a[1]))
 
 func cleanup_total() -> int:
@@ -1576,6 +1689,21 @@ func restore(raw_data: Dictionary, vehicle_types: Array = []) -> void:
 		story["excavator"]["carry"] = str(ex.get("carry", "")) if str(ex.get("carry", "")) in REPAIR_PARTS and not bool(ex.get(str(ex.get("carry", "")), false)) else ""
 	else:
 		story["excavator"] = {"battery": true, "hose": true, "fuel": true, "started": true, "granted": true, "legacy": true, "carry": ""}
+	story["areas"] = {}
+	if st is Dictionary and st.get("areas", null) is Dictionary:
+		for aid in st["areas"]:
+			var src: Dictionary = st["areas"][aid]
+			story["areas"][str(aid)] = {"rock": int(src.get("rock", 0)), "soil_removed": int(src.get("soil_removed", 0)), "soil_hauled": int(src.get("soil_hauled", 0)),
+				"complete": bool(src.get("complete", false)), "rewarded": bool(src.get("rewarded", false))}
+	elif bool(story["excavator"].get("legacy", false)):
+		area_adopt_legacy()                               # a save from before the area contracts: Area 1 is behind the player already
+	else:
+		# a Phase 10 save in progress: start the counters from the work already done (nothing is paid twice)
+		var a1 := area_state("area_1")
+		a1["soil_hauled"] = state.soil_dumped
+		a1["soil_removed"] = state.soil_dumped
+		var hd: Dictionary = state.deposits.get("hillside_face_01", {})
+		a1["rock"] = int(hd.get("mined", 0))
 	if st is Dictionary and st.get("veins", null) is Dictionary:
 		story["veins"] = {}
 		for fid in st["veins"]:

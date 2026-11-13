@@ -140,7 +140,8 @@
     "milestones": [
      "cleanup_done",
      "excavator_running",
-     "soil_hauled"
+     "soil_hauled",
+     "area_1_complete"
     ]
    },
    "unlocks": [
@@ -517,7 +518,24 @@
    "tier_h": 1.2,
    "chunk_units": 30,
    "level": 1,
-   "style": "cut", "skin": true, "benches": 4, "bench_sources": ["excavator", "rig", "crew", "companion"], "veins": {"seed": 11, "count": 10, "mix": ["coal", "coal", "iron_ore"]},
+   "style": "cut",
+   "skin": true,
+   "benches": 4,
+   "bench_sources": [
+    "excavator",
+    "rig",
+    "crew",
+    "companion"
+   ],
+   "veins": {
+    "seed": 11,
+    "count": 10,
+    "mix": [
+     "coal",
+     "coal",
+     "iron_ore"
+    ]
+   },
    "closed": [
     "W",
     "N",
@@ -2193,12 +2211,102 @@
   "intro2": "1. Left click swings your hammer. Cut the weeds and break the rubble heaps. The HUD counts the cleanup.\n\n2. Carry the stone to the SALES booth and press E to sell it.\n\n3. Spend your first money at the UPGRADE board outside the office: a pickaxe comes first.\n\n4. When it gets dark (after 17:00) walk to the house by the garage and press E on the bed to sleep. Sleeping saves the game and starts a new morning.\n\n5. Clean the whole site and Walt sends money, opens the hillside and the north gate."
  },
  "cleanup": {
-  "_comment": "Phase 6.2 tutorial: clear Grandpa's overgrown site (weeds and rubble heaps). Positions are fixed so saves can store what is left. Clearing everything unlocks the hillside and brings Walt's letter with the gift.",
+  "_comment": "Phase 6.2 tutorial, moved to Area 1: the weeds and rubble now lie in the starter cut north of the operations yard (never in the yard). Positions are fixed so saves can store what is left; item ids (w0.., h0..) keep their meaning.",
   "gift": 600,
   "weed_hp": 6,
   "heap_units": 5,
   "heap_unit_hp": 10,
   "weeds": [
+   [
+    -21,
+    -25
+   ],
+   [
+    21,
+    -11
+   ],
+   [
+    -5,
+    -8.5
+   ],
+   [
+    -1,
+    -25
+   ],
+   [
+    8,
+    -13.5
+   ],
+   [
+    -13,
+    -15
+   ],
+   [
+    -0.5,
+    -16
+   ],
+   [
+    13.5,
+    -8.5
+   ],
+   [
+    -7,
+    -17
+   ],
+   [
+    2.5,
+    -11
+   ],
+   [
+    -3,
+    -20.5
+   ],
+   [
+    4.5,
+    -16.5
+   ],
+   [
+    -5,
+    -13.5
+   ],
+   [
+    9.5,
+    -8.5
+   ]
+  ],
+  "heaps": [
+   [
+    -8,
+    -11
+   ],
+   [
+    1,
+    -19
+   ],
+   [
+    19,
+    -8.5
+   ],
+   [
+    -9,
+    -14
+   ],
+   [
+    -3.5,
+    -17
+   ],
+   [
+    -1,
+    -13
+   ],
+   [
+    -10,
+    -17
+   ]
+  ],
+  "gift_title": "A LETTER FROM GRANDPA WALT",
+  "gift_text": "Kiddo,\n\nI heard you cleaned the old place up. I knew you would.\n\nNow the real rock is open to you: the hillside behind the yard. Cut it from the front, one section at a time, and it will give up good stone.\n\nI'm sending what I had put away. Spend it on a drill when you are ready. Machines are how we cut the big blocks.\n\n- Grandpa Walt",
+  "weeds_legacy": [
    [
     -5,
     5.5
@@ -2272,7 +2380,7 @@
     9.5
    ]
   ],
-  "heaps": [
+  "heaps_legacy": [
    [
     2.5,
     -4
@@ -2305,9 +2413,7 @@
     13,
     -1
    ]
-  ],
-  "gift_title": "A LETTER FROM GRANDPA WALT",
-  "gift_text": "Kiddo,\n\nI heard you cleaned the old place up. I knew you would.\n\nNow the real rock is open to you: the hillside behind the yard. Cut it from the front, one section at a time, and it will give up good stone.\n\nI'm sending what I had put away. Spend it on a drill when you are ready. Machines are how we cut the big blocks.\n\n- Grandpa Walt"
+  ]
  },
  "pit_zone": {
   "_comment": "Phase 8.7: a 160 x 156 m plateau (rim at 0) with the 128 x 120 m starting basin (floor -3.6). Four working levels are cut into the basin floor as nested terraced pits (see quarry_levels).",
@@ -2786,7 +2892,8 @@
   "workshop_upgrade": "Buy a workbench upgrade",
   "crusher_built": "Build a crusher",
   "excavator_running": "Repair Grandpa's excavator",
-  "soil_hauled": "Haul 24 loads of soil to the spoil heap"
+  "soil_hauled": "Haul 24 loads of soil to the spoil heap",
+  "area_1_complete": "Area 1 contract complete"
  },
  "gear": {
   "pointed_chisel": {
@@ -3097,5 +3204,88 @@
    ],
    "yaw": 0.0
   }
- }
+ },
+ "areas": [
+  {
+   "id": "area_1",
+   "title": "AREA 1 - STARTER CUT",
+   "rect": [
+    -23.0,
+    -29.0,
+    23.0,
+    -7.5
+   ],
+   "entrance": [
+    0.0,
+    0.0,
+    -9.0
+   ],
+   "formations": [
+    "hillside_face_01"
+   ],
+   "status": "active",
+   "contract": {
+    "rock": 60,
+    "soil_removed": 48,
+    "soil_hauled": 24,
+    "debris": "all"
+   },
+   "reward": 300,
+   "note": "One shallow cut just beyond the yard gate: weeds and rubble, a soil field, the first rock face. Everything the player removes here stays removed."
+  },
+  {
+   "id": "area_2",
+   "title": "AREA 2 - UPPER WORKING FACE",
+   "rect": [
+    -23.0,
+    -60.0,
+    23.0,
+    -29.0
+   ],
+   "formations": [
+    "pit_band_01"
+   ],
+   "status": "planned",
+   "note": "Extends Area 1 outward on the same ground: a wider face of harder rock with coal."
+  },
+  {
+   "id": "area_3",
+   "title": "AREA 3 - FIRST TERRACE",
+   "level": "bench",
+   "formations": [
+    "bench_l2_coal",
+    "bench_l2_iron"
+   ],
+   "status": "planned",
+   "note": "The first lower working surface, reached by the existing level-2 ramp."
+  },
+  {
+   "id": "area_4",
+   "title": "AREA 4 - INDUSTRIAL BENCH",
+   "level": "deep",
+   "formations": [
+    "bench_l3_iron",
+    "bench_l3_copper"
+   ],
+   "status": "planned",
+   "note": "A broad bench with room for excavators, loaders, trucks and crushers."
+  },
+  {
+   "id": "area_5",
+   "title": "AREA 5 - DEEP MINERAL BENCH",
+   "level": "lower",
+   "formations": [
+    "bench_l4_copper",
+    "bench_l4_gold"
+   ],
+   "status": "planned",
+   "note": "The deepest existing level: copper and gold."
+  },
+  {
+   "id": "area_6",
+   "title": "AREA 6 - FINAL INDUSTRIAL CUT",
+   "status": "planned",
+   "note": "To be cut as a continuation of Area 5 (not built yet)."
+  }
+ ]
 }

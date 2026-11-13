@@ -163,6 +163,7 @@ func _ready() -> void:
 	prog.stage_reached.connect(_on_stage)
 	prog.formation_cleared.connect(_on_formation_cleared)
 	prog.site_cleared.connect(_on_site_cleared)
+	prog.area_completed.connect(_on_area_completed)
 	prog.quarry_level_reached.connect(_on_quarry_level)
 	fx = FXScript.new()
 	add_child(fx)
@@ -727,6 +728,14 @@ func _finish_debris(id: String, node: Node3D, what: String) -> void:
 		_notify("Site cleanup: %d left.%s" % [prog.cleanup_left(), more])
 		if prog.cleanup_left() <= 3 and hud:
 			hud.toast("Almost clean", "%d left. Look for the yellow beams." % prog.cleanup_left(), "info")
+
+## A contract is complete: a clear notice, the reward (paid once by the progression), and the next job when there is one.
+func _on_area_completed(id: String) -> void:
+	var def := prog.area_def(id)
+	if hud:
+		hud.toast(str(def.get("title", id)) + " COMPLETE", "Contract reward $%d. The rest of the rock here stays yours to cut." % int(def.get("reward", 0)), "milestone")
+	_sfx_unlock()
+	hud.refresh_panels() if hud else null
 
 ## The whole site is clean: Walt's letter arrives with money, and the hillside opens.
 func _on_site_cleared() -> void:
@@ -2366,7 +2375,7 @@ func _build_soil() -> void:
 			if (q as Vector2).distance_to(p) < 3.6:
 				ok = false
 		for cid in prog.cleanup_ids():
-			if prog.cleanup_pos(str(cid)).distance_to(p) < 2.8:
+			if prog.cleanup_pos(str(cid)).distance_to(p) < 1.8:
 				ok = false           # weeds and rubble are never buried under a soil pile: the ground around them stays bare
 		mask[i] = 1 if ok else 0
 	soil = QuarrySoil.new()
@@ -4138,6 +4147,7 @@ func _dig_soil(v: QuarryVehicle, delta: float) -> bool:
 	_soil_progress[v.vehicle_id] = minf(acc, 0.99)
 	if n > 0:
 		var took := soil.remove(i, n)
+		prog.area_add(prog.area_for_point(soil.cell_center(i)), "soil_removed", took)
 		fleet.add_cargo(rec, "soil", took)
 		soil.refresh()
 		soil_sync_state()
@@ -4304,6 +4314,7 @@ func vehicle_dump(v: QuarryVehicle) -> int:
 func _dump_soil(rec: Dictionary) -> int:
 	var n := fleet.take_cargo(rec, "soil", int(rec["cargo"].get("soil", 0)))
 	state.soil_dumped += n
+	prog.area_add("area_1", "soil_hauled", n)        # all the soil on the site lies in Area 1 (the spoil heap is its dump)
 	_update_spoil()
 	return n
 
@@ -5650,6 +5661,17 @@ func hud_status_text() -> String:
 		var nx := nearest_cleanup()
 		if not nx.is_empty():
 			lines.append("%s: %s %d m %s" % ["LAST ONE" if prog.cleanup_left() == 1 else "Next", "weeds" if nx["weed"] else "rubble", int(nx["dist"]), nx["dir"]])
+	for a in prog.area_defs():
+		var aid := str(a["id"])
+		if str(a.get("status", "")) == "active" and not prog.area_complete(aid):
+			var ap := prog.area_progress(aid)
+			if not ap.is_empty():
+				lines.append("%s  %d%%" % [str(ap["title"]), int(ap["pct"])])
+				var bits := []
+				for pt in ap["parts"]:
+					bits.append("%s %d/%d" % [str(pt["label"]).split(" ")[0], int(pt["have"]), int(pt["need"])])
+				lines.append("  " + "  ".join(bits) + "  (reward $%d)" % int(ap["reward"]))
+			break
 	var done := 0
 	for id in Business.MILESTONES:
 		if business.milestones[id]:
