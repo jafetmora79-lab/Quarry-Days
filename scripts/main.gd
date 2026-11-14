@@ -5454,24 +5454,86 @@ func _est_start(on_done: Callable) -> void:
 	var s1b := p + Vector3(-6, 12, 22)
 	var l1a := p + Vector3(-12, 9, -45)
 	var l1b := p + Vector3(-8, 6, -40)
-	var s2a := p + Vector3(-14, 9, 16)
-	var s2b := p + Vector3(10, 8, 18)
-	var l2a := p + Vector3(-6, 1, 2)
-	var l2b := p + Vector3(6, 1, 0)
+	# shot 2: the family business - the old truck, the broken excavator, the office - in one slow pass over the real objects (falls back to a yard sweep)
+	var stops := []
+	if truck_node != null and is_instance_valid(truck_node):
+		stops.append(truck_node.global_position)
+	var exv := _starter_vehicle()
+	if exv != null:
+		stops.append(exv.global_position)
+	stops.append(OFFICE_POS)
+	if stops.size() < 2:
+		stops = [p + Vector3(-6, 0, 2), p + Vector3(6, 0, 0)]
+	var rig_off := Vector3(7.5, 4.2, 8.5)
 	est_cam.global_position = s1a
 	est_cam.look_at(l1a)
 	est_cam.current = true
-	hud.fade_to(1.0, 0.0)
-	hud.fade_to(0.0, 1.5)
+	hud.fade_to(1.0, 0.0)                                    # shot 1 opens from black
+	hud.fade_to(0.0, 2.2)
 	hud.toast("QUARRY DAYS", "A quarry with a long history.", "info")
 	est_tween = create_tween()
-	est_tween.tween_method(func(k: float): _est_pose(s1a, s1b, l1a, l1b, k), 0.0, 1.0, 8.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	est_tween.tween_method(func(k: float): _est_pose(s1a, s1b, l1a, l1b, k), 0.0, 1.0, 10.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	est_tween.tween_callback(func(): hud.fade_to(1.0, 0.7))
 	est_tween.tween_interval(0.8)
 	est_tween.tween_callback(func():
-		hud.toast("THE SERVICE YARD", "The old office and machinery have seen better days.", "info")
+		hud.toast("THE FAMILY BUSINESS", "The old truck, the broken excavator and the office have seen better days.", "info")
 		hud.fade_to(0.0, 0.8))
-	est_tween.tween_method(func(k: float): _est_pose(s2a, s2b, l2a, l2b, k), 0.0, 1.0, 8.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	est_tween.tween_method(func(k: float): _est_stops(stops, rig_off, k), 0.0, 1.0, 10.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	est_tween.tween_callback(_est_finish)
+
+## Camera along a list of stops: it arrives at each (lingering a little) and glides to the next, always looking at the current point.
+func _est_stops(stops: Array, off: Vector3, k: float) -> void:
+	if est_cam == null or not is_instance_valid(est_cam):
+		return
+	var n := stops.size()
+	var f := clampf(k, 0.0, 1.0) * float(n - 1)
+	var i := mini(int(floor(f)), n - 2)
+	var u := f - float(i)
+	u = smoothstep(0.25, 0.75, u)                           # hold on each stop, move between them
+	var pt: Vector3 = (stops[i] as Vector3).lerp(stops[i + 1] as Vector3, u)
+	est_cam.global_position = pt + off
+	est_cam.look_at(pt + Vector3(0, 1.2, 0))
+
+## The last shot before control: the camera shows the first job (the broken excavator, then the overgrown site) and settles back into the player's own view.
+func _first_job_shot(done: Callable) -> void:
+	est_running = true
+	est_done = done
+	player.locked = true
+	est_cam = Camera3D.new()
+	est_cam.far = 700
+	est_cam.fov = player.camera.fov
+	world.add_child(est_cam)
+	est_cam.global_transform = player.camera.global_transform
+	est_cam.current = true
+	var exv := _starter_vehicle()
+	var tgt: Vector3 = exv.global_position if exv != null else player.global_position + Vector3(0, 0, -8)
+	var site := Vector3.ZERO
+	var cnt := 0
+	for id in prog.cleanup_ids():
+		var cp: Vector2 = prog.cleanup_pos(str(id))
+		site += Vector3(cp.x, 0, cp.y)
+		cnt += 1
+	site = site / float(cnt) if cnt > 0 else tgt + Vector3(0, 0, -20)
+	var start: Transform3D = player.camera.global_transform
+	var p0 := start.origin
+	var p1 := tgt + Vector3(5.0, 3.0, 6.5)
+	var p2 := (tgt + site) * 0.5 + Vector3(0, 7.0, 12.0)
+	hud.toast("FIRST JOB", "Clear the overgrown site and repair Grandpa's excavator.", "info")
+	est_tween = create_tween()
+	est_tween.tween_method(func(k: float):
+		if est_cam and is_instance_valid(est_cam):
+			est_cam.global_position = p0.lerp(p1, k)
+			est_cam.look_at(tgt + Vector3(0, 1.2, 0)), 0.0, 1.0, 2.8).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	est_tween.tween_interval(0.4)
+	est_tween.tween_method(func(k: float):
+		if est_cam and is_instance_valid(est_cam):
+			est_cam.global_position = p1.lerp(p2, k)
+			est_cam.look_at((tgt + Vector3(0, 1.2, 0)).lerp(site + Vector3(0, 0.5, 0), k)), 0.0, 1.0, 3.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	est_tween.tween_interval(0.6)
+	est_tween.tween_method(func(k: float):                  # and back into the player's own eyes, no snap
+		if est_cam and is_instance_valid(est_cam):
+			var from_t := Transform3D(Basis.looking_at(site + Vector3(0, 0.5, 0) - p2, Vector3.UP), p2)
+			est_cam.global_transform = from_t.interpolate_with(player.camera.global_transform, k), 0.0, 1.0, 1.4).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	est_tween.tween_callback(_est_finish)
 
 func _est_pose(a: Vector3, b: Vector3, la: Vector3, lb: Vector3, k: float) -> void:
@@ -5619,7 +5681,7 @@ func _open_walter_dialog(lines: Array, on_done: Callable, timed := false) -> voi
 	player.locked = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
-func _end_walter_intro(_skipped: bool) -> void:
+func _end_walter_intro(skipped: bool) -> void:
 	_cine_stop()
 	walter_intro_running = false
 	walter_pose = "idle"
@@ -5628,10 +5690,15 @@ func _end_walter_intro(_skipped: bool) -> void:
 	var tw := create_tween()
 	tw.tween_property(player.camera, "rotation:x", 0.0, 0.6)
 	var st: Dictionary = prog.cfg.get("story", {})
-	if str(st.get("intro2", "")) != "":
-		hud.show_card(str(st.get("intro2_title", "YOUR FIRST DAY")), str(st.get("intro2", "")), func(): _finish_intro())
+	var proceed := func():
+		if str(st.get("intro2", "")) != "":
+			hud.show_card(str(st.get("intro2_title", "YOUR FIRST DAY")), str(st.get("intro2", "")), func(): _finish_intro())
+		else:
+			_finish_intro()
+	if not skipped and intro_shots_enabled and prog.natural_start():
+		_first_job_shot(proceed)                             # shot 4: the first job, then back into the player's own eyes
 	else:
-		_finish_intro()
+		proceed.call()                                       # skipping goes straight to the same playable state
 
 func _finish_intro() -> void:
 	prog.story["intro_seen"] = true

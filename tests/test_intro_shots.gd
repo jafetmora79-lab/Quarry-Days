@@ -57,16 +57,29 @@ func run() -> void:
 		await physics_frame
 		t += 1
 	var secs := float(t) / 60.0
-	check(not g2.est_running and secs > 14.0 and secs < 24.0, "left alone the two shots take %.1f s and end by themselves" % secs)
+	check(not g2.est_running and secs > 17.0 and secs < 26.0, "left alone the two shots take %.1f s and end by themselves" % secs)
 	await frames(10)
 	var dlg_total := 0.0
 	for l in g2.prog.walter_cfg().get("cinematic", []):
 		dlg_total += float(l["dur"])
-	check(g2.walter_dialog != null and secs + dlg_total >= 60.0 and secs + dlg_total <= 90.0, "the whole opening is %.0f s (target 60-90)" % (secs + dlg_total))
-	g2.walter_dialog.skip()
-	await frames(30)
+	check(g2.walter_dialog != null and secs + dlg_total + 8.0 >= 60.0 and secs + dlg_total + 8.0 <= 92.0, "the whole opening is about %.0f s with the first-job shot (target 60-90)" % (secs + dlg_total + 8.0))
+	# played to the end (not skipped): shot 4 shows the first job, then control returns smoothly
+	var guard := 0
+	while g2.walter_dialog != null and guard < 30:
+		g2.walter_dialog.advance()
+		await frames(2)
+		guard += 1
+	await frames(10)
+	check(g2.est_running and g2.est_cam != null and g2.est_cam.current, "after the last line the camera shows the first job (shot 4)")
+	var t2 := 0
+	while g2.est_running and t2 < 60 * 14:
+		await physics_frame
+		t2 += 1
+	check(not g2.est_running and g2.est_cam == null and g2.player.camera.current and float(t2) / 60.0 < 11.0, "shot 4 ends by itself in %.1f s and the player's view is back, no duplicate camera" % (float(t2) / 60.0))
+	await frames(10)
 	g2.hud.close_card()
-	await frames(5)
+	await frames(10)
+	check(bool(g2.prog.story["intro_seen"]) and not g2.player.locked, "and the player has control with the intro marked as seen")
 	g2.queue_free()
 	await process_frame
 	# an intro already seen never plays again
