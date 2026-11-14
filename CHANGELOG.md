@@ -303,3 +303,8 @@ Priority: one continuous rock surface, then the simple background. No visual che
 - Vehicles need only money and the stage: no automation milestone. The storage bin grows with the stage (80 / 140 base at Moving Mountains / Deeper Ground).
 - Fixed unreachable rewards (lockbox, first gold), the gold bench now has rig pads, the permit is gone from the new quarry, more iron pockets in Area 2.
 - Office computer is now a fake desktop (shortcut icons, sticky note with the next goal, taskbar); the storage bin shows a capacity bar and material icons, only for what you own, with Store/Take everything.
+
+## Machine cabs, boarding and repair camera (branch claude/machine-cabs, on top of claude/economy-repair)
+- Loader, dump truck and excavators have real cabs: seat, steering wheel or joysticks, dashboard with lamps, pedals, ignition key, floor mat, hinged door, foot steps and grab rail.
+- Climbing in and out is a first-person sequence (door, step, doorway, seat); Tab toggles cab view while driving. Grandpa's first start climbs in, turns the key (dash lamps flicker with the stall) and climbs out.
+- Repairs: the camera moves to a vantage for each part; the hose now runs along the boom (it used to float in front of the cab) and is attached to it.

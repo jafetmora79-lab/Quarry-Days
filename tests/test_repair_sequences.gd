@@ -55,7 +55,7 @@ func run() -> void:
 		press.keycode = KEY_ESCAPE
 		press.pressed = true
 		game._unhandled_input(press)
-		await frames(5)
+		await frames(45)                 # the head eases back to standing height (0.55 s) before control returns
 		check(game.repair_seq == null and not prog.repair_done(part) and prog.carried_part() == part and not game.repair_busy, "%s: Esc cancels it with nothing consumed" % part)
 		check(game.player.get_node_or_null("../") == null or true, "%s: (cancel leaves no stray props)" % part)
 		var stray := 0

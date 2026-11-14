@@ -22,6 +22,7 @@ var data: Dictionary
 var size := Vector3(2, 1.5, 3)
 
 var driven := false
+var cab_view := false           ## Tab: the camera sits in the driver's seat (see CabInterior / QuarryBoarding) instead of behind the machine
 var auto_drive := false         ## the auto crew (scripts/auto_crew.gd) is steering it: `input` is obeyed like a driver's, but with no camera
 var speed := 0.0
 var input := {"throttle": 0.0, "steer": 0.0, "brake": false}
@@ -306,7 +307,11 @@ func _pull_camera_in(delta := -1.0) -> void:
 		camera.position = ease_toward(camera.position, goal, 7.0, delta)   # open space again: glide back out
 
 func _animate(delta: float) -> void:
-	if driven:
+	if driven and cab_view and has_meta("cab"):
+		var c: Dictionary = get_meta("cab")
+		cam_pivot.rotation = Vector3(clampf(cam_pitch, -0.9, 0.45), swing if (vkind == "excavator" and turret != null) else cam_yaw, 0)
+		camera.global_position = (c["ref"] as Node3D).to_global(c["eye"])          # the head of the person in the seat; the mouse looks around
+	elif driven:
 		cam_pivot.rotation = Vector3(cam_pitch, swing if (vkind == "excavator" and turret != null) else cam_yaw, 0)
 		_pull_camera_in(delta)
 		if absf(speed) > 1.0:

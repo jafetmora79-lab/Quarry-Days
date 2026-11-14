@@ -8,6 +8,7 @@ const MOUSE_LOOK_SCALE := 0.75
 var camera: Camera3D
 var pitch := 0.0
 var locked := false
+var scripted_camera := false         ## a cinematic move (boarding, a repair) owns the camera's orientation: the pitch is not forced back each frame
 var drive_wish := Vector3.INF
 var speed_mult := 1.0          ## 0.8 while pushing or pulling a cart
 var tool_view: QuarryToolView
@@ -65,7 +66,8 @@ func _process(delta: float) -> void:
 	_shake_t += delta
 	kick = move_toward(kick, 0.0, delta * 0.12)
 	shake = move_toward(shake, 0.0, delta * 0.16)
-	camera.rotation.x = pitch + kick
+	if not scripted_camera:
+		camera.rotation.x = pitch + kick
 	camera.h_offset = sin(_shake_t * 63.0) * shake * 0.6
 	camera.v_offset = cos(_shake_t * 71.0) * shake * 0.5
 	if tool_view:

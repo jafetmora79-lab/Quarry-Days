@@ -55,7 +55,7 @@ static func part(id: String) -> Node3D:
 
 ## The state of the three repairs on the excavator itself (model units of VehicleModels.excavator: hood at y 1.2, z +0.45).
 ## A missing battery shows the empty tray and loose cables; a split hose hangs limp with an oil stain; an unfuelled tank has an open filler.
-static func fitted(parent: Node3D, battery: bool, hose: bool, fuel: bool, ground: Node3D = null) -> Node3D:
+static func fitted(parent: Node3D, battery: bool, hose: bool, fuel: bool, ground: Node3D = null, arm: Node3D = null) -> Node3D:
 	var n := Node3D.new()
 	n.name = "OpeningParts"
 	var dark := MeshKit.Soup.new()
@@ -72,11 +72,24 @@ static func fitted(parent: Node3D, battery: bool, hose: bool, fuel: bool, ground
 		MeshKit.box_into(rust, Vector3(0.62, 1.58, 0.45), Vector3(0.38, 0.06, 0.24))               # the empty tray
 		for dx in [0.5, 0.74]:
 			MeshKit.box_into(dark, Vector3(dx, 1.5, 0.52), Vector3(0.025, 0.2, 0.025))             # loose cables
+	var hose_s := MeshKit.Soup.new()
+	var fit_s := MeshKit.Soup.new()
 	if hose:
-		MeshKit.box_into(dark, Vector3(-0.35, 1.5, -1.05), Vector3(0.05, 0.05, 0.75))              # hose along the boom foot
+		# along the boom's right face, in the boom's own frame (arm origin = turret (0.55, 1.05, -0.5)), so it follows the boom when it moves
+		var pts := []
+		for k in range(0, 9):
+			var u := float(k) / 8.0
+			var pt := Vector3(0.17, -0.12, -0.18).lerp(Vector3(0.17, 0.15, -0.9), u)
+			pt.y += -0.05 * sin(PI * u)
+			pts.append(pt)
+		MeshKit.tube_into(hose_s, pts, 0.026, 6)
+		for end in [Vector3(0.17, -0.12, -0.18), Vector3(0.17, 0.15, -0.9)]:
+			MeshKit.box_into(fit_s, end, Vector3(0.06, 0.06, 0.06))
 	else:
-		MeshKit.box_into(rust, Vector3(-0.35, 1.2, -1.1), Vector3(0.05, 0.42, 0.05))               # a limp, split hose
-		MeshKit.box_into(oil, Vector3(-0.35, 0.02, -1.25), Vector3(0.7, 0.01, 0.55))               # oil on the ground
+		MeshKit.box_into(rust, Vector3(0.72, 0.74, -0.7), Vector3(0.05, 0.38, 0.05))               # a limp, split hose hanging from the pump port
+		MeshKit.box_into(rust, Vector3(0.72, 1.0, -0.7), Vector3(0.07, 0.05, 0.07))                # its torn fitting
+		MeshKit.box_into(oil, Vector3(0.8, 0.63, -0.78), Vector3(0.3, 0.01, 0.4))                  # oil dripped onto the track
+		MeshKit.box_into(oil, Vector3(0.9, 0.02, -1.0), Vector3(0.6, 0.01, 0.55))                  # and onto the ground
 	if fuel:
 		MeshKit.frustum_into(accent, Vector3(-0.62, 1.54, 0.55), 0.07, 0.07, 0.04, 8)               # filler cap, closed
 	else:
@@ -85,6 +98,14 @@ static func fitted(parent: Node3D, battery: bool, hose: bool, fuel: bool, ground
 	_inst(n, rust, MeshKit.flat(Color(0.42, 0.2, 0.12)))
 	_inst(n, accent, MeshKit.flat(Color(0.86, 0.66, 0.12)))
 	_inst(n, steel, MeshKit.mat("SteelPlate"))
+	if hose:
+		var hn := Node3D.new()
+		hn.name = "BoomHose"
+		(arm if arm != null else n).add_child(hn)
+		if arm == null:
+			hn.position = Vector3(0.55, 1.05, -0.5)
+		_inst(hn, hose_s, MeshKit.flat(Color(0.2, 0.24, 0.3)))
+		_inst(hn, fit_s, MeshKit.flat(Color(0.75, 0.55, 0.2)))
 	parent.add_child(n)                          # `parent` is the excavator's turret: the tray, filler and hose swing with the cab
 	if ground != null:
 		var g := Node3D.new()                    # the oil on the ground stays where it dripped while the cab turns above it

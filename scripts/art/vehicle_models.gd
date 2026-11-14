@@ -104,6 +104,15 @@ static func aim(n: Node3D, a: Vector3, b: Vector3) -> void:
 	var z := x.cross(y)
 	n.transform = Transform3D(Basis(x, y * (len / 1.0), z), a)
 
+
+## Interior, door and steps for a machine's cab; the pieces the animations use are kept as the vehicle's meta "cab" (see CabInterior).
+static func _cab(v, ref: Node3D, p: Dictionary, door_hinge: Vector3, door_depth: float, door_h: float, door_lower: float, paint_key: String, step_at: Vector3, base_y: float, eye: Vector3) -> void:
+	var inter := CabInterior.build(ref, p)
+	var door := CabInterior.door(ref, door_hinge, door_depth, door_h, door_lower, paint_key, -1.0, GLASS)
+	CabInterior.steps(ref, step_at, base_y, -1.0)
+	v.set_meta("cab", {"ref": ref, "eye": eye, "door": door, "door_c": door_hinge + Vector3(-0.02, 0.0, door_depth * 0.5), "open": CabInterior.open_angle(-1.0), "side": -1.0,
+		"key": inter["key"], "lamps": inter["lamps"], "step": step_at})
+
 # ------------------------------------------------------------------ front loader (2.0 x 1.5 x 3.0)
 
 static func loader(v) -> void:
@@ -132,9 +141,11 @@ static func loader(v) -> void:
 	var glass := MeshKit.Soup.new()
 	MeshKit.box_into(glass, Vector3(0, 1.62, -0.56), Vector3(1.15, 1.1, 0.02))
 	MeshKit.box_into(glass, Vector3(0, 1.72, 0.36), Vector3(1.15, 0.9, 0.02))
-	for x in [-0.6, 0.6]:
-		MeshKit.box_into(glass, Vector3(x, 1.72, -0.1), Vector3(0.02, 0.9, 0.85))
+	MeshKit.box_into(glass, Vector3(0.6, 1.72, -0.1), Vector3(0.02, 0.9, 0.85))             # the left side is the door
 	MeshKit.inst(v.model_root, glass.mesh(), MeshKit.mat(GLASS))
+	_cab(v, v.model_root, {"floor_y": 1.05, "center": Vector3(0, 1.05, -0.1), "width": 1.1, "depth": 0.9, "seats": [Vector3(0, 1.33, 0.14)], "dash": Vector3(0, 1.4, -0.46),
+		"kind": "wheel", "wheel": Vector3(0, 1.58, -0.2), "key_at": Vector3(0.3, 1.45, -0.44), "shift": Vector3(0.3, 1.08, 0.02)},
+		Vector3(-0.6, 1.05, -0.52), 0.85, 1.2, 0.0, "PaintYellow", Vector3(-0.64, 1.05, -0.2), 0.0, Vector3(0, 1.82, 0.12))
 	var lamps := MeshKit.Soup.new()
 	for x in [-0.5, 0.5]:
 		MeshKit.box_into(lamps, Vector3(x, 2.2, -0.72), Vector3(0.16, 0.1, 0.06))
@@ -180,9 +191,15 @@ static func truck(v) -> void:
 	var p := _soups([cab_paint, "SteelPlate", "Hazard"])
 	for x in [-0.55, 0.55]:
 		MeshKit.box_into(p["SteelPlate"], Vector3(x, 0.62, 0.1), Vector3(0.16, 0.24, 4.4))          # chassis rails
-	# cab side profile: bumper, hood, sloped windscreen, roof, cab back
-	var cab := PackedVector2Array([Vector2(-2.32, 0.55), Vector2(-0.95, 0.55), Vector2(-0.95, 2.25), Vector2(-1.55, 2.25), Vector2(-1.82, 1.6), Vector2(-2.3, 1.42)])
-	MeshKit.extrude_into(p[cab_paint], cab, 2.0)
+	# the hood (solid) and a real cab behind it: floor skirt, back wall, roof, A pillars and two doors
+	var hood := PackedVector2Array([Vector2(-2.32, 0.55), Vector2(-1.8, 0.55), Vector2(-1.8, 1.6), Vector2(-2.3, 1.42)])
+	MeshKit.extrude_into(p[cab_paint], hood, 2.0)
+	MeshKit.box_into(p[cab_paint], Vector3(0, 0.775, -1.385), Vector3(2.0, 0.45, 0.87))              # skirt under the cab floor
+	MeshKit.box_into(p[cab_paint], Vector3(0, 1.62, -0.99), Vector3(2.0, 1.22, 0.08))                # cab back
+	MeshKit.box_into(p[cab_paint], Vector3(0, 2.2, -1.25), Vector3(2.0, 0.1, 0.66))                  # roof
+	for x in [-0.96, 0.96]:
+		MeshKit.extrude_into(p[cab_paint], PackedVector2Array([Vector2(-1.8, 1.6), Vector2(-1.72, 1.6), Vector2(-1.5, 2.25), Vector2(-1.58, 2.25)]), 0.08, _xf(Vector3(x, 0, 0)))   # A pillars
+	MeshKit.box_into(p["SteelPlate"], Vector3(0, 1.0, -1.82), Vector3(1.9, 0.06, 0.06))            # cowl
 	MeshKit.box_into(p["SteelPlate"], Vector3(0, 0.62, -2.36), Vector3(2.1, 0.22, 0.14))         # bumper
 	MeshKit.box_into(p["SteelPlate"], Vector3(0, 1.02, -2.33), Vector3(1.1, 0.5, 0.04))          # grille
 	for y in [0.86, 0.98, 1.1, 1.22]:
@@ -199,9 +216,11 @@ static func truck(v) -> void:
 	var glass := MeshKit.Soup.new()
 	var ws := PackedVector2Array([Vector2(-1.8, 1.62), Vector2(-1.57, 2.2), Vector2(-1.55, 2.2), Vector2(-1.78, 1.62)])
 	MeshKit.extrude_into(glass, ws, 1.8, _xf(Vector3(0, 0, -0.012)))
-	for x in [-1.012, 1.012]:
-		MeshKit.box_into(glass, Vector3(x, 1.88, -1.25), Vector3(0.01, 0.55, 0.5))      # side windows sit just outside the cab skin, not in its plane
 	MeshKit.inst(v.model_root, glass.mesh(), MeshKit.mat(GLASS))
+	_cab(v, v.model_root, {"floor_y": 1.0, "center": Vector3(0, 1.0, -1.39), "width": 1.84, "depth": 0.8, "seats": [Vector3(-0.5, 1.28, -1.2), Vector3(0.5, 1.28, -1.2)],
+		"dash": Vector3(0, 1.35, -1.72), "kind": "wheel", "wheel": Vector3(-0.5, 1.58, -1.5), "key_at": Vector3(-0.2, 1.45, -1.69), "shift": Vector3(0.0, 1.0, -1.3)},
+		Vector3(-0.99, 1.0, -1.8), 0.82, 1.15, 0.5, cab_paint, Vector3(-1.0, 1.0, -1.02), 0.0, Vector3(-0.5, 1.9, -1.16))
+	CabInterior.door(v.model_root, Vector3(0.99, 1.0, -1.8), 0.82, 1.15, 0.5, cab_paint, 1.0, GLASS)      # the passenger door, closed
 	var lamps := MeshKit.Soup.new()
 	for x in [-0.78, 0.78]:
 		MeshKit.box_into(lamps, Vector3(x, 1.05, -2.34), Vector3(0.2, 0.14, 0.04))
@@ -289,9 +308,11 @@ static func excavator(v) -> void:
 	_emit(v.turret, u)
 	var glass := MeshKit.Soup.new()
 	MeshKit.box_into(glass, Vector3(-0.45, 1.95, -0.642), Vector3(0.7, 0.8, 0.02))
-	MeshKit.box_into(glass, Vector3(-0.802, 1.95, -0.22), Vector3(0.02, 0.8, 0.68))
-	MeshKit.box_into(glass, Vector3(-0.098, 1.95, -0.22), Vector3(0.02, 0.8, 0.68))
+	MeshKit.box_into(glass, Vector3(-0.098, 1.95, -0.22), Vector3(0.02, 0.8, 0.68))          # the left side is the door
 	MeshKit.inst(v.turret, glass.mesh(), MeshKit.mat(GLASS))
+	_cab(v, v.turret, {"floor_y": 1.58, "center": Vector3(-0.45, 1.58, -0.22), "width": 0.66, "depth": 0.8, "seats": [Vector3(-0.45, 1.82, 0.0)], "dash": Vector3(-0.45, 1.72, -0.52),
+		"kind": "sticks", "key_at": Vector3(-0.22, 1.76, -0.5)},
+		Vector3(-0.8, 1.58, -0.6), 0.78, 0.78, 0.0, paint, Vector3(-0.84, 1.58, -0.3), 0.62, Vector3(-0.45, 2.12, -0.03))
 	var lamps := MeshKit.Soup.new()
 	MeshKit.box_into(lamps, Vector3(-0.45, 2.34, -0.66), Vector3(0.4, 0.07, 0.05))
 	MeshKit.inst(v.turret, lamps.mesh(), MeshKit.flat(Color(1.0, 0.92, 0.7), 0.8))

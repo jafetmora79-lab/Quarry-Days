@@ -8,9 +8,15 @@ class_name RepairSequence
 ## About 4-5 s each. The part is consumed exactly once, at the commit step (after the player can no longer cancel with Esc); a cancel before that leaves everything
 ## as it was. Mining is blocked for the whole time (the player is locked, see Main.gameplay_input_allowed).
 
-const SOCKET := {"battery": Vector3(0.62, 1.58, 0.45), "hose": Vector3(-0.35, 1.5, -1.05), "fuel": Vector3(-0.62, 1.54, 0.55)}
-const HOSE_A := Vector3(-0.35, 1.5, -1.42)         ## the fitting at the foot of the boom
-const HOSE_B := Vector3(-0.35, 1.5, -0.66)         ## the fitting on the cab
+const SOCKET := {"battery": Vector3(0.62, 1.58, 0.45), "hose": Vector3(0.72, 1.07, -1.04), "fuel": Vector3(-0.62, 1.54, 0.55)}
+## The hose runs along the boom's right face (the boom stands at x 0.55): from the pump port on the front of the boom pedestal to the cylinder port on the boom itself.
+## (It used to float in front of the cab, attached to nothing.) VANTAGE: where the person stands to do each job, so the part and the socket are both in view.
+const HOSE_A := Vector3(0.72, 0.93, -0.68)         ## the pump port on the boom pedestal
+const HOSE_B := Vector3(0.72, 1.2, -1.4)           ## the cylinder port on the boom
+const VANTAGE := {"battery": Vector3(1.9, 2.05, 0.95), "hose": Vector3(2.7, 1.8, -0.5), "fuel": Vector3(-1.8, 2.05, 1.2)}
+
+static func _look(pos: Vector3, at: Vector3) -> Transform3D:
+	return Transform3D(Basis.looking_at((at - pos).normalized(), Vector3.UP), pos)
 
 var game
 var v: QuarryVehicle
@@ -20,6 +26,7 @@ var props: Node3D
 var tweens: Array = []
 var committed := false
 var finished := false
+var cam_home := Vector3.ZERO
 
 func start(game_node, vehicle: QuarryVehicle, part_id: String) -> void:
 	game = game_node
@@ -32,10 +39,17 @@ func start(game_node, vehicle: QuarryVehicle, part_id: String) -> void:
 	game.repair_busy = true
 	game.player.locked = true
 	game.repair_seq = self
-	game._turn_view_to(cab.to_global(SOCKET[part] + Vector3(0, 0.1, 0)), 0.45)
+	# the head moves to where the person stands for this job, eased, and looks at the socket (the part is then held in view of it)
+	cam_home = game.player.camera.position
+	game.player.scripted_camera = true
+	if game.player.tool_view != null:
+		game.player.tool_view.visible = false                 # both hands are on the part
+	var cam: Camera3D = game.player.camera
+	var a := cam.global_transform
+	var b := _look(cab.to_global(VANTAGE[part]), cab.to_global(SOCKET[part] + Vector3(0, 0.03, 0)))
 	var tw: Tween = game.create_tween()
 	tweens.append(tw)
-	tw.tween_property(game.player.camera, "rotation:x", -0.4, 0.45).set_trans(Tween.TRANS_SINE)
+	tw.tween_method(func(w: float): cam.global_transform = a.interpolate_with(b, w), 0.0, 1.0, 0.7).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	tw.tween_interval(0.1)
 	tw.tween_callback(_begin_part)
 
@@ -149,13 +163,13 @@ func _hose() -> void:
 		for k in range(0, 15):
 			var u := t * float(k) / 14.0
 			var p := HOSE_A.lerp(HOSE_B, u)
-			p.y += -0.14 * sin(PI * u) + 0.03 * sin(TAU * u * 2.0)                    # a natural drape along the boom
+			p.y += -0.05 * sin(PI * u) + 0.02 * sin(TAU * u * 2.0)                    # it follows the boom's side with a little sag
 			pts.append(p)
 		var so := MeshKit.Soup.new()
 		MeshKit.tube_into(so, pts, 0.026, 6)
 		tube.mesh = so.mesh()
 	var tw := _chain()
-	tw.tween_property(coil, "position", HOSE_A + Vector3(0, 0.12, -0.05), 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)   # the coil goes to the boom-foot fitting
+	tw.tween_property(coil, "position", HOSE_A + Vector3(0.1, 0.1, -0.05), 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)   # the coil goes to the boom-foot fitting
 	tw.tween_callback(func():
 		fit_a.visible = true
 		_spark(HOSE_A))                                                                                              # first end screwed on
@@ -234,9 +248,19 @@ func _end(done: bool) -> void:
 	var p = game.prog
 	if done:
 		game.hud.toast(str(p.opening_cfg().get("parts", {}).get(part, {}).get("title", part)) + " fitted", "%d of 3 repairs done" % p.repairs_done(), "unlock")
-	game.create_tween().tween_property(game.player.camera, "rotation:x", 0.0, 0.4)
-	game.player.locked = false
-	game.repair_busy = false
-	game.repair_seq = null
-	if done and p.repairs_complete():
-		game._excavator_start_scene(v)
+	var cam: Camera3D = game.player.camera
+	var from := cam.global_transform
+	var ground: Transform3D = game.player.global_transform * Transform3D(Basis(), cam_home)
+	var back: Tween = game.create_tween()
+	back.tween_method(func(w: float): cam.global_transform = from.interpolate_with(ground, w), 0.0, 1.0, 0.55).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	back.tween_callback(func():
+		cam.position = cam_home
+		cam.rotation = Vector3.ZERO
+		game.player.scripted_camera = false
+		if game.player.tool_view != null:
+			game.player.tool_view.visible = true
+		game.player.locked = false
+		game.repair_busy = false
+		game.repair_seq = null
+		if done and p.repairs_complete():
+			game._excavator_start_scene(v))
