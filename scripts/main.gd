@@ -1654,6 +1654,12 @@ func _update_light() -> void:
 		landscape.set_time(state.clock_minutes)
 
 func _unhandled_input(event: InputEvent) -> void:
+	if est_running:
+		var skip_key: bool = event is InputEventKey and event.pressed and not event.echo and event.keycode in [KEY_ESCAPE, KEY_ENTER, KEY_KP_ENTER, KEY_SPACE, KEY_E]
+		if skip_key or (event is InputEventMouseButton and event.pressed):
+			_est_finish()
+		get_viewport().set_input_as_handled()
+		return
 	if dialog:
 		if event.is_action_pressed("ui_cancel"):
 			dialog.skip_btn.pressed.emit()          # Esc skips the conversation
@@ -5219,7 +5225,78 @@ func _cine_stop() -> void:
 
 ## The opening scene of a new game (Part 10): the player walks up to Walter at his old truck. He retires, hands over the
 ## keys, and points at the hill. First person, skippable, never plays again once seen.
+## Shots 1 and 2 of the opening: a slow look over the mountains and the old quarry, then over the service yard, flown by a temporary camera in the
+## real world (no video). Esc / Enter / Space / E / a click skips straight to the meeting with Grandpa. Off in headless runs (tests) unless forced.
+var intro_shots_enabled := DisplayServer.get_name() != "headless"
+var est_running := false
+var est_cam: Camera3D
+var est_tween: Tween
+var est_done := Callable()
+
 func _show_intro() -> void:
+	if not hud or prog.story["intro_seen"]:
+		return
+	if intro_shots_enabled and not est_running:
+		_est_start(Callable(self, "_show_intro_walk"))
+		return
+	_show_intro_walk()
+
+func _est_start(on_done: Callable) -> void:
+	est_running = true
+	est_done = on_done
+	player.locked = true
+	var p := player.global_position
+	est_cam = Camera3D.new()
+	est_cam.far = 700
+	world.add_child(est_cam)
+	var s1a := p + Vector3(-18, 16, 34)
+	var s1b := p + Vector3(-6, 12, 22)
+	var l1a := p + Vector3(-12, 9, -45)
+	var l1b := p + Vector3(-8, 6, -40)
+	var s2a := p + Vector3(-14, 9, 16)
+	var s2b := p + Vector3(10, 8, 18)
+	var l2a := p + Vector3(-6, 1, 2)
+	var l2b := p + Vector3(6, 1, 0)
+	est_cam.global_position = s1a
+	est_cam.look_at(l1a)
+	est_cam.current = true
+	hud.fade_to(1.0, 0.0)
+	hud.fade_to(0.0, 1.5)
+	hud.toast("QUARRY DAYS", "A quarry with a long history.", "info")
+	est_tween = create_tween()
+	est_tween.tween_method(func(k: float): _est_pose(s1a, s1b, l1a, l1b, k), 0.0, 1.0, 8.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	est_tween.tween_callback(func(): hud.fade_to(1.0, 0.7))
+	est_tween.tween_interval(0.8)
+	est_tween.tween_callback(func():
+		hud.toast("THE SERVICE YARD", "The old office and machinery have seen better days.", "info")
+		hud.fade_to(0.0, 0.8))
+	est_tween.tween_method(func(k: float): _est_pose(s2a, s2b, l2a, l2b, k), 0.0, 1.0, 8.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	est_tween.tween_callback(_est_finish)
+
+func _est_pose(a: Vector3, b: Vector3, la: Vector3, lb: Vector3, k: float) -> void:
+	if est_cam and is_instance_valid(est_cam):
+		est_cam.global_position = a.lerp(b, k)
+		est_cam.look_at(la.lerp(lb, k))
+
+func _est_finish() -> void:
+	if not est_running:
+		return
+	est_running = false
+	if est_tween and est_tween.is_valid():
+		est_tween.kill()
+	est_tween = null
+	if est_cam and is_instance_valid(est_cam):
+		est_cam.queue_free()
+	est_cam = null
+	if player and player.camera:
+		player.camera.current = true
+	hud.fade_to(0.0, 0.0)
+	var cb := est_done
+	est_done = Callable()
+	if cb.is_valid():
+		cb.call()
+
+func _show_intro_walk() -> void:
 	if not hud or prog.story["intro_seen"]:
 		return
 	player.locked = true
