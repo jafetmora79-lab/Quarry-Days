@@ -836,6 +836,24 @@ func tick_conveyors(seconds: float) -> void:
 		else:
 			c["pull"] = 0.0
 
+## What a belt piece is doing, for its lamp and belt colour: "disconnected" (nothing feeds it or it leads nowhere),
+## "blocked" (holds material that has reached the end but the next piece is full), "active" (carrying or loading)
+## or "idle" (connected, empty). Reads state only; it never moves material.
+func belt_status(i: int) -> String:
+	if i < 0 or i >= conveyors.size() or links.size() != conveyors.size():
+		return "disconnected"
+	var link: Dictionary = links[i]
+	if link["src"].is_empty() or link["dst"].is_empty():
+		return "disconnected"
+	var c: Dictionary = conveyors[i]
+	if int(c["items"]) > 0:
+		if float(c["progress"]) >= 1.0 and ep_space(link["dst"], str(c["resource"])) < 1:
+			return "blocked"
+		return "active"
+	if float(c["pull"]) > 0.0:
+		return "active"
+	return "idle"
+
 ## Units currently on belts; used to prove conservation in tests.
 func conveyor_total() -> int:
 	var n := 0

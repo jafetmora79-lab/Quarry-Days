@@ -3787,6 +3787,18 @@ func _create_conveyor(index: int) -> void:
 	body.set_meta("items", items)
 	if art:
 		art.dress_conveyor(body)
+	# status lamp on a post beside the entry end: green carrying, amber blocked, red disconnected, dim idle
+	var lamp := MeshInstance3D.new()
+	var lm := SphereMesh.new()
+	lm.radius = 0.07
+	lm.height = 0.14
+	lm.radial_segments = 8
+	lm.rings = 4
+	lamp.mesh = lm
+	lamp.material_override = StandardMaterial3D.new()
+	lamp.position = Vector3(0.5, 0.2, 0.85)
+	body.add_child(lamp)
+	body.set_meta("lamp", lamp)
 	conveyor_nodes.append(body)
 
 ## Cheap per-frame visuals: belt items slide along, output storages show their fill level.
@@ -6192,12 +6204,22 @@ func _sync_formations() -> void:
 
 # ------------------------------------------------------------------ Phase 5: machinery that shows what it does
 
+const BELT_LAMP := {"active": Color(0.3, 0.9, 0.3), "blocked": Color(1.0, 0.65, 0.1), "disconnected": Color(0.95, 0.2, 0.15), "idle": Color(0.35, 0.38, 0.35)}
 var belt_mat_moving: StandardMaterial3D
 var _belt_scroll := 0.0
 
 ## Crushers: flywheels/mantle spin up and down smoothly, the jaw cycles only while really crushing,
 ## the hopper shows its real contents, the output pile grows when a run completes, and a small label
 ## shows run progress. Conveyors: the belt texture scrolls only while the belt carries material.
+## Extra flywheel turn so rotation rate scales with processing speed (the base spin above is unchanged at speed 1).
+func fw_scale_apply(body: Node3D, speedup: float, ease: float, delta: float, axis_y: bool) -> void:
+	var extra := (speedup - 1.0) * delta * 8.0 * ease
+	for fw in body.get_meta("flywheels", []):
+		if axis_y:
+			fw.rotation.y += extra
+		else:
+			fw.rotation.x += extra
+
 func _update_machines(delta: float) -> void:
 	var any_running := false
 	var t := Time.get_ticks_msec() * 0.001
@@ -6216,8 +6238,21 @@ func _update_machines(delta: float) -> void:
 				fw.rotation.x = sin(t * 9.0) * 0.05 * ease # gyrating mantle
 			else:
 				fw.rotation.x += delta * 8.0 * ease
+		# animation speed follows the real processing speed: a faster crusher (efficiency upgrade, advanced tier) cycles faster
+		var speedup := clampf(float(state.config["crusher_seconds"]) / maxf(0.2, state.process_seconds(i)), 0.6, 4.0)
+		var cyc := 5.5 + 2.0 * speedup
 		if body.has_meta("jaw") and not axis_y:
-			body.get_meta("jaw").rotation.x = sin(t * 7.5) * 0.16 * ease
+			body.get_meta("jaw").rotation.x = sin(t * cyc) * 0.16 * ease
+		fw_scale_apply(body, speedup, ease, delta, axis_y)
+		# subtle whole-machine vibration while active; it settles back to rest exactly when switched off
+		if not body.has_meta("rest_pos"):
+			body.set_meta("rest_pos", body.position)
+		var rest: Vector3 = body.get_meta("rest_pos")
+		if (body.position - rest).length() > 0.05:      # moved by a relocation: take the new spot as rest
+			rest = body.position
+			body.set_meta("rest_pos", rest)
+		var shake := 0.006 * ease
+		body.position = rest + Vector3(sin(t * 47.0 + i) * shake, absf(sin(t * 31.0)) * shake, cos(t * 53.0) * shake)
 		var tier := int(c.get("tier", 1))
 		var hop: MeshInstance3D = body.get_meta("hopper_fill", null)
 		if hop:
@@ -6262,8 +6297,23 @@ func _update_machines(delta: float) -> void:
 		var cnode: Node3D = conveyor_nodes[i]
 		var belt: MeshInstance3D = cnode.get_meta("belt", null)
 		if belt:
-			var moving := int(business.conveyors[i]["items"]) > 0 or float(business.conveyors[i]["pull"]) > 0.0
-			belt.material_override = belt_mat_moving if moving else MeshKit.mat("Belt")
+			var st := business.belt_status(i)
+			belt.material_override = belt_mat_moving if st == "active" else MeshKit.mat("Belt")   # a blocked belt stops running
+			var lamp: MeshInstance3D = cnode.get_meta("lamp", null)
+			if lamp:
+				var lc: Color = BELT_LAMP.get(st, Color.GRAY)
+				var lmat := lamp.material_override as StandardMaterial3D
+				lmat.albedo_color = lc
+				lmat.emission_enabled = st != "idle"
+				lmat.emission = lc
+				lmat.emission_energy_multiplier = 1.6 if st != "idle" else 0.0
+				cnode.set_meta("status", st)
+	if any_running:
+		var top := 1.0
+		for ci in range(state.crushers.size()):
+			if bool(state.crushers[ci]["running"]):
+				top = maxf(top, float(state.config["crusher_seconds"]) / maxf(0.2, state.process_seconds(ci)))
+		crusher_audio.pitch_scale = clampf(0.9 + 0.12 * top, 0.9, 1.5)   # motor note rises with speed
 	if any_running and not crusher_audio.playing:
 		crusher_audio.play()
 	elif not any_running and crusher_audio.playing:
