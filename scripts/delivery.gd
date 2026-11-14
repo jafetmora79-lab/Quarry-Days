@@ -261,8 +261,163 @@ func _anyone_near() -> bool:
 	for j in jobs:
 		if _near_door(j["vehicle"].global_position, 6.0):
 			return true
+	for ct in crate_jobs:
+		if is_instance_valid(ct["node"]) and _near_door(ct["node"].global_position, 6.0):
+			return true
 	for w in game.worker_nodes.values():
 		if w.visible and _near_door(w.global_position):
+			return true
+	return false
+
+# --------------------------------------------------------------- crate trucks (stationary machinery)
+
+## Crushers, hoppers, belts and the like cannot drive. The order is already paid for and in the construction inventory (that never waits on anything
+## here); a flatbed carrying the crate comes through the gate to the drop spot, tips it off and reverses out. Purely visual: it touches no inventory,
+## money or save data, never drives through a person (it gives up and vanishes at the gate instead), and `finish_all` clears it.
+var crate_jobs: Array = []
+const CRATE_COLORS := {"crusher": Color(0.30, 0.38, 0.40), "advanced_crusher": Color(0.26, 0.34, 0.30), "hopper": Color(0.55, 0.45, 0.25), "sorter": Color(0.50, 0.40, 0.28),
+	"output": Color(0.30, 0.42, 0.32), "conveyor": Color(0.22, 0.24, 0.26), "conveyor_left": Color(0.22, 0.24, 0.26), "conveyor_right": Color(0.22, 0.24, 0.26)}
+
+func _crate_route() -> Array:
+	if west:
+		return [WEST_END, Vector3(WEST_MOUTH.x, 0.05, WEST_GATE.z), Vector3(WEST_GATE.x + 1.5, 0.05, WEST_GATE.z), Vector3(WEST_GATE.x + 7.0, 0.05, WEST_GATE.z)]
+	return [Vector3(DOOR_X, 0.05, GATE.z), Vector3(DOOR_X, 0.05, 24.2)]
+
+func start_crate(kind: String) -> bool:
+	if game == null or crate_jobs.size() >= 2:
+		return false
+	var route := _crate_route()
+	var t := Node3D.new()
+	t.name = "CrateTruck"
+	var wheels: Array = []
+	var steel := MeshKit.flat(Color(0.16, 0.17, 0.19))
+	var paint := MeshKit.flat(Color(0.82, 0.55, 0.10))
+	var glass := MeshKit.flat(Color(0.30, 0.42, 0.5))
+	var tyre := MeshKit.flat(Color(0.07, 0.07, 0.08))
+	for part in [[Vector3(0, 0.62, 0.3), Vector3(1.9, 0.28, 5.0), steel], [Vector3(0, 1.45, -1.9), Vector3(1.95, 1.45, 1.35), paint], [Vector3(0, 1.8, -2.5), Vector3(1.7, 0.55, 0.06), glass]]:
+		var m := MeshInstance3D.new()
+		var b := BoxMesh.new()
+		b.size = part[1]
+		m.mesh = b
+		m.position = part[0]
+		m.material_override = part[2]
+		t.add_child(m)
+	for ax in [-1.9, 1.3, 2.4]:
+		for sx in [-1.0, 1.0]:
+			var pv := Node3D.new()
+			pv.position = Vector3(sx * 1.0, 0.5, ax)
+			pv.set_meta("radius", 0.5)
+			var wm := MeshInstance3D.new()
+			var cy := CylinderMesh.new()
+			cy.top_radius = 0.5
+			cy.bottom_radius = 0.5
+			cy.height = 0.34
+			cy.radial_segments = 10
+			wm.mesh = cy
+			wm.rotation.z = PI * 0.5
+			wm.material_override = tyre
+			pv.add_child(wm)
+			t.add_child(pv)
+			wheels.append(pv)
+	var bed := Node3D.new()                        # hinged at the rear: the front of the bed rises to tip the crate off the back
+	bed.position = Vector3(0, 0.8, 2.75)
+	t.add_child(bed)
+	var deck := MeshInstance3D.new()
+	var db := BoxMesh.new()
+	db.size = Vector3(2.0, 0.12, 4.0)
+	deck.mesh = db
+	deck.position = Vector3(0, 0, -2.0)
+	deck.material_override = steel
+	bed.add_child(deck)
+	var crate := MeshInstance3D.new()
+	var cb := BoxMesh.new()
+	cb.size = Vector3(1.6, 1.2, 1.7)
+	crate.mesh = cb
+	crate.position = Vector3(0, 0.66, -1.3)
+	crate.material_override = MeshKit.flat(CRATE_COLORS.get(kind, Color(0.4, 0.4, 0.4)))
+	bed.add_child(crate)
+	var band := MeshInstance3D.new()
+	var bb := BoxMesh.new()
+	bb.size = Vector3(1.64, 0.14, 1.74)
+	band.mesh = bb
+	band.position = Vector3(0, 0.66, 0)
+	band.material_override = MeshKit.flat(Color(0.85, 0.70, 0.15))
+	crate.add_child(band)
+	t.position = route[0]
+	t.rotation.y = -PI * 0.5 if west else 0.0
+	game.world.add_child(t)
+	crate_jobs.append({"node": t, "wheels": wheels, "bed": bed, "crate": crate, "route": route.duplicate(), "back": [], "stage": "in", "t": 0.0, "wait": 0.0, "idx": 1})
+	return true
+
+func _step_crate(j: Dictionary, delta: float) -> void:
+	var t: Node3D = j["node"]
+	if not is_instance_valid(t):
+		crate_jobs.erase(j)
+		return
+	match str(j["stage"]):
+		"in", "out":
+			var route: Array = j["route"]
+			var idx: int = j["idx"]
+			if _blocked_ahead(t) if j["stage"] == "in" else _blocked_behind(t):
+				j["wait"] = float(j["wait"]) + delta
+				if float(j["wait"]) > 15.0:
+					t.queue_free()                      # never drives through anyone: it gives up (cosmetic only)
+					crate_jobs.erase(j)
+				return
+			j["wait"] = 0.0
+			var at_door: bool = (absf(t.global_position.x - door_c.x) < 1.2) if west else (t.global_position.z < DOOR_Z + 1.0 and t.global_position.z > DOOR_Z - 1.0)
+			if at_door and open_amount < 0.85:
+				return
+			var to: Vector3 = route[idx] - t.global_position
+			to.y = 0.0
+			if to.length() < 0.3:
+				if idx >= route.size() - 1:
+					if j["stage"] == "in":
+						j["stage"] = "tip"
+						j["t"] = 0.0
+					else:
+						t.queue_free()
+						crate_jobs.erase(j)
+					return
+				j["idx"] = idx + 1
+				return
+			var fwd := -t.global_transform.basis.z
+			var step := minf(2.8 * delta, to.length())
+			if j["stage"] == "in":
+				t.rotation.y = lerp_angle(t.rotation.y, atan2(-to.x, -to.z), minf(1.0, delta * 3.0))
+				t.global_position += fwd * step
+				for w in j["wheels"]:
+					w.rotate_x(-step / 0.5)
+			else:
+				# reversing out along the way it came in: the cab still points into the yard
+				t.global_position += to.normalized() * step
+				for w in j["wheels"]:
+					w.rotate_x(step / 0.5)
+		"tip":
+			j["t"] = float(j["t"]) + delta
+			var k := float(j["t"])
+			(j["bed"] as Node3D).rotation.x = 0.5 * smoothstep(0.0, 1.4, k) * (1.0 - smoothstep(3.6, 4.6, k))
+			var crate: Node3D = j["crate"]
+			if k > 1.4 and k < 3.2:
+				crate.position.z = lerpf(-1.3, 0.9, smoothstep(1.4, 3.2, k))
+				crate.position.y = lerpf(0.66, 0.2, smoothstep(1.4, 3.2, k))
+			if k >= 3.2:
+				crate.scale = Vector3.ONE * maxf(0.0, 1.0 - (k - 3.2) / 0.6)     # taken into the construction store
+				crate.visible = crate.scale.x > 0.02
+			if k >= 4.6:
+				var r: Array = j["route"].duplicate()
+				r.reverse()
+				j["route"] = r
+				j["idx"] = 1
+				j["stage"] = "out"
+
+func _blocked_behind(t: Node3D) -> bool:
+	var back := t.global_position + t.global_transform.basis.z * 3.4
+	var b2 := Vector2(back.x, back.z)
+	if game.player and not game.driving and Vector2(game.player.global_position.x, game.player.global_position.z).distance_to(b2) < 1.9:
+		return true
+	for w in game.worker_nodes.values():
+		if w.visible and Vector2(w.global_position.x, w.global_position.z).distance_to(b2) < 1.9:
 			return true
 	return false
 
@@ -368,6 +523,8 @@ func _physics_process(delta: float) -> void:
 	body.get_child(0).disabled = open_amount > 0.7
 	for j in jobs.duplicate():
 		_step_job(j, delta)
+	for cj in crate_jobs.duplicate():
+		_step_crate(cj, delta)
 
 func _step_job(j: Dictionary, delta: float) -> void:
 	var v: QuarryVehicle = j["vehicle"]
@@ -381,7 +538,7 @@ func _step_job(j: Dictionary, delta: float) -> void:
 			if entry_clear():
 				v.visible = true
 				j["stage"] = "drive"
-				game.hud.toast("Delivery arriving", "%s is coming in through the service gate." % game.fleet.spec(v.vtype)["title"], "info")
+				game.hud.toast("Delivery arriving", "%s is coming in through the service gate. (K: skip)" % game.fleet.spec(v.vtype)["title"], "info")
 		"drive":
 			if _blocked_ahead(v) and float(j["wait"]) < 15.0:
 				j["wait"] = float(j["wait"]) + delta   # stops for people, up to 15 s
@@ -458,6 +615,10 @@ func _finish(j: Dictionary) -> void:
 
 ## Completes every running delivery at once (machine on its bay, driver gone). Used by tests and when a save is loaded.
 func finish_all() -> void:
+	for cj in crate_jobs.duplicate():
+		if is_instance_valid(cj["node"]):
+			cj["node"].queue_free()
+	crate_jobs.clear()
 	for j in jobs.duplicate():
 		var v: QuarryVehicle = j["vehicle"]
 		if is_instance_valid(v):

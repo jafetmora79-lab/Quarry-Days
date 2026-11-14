@@ -152,6 +152,18 @@ func _target(state: String, kind: String, p: float, t: float) -> Dictionary:
 				g["lf"] = lerpf(12.0, 100.0, chin / maxf(back + chin, 0.0001))
 				g["lean"] = -3.0 * back + 2.0 * chin
 				g["head"] = 5.0 * chin
+			else:
+				# a working person's idle: every so often they look round the yard, later wipe their brow. Each worker has their own timing (the
+				# rig seed), so a crew standing together never fidgets in unison. Nothing here changes what the worker is doing.
+				var c2 := fposmod(t + _seed * 3.1, 17.0)
+				var look := smoothstep(3.0, 4.0, c2) * (1.0 - smoothstep(7.0, 8.0, c2))
+				var wipe := smoothstep(11.0, 11.8, c2) * (1.0 - smoothstep(14.0, 15.0, c2))
+				g["w"] = maxf(look, wipe)
+				g["twist"] = sin((c2 - 3.0) * 1.6) * 12.0 * look
+				g["head"] = sin((c2 - 3.0) * 1.6) * 8.0 * look + 4.0 * wipe
+				g["ru"] = 52.0 * wipe
+				g["rf"] = (128.0 + sin(t * 5.0) * 4.0) * wipe
+				g["ro"] = -6.0 * wipe
 		"work":
 			g["w"] = 1.0
 			match kind:

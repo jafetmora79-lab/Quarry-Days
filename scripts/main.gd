@@ -1731,6 +1731,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		safety.rescue("asked to be lifted out")
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_T and not placement and name_dialog == null:
 		_companion_command()
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_K and not placement and menu == "" and name_dialog == null and delivery and not delivery.jobs.is_empty():
+		var n_skipped: int = delivery.jobs.size()
+		delivery.finish_all()                      # the same end state as the drive: the machine parked on its bay, no driver, nothing duplicated
+		_notify("Delivery skipped: %d machine%s parked." % [n_skipped, "" if n_skipped == 1 else "s"])
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_J and not placement and menu == "" and name_dialog == null:
 		var cv: QuarryVehicle = driving
 		if cv == null and last_target != null and str(last_target.get_meta("kind", "")) == "vehicle":
@@ -2736,6 +2740,8 @@ func order_machine(key: String) -> bool:
 	var titles := {"crusher": "Small jaw crusher", "hopper": "Small hopper", "sorter": "Manual sorting table", "output": "Output storage", "advanced_crusher": "Advanced crusher", "conveyor": "Straight conveyor",
 		"conveyor_left": "Left corner conveyor", "conveyor_right": "Right corner conveyor"}
 	hud.toast("Delivery confirmed", "%s is in your construction inventory - place it from the order screen or in construction mode." % titles.get(key, key), "unlock")
+	if delivery:
+		delivery.start_crate(key)                  # cosmetic flatbed with the crate; the inventory above is already final
 	_sfx_unlock()
 	return true
 
