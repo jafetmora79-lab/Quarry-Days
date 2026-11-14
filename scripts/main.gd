@@ -1592,6 +1592,10 @@ func area_at(p: Vector3) -> String:
 var _area_check_t := 0.0
 
 func _physics_process(delta: float) -> void:
+	if pc_active:
+		player.global_position = pc_body                      # seated at the computer: whatever nudges the body (a ramp, a leftover push), the player stays put
+		if not pc_busy:
+			player.camera.global_transform = pc_pose()          # ...and the view stays on the monitor
 	_area_check_t -= delta
 	if _area_check_t <= 0.0 and player != null:
 		_area_check_t = 0.5
@@ -1751,6 +1755,9 @@ func _update_light() -> void:
 		landscape.set_time(state.clock_minutes)
 
 func _unhandled_input(event: InputEvent) -> void:
+	if pc_busy:
+		get_viewport().set_input_as_handled()           # the camera is gliding to or from the monitor: nothing reacts
+		return
 	if repair_seq != null:
 		if event is InputEventKey and event.pressed and not event.echo and event.keycode in [KEY_ESCAPE, KEY_E]:
 			repair_seq.cancel()                      # safe cancel until the part is actually fitted
@@ -1891,7 +1898,7 @@ func _interact(target: Node3D) -> void:
 		"cart":
 			_open_menu("cart", state.carts.find(str(target.get_meta("cart"))))
 		"office":
-			_open_menu("manage")
+			enter_pc()
 		"bed":
 			try_sleep()
 		"door":
@@ -1917,6 +1924,62 @@ func _interact(target: Node3D) -> void:
 			elif v:
 				enter_vehicle(v)
 
+# ------------------------------------------------------------------ the office computer
+
+var pc_active := false           ## the player sits at the office computer (camera at the monitor)
+var pc_busy := false             ## the camera is moving to or from the monitor
+var pc_return := Transform3D.IDENTITY
+var pc_body := Vector3.ZERO
+const PC_APPROACH := 0.7
+const PC_LEAVE := 0.55
+
+## The camera pose in front of the CRT: close enough that the screen fills the view. The monitor's screen centre is in the meta "pc_screen".
+func pc_pose() -> Transform3D:
+	var at: Vector3 = pc_screen_pos
+	var from := at + Vector3(0.0, 0.02, -0.42)
+	return Transform3D(Basis.looking_at((at - from).normalized(), Vector3.UP), from)
+
+var pc_screen_pos := Vector3.ZERO
+
+## E at the desk: the camera glides to the monitor, then the QUARRY OS desktop opens with a visible cursor. Movement and tools stay suspended throughout.
+func enter_pc() -> void:
+	if pc_active or pc_busy or menu != "":
+		return
+	if pc_screen_pos == Vector3.ZERO:
+		_open_menu("manage")                                # no workstation in this layout: the desktop still opens
+		return
+	pc_active = true
+	pc_busy = true
+	player.locked = true
+	player.velocity = Vector3.ZERO                          # the body stands still: the camera is its child
+	player.set_physics_process(false)
+	player.scripted_camera = true
+	player.tool_view.visible = false
+	pc_return = player.camera.global_transform
+	pc_body = player.global_position
+	var a := pc_return
+	var b := pc_pose()
+	var tw := create_tween()
+	tw.tween_method(func(w: float): player.camera.global_transform = a.interpolate_with(b, w), 0.0, 1.0, PC_APPROACH).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_callback(func():
+		pc_busy = false
+		_open_menu("manage"))
+
+func exit_pc() -> void:
+	pc_busy = true
+	player.locked = true                                    # still suspended until the camera is back
+	var a: Transform3D = player.camera.global_transform
+	var b := pc_return
+	var tw := create_tween()
+	tw.tween_method(func(w: float): player.camera.global_transform = a.interpolate_with(b, w), 0.0, 1.0, PC_LEAVE).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_callback(func():
+		pc_busy = false
+		pc_active = false
+		player.set_physics_process(true)
+		player.scripted_camera = false
+		player.tool_view.visible = true
+		player.locked = false)
+
 func _open_menu(kind: String, index := -1) -> void:
 	menu = kind
 	if hud:
@@ -1925,8 +1988,7 @@ func _open_menu(kind: String, index := -1) -> void:
 	panel.visible = kind != "manage"
 	management.visible = kind == "manage"
 	if kind == "manage":
-		if management.tab in ["sales"]:
-			management.tab = "home"
+		management.os.open_desktop()
 		management.refresh()
 	player.locked = true
 	if crusher_audio.playing:
@@ -1935,6 +1997,9 @@ func _open_menu(kind: String, index := -1) -> void:
 	_draw_menu()
 
 func _close_menu() -> void:
+	var from_pc := pc_active
+	if from_pc:
+		management.os.close_desktop()                       # the cursor goes back to the system arrow; the windows stay as they were
 	menu = ""
 	if hud:
 		hud.menu_open = false
@@ -1946,6 +2011,10 @@ func _close_menu() -> void:
 	player.locked = false
 	crusher_audio.stream_paused = false
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	if from_pc:
+		exit_pc()
+	else:
+		management.os.close_desktop()
 
 ## Every menu button goes through here: rapid repeat clicks on the same button inside 150 ms are ignored (no
 ## doubled transactions), the action runs once, and a money drop shows a red "-$n" at the button. Gains arrive
@@ -1955,6 +2024,8 @@ func ui_click(key: String, action: Callable, btn: Control = null) -> void:
 	if now - int(_click_ms.get(key, -100000)) < CLICK_GUARD_MS:
 		return
 	_click_ms[key] = now
+	if menu == "manage" and management != null and management.os != null:
+		management.os.click()
 	_tx_anchor = _button_anchor(btn)
 	var before := state.money
 	action.call()

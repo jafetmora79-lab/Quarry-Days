@@ -36,37 +36,44 @@ var task_info: Label
 var tab_buttons := {}
 var confirm_fire := -1
 
+## Two modes. The shell (game.management) is the computer's desktop: it owns a QuarryOS and keeps this class's old API (tab, content, header, status, _set_tab,
+## refresh) pointing at the focused window. A page (embedded = true, made by make_page) is the content of one QuarryOS window: it builds exactly the same
+## pages as before into its own `content`, from the same game state and the same game methods.
+var embedded := false
+var os: QuarryOS
+var pages: Array = []
+var _synced_tab := "home"      ## the shell's `tab` as last set by the shell itself: a different value means an old-style `tab = x; refresh()` from outside
+var owner_shell                  ## (pages) the shell that made them
+
 func setup(main_node) -> void:
 	game = main_node
 	visible = false
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	theme = _make_theme()
-	var frame := PanelContainer.new()
-	frame.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	frame.offset_left = -440
-	frame.offset_right = 440
-	frame.offset_top = -245
-	frame.offset_bottom = 245
-	add_child(frame)
-	var root := VBoxContainer.new()
-	root.add_theme_constant_override("separation", 6)
-	frame.add_child(root)
-	var top := HBoxContainer.new()
-	root.add_child(top)
-	header = _label("", ACCENT, QuarryTheme.BODY)
-	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	top.add_child(header)
+	header = _label("", ACCENT, QuarryTheme.BODY)          # the old API stays readable for the HUD and tests: the one-line company summary
+	status = _label("", GOOD, QuarryTheme.BODY)
+	subtabs = HBoxContainer.new()
+	content = VBoxContainer.new()
 	back_button = Button.new()
-	back_button.text = "< DESKTOP"
-	back_button.custom_minimum_size = Vector2(110, 28)
-	back_button.pressed.connect(func(): _set_tab("home"))
-	top.add_child(back_button)
-	var close := Button.new()
-	close.text = "CLOSE [Esc]"
-	close.custom_minimum_size = Vector2(110, 28)
-	close.pressed.connect(func(): game._close_menu())
-	top.add_child(close)
+	os = QuarryOS.new()
+	os.setup(game, self)
+	os.visible = false
+	add_child(os)
+
+## One window's page: the tab buttons (Employees only), a scrolling content column and a status line.
+func setup_page(main_node, first_tab: String) -> void:
+	game = main_node
+	embedded = true
+	tab = first_tab
+	mouse_filter = Control.MOUSE_FILTER_PASS
+	size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	size_flags_vertical = Control.SIZE_EXPAND_FILL
+	theme = _make_theme()
+	var root := VBoxContainer.new()
+	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.add_theme_constant_override("separation", 4)
+	add_child(root)
 	subtabs = HBoxContainer.new()
 	subtabs.add_theme_constant_override("separation", 4)
 	root.add_child(subtabs)
@@ -74,7 +81,8 @@ func setup(main_node) -> void:
 		var b := Button.new()
 		b.text = t[1]
 		b.toggle_mode = true
-		b.custom_minimum_size = Vector2(110, 0)
+		b.custom_minimum_size = Vector2(96, 22)
+		b.focus_mode = Control.FOCUS_ALL
 		b.pressed.connect(_set_tab.bind(t[0]))
 		subtabs.add_child(b)
 		tab_buttons[t[0]] = b
@@ -88,24 +96,48 @@ func setup(main_node) -> void:
 	scroll.add_child(content)
 	status = _label("", GOOD, QuarryTheme.BODY)
 	root.add_child(status)
-	taskbar = PanelContainer.new()
-	taskbar.add_theme_stylebox_override("panel", _box(Color(0.05, 0.09, 0.12), Color(0.22, 0.36, 0.42), 1, 5))
-	root.add_child(taskbar)
-	var tb := HBoxContainer.new()
-	tb.add_theme_constant_override("separation", 10)
-	taskbar.add_child(tb)
-	var start := Button.new()
-	start.text = "QUARRY OS"
-	start.custom_minimum_size = Vector2(96, 24)
-	start.pressed.connect(func(): _set_tab("home"))
-	tb.add_child(start)
-	task_app = _label("", Color(0.8, 0.92, 1.0), 11, false)
-	task_app.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	tb.add_child(task_app)
-	task_info = _label("", Color(0.8, 0.92, 1.0), 11, false)
-	tb.add_child(task_info)
+	back_button = Button.new()                              # never shown: the desktop replaces the old "< DESKTOP" button
+	back_button.visible = false
+
+## The shell makes one page per window.
+func make_page(first_tab: String) -> Control:
+	var p = get_script().new()
+	p.owner_shell = self
+	p.setup_page(game, first_tab)
+	pages.append(p)
+	p.tree_exiting.connect(func(): pages.erase(p))
+	return p
+
+## The window that was just raised becomes the page the old API points at.
+func on_focus(p) -> void:
+	if p == null:
+		return
+	content = p.content
+	status = p.status
+	subtabs = p.subtabs
+	tab_buttons = p.tab_buttons
+	scroll = p.scroll
+	tab = p.tab
+	_synced_tab = tab
+
+## Opens the application that holds a tab (the old way of going to a page); `home` shows the bare desktop.
+func open_tab(id: String) -> void:
+	if id == "home":
+		tab = "home"
+		_synced_tab = tab
+		return
+	var app := os.app_for_tab(id)
+	if app == "":
+		return
+	var w := os.open_app(app, id)
+	if w != null:
+		w.page.refresh()
+	tab = id
+	_synced_tab = id
 
 func _make_theme() -> Theme:
+	if embedded:
+		return _os_page_theme()
 	var t := Theme.new()
 	t.default_font = QuarryTheme.body()
 	t.default_font_size = QuarryTheme.BODY
@@ -132,6 +164,35 @@ func _make_theme() -> Theme:
 	t.set_color("font_hover_color", "Button", Color(1, 0.95, 0.8))
 	t.set_color("font_pressed_color", "Button", Color(1, 0.95, 0.8))
 	t.set_color("font_disabled_color", "Button", Color(0.42, 0.40, 0.35))
+	return t
+
+## Inside a QUARRY OS window: grey bevelled buttons with dark text (from the desktop's theme), the rest of the controls as before.
+func _os_page_theme() -> Theme:
+	var t := Theme.new()
+	t.default_font = QuarryTheme.body()
+	t.default_font_size = QuarryTheme.BODY
+	var base := QuarryOS.new()
+	var bt := base.os_theme()
+	base.free()
+	t.set_font("font", "Button", QuarryTheme.hud())
+	t.set_font_size("font_size", "Button", QuarryTheme.HUD)
+	for st in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
+		t.set_stylebox(st, "Button", bt.get_stylebox(st, "Button"))
+	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color", "font_disabled_color"]:
+		t.set_color(c, "Button", bt.get_color(c, "Button"))
+	var fb := _box(Color(0, 0, 0, 0), Color(1.0, 0.92, 0.55), 2, 4)
+	for type in ["OptionButton", "CheckBox"]:
+		t.set_stylebox("normal", type, _box(Color(0.12, 0.15, 0.17), Color(0.6, 0.6, 0.6), 1, 4))
+		t.set_stylebox("hover", type, _box(Color(0.2, 0.25, 0.28), Color(0.85, 0.85, 0.85), 1, 4))
+		t.set_stylebox("pressed", type, _box(Color(0.2, 0.25, 0.28), Color(0.85, 0.85, 0.85), 1, 4))
+		t.set_stylebox("focus", type, fb)
+		t.set_color("font_color", type, INK)
+		t.set_color("font_hover_color", type, INK)
+	t.set_stylebox("panel", "PopupMenu", _box(Color(0.09, 0.1, 0.12), Color(0.7, 0.7, 0.7), 1, 4))
+	t.set_stylebox("hover", "PopupMenu", _box(Color(0.0, 0.0, 0.5), Color(0.0, 0.0, 0.5), 0, 2))
+	t.set_color("font_color", "PopupMenu", INK)
+	t.set_color("font_color", "Label", INK)
+	t.set_stylebox("panel", "PanelContainer", _box(Color(0.1, 0.15, 0.18), Color(0.4, 0.45, 0.5), 1, 6))
 	return t
 
 func _box(bg: Color, border: Color, width: int, margin: int) -> StyleBoxFlat:
@@ -171,7 +232,7 @@ func _row() -> HBoxContainer:
 
 func _card() -> VBoxContainer:
 	var p := PanelContainer.new()
-	p.add_theme_stylebox_override("panel", _box(Color(0.19, 0.145, 0.1), Color(0.36, 0.28, 0.19), 1, 7))
+	p.add_theme_stylebox_override("panel", _box(Color(0.14, 0.2, 0.24), Color(0.36, 0.46, 0.52), 1, 7) if embedded else _box(Color(0.19, 0.145, 0.1), Color(0.36, 0.28, 0.19), 1, 7))
 	content.add_child(p)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 4)
@@ -179,13 +240,14 @@ func _card() -> VBoxContainer:
 	return v
 
 func _set_tab(id: String) -> void:
-	if id == "sales":
-		game._open_menu("sell")                  # the sales window is the station panel; it has a way back to this computer
+	if not embedded:                              # the shell: go to the application that holds this tab
+		open_tab(id)
 		return
-	tab = id
-	confirm_fire = -1
-	status.text = ""
-	refresh()
+	if id in ["staff", "hire", "payroll", "production", "equipment", "upgrades", "milestones", "stats", "plan", "sales"]:
+		tab = id
+		confirm_fire = -1
+		status.text = ""
+		refresh()
 
 func _say(text: String) -> void:
 	refresh()
@@ -193,25 +255,21 @@ func _say(text: String) -> void:
 
 func refresh() -> void:
 	var b: QuarryBusiness = game.business
-	var clock := int(game.state.clock_minutes)
-	header.text = "GRANDPA WALT'S QUARRY  -  DAY %d  %s   %s   STAFF %d/%d   STAGE: %s" % [clock / 1440 + 1, game.fmt_time(clock), QuarryTheme.money_text(game.state.money), b.employees.size(), b.max_employees(), str(game.prog.stage_info()["title"]).to_upper()]
-	var app_title := "Desktop"
-	for c in CARDS:
-		if str(c[4]) == tab or str(c[0]) == tab:
-			app_title = str(c[1]).capitalize()
-	if tab in ["staff", "hire", "payroll"]:
-		app_title = "Employees"
-	task_app.text = ("[ %s ]" % app_title) if tab != "home" else ""
-	task_info.text = "DAY %d  %s     %s" % [clock / 1440 + 1, game.fmt_time(clock), QuarryTheme.money_text(game.state.money)]
+	if not embedded:                              # the shell: the one-line summary, the desktop clock and every open window
+		var clock := int(game.state.clock_minutes)
+		header.text = "GRANDPA WALT'S QUARRY  -  DAY %d  %s   %s   STAFF %d/%d   STAGE: %s" % [clock / 1440 + 1, game.fmt_time(clock), QuarryTheme.money_text(game.state.money), b.employees.size(), b.max_employees(), str(game.prog.stage_info()["title"]).to_upper()]
+		if tab != _synced_tab:                        # old style: `management.tab = "equipment"; management.refresh()` opens that application
+			open_tab(tab)
+		if os != null:
+			os.refresh_all()
+		return
 	for id in tab_buttons:
 		tab_buttons[id].button_pressed = id == tab
 	subtabs.visible = tab in ["staff", "hire", "payroll"]
-	back_button.visible = tab != "home"
 	for child in content.get_children():
 		content.remove_child(child)
 		child.queue_free()
 	match tab:
-		"home": _home()
 		"plan": _plan()
 		"staff": _staff(b)
 		"hire": _hire(b)
@@ -221,6 +279,7 @@ func refresh() -> void:
 		"milestones": _milestones(b)
 		"upgrades": _upgrades()
 		"stats": _stats(b)
+		"sales": _sales(b)
 	call_deferred("_ensure_focus")
 
 ## Every page leaves one control focused (a keyboard or gamepad user is never stranded on an empty screen); a mouse click that rebuilds the page
@@ -228,6 +287,8 @@ func refresh() -> void:
 func _ensure_focus() -> void:
 	if not is_inside_tree() or not visible:
 		return
+	if embedded and (owner_shell == null or owner_shell.os == null or owner_shell.os.active == null or owner_shell.os.active.page != self):
+		return                                          # only the focused window pulls keyboard focus
 	var fo := get_viewport().gui_get_focus_owner()
 	if fo != null and is_instance_valid(fo) and is_ancestor_of(fo) and fo.is_visible_in_tree() and not fo.is_queued_for_deletion():
 		if not (fo is BaseButton and (fo as BaseButton).disabled):
@@ -293,97 +354,74 @@ func _plan() -> void:
 		for pt in a1["parts"]:
 			ac.add_child(_label("%s %s: %d / %d" % ["[x]" if int(pt["have"]) >= int(pt["need"]) else "[ ]", str(pt["label"]), int(pt["have"]), int(pt["need"])], INK, QuarryTheme.BODY))
 
-# ------------------------------------------------------------------ home (cards)
+# ------------------------------------------------------------------ sales
 
-func _home() -> void:
-	# the office computer is a small fake desktop: shortcut icons for the things you do here, and a sticky note with the next goal
-	var desk := PanelContainer.new()
-	desk.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	desk.custom_minimum_size = Vector2(0, 360)
-	var wall := _box(Color(0.065, 0.13, 0.17), Color(0.24, 0.4, 0.46), 2, 14)
-	desk.add_theme_stylebox_override("panel", wall)
-	content.add_child(desk)
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 10)
-	desk.add_child(col)
-	var icons := HFlowContainer.new()
-	icons.add_theme_constant_override("h_separation", 12)
-	icons.add_theme_constant_override("v_separation", 12)
-	icons.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	col.add_child(icons)
-	var b: QuarryBusiness = game.business
-	for c in CARDS:
-		var badge := ""
-		match str(c[0]):
-			"employees": badge = "%d/%d hired" % [b.employees.size(), b.max_employees()]
-			"machinery": badge = "%d in yard" % game.fleet.vehicles.size()
-			"sales": badge = ""
-		var tile := _desktop_icon(str(c[1]), str(c[2]), badge, str(c[3]))
-		var first: String = str(c[4])
-		tile.pressed.connect(func(): _set_tab(first))
-		icons.add_child(tile)
-	var gap := Control.new()
-	gap.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	col.add_child(gap)
-	var bottom := HBoxContainer.new()
-	col.add_child(bottom)
-	var wm := _label("QUARRY OS", Color(0.3, 0.5, 0.56), 16, false)
-	wm.add_theme_font_override("font", QuarryTheme.bold())
-	bottom.add_child(wm)
-	var sp := Control.new()
-	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	bottom.add_child(sp)
-	var note := PanelContainer.new()
-	note.add_theme_stylebox_override("panel", _box(Color(0.95, 0.86, 0.5), Color(0.62, 0.5, 0.2), 1, 8))
-	note.custom_minimum_size = Vector2(250, 0)
-	bottom.add_child(note)
-	var nv := VBoxContainer.new()
-	nv.add_theme_constant_override("separation", 2)
-	note.add_child(nv)
-	var next_i := mini(game.prog.stage + 1, game.prog.stages().size() - 1)
-	var nt := _label("NEXT GOAL: " + str(game.prog.stage_info(next_i)["title"]).to_upper(), Color(0.3, 0.2, 0.05), 11, true)
-	nv.add_child(nt)
-	nv.add_child(_label(str(game.prog.stage_info(next_i).get("goal", "")), Color(0.25, 0.18, 0.06), 11, true))
-
-## One shortcut on the desktop: a small icon with its name underneath and a one-word status; the whole tile is the button.
-func _desktop_icon(title: String, desc: String, badge: String, icon_name: String) -> Button:
-	var tile := Button.new()
-	tile.set_meta("desktop_icon", true)
-	tile.focus_mode = Control.FOCUS_ALL
-	tile.custom_minimum_size = Vector2(104, 92)
-	tile.text = ""
-	tile.tooltip_text = desc
-	var clear := StyleBoxFlat.new()
-	clear.bg_color = Color(0, 0, 0, 0)
-	var hover := _box(Color(0.3, 0.52, 0.62, 0.28), Color(0.5, 0.75, 0.85, 0.7), 1, 4)
-	var down := _box(Color(0.3, 0.52, 0.62, 0.5), Color(0.7, 0.9, 1.0, 0.9), 1, 4)
-	tile.add_theme_stylebox_override("normal", clear)
-	tile.add_theme_stylebox_override("hover", hover)
-	tile.add_theme_stylebox_override("pressed", down)
-	tile.add_theme_stylebox_override("hover_pressed", down)
-	tile.add_theme_stylebox_override("focus", hover)
-	var v := VBoxContainer.new()
-	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	v.offset_top = 8
-	v.alignment = BoxContainer.ALIGNMENT_BEGIN            # every icon sits at the same height, with or without a status line
-	v.add_theme_constant_override("separation", 3)
-	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	tile.add_child(v)
-	if UiArt.has_icon(icon_name):
-		var ic := UiArt.icon_rect(icon_name, 48.0)
-		ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		v.add_child(ic)
-	var t := _label(title.capitalize(), Color(0.93, 0.97, 1.0), 11, false)
-	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_child(t)
-	var e := _label(badge, GOOD, 10, false)
-	e.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	e.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	e.visible = badge != ""
-	v.add_child(e)
-	return tile
+## The Sales application: what you own, what each unit pays, sell it (bag, then the bin, then the output storages: the same business.sell_material the sales
+## window uses), choose what the clerk may sell, and the lifetime figures the game keeps. Prices come from the game's own table.
+func _sales(b: QuarryBusiness) -> void:
+	var st: QuarryState = game.state
+	var card := _card()
+	card.add_child(_label("SELLABLE MATERIALS", ACCENT))
+	var total := 0
+	var any := false
+	var head := _row()
+	for col in [["MATERIAL", 118], ["BAG", 44], ["STORED", 56], ["EACH", 56], ["VALUE", 76]]:
+		var hl := _label(str(col[0]), DIM, QuarryTheme.SMALL, false)
+		hl.custom_minimum_size = Vector2(float(col[1]), 0)
+		if col[0] != "MATERIAL":
+			hl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		head.add_child(hl)
+	card.add_child(head)
+	for i in range(game.RESOURCE_ORDER.size()):
+		var key: String = game.RESOURCE_ORDER[i]
+		var nb := int(st.inventory[key])
+		var ns := int(st.storage.get(key, 0)) + b.output_units(key)
+		if nb + ns <= 0:
+			continue                                   # only what you actually own
+		any = true
+		var value := st.payout(key, nb + ns)
+		total += value
+		var row := _row()
+		var cells := [[game.prog.display(key), 118, false], [str(nb), 44, true], [str(ns), 56, true], ["$" + game._price_text(st.unit_price(key)), 56, true], [QuarryTheme.money_text(value), 76, true]]
+		for c in cells:
+			var l := _label(str(c[0]), QuarryTheme.RES_COLORS.get(key, INK) if c[0] == cells[0][0] else INK, QuarryTheme.BODY, false)
+			l.custom_minimum_size = Vector2(float(c[1]), 0)
+			if bool(c[2]):
+				l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+			row.add_child(l)
+		var sp := Control.new()
+		sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(sp)
+		var idx := i
+		row.add_child(_button("SELL", func(): game.menu_act("sell", idx, false)))
+		card.add_child(row)
+	if not any:
+		card.add_child(_label("Nothing to sell yet. Mine some rock, or collect it from storage: whatever you own shows up here.", DIM))
+	var bar := _row()
+	card.add_child(bar)
+	bar.add_child(_button("SELL ALL  %s" % QuarryTheme.money_text(total), func(): game.menu_act("sell", game.RESOURCE_ORDER.size(), false), total > 0))
+	var clerk := _card()
+	clerk.add_child(_label("SALES CLERK MAY SELL", ACCENT))
+	var crow := HFlowContainer.new()
+	clerk.add_child(crow)
+	for res in QuarryState.RESOURCE_NAMES:
+		var cb := CheckBox.new()
+		cb.text = "%s" % game.prog.display(res)
+		cb.button_pressed = b.authorized[res]
+		var key2: String = res
+		cb.toggled.connect(func(on): b.authorized[key2] = on)
+		crow.add_child(cb)
+	var hist := _card()
+	hist.add_child(_label("SALES HISTORY", ACCENT))
+	hist.add_child(_label("Lifetime sales revenue: %s" % QuarryTheme.money_text(int(st.earned)), MONEY))
+	var sold: Dictionary = st.lifetime.get("sold", {})
+	var parts := []
+	for res in QuarryState.RESOURCE_NAMES:
+		if int(sold.get(res, 0)) > 0:
+			parts.append("%s %d" % [game.prog.display(res), int(sold[res])])
+	hist.add_child(_label("Units sold: " + (", ".join(parts) if not parts.is_empty() else "none yet"), INK, QuarryTheme.BODY))
+	var today := b.day_stats(b.current_day())
+	hist.add_child(_label("Sold by the clerk today: %d units, %s" % [int(today["sold"]), QuarryTheme.money_text(int(today["revenue"]))], DIM, QuarryTheme.BODY))
 
 # ------------------------------------------------------------------ staff
 
@@ -682,7 +720,7 @@ func _milestones(b: QuarryBusiness) -> void:
 # ------------------------------------------------------------------ equipment (Phase 3)
 
 const WARN_COLOR := Color(1.0, 0.5, 0.38)
-var equip_sel := ""
+static var equip_sel := ""
 
 func _equipment() -> void:
 	var f: QuarryFleet = game.fleet

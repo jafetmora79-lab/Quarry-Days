@@ -104,14 +104,29 @@ func soup(key: String) -> MeshKit.Soup:
 	return batch[key]
 
 func _material(key: String) -> Material:
+	if key.begins_with("flat:"):                      # BuildingDetails' coloured boxes: one shared material per colour
+		if not _flat_mats.has(key):
+			_flat_mats[key] = MeshKit.flat(Color.html(key.substr(5)))
+		return _flat_mats[key]
 	return MeshKit.mat(key)
+
+var _flat_mats := {}
 
 func _flush() -> void:
 	MeshKit.repair(batch)
+	var details := ArrayMesh.new()                    # BuildingDetails' coloured boxes: one node, one surface per colour
 	for key in batch:
 		var s: MeshKit.Soup = batch[key]
-		if s.verts.size() > 0:
+		if s.verts.size() == 0:
+			continue
+		if str(key).begins_with("flat:"):
+			var m := s.mesh()
+			details.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, m.surface_get_arrays(0))
+			details.surface_set_material(details.get_surface_count() - 1, _material(key))
+		else:
 			MeshKit.inst(root, s.mesh(), _material(key))
+	if details.get_surface_count() > 0:
+		MeshKit.inst(root, details, null).name = "BuildingDetails"
 	batch.clear()
 
 func bx(key: String, c: Vector3, size: Vector3, yaw := 0.0, taper := Vector2.ONE) -> void:
@@ -474,8 +489,9 @@ func _office() -> void:
 	_sign(root, "Sign_Office", c + Vector3(0, 2.5, -2.51), Vector2(2.2, 0.55), PI)
 	prop(P_WALL_LAMP, c + Vector3(1.0, 2.3, -2.5), PI)
 	light(c + Vector3(0, 2.4, 0.3), Color(1.0, 0.86, 0.62), 1.1, 6.0)
-	# interior: the management desk keeps its collision; the THE VEIL desk + computer sits on it
-	prop(P_DESK, c + Vector3(0, 0.16, 1.4), PI)
+	BuildingDetails.eaves(self, c, 5.6, 5.6, 2.8, 1.1, Color(0.55, 0.2, 0.18))
+	BuildingDetails.porch_awning(self, c, Color(0.55, 0.2, 0.18))
+	BuildingDetails.office_interior(self, c)                 # the desk with Walt's CRT computer, bookcase, maps, rug (the management desk collider is main's)
 	prop(P_CHAIR, c + Vector3(0.1, 0.16, 1.95), PI)
 	prop(P_FILING, c + Vector3(-1.95, 0.16, 1.85), PI * 0.5)
 	prop(P_DOCS, c + Vector3(-1.95, 0.16, 0.9), PI * 0.5)
@@ -504,8 +520,9 @@ func _home() -> void:
 	MeshKit.inst(root, MeshKit.frustum(0.09, 0.07, 0.22), MeshKit.flat(Color(1.0, 0.9, 0.6), 1.2), c + Vector3(-0.35, 0.6, 2.05))
 	light(c + Vector3(-0.35, 0.95, 2.0), Color(1.0, 0.85, 0.55), 0.7, 3.0)
 	prop(P_CLOCK, c + Vector3(1.4, 2.1, 2.2), PI)
-	prop(P_SHELF, c + Vector3(1.9, 0.16, 1.5), -PI * 0.5)
-	prop(P_BOXES, c + Vector3(1.6, 0.16, -1.2), 0.4)
+	BuildingDetails.eaves(self, c, 5.6, 5.6, 2.8, 1.0, Color(0.36, 0.38, 0.4))
+	BuildingDetails.porch_awning(self, c, Color(0.32, 0.36, 0.4))
+	BuildingDetails.home_interior(self, c)
 
 ## The tool shed: its own little building for upgrading the player's tools and vehicles. The workbench stands against the back wall
 ## (built by main), shelves and a toolchest sit against the side walls, and the doorway and the floor in front of it stay clear.
@@ -521,6 +538,8 @@ func _toolshed() -> void:
 	prop(P_BOXES, c + Vector3(1.9, 0.16, 0.3), -PI * 0.5)
 	solid("Tool shed shelving", c + Vector3(-2.0, 0.9, 0.3), Vector3(0.6, 1.8, 1.4))
 	solid("Tool shed boxes", c + Vector3(1.9, 0.5, 0.3), Vector3(0.7, 1.0, 1.0))
+	BuildingDetails.eaves(self, c, 5.6, 5.6, 2.8, 0.9, Color(0.36, 0.38, 0.4))
+	BuildingDetails.workshop(self, c)
 
 func _shed() -> void:
 	var c: Vector3 = game.SHED_POS
@@ -537,6 +556,8 @@ func _shed() -> void:
 	solid("Shed shelving", c + Vector3(-1.9, 0.9, 1.4), Vector3(0.6, 1.8, 1.4))
 	solid("Shed shelving", c + Vector3(1.9, 0.9, 1.4), Vector3(0.6, 1.8, 1.4))
 	light(c + Vector3(0, 2.4, 0), Color(0.95, 0.9, 0.75), 0.8, 5.0)
+	BuildingDetails.eaves(self, c, 5.6, 5.6, 2.8, 0.7, Color(0.5, 0.18, 0.15))
+	BuildingDetails.storage_shed(self, c)
 
 ## Open-front equipment garage over the parking bays: steel frame, corrugated walls and roof,
 ## workbench, shelving and clutter along the walls (clear of the bays).

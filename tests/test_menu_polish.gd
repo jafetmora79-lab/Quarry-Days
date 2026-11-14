@@ -97,26 +97,18 @@ func run() -> void:
 	var mg = game.management
 	mg._set_tab("home")
 	await frames(4)
-	var cards := []
-	for b in mg.content.find_children("*", "Button", true, false):
-		if b.has_meta("desktop_icon"):
-			cards.append(b)
-	check(cards.size() == ManagementScript.CARDS.size(), "the home page shows all %d cards (%d)" % [ManagementScript.CARDS.size(), cards.size()])
+	var cards: Array = mg.os.icons.values()
+	check(cards.size() == ManagementScript.CARDS.size(), "the desktop shows all %d shortcuts (%d)" % [ManagementScript.CARDS.size(), cards.size()])
 	var plates := 0
 	var titled := 0
 	for cb in cards:
-		if not (cb as Button).find_children("*", "TextureRect", true, false).is_empty():
-			plates += 1
-		var labs: Array = (cb as Button).find_children("*", "Label", true, false)
-		if labs.size() >= 1 and (labs[0] as Label).text != "" and (cb as Button).tooltip_text != "":
+		var img: TextureRect = (cb as Control).get_node("Img")
+		if img.texture != null and img.texture.get_width() == 32:
+			plates += 1                                        # a 32 x 32 native icon
+		var cap: Label = (cb as Control).get_node("Caption")
+		if cap.text != "" and (cb as Control).tooltip_text != "":
 			titled += 1
-	check(plates == cards.size() and titled == cards.size(), "each desktop icon has its picture, a name and a tooltip")
-	var click_through := true
-	for cb in cards:
-		for ch in (cb as Button).find_children("*", "Control", true, false):
-			if (ch as Control).mouse_filter != Control.MOUSE_FILTER_IGNORE:
-				click_through = false
-	check(click_through, "the card's inner parts let the click through: the whole card is the button")
+	check(plates == cards.size() and titled == cards.size(), "each desktop icon has its 32 px picture, a name and a tooltip")
 	# ---- hire page: roomy buttons, wage and fee in their own column
 	mg._set_tab("hire")
 	await frames(4)

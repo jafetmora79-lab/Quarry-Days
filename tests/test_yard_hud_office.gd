@@ -51,10 +51,8 @@ func run() -> void:
 	game._open_menu("manage")
 	await frames(3)
 	var m = game.management
-	check(m.tab == "home", "the office computer opens on its card grid")
-	var cards := 0
-	for c in m.content.find_children("*", "Button", true, false):
-		cards += 1
+	check(m.tab == "home", "the office computer opens on its desktop")
+	var cards: int = m.os.icons.size()
 	check(cards == 8, "eight cards: employees, machinery, sales, quarry plan, production, upgrades, milestones, stats (%d)" % cards)
 	var all_text := ""
 	m._set_tab("staff")
@@ -79,7 +77,7 @@ func run() -> void:
 	check(has_order, "machinery has the order button (crushers, belts, rigs)")
 	m._set_tab("sales")
 	await frames(2)
-	check(game.menu == "sell", "the sales card opens the sales window")
+	check(game.menu == "manage" and m.os.window_of("sales") != null and m.os.window_of("sales").visible, "the Sales shortcut opens the Sales application window on the desktop")
 	game._close_menu()
 	# ---- every new hire works the same day, 9 to 17
 	var emp: Dictionary = game.business.employees[0]
