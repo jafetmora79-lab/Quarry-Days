@@ -60,5 +60,41 @@ func run() -> void:
 		check(absf(c.tilt.rotation.x) < 0.05 and c.tip_t == 0.0, "%s: and it comes back level" % id)
 		c.queue_free()
 		await process_frame
+	# ---- the compressor: shakes and runs only while a powered tool is really in use
+	var game = load("res://Main.tscn").instantiate()
+	game.natural_start_enabled = false
+	game.autosave_enabled = false
+	root.add_child(game)
+	await process_frame
+	await frames(3)
+	game.hud.close_card()
+	game.state.gear.append("air_compressor")
+	game._refresh_gear_props()
+	await frames(5)
+	var prop = game.gear_props["air_compressor"]
+	check(game.compressor_run == 0.0 and (game.compressor_audio == null or not game.compressor_audio.playing), "the compressor is still and silent when no powered tool is in use")
+	var model: Node3D
+	for ch in prop.get_children():
+		if ch is Node3D and not ch is CollisionShape3D and not ch is AudioStreamPlayer3D:
+			model = ch
+	var tier := -1
+	for t in range(0, 12):
+		if game.prog.is_continuous(t):
+			tier = t
+			break
+	check(tier >= 0, "there is a hold-to-drill powered tool")
+	game.state.tool_tier = tier
+	game.touch_mode = true
+	game.touch_mine = true                               # the same "mouse held" input a touch player gives
+	var peak := 0.0
+	var at_rest: Vector3 = model.position
+	for i in range(90):
+		await physics_frame
+		peak = maxf(peak, (model.position - at_rest).length())
+	check(game.compressor_run > 0.9 and game.compressor_audio != null and game.compressor_audio.playing, "while a powered tool is in use the compressor runs and the motor loop plays")
+	check(peak > 0.0015 and peak < 0.02, "and its body vibrates (%.4f m)" % peak)
+	game.touch_mine = false
+	await frames(150)
+	check(game.compressor_run < 0.02 and not game.compressor_audio.playing and model.position.length() < 0.0005, "when the tool is released it winds down, goes silent and stops shaking")
 	print("RESULT: %d checks, %d failures" % [checks, failures.size()])
 	quit(1 if failures.size() > 0 else 0)

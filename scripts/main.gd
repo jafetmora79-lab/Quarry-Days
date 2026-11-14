@@ -6391,7 +6391,40 @@ func fw_scale_apply(body: Node3D, speedup: float, ease: float, delta: float, axi
 		else:
 			fw.rotation.x += extra
 
+## The yard compressor runs only while the player really works a powered tool (hold-to-drill pneumatic tools) with it owned: its body shakes and a motor loop
+## plays, spinning up and down smoothly, and it is still and silent otherwise.
+var compressor_run := 0.0
+var compressor_audio: AudioStreamPlayer3D
+
+func _update_compressor(delta: float) -> void:
+	var prop = gear_props.get("air_compressor")
+	if prop == null or not is_instance_valid(prop):
+		return
+	var working: bool = player != null and player.tool_view != null and player.tool_view.operating and prog.is_continuous() and not driving
+	compressor_run = move_toward(compressor_run, 1.0 if working else 0.0, delta * (2.5 if working else 1.0))
+	var model: Node3D = null
+	for c in prop.get_children():
+		if c is Node3D and not c is CollisionShape3D:
+			model = c
+			break
+	if model:
+		var t := Time.get_ticks_msec() * 0.001
+		model.position = Vector3(sin(t * 58.0) * 0.004, absf(sin(t * 37.0)) * 0.006, cos(t * 47.0) * 0.004) * compressor_run
+	if compressor_audio == null:
+		compressor_audio = AudioStreamPlayer3D.new()
+		compressor_audio.stream = load("res://audio/rig_loop.wav")
+		compressor_audio.unit_size = 4.0
+		compressor_audio.max_distance = 30.0
+		prop.add_child(compressor_audio)
+	compressor_audio.volume_db = lerpf(-34.0, -12.0, compressor_run)
+	compressor_audio.pitch_scale = lerpf(0.8, 1.1, compressor_run)
+	if compressor_run > 0.02 and not compressor_audio.playing:
+		compressor_audio.play()
+	elif compressor_run <= 0.02 and compressor_audio.playing:
+		compressor_audio.stop()
+
 func _update_machines(delta: float) -> void:
+	_update_compressor(delta)
 	var any_running := false
 	var t := Time.get_ticks_msec() * 0.001
 	for i in range(mini(state.crushers.size(), crusher_nodes.size())):
