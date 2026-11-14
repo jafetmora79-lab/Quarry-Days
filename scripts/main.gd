@@ -1374,7 +1374,7 @@ func _player_mining(delta: float) -> void:
 	power_feedback_t = maxf(0.0, power_feedback_t - delta)
 	too_hard_t = maxf(0.0, too_hard_t - delta)
 	bag_full_t = maxf(0.0, bag_full_t - delta)
-	var lmb := (touch_mine if touch_mode else Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)) and not driving and not construction and not placement and not hud.card_open()
+	var lmb := _mine_button_down()
 	if prog.is_continuous():
 		tv.operating = lmb
 		if lmb:
@@ -1405,6 +1405,37 @@ func _player_mining(delta: float) -> void:
 		mining_cooldown = prog.tool_interval()
 		_mining_ray() # sets how far the head must lunge to meet the rock under the crosshair
 		tv.swing(prog.tool_interval(), _on_swing_impact)
+
+## Gameplay input state: mining, interaction and tool swings only exist while the player is really in control. A dialogue, a cinematic, a story card, a locked
+## player (conversation, repair, sleep) or a menu takes the input instead.
+func gameplay_input_allowed() -> bool:
+	if _conversation_active() or (hud and hud.card_open()) or menu != "" or sleeping:
+		return false
+	if player == null or player.locked:
+		return false
+	return true
+
+var _mine_was_allowed := true
+var _mine_latch := false           ## a button press that started (or ran into) a blocked state stays ignored until the button is let go
+
+## Is the mine / use-tool button down FOR GAMEPLAY? Clicking NEXT or SKIP in a dialogue used to read as a mining click behind the dialogue (the button state is
+## polled, and the UI only consumed the event): now nothing counts while input is blocked, and a button that is still held when control returns stays ignored
+## until it is released.
+func _mine_button_down() -> bool:
+	var raw: bool = touch_mine if touch_mode else Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+	var ok := gameplay_input_allowed()
+	if ok and not _mine_was_allowed and raw:
+		_mine_latch = true                          # the click that ended a dialogue / card / cinematic must not become a swing
+	_mine_was_allowed = ok
+	if not ok:
+		_mine_latch = raw or _mine_latch
+		player.tool_view.operating = false
+		return false
+	if _mine_latch:
+		if raw:
+			return false
+		_mine_latch = false
+	return raw and not driving and not construction and not placement
 
 ## Swing tools apply damage at the visible moment of impact, against whatever is under the crosshair then.
 func _on_swing_impact() -> void:
@@ -1703,6 +1734,11 @@ func _update_light() -> void:
 		landscape.set_time(state.clock_minutes)
 
 func _unhandled_input(event: InputEvent) -> void:
+	if repair_seq != null:
+		if event is InputEventKey and event.pressed and not event.echo and event.keycode in [KEY_ESCAPE, KEY_E]:
+			repair_seq.cancel()                      # safe cancel until the part is actually fitted
+		get_viewport().set_input_as_handled()
+		return
 	if est_running:
 		var skip_key: bool = event is InputEventKey and event.pressed and not event.echo and event.keycode in [KEY_ESCAPE, KEY_ENTER, KEY_KP_ENTER, KEY_SPACE, KEY_E]
 		if skip_key or (event is InputEventMouseButton and event.pressed):
@@ -1714,6 +1750,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			dialog.skip_btn.pressed.emit()          # Esc skips the conversation
 			get_viewport().set_input_as_handled()
 		return
+	if walter_dialog != null or fossil_dialog != null:
+		return                                      # the dialogue reads its own keys; nothing behind it may react (no interaction, no mining)
 	if hud and hud.card_open():
 		if event.is_action_pressed("interact") or event.is_action_pressed("ui_cancel") or (event is InputEventMouseButton and event.pressed):
 			hud.close_card()
@@ -2676,31 +2714,14 @@ func _use_starter(v: QuarryVehicle) -> void:
 				missing.append(str(prog.opening_cfg().get("parts", {}).get(p, {}).get("title", p)).to_lower())
 		_notify("The excavator is broken: it still needs the %s. Pick the parts up near the workshop." % ", ".join(missing))
 
-## A short first-person repair: the view drops to the engine, three wrench taps with sparks, the part is fitted and the machine changes.
+## The part in hand is fitted with its own short sequence at its real place on the machine (scripts/repair_sequence.gd).
+var repair_seq: RepairSequence
+
 func _install_part(v: QuarryVehicle) -> void:
 	var part := prog.carried_part()
-	repair_busy = true
-	player.locked = true
-	var at := v.global_position + Vector3(0, 1.3, 0)
-	_turn_view_to(at, 0.35)
-	var tw := create_tween()
-	tw.tween_property(player.camera, "rotation:x", -0.35, 0.3)
-	for k in range(3):
-		tw.tween_callback(func():
-			sfx["hit_reinforced"].play()
-			fx.impact(at + Vector3(0.0, 0.1 * float(k), 0.0), "iron_ore", 0.8, Vector3.UP))
-		tw.tween_interval(0.32)
-	tw.tween_callback(func():
-		prog.install_part()
-		_decorate_starter()
-		_spawn_repair_parts()
-		sfx["unlock"].play()
-		hud.toast(str(prog.opening_cfg().get("parts", {}).get(part, {}).get("title", part)) + " fitted", "%d of 3 repairs done" % prog.repairs_done(), "unlock")
-		create_tween().tween_property(player.camera, "rotation:x", 0.0, 0.4)
-		player.locked = false
-		repair_busy = false
-		if prog.repairs_complete():
-			_excavator_start_scene(v))
+	if part == "" or repair_busy or repair_seq != null:
+		return
+	RepairSequence.new().start(self, v, part)
 
 ## Everything is fitted: Grandpa helps start it. The engine struggles before it catches; then normal play resumes at once.
 func _excavator_start_scene(v: QuarryVehicle) -> void:
@@ -2709,18 +2730,58 @@ func _excavator_start_scene(v: QuarryVehicle) -> void:
 	_turn_view_to(v.global_position + Vector3(0, 1.4, 0), 0.4)
 	_open_walter_dialog(prog.opening_cfg().get("start_lines", []), func(_skipped: bool): _engine_struggle(v))
 
+## The first start: the view rises into the operator's seat, the key is turned, the starter cranks and the engine coughs and stalls once (the fuel needs a moment to
+## reach the pump), the second crank catches, the machine shudders into a steady idle and puffs exhaust. Then Grandpa's line and the controls unlock.
+var _cam_home := Vector3.ZERO
+var _engine_audio: AudioStreamPlayer3D
+
 func _engine_struggle(v: QuarryVehicle) -> void:
 	repair_busy = true
 	player.locked = true
+	_cam_home = player.camera.position
+	var cab: Node3D = v.turret if v.turret != null else v.model_root
+	var seat: Vector3 = cab.to_global(Vector3(0.0, 1.95, 0.1))
+	var exhaust: Vector3 = cab.to_global(Vector3(0.45, 1.95, 0.45))
 	var base: Vector3 = v.model_root.position
+	_engine_audio = AudioStreamPlayer3D.new()
+	_engine_audio.stream = load("res://audio/rig_loop.wav")
+	_engine_audio.unit_size = 6.0
+	_engine_audio.max_distance = 45.0
+	_engine_audio.volume_db = -40.0
+	v.add_child(_engine_audio)
+	_engine_audio.position = Vector3(0, 1.4, 0)
 	var tw := create_tween()
-	for k in range(4):
-		tw.tween_callback(func():
-			sfx["hit_reinforced"].play()
-			fx.chunk_break(v.global_position + Vector3(0.4, 1.7, -0.9), "coal"))
-		tw.tween_property(v.model_root, "position", base + Vector3(0.0, 0.05, 0.0), 0.12)
-		tw.tween_property(v.model_root, "position", base, 0.12)
-		tw.tween_interval(0.28)
+	tw.tween_property(player.camera, "global_position", seat, 0.9).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)       # into the seat
+	tw.tween_callback(func():
+		hud.toast("Ignition", "Turning the key...", "info")
+		_engine_audio.pitch_scale = 0.5
+		_engine_audio.volume_db = -6.0
+		_engine_audio.play())
+	for k in range(6):                                                                                                  # first crank: it turns over but does not catch
+		tw.tween_property(_engine_audio, "pitch_scale", 0.62, 0.11)
+		tw.tween_property(_engine_audio, "pitch_scale", 0.44, 0.11)
+	tw.tween_callback(func():
+		_engine_audio.volume_db = -40.0
+		sfx["hit_reinforced"].play()
+		fx.chunk_break(exhaust, "coal")
+		hud.toast("It coughs and stalls", "The fuel has not reached the pump yet - try again.", "info"))
+	tw.tween_interval(0.8)
+	tw.tween_callback(func():
+		_engine_audio.volume_db = -6.0
+		_engine_audio.pitch_scale = 0.5)
+	for k in range(5):                                                                                                  # second crank: it catches
+		tw.tween_property(_engine_audio, "pitch_scale", 0.66, 0.1)
+		tw.tween_property(_engine_audio, "pitch_scale", 0.5, 0.1)
+	tw.tween_callback(func():
+		sfx["unlock"].play()
+		for puff in range(7):
+			get_tree().create_timer(0.2 * float(puff)).timeout.connect(func(): fx.chunk_break(exhaust + Vector3(0, 0.1 * float(puff % 3), 0), "coal"))
+		var shake := create_tween()
+		for k2 in range(9):                                                                                             # a shudder that settles into a faint idle
+			var amp := 0.06 * (1.0 - float(k2) / 9.0) + 0.004
+			shake.tween_property(v.model_root, "position", base + Vector3(0.0, amp, 0.0), 0.07)
+			shake.tween_property(v.model_root, "position", base, 0.07))
+	tw.tween_property(_engine_audio, "pitch_scale", 1.0, 0.9).set_trans(Tween.TRANS_SINE)
 	tw.tween_callback(func(): _engine_runs(v, base))
 
 func _engine_runs(v: QuarryVehicle, base: Vector3) -> void:
@@ -2731,7 +2792,14 @@ func _engine_runs(v: QuarryVehicle, base: Vector3) -> void:
 	_open_walter_dialog(prog.opening_cfg().get("running_lines", []), func(_s2: bool): _after_start(), true)
 
 func _after_start() -> void:
-	create_tween().tween_property(player.camera, "rotation:x", 0.0, 0.4)
+	var back := create_tween()
+	back.set_parallel(true)
+	back.tween_property(player.camera, "rotation:x", 0.0, 0.4)
+	back.tween_property(player.camera, "position", _cam_home, 0.7).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)      # out of the cab and back to eye height
+	if _engine_audio and is_instance_valid(_engine_audio):
+		var fade := create_tween()
+		fade.tween_property(_engine_audio, "volume_db", -40.0, 1.2)
+		fade.tween_callback(func(): if is_instance_valid(_engine_audio): _engine_audio.queue_free())
 	player.locked = false
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	repair_busy = false
