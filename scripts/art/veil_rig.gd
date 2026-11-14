@@ -232,6 +232,17 @@ func _target(state: String, kind: String, p: float, t: float) -> Dictionary:
 			g["rf"] = lerpf(58.0, 82.0, pull)
 			g["lean"] = 10.0 + 4.0 * pull
 			g["head"] = 8.0
+		"sort":
+			# leaning over the table, the hands going back and forth between the raw tray and the sorting trays; the head follows the work
+			g["w"] = 1.0
+			g["lean"] = 26.0
+			g["knee"] = 8.0
+			g["lu"] = 48.0 + 14.0 * sin(t * 4.2)
+			g["ru"] = 48.0 + 14.0 * sin(t * 4.2 + PI)
+			g["lf"] = 70.0 + 10.0 * sin(t * 4.2 + 1.0)
+			g["rf"] = 70.0 + 10.0 * sin(t * 4.2 + 1.0 + PI)
+			g["twist"] = sin(t * 2.1) * 7.0
+			g["head"] = 16.0 + sin(t * 2.1) * 4.0
 		"monitor":
 			g["w"] = 1.0
 			g["lu"] = 14.0

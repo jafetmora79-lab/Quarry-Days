@@ -189,7 +189,10 @@ func assignment_valid(prof: String, a: Dictionary) -> bool:
 		"hauler":
 			return a.size() == 2 and a.get("src") is Dictionary and a.get("dst") is Dictionary and route_resource(a["src"], a["dst"]) != ""
 		"clerk":
-			return a.size() == 1 and str(a.get("station", "")) == "sell"
+			if a.size() == 1:
+				return str(a.get("station", "")) == "sell"
+			# or the clerk works a sorting table: {"station": "sorter", "index": n}
+			return a.size() == 2 and str(a.get("station", "")) == "sorter" and int(a.get("index", -1)) >= 0 and variant_of(int(a.get("index", -1))) == "sorter"
 	return false
 
 func assign(id: int, a: Dictionary) -> bool:

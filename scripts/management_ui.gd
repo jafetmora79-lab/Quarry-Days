@@ -419,7 +419,14 @@ func _assignment_controls(b: QuarryBusiness, e: Dictionary, row: HBoxContainer) 
 			var res := b.route_resource(a.get("src", {}), a.get("dst", {}))
 			row.add_child(_label(("carries " + res.replace("_", " ")) if res != "" else "invalid route", DIM if res != "" else WARN, QuarryTheme.BODY))
 		"clerk":
-			row.add_child(_label("Works at the office. Choose what may be sold in PRODUCTION.", DIM, QuarryTheme.BODY))
+			var copts := [["Office counter (sells)", {"station": "sell"}]]
+			for i in range(b.outputs.size()):
+				if b.variant_of(i) == "sorter":
+					copts.append(["Sorting table #%d" % (i + 1), {"station": "sorter", "index": i}])
+			if copts.size() > 1:
+				row.add_child(_label("Works at:", DIM, QuarryTheme.BODY, false))
+				row.add_child(_option(copts, a, func(v): _say(game.ui_assign(id, v))))
+			row.add_child(_label("Office: choose what may be sold in PRODUCTION. Sorting table: starts sort batches.", DIM, QuarryTheme.BODY))
 
 func _set_route(b: QuarryBusiness, id: int, src: Dictionary, dst: Dictionary, dsts: Array) -> void:
 	if b.route_resource(src, dst) == "":

@@ -801,7 +801,52 @@ func _operator(delta: float) -> void:
 		e["task"] = "Waiting for limestone in hopper"
 
 # --- sales clerk ---
+## A clerk assigned to a sorting table: walks to it, and while the table's real sorting timer runs (business.tick_sorters) works the rocks with a
+## sorting motion; when the table is idle and holds unsorted rock the clerk starts the next batch (the same call as the SORT A BATCH button).
+func _sorter_clerk(delta: float) -> void:
+	var idx := int(e["assignment"].get("index", -1))
+	var ep := {"type": "output", "index": idx}
+	if idx < 0 or idx >= business.outputs.size() or business.variant_of(idx) != "sorter":
+		e["warning"] = "Assigned sorting table unavailable"
+		_wait(delta, "No sorting table")
+		return
+	if str(e["warning"]).begins_with("Assigned sorting"):
+		e["warning"] = ""
+	var tpos := QuarryBusiness.v3(business.outputs[idx]["position"])
+	var r := ARRIVED
+	if _flat(global_position, tpos) < 2.3:
+		_halt(delta)                       # already at the bench: stand and work, no shuffling about for the exact spot
+	else:
+		r = goto_workplace(ep, delta)
+	if r == MOVING:
+		e["task"] = "Walking to sorting table #%d" % (idx + 1)
+	if r != ARRIVED:
+		return
+	_face(tpos)
+	if business.sorter_busy(idx):
+		anim = "sort"
+		anim_phase = 0.0
+		var left := float(business.outputs[idx].get("sort_left", 0.0))
+		e["task"] = "Sorting rock (%.0fs)" % left
+		return
+	var any := false
+	for res in QuarryBusiness.SORTABLE:
+		if business.sorter_unsorted(idx, res) > 0:
+			any = true
+	if any and can_work_now():
+		business.sorter_start(idx)
+		e["task"] = "Starting a batch"
+		return
+	anim = "paperwork"
+	e["task"] = "Waiting for rock on the table" if not any else "Waiting"
+
+func can_work_now() -> bool:
+	return business.can_work(e)
+
 func _clerk(delta: float) -> void:
+	if str(e["assignment"].get("station", "sell")) == "sorter":
+		_sorter_clerk(delta)
+		return
 	var ep := {"type": "sell"}
 	var r := goto_workplace(ep, delta)
 	if r == MOVING:

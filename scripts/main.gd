@@ -3888,12 +3888,83 @@ func _update_structures() -> void:
 		sf.scale.y = maxf(0.08, sratio)
 		sf.position.y = -0.5                           # on the crate floor, heaping up inside the walls
 	for i in range(mini(output_nodes.size(), business.outputs.size())):
+		if business.variant_of(i) == "sorter":
+			_sort_visuals(i, output_nodes[i])
 		var fill: MeshInstance3D = output_nodes[i].get_meta("fill")
 		_style_fill(output_nodes[i], fill, business.outputs[i]["items"], 0.82)
 		var ratio := float(business.output_total(i)) / float(business.output_capacity_of(i))
-		fill.visible = ratio > 0.0
+		fill.visible = ratio > 0.0 and business.variant_of(i) != "sorter"      # a sorting table shows its own rocks (_sort_visuals)
 		fill.scale.y = maxf(0.05, ratio)
 		fill.position.y = float(output_nodes[i].get_meta("fill_y", -0.04))   # on the bin floor, heaping up inside the walls (not under the hopper)
+
+## Sorting table visuals, all read from the table's real data: loose rock lies on the raw tray in the colours of what is there, a rock hops from the
+## raw tray to the right sorting tray while a batch is really being sorted, and each tray (limestone, coal, iron) holds the sorted rock of its own
+## mineral. No resource is created here: every count comes from outputs[i]["items"] / ["sorted"] / ["sort_job"].
+const SORT_TRAYS := {"limestone": 0, "coal": 1, "iron_ore": 2}
+
+func _sort_visuals(i: int, body: Node3D) -> void:
+	var vis: Dictionary = body.get_meta("sort_vis", {})
+	if vis.is_empty():
+		var rm := MeshKit.rock(Vector3(0.2, 0.13, 0.18), 71, 3, 6)
+		var raws := []
+		for k in range(3):
+			var m := MeshInstance3D.new()
+			m.mesh = rm
+			m.position = Vector3(-0.52 + float(k - 1) * 0.09, 0.5 + float(k % 2) * 0.03, -0.02 + float(k - 1) * 0.14)
+			m.rotation.y = float(k) * 1.3
+			m.visible = false
+			body.add_child(m)
+			raws.append(m)
+		var piles := {}
+		for res in SORT_TRAYS:
+			var idx: int = SORT_TRAYS[res]
+			var pm := MeshInstance3D.new()
+			pm.mesh = MeshKit.rock(Vector3(0.22, 0.2, 0.32), 83 + idx, 3, 6)
+			pm.position = Vector3(-0.05 + 0.32 * float(idx), 0.5, -0.2)
+			pm.material_override = MeshKit.mat(QuarryArt.ROCK_MAT.get(res, "RockLimestone"))
+			pm.visible = false
+			body.add_child(pm)
+			piles[res] = pm
+		var hop := MeshInstance3D.new()
+		hop.mesh = rm
+		hop.visible = false
+		body.add_child(hop)
+		vis = {"raws": raws, "piles": piles, "hop": hop}
+		body.set_meta("sort_vis", vis)
+	var o: Dictionary = business.outputs[i]
+	var raw_best := ""
+	var raw_n := 0
+	var raw_total := 0
+	for res in QuarryBusiness.SORTABLE:
+		var left := int(o["items"].get(res, 0)) - business.sorter_sorted(i, res)
+		raw_total += maxi(0, left)
+		if left > raw_n:
+			raw_n = left
+			raw_best = res
+	var shown := mini(3, int(ceil(float(raw_total) / 6.0)))
+	for k in range(3):
+		var rk: MeshInstance3D = vis["raws"][k]
+		rk.visible = k < shown
+		if rk.visible and raw_best != "":
+			rk.material_override = MeshKit.mat(QuarryArt.ROCK_MAT.get(raw_best, "RockLimestone"))
+	for res in SORT_TRAYS:
+		var n := business.sorter_sorted(i, res)
+		var pile: MeshInstance3D = vis["piles"][res]
+		pile.visible = n > 0
+		if n > 0:
+			pile.scale = Vector3(1, clampf(float(n) / 12.0, 0.25, 1.0), 1)
+	var hop: MeshInstance3D = vis["hop"]
+	var job: Dictionary = o.get("sort_job", {})
+	if business.sorter_busy(i) and not job.is_empty():
+		var jr := str(job.keys()[0])
+		var ph := fposmod(Time.get_ticks_msec() * 0.0009, 1.0)
+		var from := Vector3(-0.52, 0.55, -0.02)
+		var to := Vector3(-0.05 + 0.32 * float(SORT_TRAYS.get(jr, 0)), 0.55, -0.2)
+		hop.visible = ph < 0.85
+		hop.position = from.lerp(to, ph / 0.85) + Vector3(0, sin(clampf(ph / 0.85, 0.0, 1.0) * PI) * 0.22, 0)
+		hop.material_override = MeshKit.mat(QuarryArt.ROCK_MAT.get(jr, "RockLimestone"))
+	else:
+		hop.visible = false
 
 ## Magnetic placement for belts (grid snap on): within 2.6 m of a machine port or the end of another belt, the
 ## ghost jumps to the spot where its end touches the machine and faces along the flow, so it links with no
