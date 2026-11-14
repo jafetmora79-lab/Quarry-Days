@@ -96,6 +96,7 @@ var placement_hint := ""
 var fleet: QuarryFleet
 var vehicles_root: Node3D
 var vehicle_nodes := {}
+var crew             ## automatic excavator + truck loop (J on a machine)
 var driving: QuarryVehicle
 var storage_body: StaticBody3D
 var sell_body: StaticBody3D
@@ -159,6 +160,7 @@ var rig_nodes: Array = []
 var rig_pick_type := ""
 
 func _ready() -> void:
+	crew = AutoCrew.new(self)
 	touch_mode = OS.has_feature("mobile") or OS.get_cmdline_user_args().has("--touch")
 	var cfg = JSON.parse_string(FileAccess.get_file_as_string("res://data/economy.json"))
 	state = State.new(cfg)
@@ -1548,6 +1550,8 @@ func _physics_process(delta: float) -> void:
 			else:
 				_excavator_dig(driving, delta)
 	for v in vehicle_nodes.values():
+		if v.vkind in ["excavator", "truck"]:
+			crew.step(v, delta)
 		v.control(delta)
 	_update_structures()
 	_update_piles()
@@ -1617,7 +1621,7 @@ func _physics_process(delta: float) -> void:
 				if not vrec.is_empty() and str(vrec["type"]) == "starter_excavator" and not prog.excavator_ready():
 					prompt = ("E: fit the %s" % prog.carried_part()) if prog.carried_part() != "" else ("E: Grandpa's excavator - %d of 3 repairs done" % prog.repairs_done())
 				elif not vrec.is_empty():
-					prompt = "E: drive %s (%d/%d %s)" % [fleet.spec(vrec["type"])["title"], fleet.cargo_total(vrec), fleet.capacity(vrec), "in bucket" if fleet.kind(str(vrec["type"])) != "truck" else "in bed"]
+					prompt = ("[AUTO CREW ON - J: off]  " if crew.is_auto(vrec) else ("J: auto crew  |  " if crew.eligible(last_target_vehicle_node(vrec)) == "" else "")) + "E: drive %s (%d/%d %s)" % [fleet.spec(vrec["type"])["title"], fleet.cargo_total(vrec), fleet.capacity(vrec), "in bucket" if fleet.kind(str(vrec["type"])) != "truck" else "in bed"]
 			"pile":
 				prompt = "%s: %d units - scoop it with a front loader" % [fleet.cfg["piles"][str(last_target.get_meta("pile"))]["title"], int(fleet.piles[str(last_target.get_meta("pile"))]["amount"])]
 	if construction and not placement:
@@ -1727,6 +1731,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		safety.rescue("asked to be lifted out")
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_T and not placement and name_dialog == null:
 		_companion_command()
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_J and not placement and menu == "" and name_dialog == null:
+		var cv: QuarryVehicle = driving
+		if cv == null and last_target != null and str(last_target.get_meta("kind", "")) == "vehicle":
+			cv = vehicle_nodes.get(int(last_target.get_meta("vehicle_id")))
+		if cv != null:
+			crew.toggle(cv)
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_B:
 		construction = not construction
 		sell_confirm = ""
@@ -4152,6 +4162,9 @@ func free_parking_slot(type := "loader") -> Variant:
 func free_fallback_slot(type := "loader") -> Variant:
 	return _find_parking(type, true)
 
+func last_target_vehicle_node(rec: Dictionary) -> QuarryVehicle:
+	return vehicle_nodes.get(int(rec["id"]))
+
 func enter_vehicle(v: QuarryVehicle) -> void:
 	release_cart()
 	if v != null and v.vtype == "starter_excavator" and not prog.excavator_ready():
@@ -4574,20 +4587,20 @@ func _target_name(t: Dictionary) -> String:
 	return business.describe_ep(t["ep"])
 
 ## right click: loader dumps its bucket; truck raises its bed and unloads.
-func vehicle_dump(v: QuarryVehicle) -> int:
+func vehicle_dump(v: QuarryVehicle, quiet := false) -> int:
 	var rec := fleet.vehicle(v.vehicle_id)
 	if fleet.cargo_total(rec) <= 0:
-		_notify("Nothing to unload.")
+		if not quiet: _notify("Nothing to unload.")
 		return 0
 	var t := dump_target(v.work_point(), 3.0, v)
 	if t.is_empty():
-		_notify("Nothing to unload into here. Get close to a storage crate, crusher, output storage%s." % (" or truck" if v.has_bucket() else ""))
+		if not quiet: _notify("Nothing to unload into here. Get close to a storage crate, crusher, output storage%s." % (" or truck" if v.has_bucket() else ""))
 		return 0
 	if v.vkind == "truck":
 		if v.unload_timer > 0.0:
 			return 0
 		v.start_unload(t)
-		_notify("Raising the bed over %s..." % _target_name(t))
+		if not quiet: _notify("Raising the bed over %s..." % _target_name(t))
 		return 0
 	var moved := 0
 	if t.has("spoil"):
@@ -4600,7 +4613,7 @@ func vehicle_dump(v: QuarryVehicle) -> int:
 	v.dump_timer = 1.0
 	if moved > 0:
 		fx.chunk_break(v.work_point() + Vector3(0, 1.0, 0), "limestone")
-	_notify("Dumped %d into %s.%s" % [moved, _target_name(t), (" %d left in the bucket (target full or wrong material)." % fleet.cargo_total(rec)) if fleet.cargo_total(rec) > 0 else ""])
+	if not quiet: _notify("Dumped %d into %s.%s" % [moved, _target_name(t), (" %d left in the bucket (target full or wrong material)." % fleet.cargo_total(rec)) if fleet.cargo_total(rec) > 0 else ""])
 	return moved
 
 ## A delivery to a destination (storage crate, crusher, output storage) is the only thing that counts as a shipment, and only for the units

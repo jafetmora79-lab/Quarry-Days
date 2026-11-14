@@ -22,6 +22,7 @@ var data: Dictionary
 var size := Vector3(2, 1.5, 3)
 
 var driven := false
+var auto_drive := false         ## the auto crew (scripts/auto_crew.gd) is steering it: `input` is obeyed like a driver's, but with no camera
 var speed := 0.0
 var input := {"throttle": 0.0, "steer": 0.0, "brake": false}
 var settled_frames := 0
@@ -198,9 +199,10 @@ func control(delta: float) -> void:
 	data = fleet.vehicle(vehicle_id)
 	if data.is_empty():
 		return
-	var throttle := float(input["throttle"]) if driven else 0.0
-	var steer := float(input["steer"]) if driven else 0.0
-	var braking := bool(input["brake"]) if driven else true
+	var live := driven or auto_drive
+	var throttle := float(input["throttle"]) if live else 0.0
+	var steer := float(input["steer"]) if live else 0.0
+	var braking := bool(input["brake"]) if live else true
 	var busy := unload_timer > 0.0 or dump_timer > 0.0
 	if busy:
 		throttle = 0.0
@@ -221,7 +223,7 @@ func control(delta: float) -> void:
 	if has_meta("delivering"):
 		_animate(delta) # an NPC is driving it into its bay (see scripts/delivery.gd)
 		return
-	var parked := not driven and absf(speed) < 0.01 and is_on_floor() and settled_frames > 5
+	var parked := not live and absf(speed) < 0.01 and is_on_floor() and settled_frames > 5
 	if parked:
 		_animate(delta)
 		return

@@ -306,6 +306,10 @@ func restore(data: Dictionary) -> void:
 						org[str(a)] = int(raw["origin"][a])
 			if not org.is_empty():
 				rec["origin"] = org
+			if bool(raw.get("auto", false)) and kind(str(raw["type"])) in ["excavator", "truck"] and str(raw["type"]) != "starter_excavator":
+				rec["auto"] = true                                   # auto crew (scripts/auto_crew.gd) keeps running after a load
+				if raw.get("auto_home") is Array and raw["auto_home"].size() == 3:
+					rec["auto_home"] = raw["auto_home"].duplicate()
 			vehicles.append(rec)
 	next_id = int(data.get("next_id", 1))
 	for v in vehicles:
