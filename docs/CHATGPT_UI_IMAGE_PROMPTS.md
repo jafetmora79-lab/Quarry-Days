@@ -4,6 +4,20 @@ Use one conversation per sheet. Paste the **Style block** first, then the sheet'
 
 If a result is off-grid, blurry, or contains text: say "Redo, pixel-perfect on the 4x4 grid, no text, transparent background" and re-send the layout. Generate a sheet in two halves if the model drops pieces (top half / bottom half of the same layout).
 
+## READ FIRST - what these sheets are for (add this to every prompt)
+
+The first generated sheet ("Sheet C3") came back as an attractive **mock-up board**: nice art, but with a painted map inside the map frame, an emblem baked into each panel, letters baked into key caps and the compass, bars drawn half-full, everything at different sizes with no grid. A game cannot use that as-is: the panels must be EMPTY so live text and live values can sit inside them, bars must be an EMPTY groove plus a SEPARATE fill (the game stretches the fill to the real percentage), and key caps must have no letter (the game draws the key name). Say so explicitly. Paste this paragraph at the top of every request:
+
+```
+PURPOSE: these are PRODUCTION GAME ASSETS that a programmer will cut out and plug into a game engine, NOT a UI mock-up, poster or concept art. The game draws all text, numbers, maps, portraits and bar fill amounts itself, so every piece must be EMPTY and reusable:
+- Frames and panels: the inside is EMPTY flat dark brown. No icons, emblems, stripes, portraits, text or maps inside or on the edges other than the repeating border. Decoration only in the four corners (they stay fixed); the edges between the corners are plain and repeat.
+- Progress bars: draw the EMPTY groove (with end caps) as one sprite and the FILL as a separate sprite (a plain strip I can stretch). NEVER draw a half-full bar.
+- Key caps and buttons: NO letters, symbols or icons on them; blank faces only.
+- Minimap frame: the centre is fully TRANSPARENT (no painted map).
+- Compass and markers: no letters; (only the dedicated north tag may contain an N).
+- One sprite per grid cell at the exact size and position I list. Do not add extra sprites, decorations, labels, or a presentation layout. Same outline thickness and palette across every sprite.
+```
+
 ## Style block (paste first, every time)
 
 ```
