@@ -354,3 +354,9 @@ Priority: one continuous rock surface, then the simple background. No visual che
 - Main menu title is QUARRY DAYS (two lines, Pixelify Sans, 42 base px); the computer header says QUARRY DAYS; project and window title were already Quarry Days.
 - Pixel fonts (Silkscreen, VT323) are sized to their pixel grid for the current window and re-sized when it changes; a 15 px on-screen floor applies to every themed label, button and theme (`QuarryTheme.fit_size`); Pixelify Sans now renders smooth (it was unfiltered); project default theme `assets/ui/qd_theme.tres` (tooltips and unthemed controls). Letter pagination follows the fitted size.
 - `test_typography`; `docs/TYPOGRAPHY.md`.
+
+## Quarry OS final polish (claude/quarry-os-polish)
+- Desktop: shortcuts in a 4 x 2 grid (operations on top, money and planning below) with margins and equal spacing, hover brightening, a sticky note with the game's real next goal, a wordmark; taskbar buttons carry the app icon; hover and active states differ; styled scroll bars and progress bars.
+- Windows: per-app minimum sizes and a corner resize grip clamped to the desktop; section headings in Pixelify Sans; Esc closes the start menu first.
+- Quarry Plan: headline "now cutting" with real progress toward the next level, ACTIVE / OPEN / NEXT / LOCKED tags, depth, materials, progress bars, road costs and shortfalls. Sales: separate bag / bin / output columns and totals; only owned materials listed.
+- `test_quarry_os_polish`.

@@ -10,17 +10,19 @@ class_name QuarryOS
 const ART := "res://assets/ui/os/"
 const TASKBAR_H := 26.0
 const TITLE_H := 18.0
-const ICON_W := 84.0
-const ICON_H := 66.0
-const APPS := [      ## id, title, icon, first tab of the page, window size
-	["employees", "Employees", "employees", "staff", Vector2(640, 410)],
-	["machinery", "Machinery", "machinery", "equipment", Vector2(700, 430)],
-	["sales", "Sales", "sales", "sales", Vector2(600, 380)],
-	["plan", "Quarry Plan", "plan", "plan", Vector2(620, 410)],
-	["production", "Production", "production", "production", Vector2(640, 410)],
-	["upgrades", "Upgrades", "upgrades", "upgrades", Vector2(640, 410)],
-	["milestones", "Milestones", "milestones", "milestones", Vector2(640, 410)],
-	["stats", "Stats", "stats", "stats", Vector2(480, 330)]]
+const ICON_W := 96.0
+const ICON_H := 74.0
+const MARGIN := Vector2(36, 30)         ## desktop margin (top left of the icon grid)
+const GRID_GAP := Vector2(20, 14)
+const APPS := [      ## id, title, icon, first tab of the page, window size, minimum window size. Row 1 runs the quarry, row 2 is money and planning.
+	["employees", "Employees", "employees", "staff", Vector2(640, 410), Vector2(480, 300)],
+	["machinery", "Machinery", "machinery", "equipment", Vector2(700, 430), Vector2(520, 320)],
+	["production", "Production", "production", "production", Vector2(640, 410), Vector2(480, 300)],
+	["upgrades", "Upgrades", "upgrades", "upgrades", Vector2(640, 410), Vector2(480, 300)],
+	["sales", "Sales", "sales", "sales", Vector2(620, 390), Vector2(500, 300)],
+	["plan", "Quarry Plan", "plan", "plan", Vector2(640, 420), Vector2(480, 300)],
+	["milestones", "Milestones", "milestones", "milestones", Vector2(640, 410), Vector2(480, 300)],
+	["stats", "Stats", "stats", "stats", Vector2(500, 340), Vector2(380, 260)]]
 
 var game
 var shell                       ## the ManagementUI that owns this desktop (it keeps the old API: tab, content, refresh)
@@ -94,8 +96,14 @@ func os_theme() -> Theme:
 	t.default_font = QuarryTheme.body()
 	t.set_font("font", "Button", QuarryTheme.hud())
 	QuarryTheme.fit_theme(t, QuarryTheme.BODY, QuarryTheme.HUD, 8)
-	for st in ["normal", "hover"]:
-		t.set_stylebox(st, "Button", box("raised", 4))
+	t.set_stylebox("normal", "Button", box("raised", 4))
+	var hv := box("raised", 4)
+	if hv is StyleBoxTexture:
+		(hv as StyleBoxTexture).modulate_color = Color(1.14, 1.14, 1.08)          # hover: a lighter face
+	else:
+		(hv as StyleBoxFlat).bg_color = Color(0.84, 0.84, 0.8)
+	t.set_stylebox("hover", "Button", hv)
+	_style_scrollbars(t)
 	t.set_stylebox("pressed", "Button", box("pressed", 4))
 	t.set_stylebox("hover_pressed", "Button", box("pressed", 4))
 	t.set_stylebox("disabled", "Button", box("raised", 4))
@@ -108,6 +116,35 @@ func os_theme() -> Theme:
 		t.set_color(c, "Button", Color(0.05, 0.05, 0.08))
 	t.set_color("font_disabled_color", "Button", Color(0.45, 0.45, 0.47))
 	return t
+
+## Old-style scroll bars: a dark sunken track and a grey bevelled grabber that brightens under the mouse.
+func _style_scrollbars(t: Theme) -> void:
+	for bar in ["VScrollBar", "HScrollBar"]:
+		var track := StyleBoxFlat.new()
+		track.bg_color = Color(0.07, 0.11, 0.13)
+		track.border_color = Color(0.5, 0.5, 0.5)
+		track.set_border_width_all(1)
+		track.set_content_margin_all(0)
+		track.anti_aliasing = false
+		t.set_stylebox("scroll", bar, track)
+		t.set_stylebox("scroll_focus", bar, track)
+		for kind in ["grabber", "grabber_highlight", "grabber_pressed"]:
+			var g := StyleBoxFlat.new()
+			g.bg_color = {"grabber": Color(0.75, 0.75, 0.75), "grabber_highlight": Color(0.86, 0.86, 0.82), "grabber_pressed": Color(0.6, 0.6, 0.62)}[kind]
+			g.border_color = Color(0.15, 0.15, 0.2)
+			g.set_border_width_all(1)
+			g.border_width_top = 2 if kind != "grabber_pressed" else 1
+			g.set_content_margin_all(6)
+			g.anti_aliasing = false
+			t.set_stylebox(kind, bar, g)
+	t.set_constant("scrollbar_h_separation", "ScrollContainer", 2)
+	var back := StyleBoxFlat.new()
+	back.bg_color = Color(0.05, 0.08, 0.1)
+	back.border_color = Color(0.5, 0.5, 0.5)
+	back.set_border_width_all(1)
+	back.anti_aliasing = false
+	t.set_stylebox("background", "ProgressBar", back)
+	t.set_stylebox("fill", "ProgressBar", QuarryTheme.bar_box(Color(0.3, 0.75, 0.45)))
 
 # ------------------------------------------------------------------ build
 
@@ -141,17 +178,14 @@ func setup(main_node, shell_ui) -> void:
 			_select("")
 			_close_start())
 	add_child(bg)
-	var col := 0
-	var row := 0
+	var idx := 0
 	for a in APPS:
 		var ic := _make_icon(a)
-		ic.position = Vector2(10 + col * (ICON_W + 4), 10 + row * (ICON_H + 6))
+		ic.position = MARGIN + Vector2((idx % 4) * (ICON_W + GRID_GAP.x), (idx / 4) * (ICON_H + GRID_GAP.y))     # a 4 x 2 grid: operations on top, money and planning below
 		add_child(ic)
 		icons[str(a[0])] = ic
-		row += 1
-		if row >= 6:
-			row = 0
-			col += 1
+		idx += 1
+	_build_note()
 	area = Control.new()
 	area.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	area.offset_bottom = -TASKBAR_H
@@ -164,6 +198,57 @@ func setup(main_node, shell_ui) -> void:
 	_build_start_menu()
 	set_process(false)
 
+var note_title: Label
+var note_body: Label
+
+## The desktop's sticky note: the next stage and what it asks for (the game's own objective text, refreshed with the desktop) and a wordmark.
+func _build_note() -> void:
+	var mark := QuarryTheme.hud_label("QUARRY DAYS", QuarryTheme.HUD, Color(0.0, 0.42, 0.42))
+	mark.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	mark.offset_left = 18
+	mark.offset_bottom = -TASKBAR_H - 8
+	mark.offset_top = -TASKBAR_H - 30
+	mark.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(mark)
+	var note := PanelContainer.new()
+	note.name = "StickyNote"
+	note.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+	note.offset_right = -18
+	note.offset_bottom = -TASKBAR_H - 14
+	note.offset_left = -258
+	note.offset_top = -TASKBAR_H - 130
+	note.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	note.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	var st := StyleBoxFlat.new()
+	st.bg_color = Color(0.97, 0.9, 0.55)
+	st.border_color = Color(0.62, 0.5, 0.2)
+	st.set_border_width_all(1)
+	st.border_width_bottom = 3
+	st.set_content_margin_all(8)
+	st.anti_aliasing = false
+	note.add_theme_stylebox_override("panel", st)
+	note.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(note)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 3)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	note.add_child(v)
+	note_title = QuarryTheme.label("NEXT GOAL", QuarryTheme.BODY, Color(0.32, 0.2, 0.05), true)
+	v.add_child(note_title)
+	note_body = QuarryTheme.label("", QuarryTheme.BODY, Color(0.25, 0.17, 0.06))
+	note_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	note_body.custom_minimum_size = Vector2(230, 0)
+	v.add_child(note_body)
+
+func _refresh_note() -> void:
+	if note_title == null or game == null:
+		return
+	var next_i := mini(game.prog.stage + 1, game.prog.stages().size() - 1)
+	var info: Dictionary = game.prog.stage_info(next_i)
+	note_title.text = "NEXT GOAL: " + str(info["title"]).to_upper()
+	note_body.text = str(info.get("goal", ""))
+
 func _make_icon(a: Array) -> Control:
 	var id := str(a[0])
 	var c := Control.new()
@@ -173,8 +258,8 @@ func _make_icon(a: Array) -> Control:
 	var sel := ColorRect.new()                           # the selected-state plate behind the caption
 	sel.name = "Sel"
 	sel.color = Color(0.0, 0.0, 0.5, 0.0)
-	sel.position = Vector2(2, 36)
-	sel.size = Vector2(ICON_W - 4, 24)
+	sel.position = Vector2(4, 44)
+	sel.size = Vector2(ICON_W - 8, 26)
 	sel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	c.add_child(sel)
 	var img := TextureRect.new()
@@ -183,7 +268,7 @@ func _make_icon(a: Array) -> Control:
 	img.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	img.custom_minimum_size = Vector2(32, 32)
 	img.size = Vector2(32, 32)
-	img.position = Vector2((ICON_W - 32.0) * 0.5, 2)
+	img.position = Vector2((ICON_W - 32.0) * 0.5, 6)
 	img.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	c.add_child(img)
 	if img.texture == null:                              # fallback: a plain tile so the shortcut still exists
@@ -199,12 +284,14 @@ func _make_icon(a: Array) -> Control:
 	l.add_theme_constant_override("shadow_offset_y", 1)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.position = Vector2(2, 38)
-	l.size = Vector2(ICON_W - 4, 24)
+	l.position = Vector2(4, 46)
+	l.size = Vector2(ICON_W - 8, 24)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	c.add_child(l)
 	c.tooltip_text = "%s  (double-click to open)" % str(a[1])
 	c.gui_input.connect(_icon_input.bind(id))
+	c.mouse_entered.connect(func(): img.modulate = Color(1.18, 1.18, 1.18))        # hover: the picture brightens
+	c.mouse_exited.connect(func(): img.modulate = Color.WHITE)
 	return c
 
 func _icon_input(e: InputEvent, id: String) -> void:
@@ -333,7 +420,7 @@ func open_app(id: String, tab_id := "") -> Control:
 		var sz: Vector2 = def[4]
 		sz.x = minf(sz.x, size.x - 8.0)
 		sz.y = minf(sz.y, size.y - TASKBAR_H - 8.0)
-		w.setup(self, id, str(def[1]), tex("icon_%s.png" % str(def[2])), sz)
+		w.setup(self, id, str(def[1]), tex("icon_%s.png" % str(def[2])), sz, def[5])
 		var page = shell.make_page(str(def[3]) if tab_id == "" else tab_id)
 		w.set_page(page)
 		area.add_child(w)
@@ -364,6 +451,17 @@ func _add_task_button(w: Control) -> void:
 		else:
 			restore(w)
 			raise_window(w))
+	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	var ic := TextureRect.new()                           # a 16 px copy of the app's icon on the button
+	ic.texture = w.icon_tex
+	ic.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	ic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	ic.set_anchors_and_offsets_preset(Control.PRESET_LEFT_WIDE)
+	ic.offset_left = 4
+	ic.offset_right = 20
+	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(ic)
 	task_box.add_child(b)
 	task_buttons[w] = b
 
@@ -423,7 +521,10 @@ func close_all() -> void:
 func _sync_tasks() -> void:
 	for w in task_buttons:
 		var b: Button = task_buttons[w]
-		b.add_theme_stylebox_override("normal", box("pressed", 4) if (w == active and w.visible) else box("raised", 4))
+		var st: StyleBox = box("pressed", 4) if (w == active and w.visible) else box("raised", 4)
+		st.content_margin_left = 24                       # room for the icon
+		b.add_theme_stylebox_override("normal", st)
+		b.add_theme_stylebox_override("hover", st)
 		b.text = str(w.title_text)
 
 ## Keeps a window of `sz` inside the desktop (above the taskbar).
@@ -441,6 +542,10 @@ func window_at(p: Vector2) -> Control:
 
 func _input(e: InputEvent) -> void:
 	if not visible:
+		return
+	if e is InputEventKey and e.pressed and not e.echo and e.keycode == KEY_ESCAPE and start_menu.visible:
+		_close_start()                                 # Esc closes the start menu first; a second Esc leaves the computer
+		get_viewport().set_input_as_handled()
 		return
 	if e is InputEventMouseButton and e.pressed:
 		var w := window_at(e.position)
@@ -461,6 +566,7 @@ func refresh_tray() -> void:
 
 func refresh_all() -> void:
 	refresh_tray()
+	_refresh_note()
 	for w in windows:
 		if is_instance_valid(w.page):
 			w.page.refresh()
@@ -477,6 +583,7 @@ func open_desktop() -> void:
 	_select("")
 	_close_start()
 	refresh_tray()
+	_refresh_note()
 	if active == null:
 		start_button.call_deferred("grab_focus")
 	Input.warp_mouse(Vector2(DisplayServer.window_get_size()) * 0.5)       # the cursor appears in the middle of the screen, on the desktop

@@ -6,6 +6,7 @@ class_name QuarryOSWindow
 var os: QuarryOS
 var app_id := ""
 var title_text := ""
+var icon_tex: Texture2D
 var page: Control
 var title_bar: PanelContainer
 var title_label: Label
@@ -14,12 +15,19 @@ var _drag := false
 var _drag_off := Vector2.ZERO
 var _active := false
 
-func setup(os_node: QuarryOS, id: String, title: String, icon: Texture2D, sz: Vector2) -> void:
+var min_size := Vector2(380, 260)
+var _resize := false
+var _resize_from := Vector2.ZERO
+var _resize_mouse := Vector2.ZERO
+
+func setup(os_node: QuarryOS, id: String, title: String, icon: Texture2D, sz: Vector2, min_sz := Vector2(380, 260)) -> void:
+	min_size = min_sz
 	os = os_node
 	app_id = id
 	title_text = title
+	icon_tex = icon
 	name = "Window_" + id
-	custom_minimum_size = sz
+	custom_minimum_size = min_size
 	size = sz
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	var frame := PanelContainer.new()
@@ -61,7 +69,42 @@ func setup(os_node: QuarryOS, id: String, title: String, icon: Texture2D, sz: Ve
 	client.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	client.add_theme_stylebox_override("panel", os.box("sunken", 5))
 	v.add_child(client)
+	_make_grip()
 	set_active(true)
+
+## A corner grip: drag to resize between the app's minimum size and the desktop.
+func _make_grip() -> void:
+	var g := Control.new()
+	g.name = "ResizeGrip"
+	g.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+	g.offset_left = -15
+	g.offset_top = -15
+	g.offset_right = -2
+	g.offset_bottom = -2
+	g.mouse_default_cursor_shape = Control.CURSOR_FDIAGSIZE
+	g.tooltip_text = "Drag to resize"
+	g.draw.connect(func():
+		for k in range(3):
+			g.draw_line(Vector2(12 - k * 4, 12), Vector2(12, 12 - k * 4), Color(0.4, 0.4, 0.42))
+			g.draw_line(Vector2(12 - k * 4 + 1, 12), Vector2(12, 12 - k * 4 + 1), Color(1, 1, 1)))
+	g.gui_input.connect(_grip_input)
+	add_child(g)
+
+func _grip_input(e: InputEvent) -> void:
+	if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
+		_resize = e.pressed
+		_resize_from = size
+		_resize_mouse = get_global_mouse_position()
+		os.raise_window(self)
+		accept_event()
+	elif e is InputEventMouseMotion and _resize:
+		resize_to(_resize_from + (get_global_mouse_position() - _resize_mouse))
+		accept_event()
+
+## Sets the size within [minimum, what is left of the desktop from the window's corner].
+func resize_to(sz: Vector2) -> void:
+	var room := Vector2(os.size.x - position.x, os.size.y - QuarryOS.TASKBAR_H - position.y)
+	size = Vector2(clampf(sz.x, min_size.x, maxf(min_size.x, room.x)), clampf(sz.y, min_size.y, maxf(min_size.y, room.y)))
 
 func _square(kind: String, action: Callable, tip: String) -> Button:
 	var b := Button.new()
@@ -122,5 +165,6 @@ func move_to(p: Vector2) -> void:
 	position = os.clamp_pos(p, size)
 
 func _input(e: InputEvent) -> void:
-	if _drag and e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed:
-		_drag = false                           # released outside the title bar: the drag ends
+	if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed:
+		_drag = false
+		_resize = false                           # released outside the title bar: the drag ends

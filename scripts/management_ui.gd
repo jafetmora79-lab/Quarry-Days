@@ -89,6 +89,7 @@ func setup_page(main_node, first_tab: String) -> void:
 	scroll = ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true                         # keyboard focus scrolls the page to the focused control
 	root.add_child(scroll)
 	content = VBoxContainer.new()
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -176,6 +177,10 @@ func _os_page_theme() -> Theme:
 	QuarryTheme.fit_theme(t, QuarryTheme.BODY, QuarryTheme.HUD, 8)
 	for st in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
 		t.set_stylebox(st, "Button", bt.get_stylebox(st, "Button"))
+	for kind in ["VScrollBar", "HScrollBar"]:
+		for st in ["scroll", "scroll_focus", "grabber", "grabber_highlight", "grabber_pressed"]:
+			t.set_stylebox(st, kind, bt.get_stylebox(st, kind))
+	t.set_stylebox("background", "ProgressBar", bt.get_stylebox("background", "ProgressBar"))
 	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color", "font_disabled_color"]:
 		t.set_color(c, "Button", bt.get_color(c, "Button"))
 	var fb := _box(Color(0, 0, 0, 0), Color(1.0, 0.92, 0.55), 2, 4)
@@ -209,6 +214,8 @@ func _label(text: String, color := INK, size := 12, wrap := true) -> Label:
 	l.text = text
 	l.add_theme_color_override("font_color", color)
 	QuarryTheme.fit(l, size)
+	if embedded and color == ACCENT and text == text.to_upper() and text.length() <= 48 and text.length() > 2 and not text.contains("$"):
+		l.add_theme_font_override("font", QuarryTheme.head())            # section headings: Pixelify Sans
 	if wrap:
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -312,45 +319,84 @@ func _ensure_focus() -> void:
 ## The whole quarry on one page: each of the four levels with its depth, materials and what opens it, then the starter contract.
 func _plan() -> void:
 	var prog: QuarryProgression = game.prog
-	content.add_child(_label("Survey stakes and dashed lines mark the level you are cutting (bright) and the one that opens next (faint) on the ground. Deeper levels appear here until they open.", DIM))
-	for n in range(1, prog.levels().size() + 1):
+	var n_levels: int = prog.levels().size()
+	# the headline: which level is being cut and what opens next, with the real progress toward it
+	var top := _card()
+	var cur: int = prog.quarry_level
+	top.add_child(_label("NOW CUTTING  -  LEVEL %d  %s" % [cur, str(prog.level_def(cur).get("title", "")).to_upper()], ACCENT, QuarryTheme.HEAD))
+	if cur < n_levels:
+		var need := float(prog.level_def(cur + 1).get("unlock", 0.6))
+		var have: float = prog.level_cleared_fraction(cur)
+		top.add_child(_label("Level %d opens when %d%% of level %d is cut." % [cur + 1, int(need * 100.0), cur], INK, QuarryTheme.BODY))
+		top.add_child(_bar(clampf(have / maxf(0.01, need), 0.0, 1.0), "%d%% cut of %d%% needed" % [int(have * 100.0), int(need * 100.0)], GOOD if have >= need else ACCENT))
+	else:
+		top.add_child(_label("Every level is open.", GOOD, QuarryTheme.BODY))
+	top.add_child(_label("On the ground, bright survey stakes mark the level you are cutting and faint ones the level that opens next.", DIM, QuarryTheme.SMALL))
+	for n in range(1, n_levels + 1):
 		var d := prog.level_def(n)
 		var card := _card()
 		var open := n <= prog.quarry_level
+		var tag := "ACTIVE" if n == prog.quarry_level else ("OPEN" if open else ("NEXT" if n == prog.quarry_level + 1 else "LOCKED"))
+		var tag_color := ACCENT if tag == "ACTIVE" else (GOOD if tag == "OPEN" else (WARN if tag == "NEXT" else DIM))
+		var hrow := _row()
+		card.add_child(hrow)
+		var hl := _label("LEVEL %d  -  %s" % [n, str(d.get("title", "")).to_upper()], INK if open else DIM, QuarryTheme.HEAD)
+		hl.add_theme_font_override("font", QuarryTheme.head())
+		hrow.add_child(hl)
+		var tl := _label("[ %s ]" % tag, tag_color, QuarryTheme.BODY, false)
+		tl.add_theme_font_override("font", QuarryTheme.hud())
+		hrow.add_child(tl)
 		var depth := float(d.get("floor_y", -3.6)) if n > 1 else 0.0
-		var head := "LEVEL %d  -  %s" % [n, str(d.get("title", "")).to_upper()]
-		var status := ""
-		if open:
-			status = "OPEN  -  %d%% cut" % int(prog.level_cleared_fraction(n) * 100.0) if prog.level_built(n) else "OPEN"
-		elif n == prog.quarry_level + 1:
-			status = "NEXT  -  opens when %d%% of level %d is cut (now %d%%)" % [int(float(d.get("unlock", 0.6)) * 100.0), n - 1, int(prog.level_cleared_fraction(n - 1) * 100.0)]
-		else:
-			status = "LOCKED  -  opens after level %d" % (n - 1)
-		card.add_child(_label(head, ACCENT if open else INK, QuarryTheme.BODY))
 		var mats := []
 		for m in d.get("materials", []):
 			mats.append(prog.display(str(m)))
-		card.add_child(_label("Floor %.1f m   Materials: %s" % [depth, ", ".join(mats) if not mats.is_empty() else "topsoil, gravel, loose stone, limestone"], DIM, QuarryTheme.BODY))
-		card.add_child(_label(status, GOOD if open else (WARN if n == prog.quarry_level + 1 else DIM), QuarryTheme.BODY))
+		card.add_child(_label("Depth: floor at %.1f m      Materials: %s" % [absf(depth), ", ".join(mats) if not mats.is_empty() else "topsoil, gravel, loose stone, limestone"], DIM, QuarryTheme.BODY))
+		if open and prog.level_built(n):
+			var frac: float = prog.level_cleared_fraction(n)
+			card.add_child(_bar(frac, "%d%% cut" % int(frac * 100.0), GOOD))
+		elif n == prog.quarry_level + 1:
+			var need2 := float(d.get("unlock", 0.6))
+			var have2: float = prog.level_cleared_fraction(n - 1)
+			card.add_child(_label("Unlocks when %d%% of level %d is cut (now %d%%)." % [int(need2 * 100.0), n - 1, int(have2 * 100.0)], WARN, QuarryTheme.BODY))
+		elif not open:
+			card.add_child(_label("Unlocks after level %d is open." % (n - 1), DIM, QuarryTheme.BODY))
 		if prog.filled_world() and n >= 2 and d.has("roads"):
 			# the way down is a construction job: the crew cuts the ramp and floor roads once the level is open, for a fee
 			if prog.road_built(n):
-				card.add_child(_label("Access road: built - trucks and excavators can drive down.", GOOD, QuarryTheme.BODY))
+				card.add_child(_label("Access road: built. Trucks and excavators can drive down.", GOOD, QuarryTheme.BODY))
 			else:
 				var rrow := _row()
 				card.add_child(rrow)
-				rrow.add_child(_label("Access road: not built yet. Until it is cut you cannot drive down.", WARN if open else DIM, QuarryTheme.BODY))
-				var rsp := Control.new()
-				rsp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-				rrow.add_child(rsp)
+				rrow.add_child(_label("Access road: not built. Until it is cut you cannot drive down." if open else "Access road: available once the level is open.", WARN if open else DIM, QuarryTheme.BODY))
 				var ncap := n
-				rrow.add_child(_button("Build road $%d" % prog.road_cost(n), func(): _say(game.ui_buy_road(ncap)), open and game.state.money >= prog.road_cost(n)))
+				var cost: int = prog.road_cost(n)
+				rrow.add_child(_button("Build road  %s" % QuarryTheme.money_text(cost), func(): _say(game.ui_buy_road(ncap)), open and game.state.money >= cost))
+				if open and game.state.money < cost:
+					card.add_child(_label("You need %s more." % QuarryTheme.money_text(cost - game.state.money), DIM, QuarryTheme.SMALL))
 	var a1 := prog.area_progress("area_1")
 	if not a1.is_empty():
 		var ac := _card()
-		ac.add_child(_label("STARTER EXCAVATION (Area 1)  -  %d%%%s" % [int(a1["pct"]), "  -  done" if bool(a1["complete"]) else ""], ACCENT, QuarryTheme.BODY))
+		ac.add_child(_label("STARTER EXCAVATION (AREA 1)%s" % ("  -  DONE" if bool(a1["complete"]) else ""), ACCENT, QuarryTheme.HEAD))
+		ac.add_child(_bar(clampf(float(a1["pct"]) / 100.0, 0.0, 1.0), "%d%%" % int(a1["pct"]), GOOD if bool(a1["complete"]) else ACCENT))
 		for pt in a1["parts"]:
 			ac.add_child(_label("%s %s: %d / %d" % ["[x]" if int(pt["have"]) >= int(pt["need"]) else "[ ]", str(pt["label"]), int(pt["have"]), int(pt["need"])], INK, QuarryTheme.BODY))
+
+## A progress bar with its figure beside it (real numbers only).
+func _bar(frac: float, text: String, color: Color) -> HBoxContainer:
+	var h := _row()
+	var pb := ProgressBar.new()
+	pb.show_percentage = false
+	pb.max_value = 1.0
+	pb.value = frac
+	pb.custom_minimum_size = Vector2(160, 14)
+	pb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	pb.add_theme_stylebox_override("fill", QuarryTheme.bar_box(color))
+	h.add_child(pb)
+	var l := _label(text, INK, QuarryTheme.BODY, false)
+	l.custom_minimum_size = Vector2(150, 0)
+	h.add_child(l)
+	return h
 
 # ------------------------------------------------------------------ sales
 
@@ -363,7 +409,7 @@ func _sales(b: QuarryBusiness) -> void:
 	var total := 0
 	var any := false
 	var head := _row()
-	for col in [["MATERIAL", 118], ["BAG", 44], ["STORED", 56], ["EACH", 56], ["VALUE", 76]]:
+	for col in [["MATERIAL", 110], ["IN BAG", 50], ["IN BIN", 50], ["OUTPUT", 56], ["EACH", 52], ["TOTAL", 76]]:
 		var hl := _label(str(col[0]), DIM, QuarryTheme.SMALL, false)
 		hl.custom_minimum_size = Vector2(float(col[1]), 0)
 		if col[0] != "MATERIAL":
@@ -373,14 +419,15 @@ func _sales(b: QuarryBusiness) -> void:
 	for i in range(game.RESOURCE_ORDER.size()):
 		var key: String = game.RESOURCE_ORDER[i]
 		var nb := int(st.inventory[key])
-		var ns := int(st.storage.get(key, 0)) + b.output_units(key)
-		if nb + ns <= 0:
-			continue                                   # only what you actually own
+		var nbin := int(st.storage.get(key, 0))
+		var nout := b.output_units(key)
+		if nb + nbin + nout <= 0:
+			continue                                   # only what you actually own: no empty rows for materials you have not found
 		any = true
-		var value := st.payout(key, nb + ns)
+		var value := st.payout(key, nb + nbin + nout)
 		total += value
 		var row := _row()
-		var cells := [[game.prog.display(key), 118, false], [str(nb), 44, true], [str(ns), 56, true], ["$" + game._price_text(st.unit_price(key)), 56, true], [QuarryTheme.money_text(value), 76, true]]
+		var cells := [[game.prog.display(key), 110, false], [str(nb), 50, true], [str(nbin), 50, true], [str(nout), 56, true], ["$" + game._price_text(st.unit_price(key)), 52, true], [QuarryTheme.money_text(value), 76, true]]
 		for c in cells:
 			var l := _label(str(c[0]), QuarryTheme.RES_COLORS.get(key, INK) if c[0] == cells[0][0] else INK, QuarryTheme.BODY, false)
 			l.custom_minimum_size = Vector2(float(c[1]), 0)
@@ -398,6 +445,7 @@ func _sales(b: QuarryBusiness) -> void:
 	var bar := _row()
 	card.add_child(bar)
 	bar.add_child(_button("SELL ALL  %s" % QuarryTheme.money_text(total), func(): game.menu_act("sell", game.RESOURCE_ORDER.size(), false), total > 0))
+	card.add_child(_label("A sale takes from your bag first, then the storage bin, then the output storages. Prices are the game's own table.", DIM, QuarryTheme.SMALL))
 	var clerk := _card()
 	clerk.add_child(_label("SALES CLERK MAY SELL", ACCENT))
 	var crow := HFlowContainer.new()
