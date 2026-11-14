@@ -50,7 +50,7 @@ func run() -> void:
 	long_text = long_text.replace("\\\\n", "\\n")
 	var rl := QuarryLetter.paginate(text + "\\n\\n" + text)
 	check(rl["pages"].size() >= 2, "a long letter runs over several pages instead of shrinking the type (%d pages)" % rl["pages"].size())
-	check(QuarryLetter.FONT >= 12, "the type stays at %d base px (%d px at 1280x720, %d px at 1920x1080)" % [QuarryLetter.FONT, int(QuarryLetter.FONT * 1280.0 / 960.0), int(QuarryLetter.FONT * 2)])
+	check(QuarryLetter.FONT >= 10, "the type stays at %d base px (%d px at 1280x720, %d px at 1920x1080)" % [QuarryLetter.FONT, int(QuarryLetter.FONT * 1280.0 / 960.0), int(QuarryLetter.FONT * 2)])
 	# ---- opening: from the story trigger, with a short unfold
 	game.player.locked = true
 	var opened := [false]

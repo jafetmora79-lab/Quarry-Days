@@ -268,7 +268,7 @@ Open the project in the Godot Android editor (or run it on any touchscreen with 
 
 ## Credits
 
-- Fonts: Atkinson Hyperlegible (UI body text) and Silkscreen (large headings only), both under the SIL Open Font License 1.1 (`assets/fonts/*-OFL.txt`).
+- Fonts (all SIL OFL 1.1, `assets/fonts/*-OFL.txt`): Pixelify Sans (titles, signs, equipment names, buttons), Silkscreen (HUD labels), Nunito Sans (dialogue, letters, descriptions, settings), VT323 (machine readouts). Reusable resources `assets/fonts/qd_*.tres`; see `QuarryTheme`.
 - Sounds: synthesized by `tools/qd_sounds.py`. Rock textures: painted by `tools/qd_textures.py` from THE VEIL palette.
 
 ## 3D asset preview page

@@ -35,10 +35,17 @@ func run() -> void:
 	await process_frame
 	game.hud.close_card()
 	root.size = Vector2i(1920, 1080)
-	var body: FontFile = QuarryTheme.body()
-	check(body.get_font_name().contains("Atkinson") and body.antialiasing == TextServer.FONT_ANTIALIASING_GRAY, "1 body text is Atkinson Hyperlegible, antialiased")
-	check((QuarryTheme.head() as FontFile).antialiasing == TextServer.FONT_ANTIALIASING_GRAY and QuarryTheme.head().get_font_name().contains("Atkinson"), "2 headings use the same smooth typeface as body text (no pixel font mixed in)")
-	check(FileAccess.file_exists("res://assets/fonts/AtkinsonHyperlegible-OFL.txt") and FileAccess.file_exists("res://assets/fonts/Silkscreen-OFL.txt"), "1 font licences are shipped")
+	var body: Font = QuarryTheme.body()
+	var fv := body as FontVariation
+	check(fv != null and fv.base_font.get_font_name().contains("Nunito"), "1 body text is Nunito Sans, antialiased")
+	check((QuarryTheme.head() as FontVariation).base_font.get_font_name().contains("Pixelify") and (QuarryTheme.display() as FontVariation).base_font.get_font_name().contains("Pixelify"), "2 headings and signs are Pixelify Sans")
+	check(QuarryTheme.hud().get_font_name().contains("Silkscreen") and QuarryTheme.mono().get_font_name().contains("VT323"), "2 HUD labels are Silkscreen, readouts are VT323")
+	var lic := true
+	for n in ["NunitoSans", "PixelifySans", "VT323", "Silkscreen"]:
+		lic = lic and FileAccess.file_exists("res://assets/fonts/%s-OFL.txt" % n)
+	check(lic, "1 font licences are shipped")
+	for n in ["qd_body", "qd_body_bold", "qd_heading", "qd_display", "qd_hud", "qd_mono"]:
+		check(load("res://assets/fonts/%s.tres" % n) is Font, "font resource %s loads" % n)
 	# 3D art stays pixelated
 	var m: BaseMaterial3D = MeshKit.mat("RockLimestone")
 	check(m.texture_filter in [BaseMaterial3D.TEXTURE_FILTER_NEAREST, BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS, BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS_ANISOTROPIC], "4 rock textures keep nearest-neighbour filtering")

@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://ioh71u0m4olx"
-path="res://.godot/imported/AtkinsonHyperlegible-Regular.ttf-b1b81e810f770645a511deee33c11e03.fontdata"
+uid="uid://dh2p1usf148l4"
+path="res://.godot/imported/NunitoSans-Variable.ttf-4b113767d2bfa03b5a0180790b11dffb.fontdata"
 
 [deps]
 
-source_file="res://assets/fonts/AtkinsonHyperlegible-Regular.ttf"
-dest_files=["res://.godot/imported/AtkinsonHyperlegible-Regular.ttf-b1b81e810f770645a511deee33c11e03.fontdata"]
+source_file="res://assets/fonts/NunitoSans-Variable.ttf"
+dest_files=["res://.godot/imported/NunitoSans-Variable.ttf-4b113767d2bfa03b5a0180790b11dffb.fontdata"]
 
 [params]
 
@@ -19,7 +19,7 @@ disable_embedded_bitmaps=true
 multichannel_signed_distance_field=false
 msdf_pixel_range=8
 msdf_size=48
-allow_system_fallback=true
+allow_system_fallback=false
 force_autohinter=false
 hinting=1
 subpixel_positioning=1

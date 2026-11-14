@@ -90,7 +90,7 @@ func setup(main_node, save_exists: bool) -> void:
 func _label(text: String, size: int, color: Color, heading := false) -> Label:
 	var l := QuarryTheme.label(text, size, color, false, heading)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.add_theme_font_override("font", QuarryTheme.bold() if heading else QuarryTheme.body())
+	l.add_theme_font_override("font", QuarryTheme.display() if heading else QuarryTheme.body())
 	return l
 
 func _button(text: String, action: Callable) -> Button:
@@ -100,6 +100,7 @@ func _button(text: String, action: Callable) -> Button:
 	b.custom_minimum_size = Vector2(250, 40)
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	b.add_theme_font_size_override("font_size", QuarryTheme.HEAD)
+	b.add_theme_font_override("font", QuarryTheme.head())
 	b.pressed.connect(action)
 	if UiSkin.has("btn_main"):                      # the generated button art, the same as the in-game menus
 		for st in ["normal", "hover", "pressed", "disabled"]:

@@ -85,8 +85,8 @@ func run() -> void:
 	var emp: Dictionary = game.business.employees[0]
 	check(int(emp["shift_start"]) == 540 and int(emp["shift_end"]) == 1020, "new hires work 9:00 to 17:00 (%d to %d)" % [int(emp["shift_start"]), int(emp["shift_end"])])
 	# ---- one typeface, two sizes
-	check(QuarryTheme.head() == QuarryTheme.bold(), "headings use the same smooth typeface (no pixel font)")
-	check(QuarryTheme.SMALL == QuarryTheme.BODY and QuarryTheme.HERO == QuarryTheme.HEAD, "two text sizes only")
+	check(QuarryTheme.head() != QuarryTheme.body() and QuarryTheme.hud() != QuarryTheme.body(), "headings, HUD labels and body text use their own typefaces")
+	check(QuarryTheme.SMALL >= 8 and QuarryTheme.BODY >= 9 and QuarryTheme.DIALOG >= 10 and QuarryTheme.TITLE >= 15, "size tokens keep text at 16 px or more at 1080p")
 	game.state.money = 50
 	game.hud.refresh_panels()
 	var detail: String = game.hud.objective_detail.text

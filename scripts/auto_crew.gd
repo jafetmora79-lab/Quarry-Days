@@ -100,6 +100,7 @@ func _label(v: QuarryVehicle, rec: Dictionary, r: Dictionary) -> void:
 	var lbl: Label3D = v.get_meta("crew_label", null)
 	if lbl == null:
 		lbl = PixelLabel.new()
+		lbl.readout = true
 		lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 		lbl.pixel_size = 0.006
 		lbl.font_size = 30

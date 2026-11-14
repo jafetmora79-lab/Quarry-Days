@@ -37,7 +37,7 @@ func setup(entries: Array, is_timed := false) -> void:
 	add_child(hb)
 	speaker_label = QuarryTheme.label("", 12, QuarryTheme.ACCENT, true)
 	v.add_child(speaker_label)
-	body = QuarryTheme.label("", QuarryTheme.BODY)
+	body = QuarryTheme.label("", QuarryTheme.DIALOG)
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.custom_minimum_size = Vector2(580, 0)
 	v.add_child(body)

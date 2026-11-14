@@ -202,7 +202,7 @@ func _build() -> void:
 	v.add_child(trow)
 	time_icon = HudIcon.new("sun", 13)
 	trow.add_child(time_icon)
-	time_label = QuarryTheme.label("DAY 1  08:00", 12, QuarryTheme.DIM, true)
+	time_label = QuarryTheme.hud_label("DAY 1  08:00", QuarryTheme.HUD + 1, QuarryTheme.DIM)
 	trow.add_child(time_label)
 	var mrow := HBoxContainer.new()
 	mrow.add_theme_constant_override("separation", 5)
@@ -213,7 +213,7 @@ func _build() -> void:
 	mrow.add_child(money_label)
 	income_label = QuarryTheme.label("", QuarryTheme.BODY, QuarryTheme.GOOD)
 	v.add_child(income_label)
-	badge_label = QuarryTheme.label("", QuarryTheme.SMALL, QuarryTheme.DIM)   # deliveries waiting, unconnected belts
+	badge_label = QuarryTheme.hud_label("", QuarryTheme.SMALL, QuarryTheme.DIM)   # deliveries waiting, unconnected belts
 	badge_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(badge_label)
 	# ---- under it: the map, with a caption for the objective marker
@@ -349,7 +349,7 @@ func _build() -> void:
 	power_bar.visible = false                         # the tool plate has no progress bar: the name, power and tool lines say it all
 	power_label = QuarryTheme.label("", QuarryTheme.SMALL, QuarryTheme.DIM)
 	tv.add_child(power_label)
-	tool_pips = QuarryTheme.label("", QuarryTheme.SMALL, QuarryTheme.DIM)
+	tool_pips = QuarryTheme.hud_label("", QuarryTheme.SMALL, QuarryTheme.DIM)
 	tv.add_child(tool_pips)
 	var bp := QuarryPlate.new(8, QuarryTheme.GOOD)
 	bp.name = "BagPlate"
@@ -361,10 +361,10 @@ func _build() -> void:
 	brow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bv.add_child(brow)
 	brow.add_child(HudIcon.new("bag", 14))
-	bag_label = QuarryTheme.label("BAG 0/18", 12, QuarryTheme.ACCENT, true)
+	bag_label = QuarryTheme.hud_label("BAG 0/18", QuarryTheme.HUD + 1, QuarryTheme.ACCENT)
 	brow.add_child(bag_label)
 	bag_bar = _bar(bv, 6, QuarryTheme.GOOD)
-	bag_items = QuarryTheme.label("", QuarryTheme.SMALL, QuarryTheme.DIM)
+	bag_items = QuarryTheme.hud_label("", QuarryTheme.SMALL, QuarryTheme.DIM)
 	bag_items.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	bag_items.custom_minimum_size = Vector2(150, 0)
 	bv.add_child(bag_items)
@@ -501,7 +501,7 @@ func _build() -> void:
 		letter_callback = Callable()
 		if cb.is_valid():
 			cb.call())
-	card_hint = QuarryTheme.label("E / CLICK  CONTINUE", 12, Color(0.5, 0.36, 0.2), true)
+	card_hint = QuarryTheme.hud_label("E / CLICK  CONTINUE", QuarryTheme.HUD, Color(0.5, 0.36, 0.2))
 	card_hint.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
 	card_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cv.add_child(card_hint)

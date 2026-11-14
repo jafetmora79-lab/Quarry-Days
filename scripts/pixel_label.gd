@@ -1,20 +1,22 @@
 extends Label3D
 class_name PixelLabel
-## World text in the game's own pixel font (Silkscreen) with crisp nearest filtering and a dark brown edge, instead of the
-## smooth default font that looked like a stock overlay. A drop-in for Label3D: the size in the world stays as set; the
-## font size is snapped to the font's 8 px grid so the pixels stay square.
+## World text in the game's own pixel faces, drawn with crisp nearest filtering and a dark brown edge. Signs, names and pop-ups use Pixelify Sans;
+## machine counters and status readouts set `readout = true` before entering the tree and use VT323 (a digital display face).
+## The font is rasterised at the label's font_size, so the sign texture is already sized for the on-screen glyphs: no scaling blur.
 
-const FONT := preload("res://assets/fonts/Silkscreen.ttf")
+const SIGN_FONT := preload("res://assets/fonts/qd_heading.tres")
+const READOUT_FONT := preload("res://assets/fonts/qd_mono.tres")
+
+var readout := false
 
 func _init() -> void:
-	font = FONT
+	font = SIGN_FONT
 	texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	outline_modulate = Color(0.1, 0.07, 0.04)
 	outline_size = 6
+	double_sided = true
 
 func _ready() -> void:
-	var snapped := maxi(8, int(round(float(font_size) / 8.0)) * 8)
-	if snapped != font_size:
-		pixel_size *= float(font_size) / float(snapped)
-		font_size = snapped
+	if readout:
+		font = READOUT_FONT
 	outline_size = clampi(int(font_size / 8.0) * 2, 2, 12)

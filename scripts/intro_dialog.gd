@@ -70,7 +70,7 @@ func setup(suggest: String, pers: String, job_title: String, portrait_index := -
 		add_child(v)
 	title = QuarryTheme.label("", 12, QuarryTheme.ACCENT, true)
 	v.add_child(title)
-	body = QuarryTheme.label("", QuarryTheme.BODY)
+	body = QuarryTheme.label("", QuarryTheme.DIALOG)
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.custom_minimum_size = Vector2(520, 0)
 	v.add_child(body)

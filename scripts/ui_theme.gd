@@ -1,19 +1,22 @@
 extends RefCounted
 class_name QuarryTheme
-## Shared cozy UI style. Body text, prices and descriptions use Atkinson Hyperlegible (SIL OFL 1.1, designed for
-## legibility), smooth antialiased and hinted. Silkscreen (SIL OFL 1.1) stays only for headings and decorative
-## labels. The 3D scene keeps its nearest-neighbour pixel textures; only interface text is smooth.
-## Warm muted panels with a 2 px border, small rounded corners and a soft drop shadow.
-## Sizes are in the 960x540 base canvas, which the window scales by 1.333 (1280x720) or 2 (1920x1080):
-##   BODY 9  -> 12 px / 18 px on screen      SMALL 8 -> 10.7 px / 16 px (secondary labels, never below 14 px at 1080p)
-##   HEAD 12 -> 16 px / 24 px (Silkscreen, a whole multiple of its 8 px grid at both scales)
-## Fonts are re-rasterised at the final window scale (canvas_items stretch), so text stays sharp at any DPI.
+## Shared cozy UI style, one typographic system for the whole game (all fonts are packaged in assets/fonts, SIL OFL 1.1; resources assets/fonts/qd_*.tres):
+##   Pixelify Sans   display(), head()   titles, signs, stage and equipment names, major buttons, announcements
+##   Silkscreen      hud()               HUD labels, day and time, minimap labels, short status and category labels
+##   Nunito Sans     body(), bold()      everything that is read: dialogue, letters, tutorials, descriptions, upgrade text, settings
+##   VT323           mono()              machine counters and digital readouts
+## Sizes are in the 960x540 base canvas, which the window scales by 1.333 (1280x720) or 2 (1920x1080); the table gives the 1080p size:
+##   TITLE 15 -> 30 px (major headings)   SECTION 11 -> 22 px   HEAD 12 -> 24 px   HUD 9 -> 18 px   BODY 9 -> 18 px   DIALOG 10 -> 20 px (dialogue and letters)   SMALL 8 -> 16 px
+## Text is never shrunk below SMALL to fit: it wraps instead. Fonts are re-rasterised at the final window scale (canvas_items stretch), so text stays sharp at any DPI.
 
-const BODY := 9
-## Two text sizes only: BODY for everything, HEAD for titles and the money figure; one smooth typeface (Atkinson Hyperlegible) throughout.
-const SMALL := 9
-const HERO := 12
+const TITLE := 15
+const SECTION := 11
 const HEAD := 12
+const HERO := 18                 ## the main menu's name of the game
+const BODY := 9
+const HUD := 9
+const DIALOG := 10
+const SMALL := 8
 
 const BG := Color(0.13, 0.1, 0.075, 0.95)
 const BG_SOFT := Color(0.17, 0.13, 0.095, 0.93)
@@ -28,47 +31,32 @@ const MONEY := Color(0.99, 0.84, 0.42)
 const RES_COLORS := {"limestone": Color(0.86, 0.83, 0.74), "coal": Color(0.62, 0.64, 0.68), "iron_ore": Color(0.92, 0.55, 0.42),
 	"crushed_stone": Color(0.82, 0.8, 0.72), "copper_ore": Color(0.5, 0.86, 0.66), "gold_ore": Color(1.0, 0.82, 0.32), "topsoil": Color(0.62, 0.46, 0.32), "gravel": Color(0.74, 0.7, 0.62)}
 
-static var _body: FontFile
-static var _bold: FontFile
-static var _head: FontFile
 static var _theme: Theme
+static var _fonts := {}
 
-## Smooth UI text font: grayscale antialiasing, light hinting, no mipmaps.
-static func _smooth(path: String) -> FontFile:
-	var f: FontFile = load(path)
-	if f == null:
-		return null
-	f = f.duplicate()
-	f.antialiasing = TextServer.FONT_ANTIALIASING_GRAY
-	f.hinting = TextServer.HINTING_LIGHT
-	f.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_AUTO
-	f.generate_mipmaps = false
-	return f
+static func _font(name: String) -> Font:
+	if not _fonts.has(name):
+		_fonts[name] = load("res://assets/fonts/%s.tres" % name)
+	return _fonts[name] if _fonts[name] != null else ThemeDB.fallback_font
 
-## Crisp pixel font for large headings only.
-static func _pixel(path: String) -> FontFile:
-	var f: FontFile = load(path)
-	if f == null:
-		return null
-	f = f.duplicate()
-	f.antialiasing = TextServer.FONT_ANTIALIASING_NONE
-	f.hinting = TextServer.HINTING_NONE
-	f.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_DISABLED
-	f.force_autohinter = false
-	return f
-
+## Reading text (Nunito Sans) and its bold; titles and major buttons (Pixelify Sans); HUD labels (Silkscreen); machine readouts (VT323).
 static func body() -> Font:
-	if _body == null:
-		_body = _smooth("res://assets/fonts/AtkinsonHyperlegible-Regular.ttf")
-	return _body if _body else ThemeDB.fallback_font
+	return _font("qd_body")
 
 static func bold() -> Font:
-	if _bold == null:
-		_bold = _smooth("res://assets/fonts/AtkinsonHyperlegible-Bold.ttf")
-	return _bold if _bold else body()
+	return _font("qd_body_bold")
 
 static func head() -> Font:
-	return bold()          # titles use the same smooth typeface as the rest of the interface (no pixel font mixed in)
+	return _font("qd_heading")
+
+static func display() -> Font:
+	return _font("qd_display")
+
+static func hud() -> Font:
+	return _font("qd_hud")
+
+static func mono() -> Font:
+	return _font("qd_mono")
 
 static func panel_box(bg := BG, border := BORDER, margin := 8, radius := 3) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
@@ -119,7 +107,7 @@ static func theme() -> Theme:
 	t.set_stylebox("disabled", "Button", bd)
 	t.set_stylebox("focus", "Button", panel_box(Color(0, 0, 0, 0), Color(1.0, 0.92, 0.55), 6, 3))      # a visible outline for keyboard / gamepad focus, distinct from hover
 	t.set_font_size("font_size", "Button", BODY)
-	t.set_font("font", "Button", bold())
+	t.set_font("font", "Button", head())                       # buttons are set in the heading face everywhere
 	t.set_color("font_color", "Button", INK)
 	t.set_color("font_hover_color", "Button", Color(1, 0.95, 0.82))
 	t.set_color("font_disabled_color", "Button", Color(0.55, 0.5, 0.42))
@@ -142,6 +130,18 @@ static func label(text: String, size := BODY, color := INK, heading := false, bo
 	else:
 		l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.0))
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return l
+
+## A Silkscreen HUD label (day and time, bag, minimap and category labels).
+static func hud_label(text: String, size := HUD, color := INK, shadow := false) -> Label:
+	var l := label(text, size, color, false, false, shadow)
+	l.add_theme_font_override("font", hud())
+	return l
+
+## A VT323 readout label (digital counters).
+static func mono_label(text: String, size := 14, color := INK) -> Label:
+	var l := label(text, size, color)
+	l.add_theme_font_override("font", mono())
 	return l
 
 static func money_text(v: int) -> String:

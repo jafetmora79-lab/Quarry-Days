@@ -36,7 +36,7 @@
   "excavator": [
     {
       "check": "boom -> cab/body [rest]",
-      "gap_m": 0.003,
+      "gap_m": 0,
       "note": "",
       "ok": true
     },
@@ -54,7 +54,7 @@
     },
     {
       "check": "boom -> cab/body [boom raised]",
-      "gap_m": 0.006,
+      "gap_m": 0.002,
       "note": "",
       "ok": true
     },
@@ -72,7 +72,7 @@
     },
     {
       "check": "boom -> cab/body [boom lowered]",
-      "gap_m": 0.008,
+      "gap_m": 0.006,
       "note": "",
       "ok": true
     },
@@ -90,7 +90,7 @@
     },
     {
       "check": "boom -> cab/body [stick out]",
-      "gap_m": 0.01,
+      "gap_m": 0.003,
       "note": "",
       "ok": true
     },
@@ -108,7 +108,7 @@
     },
     {
       "check": "boom -> cab/body [stick in]",
-      "gap_m": 0.01,
+      "gap_m": 0.003,
       "note": "",
       "ok": true
     },
@@ -126,7 +126,7 @@
     },
     {
       "check": "boom -> cab/body [bucket curled]",
-      "gap_m": 0.01,
+      "gap_m": 0.003,
       "note": "",
       "ok": true
     },
@@ -144,7 +144,7 @@
     },
     {
       "check": "boom -> cab/body [bucket dumped]",
-      "gap_m": 0.01,
+      "gap_m": 0.003,
       "note": "",
       "ok": true
     },
@@ -162,7 +162,7 @@
     },
     {
       "check": "boom -> cab/body [cab swung]",
-      "gap_m": 0.01,
+      "gap_m": 0.003,
       "note": "",
       "ok": true
     },

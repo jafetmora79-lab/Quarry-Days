@@ -8,7 +8,7 @@ signal closed
 
 const W := 500.0                                   ## the sheet's width in base (960 wide) canvas pixels
 const MARGIN_X := 46.0
-const FONT := 12                                   ## body size in base pixels: 16 px at 1280x720, 24 px at 1920x1080
+const FONT := 10                                   ## body size in base pixels: 13 px at 1280x720, 20 px at 1920x1080
 const LINES_PER_PAGE := 10
 const INK := Color(0.20, 0.12, 0.07)
 const PAPER := Color(0.93, 0.86, 0.69)
@@ -54,7 +54,7 @@ func _ready() -> void:
 	box.offset_bottom = -28.0
 	box.add_theme_constant_override("separation", 10)
 	paper.add_child(box)
-	title_l = QuarryTheme.label("", 10, Color(0.5, 0.34, 0.18), false, true)
+	title_l = QuarryTheme.label("", QuarryTheme.HEAD, Color(0.4, 0.26, 0.13), true)
 	title_l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
 	title_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(title_l)
@@ -72,10 +72,10 @@ func _ready() -> void:
 	var foot := HBoxContainer.new()
 	foot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(foot)
-	count_l = QuarryTheme.label("", 10, Color(0.5, 0.34, 0.18))
+	count_l = QuarryTheme.hud_label("", QuarryTheme.SMALL, Color(0.5, 0.34, 0.18))
 	count_l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
 	foot.add_child(count_l)
-	hint_l = QuarryTheme.label("", 10, Color(0.5, 0.34, 0.18), false, true)
+	hint_l = QuarryTheme.hud_label("", QuarryTheme.SMALL, Color(0.5, 0.34, 0.18))
 	hint_l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
 	hint_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hint_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT

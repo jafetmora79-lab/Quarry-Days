@@ -57,6 +57,11 @@
 - New test: `tests/test_delivery.gd`.
 
 
+## Typography overhaul and spoil heap (claude/typography-spoil-pile)
+- One typographic system, all fonts packaged (SIL OFL): Pixelify Sans (titles, signs, buttons, equipment/stage names), Silkscreen (HUD labels, day/time, minimap), Nunito Sans (dialogue, letters, descriptions), VT323 (machine readouts). Resources `assets/fonts/qd_*.tres`, set as the project default font; Atkinson removed.
+- `QuarryTheme` gains `display()/hud()/mono()`, `hud_label()/mono_label()` and size tokens (TITLE, SECTION, DIALOG); `PixelLabel` uses Pixelify for signs and VT323 for readouts (`readout = true`); pegboard tool names rendered at 2x texture size; letters 20 px at 1080p; dialogue body 20 px.
+- Spoil heap is a square highlighted amber pad whose pile grows with soil dumped (cube-root, full at 500). New `test_spoil_pile`.
+
 ## Quarry Days — world polish (home, sleep, intro, hangar view, walls, ground)
 
 - **Walls that looked like flat grey slabs were never dressed:** the engine renames duplicate nodes, so the cliff-dressing code only matched the first piece of each name. Every ring cliff and low rim is now recognised by its box and gets the rough natural cliff mesh.

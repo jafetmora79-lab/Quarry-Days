@@ -17,7 +17,7 @@ Status: **not started in code, by design.** The artwork does not exist yet; noth
 | Icons | `ui_art.gd` (`UiArt.icon(name, small)`, files `assets/ui/icons/*.png`), `hud_icon.gd` (drawn icons) | the Sheet C set, mapped by name (table in section 4) |
 | Minimap | `hud_minimap.gd` (`QuarryMinimap`, procedural `_draw`) | procedural content kept; `map_frame` drawn over it; markers as sprites instead of drawn shapes |
 
-Fonts stay as they are (Atkinson Hyperlegible, `QuarryTheme.body()/bold()`): **no text is baked into any art**.
+Fonts come from `QuarryTheme` (Nunito Sans body, Pixelify Sans headings, Silkscreen HUD, VT323 readouts): **no text is baked into any art**.
 
 ## 2. Import and loading rules
 

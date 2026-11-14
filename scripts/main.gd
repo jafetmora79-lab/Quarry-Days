@@ -1040,6 +1040,7 @@ func _build_deposit(kind: String) -> void:
 	var face := bool(info.get("infinite", false))
 	var body := _solid(world,kind+" deposit",info["pos"]+Vector3(0,1.2 if face else 0.9,0),Vector3(3.6,2.4,1.4) if face else Vector3(2.4,1.8,2.0),info["color"],float(info.get("yaw", 0.4)))
 	var status := PixelLabel.new()
+	status.readout = true
 	status.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	status.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	status.font_size = 28
@@ -2389,9 +2390,9 @@ func _refresh_workbench() -> void:
 		# a small name label under each tool
 		var lbl := PixelLabel.new()
 		lbl.text = prog.item_title(id)
-		lbl.font_size = 8
-		lbl.pixel_size = 0.0054
-		lbl.width = 64.0                                # long names wrap onto two short lines instead of running into the next tool
+		lbl.font_size = 16
+		lbl.pixel_size = 0.0027
+		lbl.width = 128.0                                # long names wrap onto two short lines instead of running into the next tool
 		lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		lbl.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 		lbl.modulate = Color(1, 0.95, 0.82) if (owned or is_next) else Color(0.6, 0.58, 0.52)
@@ -2760,27 +2761,82 @@ func _build_soil() -> void:
 	spoil_node.name = "SpoilHeap"
 	spoil_node.position = Vector3(spoil_pos.x, 0.0, spoil_pos.y)
 	world.add_child(spoil_node)
-	var ring := MeshKit.Soup.new()
-	MeshKit.frustum_into(ring, Vector3.ZERO, float(sc["spoil"]["radius"]), float(sc["spoil"]["radius"]), 0.04, 14)
-	MeshKit.inst(spoil_node, ring.mesh(), MeshKit.mat("ExcavatedDirt"))
-	var mound := MeshKit.inst(spoil_node, MeshKit.rock(Vector3(3.6, 1.8, 3.6), 77, 3, 8), MeshKit.mat("ExcavatedDirt"))
+	# the spoil heap: a square, highlighted pad on the ground with a pile on it that grows bigger and bigger with every load tipped there
+	var half: float = float(sc["spoil"]["radius"]) + 0.8                    # half the pad's side (the dump check reaches radius + 1.5 m from its centre)
+	var pad := MeshKit.Soup.new()
+	pad.quad(Vector3(-half, 0.045, -half), Vector3(-half, 0.045, half), Vector3(half, 0.045, half), Vector3(half, 0.045, -half))
+	MeshKit.inst(spoil_node, pad.mesh(), MeshKit.mat("ExcavatedDirt"))
+	var glow := StandardMaterial3D.new()                                    # the bright border: unshaded amber that pulses so the pad can be seen across the quarry
+	glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	glow.albedo_color = Color(1.0, 0.72, 0.18)
+	glow.emission_enabled = true
+	glow.emission = Color(1.0, 0.7, 0.15)
+	glow.emission_energy_multiplier = 1.2
+	var border := MeshKit.Soup.new()
+	var bw := 0.22
+	for e in [[-half, -half, half, -half + bw], [-half, half - bw, half, half], [-half, -half, -half + bw, half], [half - bw, -half, half, half]]:
+		border.quad(Vector3(e[0], 0.07, e[1]), Vector3(e[0], 0.07, e[3]), Vector3(e[2], 0.07, e[3]), Vector3(e[2], 0.07, e[1]))
+	var border_mi := MeshKit.inst(spoil_node, border.mesh(), glow)
+	border_mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var tint := StandardMaterial3D.new()                                    # a faint amber wash over the whole pad
+	tint.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	tint.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	tint.albedo_color = Color(1.0, 0.7, 0.2, 0.16)
+	var wash := MeshKit.Soup.new()
+	wash.quad(Vector3(-half, 0.06, -half), Vector3(-half, 0.06, half), Vector3(half, 0.06, half), Vector3(half, 0.06, -half))
+	MeshKit.inst(spoil_node, wash.mesh(), tint).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	spoil_node.set_meta("glow", glow)
+	# the pile itself (one low-poly mound that grows in height and footprint; its own size at full growth fills most of the pad)
+	var mound := MeshKit.inst(spoil_node, MeshKit.rock(Vector3(6.6, 3.2, 6.6), 77, 3, 8), MeshKit.mat("ExcavatedDirt"))
 	spoil_node.set_meta("mound", mound)
-	for k in range(4):
-		var a := TAU * float(k) / 4.0 + 0.4
-		var stake := MeshKit.Soup.new()
-		MeshKit.box_into(stake, Vector3.ZERO, Vector3(0.08, 1.2, 0.08))
-		MeshKit.box_into(stake, Vector3(0, 0.55, 0), Vector3(0.3, 0.12, 0.02))
-		MeshKit.inst(spoil_node, stake.mesh(), MeshKit.flat(Color(0.9, 0.55, 0.15)), Vector3(cos(a) * float(sc["spoil"]["radius"]), 0.6, sin(a) * float(sc["spoil"]["radius"])))
+	for sx in [-1.0, 1.0]:                                                  # a post at each corner with a flag, so the corners read from far away
+		for sz in [-1.0, 1.0]:
+			var stake := MeshKit.Soup.new()
+			MeshKit.box_into(stake, Vector3.ZERO, Vector3(0.1, 1.6, 0.1))
+			MeshKit.box_into(stake, Vector3(0.0, 0.7, 0.0), Vector3(0.42, 0.18, 0.03))
+			MeshKit.inst(spoil_node, stake.mesh(), MeshKit.flat(Color(0.95, 0.55, 0.12)), Vector3(sx * half, 0.8, sz * half))
+	var cap_label := PixelLabel.new()
+	cap_label.text = "SPOIL HEAP"
+	cap_label.font_size = 24
+	cap_label.pixel_size = 0.012
+	cap_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	cap_label.modulate = Color(1.0, 0.82, 0.4)
+	cap_label.position = Vector3(0, 2.3, -half)
+	cap_label.visibility_range_end = 60.0
+	spoil_node.add_child(cap_label)
+	spoil_node.set_meta("label", cap_label)
+	if formation_nodes.has("q_top") and blueprint:
+		(formation_nodes["q_top"] as QuarryFormation).clean_decor(spoil_node.global_position, half * 1.5)       # no scrub standing in the pad
 	_update_spoil()
+
+## The pile grows with everything tipped there: its height and footprint follow the cube root of the soil units (a heap's volume), so the first loads change it a lot and
+## it keeps getting visibly bigger. Full size at SPOIL_FULL units. The pad's border pulses so it can be found.
+const SPOIL_FULL := 500.0
+var _spoil_shown := -1.0
 
 func _update_spoil() -> void:
 	if spoil_node == null or not is_instance_valid(spoil_node):
 		return
 	var mound: MeshInstance3D = spoil_node.get_meta("mound")
-	var f := clampf(float(state.soil_dumped) / 120.0, 0.0, 1.0)
-	mound.visible = state.soil_dumped > 0
-	mound.scale = Vector3(0.3 + 0.7 * f, 0.15 + 0.85 * f, 0.3 + 0.7 * f)
+	var n := float(state.soil_dumped)
+	var f := clampf(pow(n / SPOIL_FULL, 1.0 / 3.0), 0.0, 1.0)
+	mound.visible = n > 0.0
+	var goal := Vector3(0.18 + 0.82 * f, 0.1 + 0.9 * f, 0.18 + 0.82 * f)
+	if _spoil_shown < 0.0 or not mound.visible:
+		mound.scale = goal
+	else:
+		var tw := create_tween()
+		tw.tween_property(mound, "scale", goal, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	_spoil_shown = n
 	mound.position.y = -0.1
+	var lb: Label3D = spoil_node.get_meta("label", null)
+	if lb != null:
+		lb.text = "SPOIL HEAP" if n <= 0.0 else "SPOIL HEAP  %d" % int(n)
+
+func _pulse_spoil(t: float) -> void:
+	if spoil_node != null and is_instance_valid(spoil_node) and spoil_node.has_meta("glow"):
+		(spoil_node.get_meta("glow") as StandardMaterial3D).emission_energy_multiplier = 1.0 + 0.7 * (0.5 + 0.5 * sin(t * 3.2))
+
 
 ## The loose soil lies ON the topsoil layer (the formation "q_top"). Where that layer has been dug away, the soil that stood on it goes with it: a cell can
 ## never float over a hole. Safe to call at any time (building, a dig, a load); a cell sits wholly inside one topsoil column (both grids are on even metres).
@@ -3407,6 +3463,7 @@ func _create_crusher(index: int) -> void:
 	if art:
 		art.dress_crusher(body, tier)
 	var lbl := PixelLabel.new()
+	lbl.readout = true
 	lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	lbl.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	lbl.font_size = 26
@@ -4121,6 +4178,7 @@ func _style_fill(host: Node3D, fill: MeshInstance3D, items: Dictionary, label_y:
 	var lbl: Label3D = host.get_meta("fill_label") if host.has_meta("fill_label") else null
 	if lbl == null:
 		lbl = PixelLabel.new()
+		lbl.readout = true
 		lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 		lbl.pixel_size = 0.0035
 		lbl.font_size = 40
@@ -6923,6 +6981,7 @@ func _update_hose(prop: Node3D, show: bool) -> void:
 
 func _update_machines(delta: float) -> void:
 	_update_compressor(delta)
+	_pulse_spoil(Time.get_ticks_msec() / 1000.0)
 	var any_running := false
 	var t := Time.get_ticks_msec() * 0.001
 	for i in range(mini(state.crushers.size(), crusher_nodes.size())):
