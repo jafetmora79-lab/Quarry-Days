@@ -17,7 +17,7 @@ const SWING := {"grip": Vector3(0.30, -0.42, -0.55), "scale": 0.8, "rest": -0.75
 const POSE := {
 	"pointed_chisel": {"grip": Vector3(0.28, -0.40, -0.52), "scale": 1.0, "rest": -0.95, "yaw": 0.12, "wind": -0.9, "strike": -1.05, "tip": Vector3(0, 0.44, 0),
 		"hands": [["L", Vector3(0, 0.12, 0)]]},
-	"flat_chisel": {"grip": Vector3(0.28, -0.40, -0.52), "scale": 1.0, "rest": -0.95, "yaw": 0.12, "wind": -0.9, "strike": -1.05, "tip": Vector3(0, 0.43, 0),
+	"flat_chisel": {"grip": Vector3(0.28, -0.40, -0.52), "scale": 1.0, "rest": -0.95, "yaw": 0.12, "wind": -0.8, "strike": -1.12, "tip": Vector3(0, 0.43, 0),
 		"hands": [["L", Vector3(0, 0.12, 0)]]},
 	"repaired_pickaxe": {"grip": Vector3(0.30, -0.42, -0.55), "scale": 0.8, "rest": -0.75, "yaw": 0.2, "wind": 0.1, "strike": -1.35, "tip": Vector3(0, 0.5, -0.28),
 		"hands": [["R", Vector3(0, 0.15, 0)], ["L", Vector3(0, 0.36, 0)]]},
