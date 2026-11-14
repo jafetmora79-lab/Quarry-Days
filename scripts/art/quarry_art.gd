@@ -73,6 +73,7 @@ var piece_meshes := {}
 var pit_cap: MeshInstance3D     ## ground surface over the closed deep pit (hidden once it is dug)
 
 func build_environment(main_node) -> void:
+	BuildingDetails.registry.clear()
 	game = main_node
 	root = Node3D.new()
 	root.name = "Art"
@@ -203,7 +204,7 @@ func _clear_placeholders() -> void:
 					prop(P_PINE, Vector3(p.x, 0, p.z), float(int(p.x * 7.0 + p.z * 3.0) % 6), 1.0)
 			elif nm.begins_with("Equipment parking sign"):
 				n.queue_free()                                  # the garage carries its own sign now
-			elif nm in ["Quarry floor", "Expansion floor", "Pit cap"] or nm.begins_with("Office ") or nm.begins_with("Home ") or nm.begins_with("Storage shed ") \
+			elif nm in ["Quarry floor", "Expansion floor", "Pit cap"] or nm.begins_with("Office ") or nm.begins_with("Home ") or nm.begins_with("Storage shed ") or nm.begins_with("Tool shed ") \
 					or nm.begins_with("Break bench") or nm.begins_with("Upgrade board") or nm.begins_with("Selling station") \
 					or nm.begins_with("Crusher order kiosk") or nm.begins_with("Management desk"):
 				_hide(n)
@@ -355,7 +356,7 @@ func _walls(center: Vector3, ext_key: String, int_key: String, h := 2.8, windows
 	_wall_cut(int_key, c + Vector3(-2.27, h * 0.5, 0), Vector3(0.02, h - 0.1, 4.5), "z", ops["L"])
 	_wall_cut(int_key, c + Vector3(2.27, h * 0.5, 0), Vector3(0.02, h - 0.1, 4.5), "z", ops["R"])
 	_wall_cut(int_key, c + Vector3(0, h * 0.5, 2.22), Vector3(4.5, h - 0.1, 0.02), "x", ops["B"])
-	bx(M_FOUNDATION, c + Vector3(0, 0.05, 0), Vector3(5.24, 0.10, 5.04))
+	bx(M_FOUNDATION, c + Vector3(0, 0.08, 0), Vector3(5.24, 0.16, 5.24))                       # the plinth: top flush with the floor (0.16 m), 0.1 m proud of the wall faces
 	# Match the collision ramp from the yard to the raised office/shed floor.
 	MeshKit.box_into(soup(M_FOUNDATION), Vector3.ZERO, Vector3(1.42, 0.08, 1.0), Vector2.ONE,
 		Transform3D(Basis(Vector3.RIGHT, -atan(0.16)), c + Vector3(0, 0.04, -2.95)))
@@ -466,14 +467,38 @@ func _window(at: Vector3, yaw: float, w: float, h: float, hung := true) -> void:
 	for p in parts:
 		bx(p[0], at + basis * p[1], p[2], yaw)
 
-func _gable_roof(center: Vector3, key: String, w: float, d: float, h: float, rise: float) -> void:
-	var prof := PackedVector2Array([Vector2(-d * 0.5, 0), Vector2(d * 0.5, 0), Vector2(d * 0.5, 0.12), Vector2(0, rise + 0.12), Vector2(-d * 0.5, 0.12)])
-	MeshKit.extrude_into(soup(key), prof, w, Transform3D(Basis(), center + Vector3(0, h, 0)))   # ridge along X
-	bx(M_TRIM, center + Vector3(0, h + 0.02, -d * 0.5), Vector3(w + 0.1, 0.18, 0.06))
-	bx(M_TRIM, center + Vector3(0, h + 0.02, d * 0.5), Vector3(w + 0.1, 0.18, 0.06))
-	var gable := PackedVector2Array([Vector2(-2.5, 0), Vector2(2.5, 0), Vector2(0, rise)])
-	for x in [-2.42, 2.42]:
-		MeshKit.extrude_into(soup(M_SIDING if key != "CorrugatedRed" else "Corrugated"), gable, 0.18, Transform3D(Basis(Vector3.UP, 0.0), center + Vector3(x, h - 0.02, 0)))
+## A gable roof built the way it is built: two thin sheets meeting at the ridge (overhanging the eaves and the gable ends), a flat ceiling at the wall tops, a
+## frieze board that closes the gap between each eave wall and the sloping sheet, and the gable end wall in the SAME material as the walls (`wall_key`) filling the
+## triangle under the sheets. The ridge runs along X. `w` = sheet length (x), `d` = sheet span (z), `h` = wall height, `rise` = ridge height above the wall tops.
+const ROOF_T := 0.10
+func roof_under(z: float, d: float, rise: float) -> float:        ## height of a sheet's underside above the wall tops at depth z from the middle
+	return rise * (1.0 - absf(z) / (d * 0.5))
+
+func _gable_roof(center: Vector3, key: String, w: float, d: float, h: float, rise: float, wall_key := M_SIDING, ceil_key := M_DRYWALL, trim := Color(0.86, 0.84, 0.76)) -> void:
+	var sheet := PackedVector2Array([Vector2(-d * 0.5, 0), Vector2(0, rise), Vector2(d * 0.5, 0), Vector2(d * 0.5, ROOF_T), Vector2(0, rise + ROOF_T), Vector2(-d * 0.5, ROOF_T)])
+	MeshKit.extrude_into(soup(key), sheet, w, Transform3D(Basis(), center + Vector3(0, h, 0)))
+	# gable end walls: flush with the wall faces, up to the underside of the sheets (buried 2 cm into them so no light shows)
+	var zb := 2.5
+	var yb := roof_under(zb, d, rise) + 0.02
+	var gable := PackedVector2Array([Vector2(-zb, 0), Vector2(zb, 0), Vector2(zb, yb), Vector2(0, rise + 0.02), Vector2(-zb, yb)])
+	for x in [-2.4, 2.4]:
+		MeshKit.extrude_into(soup(wall_key), gable, 0.22, Transform3D(Basis(), center + Vector3(x, h, 0)))
+	# frieze: closes the gap between the top of the front and back walls and the sloping sheet above them
+	for sz in [-1.0, 1.0]:
+		bx(wall_key, center + Vector3(0, h + 0.1, sz * 2.35), Vector3(4.58, 0.2, 0.22))
+	# the ceiling at the wall tops (the attic above is closed and never seen)
+	bx(ceil_key, center + Vector3(0, h - 0.03, 0), Vector3(4.56, 0.06, 4.56))
+	# eave trim: a fascia along each eave edge under the sheet's edge, with the gutter on it; rake boards under the sheet ends; a ridge cap
+	for sz in [-1.0, 1.0]:
+		bx(M_TRIM, center + Vector3(0, h - 0.02, sz * (d * 0.5 - 0.02)), Vector3(w, 0.16, 0.04))
+		bx("SteelPlate", center + Vector3(0, h + 0.03, sz * (d * 0.5 + 0.035)), Vector3(w, 0.08, 0.07))     # the gutter, hung on the fascia
+	var slope := atan2(rise, d * 0.5)
+	var slope_len := sqrt(pow(d * 0.5, 2) + rise * rise)
+	for x in [-w * 0.5 + 0.02, w * 0.5 - 0.02]:
+		for sz in [-1.0, 1.0]:
+			var mid := Vector3(x, h + rise * 0.5 - 0.06, sz * d * 0.25)
+			MeshKit.box_into(soup(M_TRIM), Vector3.ZERO, Vector3(0.04, 0.12, slope_len), Vector2.ONE, Transform3D(Basis(Vector3.RIGHT, sz * slope), center + mid))
+	bx(M_TRIM, center + Vector3(0, h + rise + ROOF_T, 0), Vector3(w + 0.06, 0.08, 0.22))              # ridge cap: sunk 4 cm into the sheets
 
 func _sign(parent: Node3D, tex_key: String, pos: Vector3, size: Vector2, yaw := 0.0) -> void:
 	var q := QuadMesh.new()
@@ -484,15 +509,12 @@ func _sign(parent: Node3D, tex_key: String, pos: Vector3, size: Vector2, yaw := 
 func _office() -> void:
 	var c: Vector3 = game.OFFICE_POS
 	_walls(c, M_SIDING, M_DRYWALL, 2.8, [["L", -0.35, 1.1, 1.3], ["L", 1.55, 1.1, 1.3], ["R", -1.45, 1.1, 1.3], ["R", 0.45, 1.1, 1.3]])
-	_gable_roof(c, "CorrugatedRed", 5.6, 5.6, 2.8, 1.1)
+	_gable_roof(c, "CorrugatedRed", 5.6, 5.6, 2.8, 1.1, M_SIDING, M_DRYWALL)
 	quad_flat(M_LINO, c, Vector2(4.6, 4.5), 0.0, 0.165)
 	_sign(root, "Sign_Office", c + Vector3(0, 2.5, -2.51), Vector2(2.2, 0.55), PI)
 	prop(P_WALL_LAMP, c + Vector3(1.0, 2.3, -2.5), PI)
 	light(c + Vector3(0, 2.4, 0.3), Color(1.0, 0.86, 0.62), 1.1, 6.0)
-	BuildingDetails.eaves(self, c, 5.6, 5.6, 2.8, 1.1, Color(0.55, 0.2, 0.18))
-	BuildingDetails.porch_awning(self, c, Color(0.55, 0.2, 0.18))
 	BuildingDetails.office_interior(self, c)                 # the desk with Walt's CRT computer, bookcase, maps, rug (the management desk collider is main's)
-	prop(P_CHAIR, c + Vector3(0.1, 0.16, 1.95), PI)
 	prop(P_FILING, c + Vector3(-1.95, 0.16, 1.85), PI * 0.5)
 	prop(P_DOCS, c + Vector3(-1.95, 0.16, 0.9), PI * 0.5)
 	prop(P_CLOCK, c + Vector3(1.4, 2.1, 2.2), PI)
@@ -520,16 +542,14 @@ func _home() -> void:
 	MeshKit.inst(root, MeshKit.frustum(0.09, 0.07, 0.22), MeshKit.flat(Color(1.0, 0.9, 0.6), 1.2), c + Vector3(-0.35, 0.6, 2.05))
 	light(c + Vector3(-0.35, 0.95, 2.0), Color(1.0, 0.85, 0.55), 0.7, 3.0)
 	prop(P_CLOCK, c + Vector3(1.4, 2.1, 2.2), PI)
-	BuildingDetails.eaves(self, c, 5.6, 5.6, 2.8, 1.0, Color(0.36, 0.38, 0.4))
-	BuildingDetails.porch_awning(self, c, Color(0.32, 0.36, 0.4))
 	BuildingDetails.home_interior(self, c)
 
 ## The tool shed: its own little building for upgrading the player's tools and vehicles. The workbench stands against the back wall
 ## (built by main), shelves and a toolchest sit against the side walls, and the doorway and the floor in front of it stay clear.
 func _toolshed() -> void:
 	var c: Vector3 = game.TOOLSHED_POS
-	_walls(c, M_SIDING, M_DRYWALL, 2.8, [["L", -0.6, 1.0, 1.2], ["L", 0.9, 1.0, 1.2], ["R", -0.6, 1.0, 1.2], ["R", 0.9, 1.0, 1.2]])
-	_gable_roof(c, "Corrugated", 5.6, 5.6, 2.8, 0.9)
+	_walls(c, M_INDUSTRIAL, M_DRYWALL, 2.8, [["L", -0.6, 1.0, 1.2], ["L", 0.9, 1.0, 1.2], ["R", -0.6, 1.0, 1.2], ["R", 0.9, 1.0, 1.2]])
+	_gable_roof(c, "Corrugated", 5.6, 5.6, 2.8, 0.9, M_INDUSTRIAL, M_DRYWALL)
 	quad_flat(M_LINO, c, Vector2(4.6, 4.5), 0.0, 0.165)
 	_sign(root, "Sign_Upgrades", c + Vector3(0, 2.5, -2.51), Vector2(1.6, 0.4), PI)
 	prop(P_WALL_LAMP, c + Vector3(1.0, 2.3, -2.5), PI)
@@ -538,13 +558,12 @@ func _toolshed() -> void:
 	prop(P_BOXES, c + Vector3(1.9, 0.16, 0.3), -PI * 0.5)
 	solid("Tool shed shelving", c + Vector3(-2.0, 0.9, 0.3), Vector3(0.6, 1.8, 1.4))
 	solid("Tool shed boxes", c + Vector3(1.9, 0.5, 0.3), Vector3(0.7, 1.0, 1.0))
-	BuildingDetails.eaves(self, c, 5.6, 5.6, 2.8, 0.9, Color(0.36, 0.38, 0.4))
 	BuildingDetails.workshop(self, c)
 
 func _shed() -> void:
 	var c: Vector3 = game.SHED_POS
 	_walls(c, "Corrugated", M_BASEMENT)
-	_gable_roof(c, "CorrugatedRed", 5.6, 5.6, 2.8, 0.7)
+	_gable_roof(c, "CorrugatedRed", 5.6, 5.6, 2.8, 0.7, "Corrugated", M_BASEMENT)
 	quad_flat(M_BASEMENT, c, Vector2(4.6, 4.5), 0.0, 0.165)
 	bx("Corrugated", c + Vector3(0, 2.45, -2.42), Vector3(1.5, 0.7, 0.06))                # rolled-up door
 	bx("SteelPlate", c + Vector3(0, 2.82, -2.45), Vector3(1.6, 0.14, 0.16))
@@ -556,12 +575,15 @@ func _shed() -> void:
 	solid("Shed shelving", c + Vector3(-1.9, 0.9, 1.4), Vector3(0.6, 1.8, 1.4))
 	solid("Shed shelving", c + Vector3(1.9, 0.9, 1.4), Vector3(0.6, 1.8, 1.4))
 	light(c + Vector3(0, 2.4, 0), Color(0.95, 0.9, 0.75), 0.8, 5.0)
-	BuildingDetails.eaves(self, c, 5.6, 5.6, 2.8, 0.7, Color(0.5, 0.18, 0.15))
 	BuildingDetails.storage_shed(self, c)
 
 ## Open-front equipment garage over the parking bays: steel frame, corrugated walls and roof,
 ## workbench, shelving and clutter along the walls (clear of the bays).
 var garage_roof: MeshInstance3D
+
+## Height of the garage roof's underside at depth z: a single slope falling from 6.5 m at the open front to 6.0 m at the back wall (the wall's own height).
+func garage_under(z: float, z0: float, z1: float) -> float:
+	return 6.5 - 0.5 * (z - z0) / (z1 - z0)
 
 func _garage() -> void:
 	var ox: float = game.GARAGE_DX
@@ -579,7 +601,7 @@ func _garage() -> void:
 		var sc: float = (float(seg[0]) + float(seg[1])) * 0.5
 		var sw: float = float(seg[1]) - float(seg[0])
 		solid("Garage back wall", Vector3(sc, 2.0, z1), Vector3(sw, 4.0, 0.25))
-		bx("Corrugated", Vector3(sc, 3.0, z1), Vector3(sw, 6.0, 0.2))
+		bx("Corrugated", Vector3(sc, 3.01, z1), Vector3(sw, 6.02, 0.2))
 		bx(M_FOUNDATION, Vector3(sc, 0.2, z1), Vector3(sw + 0.1, 0.4, 0.3))
 	bx("Corrugated", Vector3(gdx, 5.0, z1), Vector3(QuarryDelivery.DOOR_W + 0.4, 2.0, 0.2))   # wall over the door
 	for dxp in [dx0 - 0.1, dx1 + 0.1]:
@@ -587,21 +609,32 @@ func _garage() -> void:
 	bx("Hazard", Vector3(gdx, 3.65, z1 - 0.12), Vector3(QuarryDelivery.DOOR_W, 0.16, 0.04))
 	solid("Garage wall", Vector3(x0, 2.0, (z0 + z1) * 0.5), Vector3(0.25, 4.0, z1 - z0))
 	solid("Garage wall", Vector3(x1, 2.0, (z0 + z1) * 0.5), Vector3(0.25, 4.0, z1 - z0))
-	bx("Corrugated", Vector3(x0, 3.0, (z0 + z1) * 0.5), Vector3(0.2, 6.0, z1 - z0))
-	bx("Corrugated", Vector3(x1, 3.0, (z0 + z1) * 0.5), Vector3(0.2, 6.0, z1 - z0))
+	# the side walls follow the roof line exactly (their tops are the roof's underside, buried 2 cm in it): no gap under the sheet, nothing poking through
+	var wall_prof := PackedVector2Array([Vector2(z0, 0.0), Vector2(z1, 0.0), Vector2(z1, garage_under(z1, z0, z1) + 0.02), Vector2(z0, garage_under(z0, z0, z1) + 0.02)])
 	for x in [x0, x1]:
+		MeshKit.extrude_into(soup("Corrugated"), wall_prof, 0.2, Transform3D(Basis(), Vector3(x, 0, 0)))
 		bx(M_FOUNDATION, Vector3(x, 0.2, (z0 + z1) * 0.5), Vector3(0.3, 0.4, z1 - z0))
-	# steel frame: front columns, I-beam, roof trusses
+	# steel frame: a header beam across the open front with its top against the roof, four columns standing on concrete footings under it, and a sloping rafter
+	# above each column that runs from the header to the back wall along the roof's underside
+	var beam_top := garage_under(z0 + 0.1, z0, z1)
+	var beam_h := 0.5
+	var col_h := beam_top - beam_h                                                      # columns stop at the underside of the header
 	for x in [x0, x0 + w / 3.0, x0 + 2.0 * w / 3.0, x1]:
-		bx("SteelGreen", Vector3(x, 3.25, z0 + 0.1), Vector3(0.22, 6.5, 0.22))
-		bx("SteelGreen", Vector3(x, 6.35, (z0 + z1) * 0.5), Vector3(0.18, 0.3, z1 - z0))   # truss
-	bx("SteelGreen", Vector3(cx, 6.45, z0 + 0.1), Vector3(w + 0.3, 0.35, 0.3))
-	var roof := PackedVector2Array([Vector2(z0 - 0.6, 6.6), Vector2(z1 + 0.3, 6.15), Vector2(z1 + 0.3, 6.27), Vector2(z0 - 0.6, 6.72)])
+		bx("SteelGreen", Vector3(x, col_h * 0.5, z0 + 0.1), Vector3(0.22, col_h, 0.22))
+		bx(M_FOUNDATION, Vector3(x, 0.1, z0 + 0.1), Vector3(0.46, 0.2, 0.46))
+		var slope := atan2(garage_under(z0 + 0.1, z0, z1) - garage_under(z1 - 0.1, z0, z1), (z1 - 0.1) - (z0 + 0.1))
+		var run := (z1 - 0.1) - (z0 + 0.1)
+		var rlen := sqrt(run * run + pow(garage_under(z0 + 0.1, z0, z1) - garage_under(z1 - 0.1, z0, z1), 2))
+		var mz := (z0 + z1) * 0.5
+		MeshKit.box_into(soup("SteelGreen"), Vector3.ZERO, Vector3(0.18, 0.18, rlen), Vector2.ONE, Transform3D(Basis(Vector3.RIGHT, slope), Vector3(x, garage_under(mz, z0, z1) - 0.09, mz)))
+	bx("SteelGreen", Vector3(cx, beam_top - beam_h * 0.5, z0 + 0.1), Vector3(w + 0.3, beam_h, 0.3))
+	var roof := PackedVector2Array([Vector2(z0 - 0.6, garage_under(z0 - 0.6, z0, z1)), Vector2(z1 + 0.3, garage_under(z1 + 0.3, z0, z1)),
+		Vector2(z1 + 0.3, garage_under(z1 + 0.3, z0, z1) + 0.12), Vector2(z0 - 0.6, garage_under(z0 - 0.6, z0, z1) + 0.12)])
 	var roof_soup := MeshKit.Soup.new()
 	MeshKit.extrude_into(roof_soup, roof, w + 0.6, Transform3D(Basis(), Vector3(cx, 0, 0)))
 	garage_roof = MeshKit.inst(root, roof_soup.mesh(), _material("Corrugated"))   # its own node: hidden while a vehicle is driven inside
-	bx("Hazard", Vector3(cx, 6.45, z0 - 0.07), Vector3(w + 0.3, 0.12, 0.02))
-	_sign(root, "Sign_Garage", Vector3(cx, 6.95, z0 - 0.02), Vector2(4.0, 0.5), PI)
+	bx("Hazard", Vector3(cx, beam_top - beam_h + 0.07, z0 - 0.06), Vector3(w + 0.3, 0.1, 0.02))
+	_sign(root, "Sign_Garage", Vector3(cx, beam_top - 0.2, z0 - 0.07), Vector2(4.0, 0.36), PI)
 	_sign(root, "Sign_Safety", Vector3(x0 - 0.13, 2.6, z0 + 1.6), Vector2(1.5, 0.5), -PI * 0.5)
 	# workshop along the walls
 	prop(P_WORKBENCH, Vector3(x0 + 0.55, 0.0, 19.6), PI * 0.5)

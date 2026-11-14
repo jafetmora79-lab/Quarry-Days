@@ -158,7 +158,7 @@ func run() -> void:
 	# --- the buildings are walkable: every goal reachable from the door, nothing blocks the lane
 	var boxes := boxes_of(game)
 	var oc: Vector3 = game.OFFICE_POS
-	var miss: Array = reachable(boxes, oc, Vector2(oc.x, oc.z - 1.7), [[Vector2(oc.x, oc.z + 0.55), "the desk"], [Vector2(oc.x + 1.5, oc.z + 1.3), "the bookcase"], [Vector2(oc.x - 1.4, oc.z + 0.2), "the filing cabinets"], [Vector2(oc.x + 1.5, oc.z - 0.4), "the window seat"]])
+	var miss: Array = reachable(boxes, oc, Vector2(oc.x, oc.z - 1.7), [[Vector2(oc.x - 0.7, oc.z + 0.9), "the desk"], [Vector2(oc.x + 1.6, oc.z + 1.3), "the bookcase"], [Vector2(oc.x - 1.4, oc.z + 0.2), "the filing cabinets"], [Vector2(oc.x + 1.5, oc.z - 0.4), "the window seat"]])
 	check(miss.is_empty(), "office: the desk, bookcase and cabinets can all be reached from the door %s" % str(miss))
 	var hc: Vector3 = game.HOME_POS
 	miss = reachable(boxes, hc, Vector2(hc.x, hc.z - 1.7), [[Vector2(hc.x - 0.5, hc.z + 1.3), "the bed"], [Vector2(hc.x + 1.45, hc.z + 1.2), "the kitchen"], [Vector2(hc.x + 0.55, hc.z - 0.45), "the table"], [Vector2(hc.x - 1.55, hc.z - 1.4), "the bathroom"]])

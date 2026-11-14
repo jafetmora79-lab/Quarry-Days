@@ -3872,9 +3872,8 @@ func _build_phase2_area() -> void:
 		_solid(world, "Expansion cliff", Vector3(50,3,0), Vector3(2,6,30), Color(0.32,0.31,0.28))
 		var barrier := _solid(world, "Rockfall barrier", Vector3(29.6,2.0,0), Vector3(1.2,4.0,26), Color(0.42,0.37,0.31))
 		expansion_gate.append(barrier)
-	var desk := _solid(world, "Management desk", Vector3(OFFICE_POS.x, 0.5, OFFICE_POS.z + 1.4), Vector3(1.8,1.0,0.8), Color(0.30,0.20,0.12))
+	var desk := _solid(world, "Management desk", Vector3(OFFICE_POS.x, 0.5, OFFICE_POS.z + BuildingDetails.OFFICE_DESK_Z), Vector3(1.8,1.0,0.9), Color(0.30,0.20,0.12))     # against the back wall (the art builds the desk on it)
 	desk.set_meta("kind", "office")
-	_visual_box(desk, Vector3(-0.4,0.62,0), Vector3(0.5,0.24,0.06), Color(0.12,0.2,0.16))
 
 ## Shows or hides the east expansion. Locked: barrier + cliff in place, no deposits there.
 func _set_expansion(unlocked: bool) -> void:

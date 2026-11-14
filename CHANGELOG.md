@@ -336,3 +336,9 @@ Priority: one continuous rock surface, then the simple background. No visual che
 - The office's back-wall window (which ran past the corner) is gone.
 - The tool plate has no progress bar.
 - The workbench and its pegboard no longer offer tools or carts you own or have outgrown (a tool is outgrown when nothing about it beats what you have).
+
+## Architecture repair (claude/architecture-repair)
+- Roofs rebuilt as two thin sheets with overhanging eaves and rakes; the gable ends are now real wall (same material as the walls) under the sheets instead of being sealed inside a solid roof block; a frieze closes the eave gap, a flat ceiling closes the attic; trim follows the slope (rake boards were tilted the wrong way); porch awnings (overlapped the sign, hung a lantern in mid-air) removed; foundations are a real plinth flush with the floor.
+- Garage: the header, columns on footings and sloping rafters now follow the roof line; truss ends no longer poke through the roof, side walls follow the slope (no gap), sign mounted on the header.
+- Workshop walls are industrial; the workshop's hidden placeholder roof slab no longer shows; office desk stands against the back wall with the CRT facing the room and a chair (collider at seat height, aiming at it also targets the computer); dining chairs moved clear of the door swing; bathroom partitions end at the ceiling; shed drums are round and clear of the shelving.
+- `test_architecture`: roofs, garage slope, floating-detail registry, door swing arcs.
