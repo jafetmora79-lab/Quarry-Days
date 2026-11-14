@@ -30,6 +30,7 @@ var loc_label: Label
 var loc_root: Control
 var _loc_text := ""
 var menu_open := false            ## a menu is open: the plates fade out so they do not show through it
+var conversation := false         ## someone is talking (Grandpa, a new hire) or an opening shot plays: the plates step aside the same way, so the scene and the speech are all there is
 var _menu_fade := 1.0
 var _loc_t := 0.0
 var _loc_check := 0.0
@@ -569,7 +570,8 @@ func _process(delta: float) -> void:
 		return
 	_update_location(delta)
 	_update_drive_plate()
-	_menu_fade = move_toward(_menu_fade, 0.0 if menu_open else 1.0, delta * 7.0)
+	var hide_plates := menu_open or conversation
+	_menu_fade = move_toward(_menu_fade, 0.0 if hide_plates else 1.0, delta * 7.0)
 	for nm in ["TopLeftPlate", "MapPlate", "ObjectivePlate", "DrivePlate"]:
 		var pn := get_node_or_null(nm) as CanvasItem
 		if pn != null:
@@ -577,7 +579,7 @@ func _process(delta: float) -> void:
 	if bottom != null:
 		bottom.modulate.a = _menu_fade
 	hints.modulate.a = _menu_fade
-	loc_root.visible = not menu_open
+	loc_root.visible = not hide_plates
 	var tlp := get_node_or_null("TopLeftPlate") as Control
 	if tlp != null and map_plate != null:
 		map_plate.position.y = tlp.position.y + tlp.size.y + 6.0       # the map always sits just under the time / money plate, whatever its height
@@ -616,7 +618,7 @@ func _process(delta: float) -> void:
 	var want_prompt := 1.0 if prompt_label.text != "" or message_label.visible else 0.0
 	prompt_alpha = move_toward(prompt_alpha, want_prompt, delta * 6.0)
 	prompt_panel.modulate.a = prompt_alpha
-	prompt_panel.visible = prompt_alpha > 0.01 and not menu_open
+	prompt_panel.visible = prompt_alpha > 0.01 and not hide_plates
 	# keep the prompt just above the tool/bag bar whatever their heights
 	var bar_top := bottom.get_global_rect().position.y
 	prompt_panel.offset_bottom = bar_top - size.y - 6.0

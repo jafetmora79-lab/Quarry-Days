@@ -1,5 +1,13 @@
 # Changelog
 
+### Menus, HUD and walking polish
+- **Conversations:** while Grandpa or a new hire talks (and during the opening shots) the HUD plates, objective, hint bar and prompt fade out, the dialog sits at the bottom edge, and nobody is outlined.
+- **No outline on people:** workers and Grandpa are never highlighted (it spoiled the character art).
+- **Cleanup markers:** weeds and rubble heaps pulse in a red outline with a thin red ring and a faint red beam instead of the yellow beam and disc.
+- **Buttons:** one new set of raised keys (brown default, amber for the main action, muted red for dangerous ones) across every menu.
+- **Pause menu:** rebuilt as a compact column (RESUME, SAVE / LOAD, MAIN MENU, music slider with mute, NEW GAME) - the old one ran off the window and cut its button row. Station panels are now clamped to the window.
+- **Walking bump fixed:** the ledge-climb check treated a brush against the flat ground as a ledge, lifting the player 20 cm and freezing them for 0.2 s at random spots (this was the "bump" near the quarry entrance). It now reacts only to real walls; `tests/test_entrance_walk.gd` walks the entrance and fence lines to keep it that way. The blueprint quarry also no longer builds invisible ramp curbs.
+
 ### Machinery overhaul (branch claude/quarry-machinery-overhaul)
 - **Auto crew (J / R3 / AUTO button):** a bought excavator or dump truck can run itself. The excavator digs, swings and loads a truck, crusher, output, storage or the spoil heap; the truck hauls on the nav route (round the soil field too), turns, backs up, tips and returns. It uses the normal dig / dump / transfer code, so nothing is created or lost. Running cost per bucket / trip is `auto_cost` in `data/vehicles.json` ($3-$9). The flag is saved with the vehicle.
 - **Belts and crushers:** a lamp on each belt shows active / idle / blocked / disconnected; crushers vibrate and animate at their real processing speed.

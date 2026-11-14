@@ -147,6 +147,8 @@ func _build_ground() -> void:
 		if hgt > 0.05:
 			var fill := _body("Ramp fill", Vector3(0, -depth - 0.25 + hgt * 0.5, zs - seg * (float(i) + 0.5)), Vector3(ramp_w, hgt, seg), false)
 			fill.set_meta("nav_skip", true)
+	if flat:
+		return                  # the blueprint quarry is flush with the plateau: there is no basin ramp, so no curb to bump into (the art has none either)
 	for side in [-1.0, 1.0]:
 		var curb := _body("Ramp curb", Vector3(side * (ramp_w * 0.5 + 0.15), -depth * 0.5 + 0.5, zs - ramp_run * 0.5), Vector3(0.25, 1.0, length - 0.6), false, Vector3(-ang, 0, 0))
 		curb.set_meta("curb", true)

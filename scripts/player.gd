@@ -120,6 +120,11 @@ func _try_mantle() -> void:
 	var hit := KinematicCollision3D.new()
 	if not test_move(global_transform, dir * 0.2, hit):
 		return
+	# only a real wall in front counts as a ledge: touching the flat ground (floor-top contact, a seam, the safe margin) used to start a climb that lifted
+	# the player 20 cm and froze them for 0.2 s - the "bump" while walking across open ground
+	var n: Vector3 = hit.get_normal()
+	if n.y > 0.45 or n.dot(dir) > -0.35:
+		return
 	var c = hit.get_collider()
 	if c == null or not (c is QuarryFormation or (c is Node and ((c as Node).has_meta("ground") or (c as Node).has_meta("climbable")))):
 		return

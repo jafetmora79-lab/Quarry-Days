@@ -88,6 +88,9 @@ func setup(g) -> void:
 
 ## Resizes the centred panel (base-canvas px); small menus such as Pause should not be a huge empty box.
 func fit(w: float, h: float) -> void:
+	var vp := get_viewport_rect().size if is_inside_tree() else Vector2(960, 540)
+	w = minf(w, vp.x - 24.0)                      # never wider or taller than the window (a cut-off panel hides its buttons)
+	h = minf(h, vp.y - 24.0)
 	offset_left = -w * 0.5
 	offset_right = w * 0.5
 	offset_top = -h * 0.5
@@ -156,31 +159,59 @@ func _box(bg: Color, border: Color, margin := 8) -> PanelContainer:
 static var _styles := {}
 
 ## Button looks: "primary" (gold-green: Sell / Buy / Order), "toggle" (quiet outline: clerk on/off), default (brown).
+## Button looks. All are warm plates with a darker lower edge (so they read as raised keys) and a lighter top edge:
+##   "primary" (the default action button) brown plate, amber text edge   "main" the one call to action: amber fill, dark text
+##   "danger" muted red (erase, dismiss)   "toggle" a flat small switch
 static func _style(kind: String, state: String) -> StyleBoxFlat:
 	var k := kind + state
 	if _styles.has(k):
 		return _styles[k]
-	var bg := Color(0.27, 0.2, 0.13)
-	var border := QuarryTheme.BORDER
-	if kind == "primary":
-		bg = Color(0.27, 0.4, 0.2)
-		border = Color(0.62, 0.86, 0.48)
+	var bg := Color(0.31, 0.23, 0.15)
+	var edge := Color(0.62, 0.47, 0.29)
+	var low := Color(0.16, 0.11, 0.07)
+	if kind == "main":
+		bg = Color(0.80, 0.57, 0.20)
+		edge = Color(0.99, 0.82, 0.46)
+		low = Color(0.46, 0.30, 0.09)
+	elif kind == "danger":
+		bg = Color(0.46, 0.20, 0.15)
+		edge = Color(0.80, 0.42, 0.33)
+		low = Color(0.25, 0.09, 0.07)
 	elif kind == "toggle":
-		bg = Color(0.16, 0.13, 0.1)
-		border = Color(0.55, 0.47, 0.34)
+		bg = Color(0.18, 0.14, 0.11)
+		edge = Color(0.45, 0.38, 0.28)
+		low = Color(0.11, 0.09, 0.07)
+	var drop := 3
 	if state == "hover":
-		bg = bg.lightened(0.18)
-		border = border.lightened(0.2)
+		bg = bg.lightened(0.14)
+		edge = edge.lightened(0.15)
 	elif state == "pressed":
-		bg = bg.darkened(0.15)
-		border = QuarryTheme.ACCENT
+		bg = bg.darkened(0.12)
+		edge = edge.darkened(0.1)
+		drop = 1                                       # the key is pushed in
 	elif state == "disabled":
-		bg = Color(0.15, 0.125, 0.105, 0.9)
-		border = Color(0.3, 0.26, 0.21)
-	var sb := QuarryTheme.panel_box(bg, border, 6, 2)
+		bg = Color(0.17, 0.14, 0.115, 0.9)
+		edge = Color(0.28, 0.24, 0.2)
+		low = Color(0.12, 0.1, 0.085)
+		drop = 2
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = bg
+	sb.border_color = edge
+	sb.border_width_left = 1
+	sb.border_width_right = 1
+	sb.border_width_top = 1
+	sb.border_width_bottom = drop
+	sb.set_corner_radius_all(4)
+	sb.corner_detail = 3
+	sb.content_margin_left = 10
+	sb.content_margin_right = 10
+	sb.content_margin_top = 3 + (3 - drop)           # the label sinks with the key
+	sb.content_margin_bottom = drop
+	sb.anti_aliasing = true
+	# the lower edge is darker than the sides: drawn as a second border via the shadow
+	sb.shadow_color = low
 	sb.shadow_size = 0
-	sb.content_margin_top = 3
-	sb.content_margin_bottom = 3
+	sb.shadow_offset = Vector2(0, 0)
 	_styles[k] = sb
 	return sb
 
@@ -192,6 +223,9 @@ func make_button(key: String, label: String, enabled: bool, action: Callable, mi
 		if kind == "toggle":
 			b.add_theme_font_override("font", QuarryTheme.body())
 			b.add_theme_font_size_override("font_size", QuarryTheme.SMALL)
+		if kind == "main":
+			for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+				b.add_theme_color_override(c, Color(0.16, 0.1, 0.04))
 		b.add_theme_color_override("font_disabled_color", Color(0.55, 0.5, 0.42))
 	b.text = label
 	b.disabled = not enabled
@@ -201,6 +235,69 @@ func make_button(key: String, label: String, enabled: bool, action: Callable, mi
 	b.pressed.connect(func(): game.ui_click(key, action, b))
 	buttons[key] = b
 	return b
+
+## A full-width button in the list (menus such as Pause that are a column of choices rather than rows of cards).
+func vbutton(key: String, label: String, enabled: bool, action: Callable, kind := "primary", height := 30.0) -> Button:
+	var b := make_button(key, label, enabled, action, 200.0, kind)
+	b.custom_minimum_size.y = maxf(height, 40.0 if game.touch_mode else height)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list.add_child(b)
+	return b
+
+## Two buttons side by side in the list.
+func vbutton_pair(a: Array, b: Array) -> void:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 8)
+	h.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list.add_child(h)
+	for d in [a, b]:
+		var btn := make_button(str(d[0]), str(d[1]), bool(d[2]), d[3], 90.0, str(d[4]) if d.size() > 4 else "primary")
+		btn.custom_minimum_size.y = 30.0
+		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		h.add_child(btn)
+
+## A labelled slider row ("Music" ... 70%) with a mute toggle; `on_change` gets 0..1.
+func slider_row(key: String, label: String, value: float, muted: bool, on_change: Callable, on_mute: Callable) -> void:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 8)
+	h.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list.add_child(h)
+	var l := QuarryTheme.label(label, FS, DIM)
+	l.custom_minimum_size = Vector2(58, 0)
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	h.add_child(l)
+	var sl := HSlider.new()
+	sl.min_value = 0.0
+	sl.max_value = 1.0
+	sl.step = 0.05
+	sl.value = value
+	sl.editable = not muted
+	sl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	sl.custom_minimum_size = Vector2(120, 24)
+	sl.focus_mode = Control.FOCUS_ALL
+	var track := QuarryTheme.bar_box(Color(0.08, 0.06, 0.05, 0.95))
+	track.content_margin_top = 3
+	track.content_margin_bottom = 3
+	var fill := QuarryTheme.bar_box(QuarryTheme.ACCENT if not muted else Color(0.4, 0.34, 0.26))
+	fill.content_margin_top = 3
+	fill.content_margin_bottom = 3
+	sl.add_theme_stylebox_override("slider", track)
+	sl.add_theme_stylebox_override("grabber_area", fill)
+	sl.add_theme_stylebox_override("grabber_area_highlight", fill)
+	buttons[key] = sl
+	h.add_child(sl)
+	var pct := QuarryTheme.label("muted" if muted else "%d%%" % int(round(value * 100.0)), FS, INK)
+	sl.value_changed.connect(func(v: float):
+		on_change.call(v)
+		pct.text = "%d%%" % int(round(v * 100.0)))
+	pct.custom_minimum_size = Vector2(44, 0)
+	pct.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	pct.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	h.add_child(pct)
+	var mute := make_button(key + "_mute", "UNMUTE" if muted else "MUTE", true, on_mute, 70.0, "toggle")
+	mute.custom_minimum_size.y = 24.0
+	h.add_child(mute)
 
 func _cell(t: String, color: Color, min_w: float, align := HORIZONTAL_ALIGNMENT_LEFT) -> Label:
 	var l := QuarryTheme.label(t, FS, color)

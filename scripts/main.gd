@@ -539,7 +539,7 @@ func _start_intro(w: Node3D) -> void:
 		UiArt.portrait_index(str(w.e["name"]), str(w.e.get("gender", "m")), str(w.e["profession"]), str(w.e.get("candidate", ""))))
 	ui.add_child(dialog)
 	dialog.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE)
-	dialog.offset_bottom = -150.0
+	dialog.offset_bottom = -28.0
 	dialog.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	dialog.finished.connect(_end_intro)
 	player.locked = true
@@ -671,36 +671,66 @@ func _spawn_cleanup() -> void:
 		world.add_child(body)
 		cleanup_nodes[id] = body
 
-## A tall yellow beam, a ground ring and a label on every item still left, so the last one is never lost in the grass.
+## Cleanup markers: every weed and rubble heap still left pulses in a red outline (the mesh itself is outlined), with a thin ground ring and a faint tall
+## beam in the same pulsing red so the last one is never lost in the grass. One shared material per kind of marker, pulsed in _pulse_cleanup().
+var _cleanup_outline_mat: StandardMaterial3D
+var _cleanup_glow_mat: StandardMaterial3D
+var _cleanup_pulse_t := 0.0
+
+func _cleanup_materials() -> void:
+	if _cleanup_outline_mat != null:
+		return
+	_cleanup_outline_mat = StandardMaterial3D.new()
+	_cleanup_outline_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_cleanup_outline_mat.albedo_color = Color(0.9, 0.16, 0.12)
+	_cleanup_outline_mat.cull_mode = BaseMaterial3D.CULL_FRONT
+	_cleanup_outline_mat.grow = true
+	_cleanup_outline_mat.grow_amount = 0.035
+	_cleanup_glow_mat = StandardMaterial3D.new()
+	_cleanup_glow_mat.albedo_color = Color(1.0, 0.2, 0.15, 0.3)
+	_cleanup_glow_mat.emission_enabled = true
+	_cleanup_glow_mat.emission = Color(1.0, 0.15, 0.1)
+	_cleanup_glow_mat.emission_energy_multiplier = 1.0
+	_cleanup_glow_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_cleanup_glow_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+
+## A slow pulse (about 1.4 s a cycle) between a dark and a bright red, shared by every marker.
+func _pulse_cleanup(delta: float) -> void:
+	if _cleanup_outline_mat == null:
+		return
+	_cleanup_pulse_t += delta
+	var k := 0.5 + 0.5 * sin(_cleanup_pulse_t * TAU / 1.4)
+	_cleanup_outline_mat.albedo_color = Color(0.5 + 0.5 * k, 0.07 + 0.1 * k, 0.06 + 0.06 * k)
+	_cleanup_glow_mat.albedo_color = Color(1.0, 0.2, 0.15, 0.14 + 0.3 * k)
+	_cleanup_glow_mat.emission_energy_multiplier = 0.5 + 1.1 * k
+
 func _cleanup_beacon(body: Node3D, weed: bool) -> void:
-	var glow := StandardMaterial3D.new()
-	glow.albedo_color = Color(1.0, 0.82, 0.2, 0.55)
-	glow.emission_enabled = true
-	glow.emission = Color(1.0, 0.75, 0.15)
-	glow.emission_energy_multiplier = 1.4
-	glow.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_cleanup_materials()
+	var vis := body.get_node_or_null("Visual") as MeshInstance3D
+	if vis != null:
+		vis.material_overlay = _cleanup_outline_mat                  # outlines the weed / heap itself, pulsing
 	var beam := MeshInstance3D.new()
 	var cm := CylinderMesh.new()
-	cm.top_radius = 0.05
-	cm.bottom_radius = 0.09
+	cm.top_radius = 0.03
+	cm.bottom_radius = 0.05
 	cm.height = 7.0
 	cm.radial_segments = 6
 	beam.mesh = cm
-	beam.material_override = glow
+	beam.material_override = _cleanup_glow_mat
 	beam.position = Vector3(0, 3.5, 0)
 	beam.name = "Beacon"
 	beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	body.add_child(beam)
-	var ring := MeshInstance3D.new()
-	var rm := CylinderMesh.new()
-	rm.top_radius = 1.0 if weed else 1.3
-	rm.bottom_radius = rm.top_radius
-	rm.height = 0.03
-	rm.radial_segments = 14
+	var ring := MeshInstance3D.new()                                  # a thin ring on the ground, not a filled disc
+	var rm := TorusMesh.new()
+	rm.inner_radius = (1.0 if weed else 1.3) - 0.05
+	rm.outer_radius = (1.0 if weed else 1.3)
+	rm.rings = 20
+	rm.ring_segments = 4
 	ring.mesh = rm
-	ring.material_override = glow
-	ring.position = Vector3(0, 0.03, 0)
+	ring.material_override = _cleanup_glow_mat
+	ring.scale = Vector3(1, 0.15, 1)
+	ring.position = Vector3(0, 0.04, 0)
 	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	body.add_child(ring)
 	var lb := Label3D.new()
@@ -710,7 +740,7 @@ func _cleanup_beacon(body: Node3D, weed: bool) -> void:
 	lb.font_size = 28
 	lb.pixel_size = 0.008
 	lb.outline_size = 8
-	lb.modulate = Color(1.0, 0.9, 0.4)
+	lb.modulate = Color(1.0, 0.62, 0.55)
 	lb.position = Vector3(0, 2.2, 0)
 	lb.visibility_range_end = 45.0
 	body.add_child(lb)
@@ -804,10 +834,10 @@ func _finish_debris(id: String, node: Node3D, what: String) -> void:
 		var nx := nearest_cleanup()
 		var more := ""
 		if not nx.is_empty():
-			more = " Nearest: %s, %d m %s - follow the yellow beam." % ["weeds" if nx["weed"] else "rubble", int(nx["dist"]), nx["dir"]]
+			more = " Nearest: %s, %d m %s - follow the red pulse." % ["weeds" if nx["weed"] else "rubble", int(nx["dist"]), nx["dir"]]
 		_notify("Site cleanup: %d left.%s" % [prog.cleanup_left(), more])
 		if prog.cleanup_left() <= 3 and hud:
-			hud.toast("Almost clean", "%d left. Look for the yellow beams." % prog.cleanup_left(), "info")
+			hud.toast("Almost clean", "%d left. Look for the red pulses." % prog.cleanup_left(), "info")
 
 ## A contract is complete: a clear notice, the reward (paid once by the progression), and the next job when there is one.
 func _on_area_completed(id: String) -> void:
@@ -1426,7 +1456,7 @@ func _notify(s: String) -> void:
 ## Interaction highlight (Phase 8.5): a thin warm outline on the one thing you could press E on. Only real interactables get it
 ## (never terrain, rock, loose pieces or weeds), it is removed the moment you look away, open a menu, drive or build, and it is
 ## never used for construction ghosts, which have their own blueprint look.
-const HIGHLIGHT_KINDS := ["repair_part", "cart", "door", "bed", "sell", "upgrades", "storage", "crusher", "output", "shop", "office", "rig", "vehicle", "worker", "discovery", "walter", "fossil", "egg", "conveyor", "gate"]
+const HIGHLIGHT_KINDS := ["repair_part", "cart", "door", "bed", "sell", "upgrades", "storage", "crusher", "output", "shop", "office", "rig", "vehicle", "discovery", "fossil", "egg", "conveyor", "gate"]      # (people are never outlined: it ruins the character art)
 var highlight_node: Node3D
 var highlight_meshes: Array = []
 var _hl_mat: StandardMaterial3D
@@ -1449,10 +1479,14 @@ func _clear_highlight() -> void:
 	highlight_meshes.clear()
 	highlight_node = null
 
+## Someone is talking (Grandpa, a new hire, the fossil scene) or the opening shots play.
+func _conversation_active() -> bool:
+	return walter_dialog != null or dialog != null or est_running or fossil_dialog != null
+
 func _update_highlight() -> void:
 	var t: Node3D = last_target
 	var ok := t != null and is_instance_valid(t) and not driving and menu == "" and not placement and not construction \
-		and not (hud and hud.card_open()) and HIGHLIGHT_KINDS.has(str(t.get_meta("kind", "")))
+		and not (hud and hud.card_open()) and not _conversation_active() and HIGHLIGHT_KINDS.has(str(t.get_meta("kind", "")))     # no "interact" outline round someone mid-conversation
 	if ok and str(t.get_meta("kind", "")) == "walter" and walter_mode != "waiting":
 		ok = false
 	if not ok:
@@ -1644,6 +1678,8 @@ func _physics_process(delta: float) -> void:
 	if placement:
 		prompt = "PLACE %s: %s | left click place | R rotate | G grid %s | Esc cancel%s" % [placement_kind.replace("output","output storage").to_upper(), "VALID" if ghost_valid else "BLOCKED", "on" if grid_snap else "off", placement_hint]
 	hud.set_prompt(prompt)
+	hud.conversation = _conversation_active()
+	_pulse_cleanup(delta)
 	hud.hint_text = _hint_text()
 	hud.tutorial = tutorial_visible and not driving
 	hud_refresh_t -= delta
@@ -1882,21 +1918,24 @@ func _draw_menu() -> void:
 	var p: QuarryStationUI = panel
 	var m := state.money
 	var idx := int(panel.get_meta("crusher_index", -1))
-	p.fit(520.0 if menu == "pause" else 700.0, 165.0 if menu == "pause" else 470.0)
+	p.fit(340.0 if menu == "pause" else 700.0, 332.0 if menu == "pause" else 470.0)
 	match menu:
 		"pause":
-			p.begin("PAUSED", -1, "Optional keys:  F5 save   F9 load   Esc resume")
-			p.text("The game saves itself every minute and when you close it. Save now with the button or F5." if not _confirm_new else "Erase your save and start a brand new game? Click NEW GAME again to confirm.", QuarryTheme.DIM if not _confirm_new else QuarryTheme.WARN, true)
-			p.button_bar([["resume", "RESUME", true, func(): _confirm_new = false; _close_menu()], ["save", "SAVE GAME", true, func(): _save()], ["load", "LOAD GAME", true, func(): _load()], ["main_menu", "MAIN MENU", true, func(): to_main_menu()],
-				["new", "NEW GAME" if not _confirm_new else "ERASE & RESTART", true, func():
-					if _confirm_new:
-						new_game()
-					else:
-						_confirm_new = true
-						_draw_menu()]])
-			p.text("Music: %s" % ("muted" if music.muted else "%d%%" % int(round(music.volume * 100.0))), QuarryTheme.DIM, true)
-			p.button_bar([["music_down", "MUSIC -", true, func(): music.set_volume(music.volume - 0.1), 130], ["music_up", "MUSIC +", true, func(): music.set_volume(music.volume + 0.1), 130],
-				["music_mute", "UNMUTE" if music.muted else "MUTE", true, func(): music.set_muted(not music.muted), 130]])
+			p.begin("PAUSED", -1, "Esc resume   F5 save   F9 load")
+			p.fit(340.0, 332.0)                       # after begin(), which resets the panel to the big size
+			p.text("The game saves itself every minute and when you close it." if not _confirm_new else "Erase your save and start a brand new game? Press ERASE & RESTART again to confirm.", QuarryTheme.DIM if not _confirm_new else QuarryTheme.WARN, true)
+			p.vbutton("resume", "RESUME", true, func(): _confirm_new = false; _close_menu(), "main", 34.0)
+			p.vbutton_pair(["save", "SAVE GAME", true, func(): _save()], ["load", "LOAD GAME", true, func(): _load()])
+			p.vbutton("main_menu", "MAIN MENU", true, func(): to_main_menu())
+			p.list.add_child(HSeparator.new())
+			p.slider_row("music_vol", "Music", music.volume, music.muted, func(v: float): music.set_volume(v), func(): music.set_muted(not music.muted))
+			p.list.add_child(HSeparator.new())
+			p.vbutton("new", "NEW GAME" if not _confirm_new else "ERASE & RESTART", true, func():
+				if _confirm_new:
+					new_game()
+				else:
+					_confirm_new = true
+					_draw_menu(), "danger")
 		"sell": _draw_sell(p)
 		"upgrades": _draw_upgrades(p)
 		"cart": _draw_cart(p, idx)
@@ -5501,7 +5540,7 @@ func _open_walter_dialog(lines: Array, on_done: Callable, timed := false) -> voi
 	walter_dialog.setup(lines, timed)
 	ui.add_child(walter_dialog)
 	walter_dialog.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE)
-	walter_dialog.offset_bottom = -150.0
+	walter_dialog.offset_bottom = -28.0              # the HUD plates fade out during a conversation, so the box sits at the bottom edge
 	walter_dialog.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	walter_dialog.finished.connect(func(skipped: bool):
 		var d := walter_dialog
