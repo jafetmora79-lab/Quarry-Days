@@ -10,6 +10,18 @@ const SIZE := {"hand_cart": Vector3(0.95, 0.9, 1.5), "wheelbarrow": Vector3(0.7,
 var cart_id := ""
 var model: Node3D
 var held := false
+var tilt: Node3D                 ## carries the model; hinged at the front axle so the barrow can tip its load out over the wheel
+var wheels: Array = []           ## the model's turning wheels
+var tip_t := 0.0                 ## > 0 while tipping out (seconds left)
+var _prev := Vector3.INF
+var _prev_yaw := 0.0
+var _roll := 0.0
+var _bob := 0.0
+var _anim_frame := -1
+var rolled_total := 0.0         ## signed radians the first wheel has turned in all (tests)
+const TIP_TIME := 1.6
+const TIP_ANGLE := 0.62
+const AXLE := {"hand_cart": Vector3(0, 0.3, 0.1), "wheelbarrow": Vector3(0, 0.24, -0.62), "reinforced_wheelbarrow": Vector3(0, 0.26, -0.72)}
 
 ## "push": the player stands behind the handles; "pull": the player walks ahead of the pull bar.
 static func mode_of(id: String) -> String:
@@ -28,7 +40,16 @@ func setup(id: String) -> void:
 	set_meta("kind", "cart")
 	set_meta("cart", id)
 	model = GearModels.build_prop(id)
-	add_child(model)
+	tilt = Node3D.new()
+	tilt.name = "Tilt"
+	var axle: Vector3 = AXLE.get(id, Vector3(0, 0.25, 0))
+	tilt.position = axle
+	model.position = -axle
+	add_child(tilt)
+	tilt.add_child(model)
+	for w in model.get_children():
+		if str(w.name).begins_with("Wheel"):
+			wheels.append(w)
 	var cs := CollisionShape3D.new()
 	var box := BoxShape3D.new()
 	var sz: Vector3 = SIZE.get(id, Vector3(0.9, 0.9, 1.5))
@@ -49,9 +70,51 @@ func follow(target: Vector3, yaw: float, delta: float) -> float:
 	velocity.y -= 20.0 * delta
 	rotation.y = lerp_angle(rotation.y, yaw, minf(1.0, delta * 9.0))
 	move_and_slide()
+	_animate(delta)
 	var rest := target - global_position
 	rest.y = 0.0
 	return rest.length()
+
+## Wheels turn with the distance really rolled, the body leans into a turn and bobs gently over the ground, and unloading tips it forward over the front
+## wheel (the load slides toward the lip as it tips).
+func _physics_process(delta: float) -> void:
+	if _anim_frame != Engine.get_physics_frames():       # not driven by follow() this frame: still settle, tip and (if shoved) roll
+		_animate(delta)
+
+func _animate(delta: float) -> void:
+	_anim_frame = Engine.get_physics_frames()
+	var travelled := 0.0
+	var fwd := -global_transform.basis.z
+	if _prev != Vector3.INF:
+		var dp := global_position - _prev
+		dp.y = 0.0
+		if dp.length() < 2.0:
+			travelled = dp.dot(fwd)
+	_prev = global_position
+	for w in wheels:
+		w.rotate_x(-travelled / float(w.get_meta("radius", 0.25)))
+	if not wheels.is_empty():
+		rolled_total += -travelled / float(wheels[0].get_meta("radius", 0.25))
+	var yaw_rate := angle_difference(_prev_yaw, rotation.y) / maxf(delta, 0.0001)
+	_prev_yaw = rotation.y
+	var speed := absf(travelled) / maxf(delta, 0.0001)
+	_roll = lerpf(_roll, clampf(yaw_rate * speed * 0.012, -0.09, 0.09), 1.0 - exp(-8.0 * delta))
+	_bob += absf(travelled) * 5.0
+	var settle := 0.0
+	if tip_t > 0.0:
+		tip_t = maxf(0.0, tip_t - delta)
+		var k := 1.0 - tip_t / TIP_TIME                                  # 0..1 through the tip
+		settle = smoothstep(0.0, 0.35, k) * (1.0 - smoothstep(0.7, 1.0, k))
+	tilt.rotation.x = -TIP_ANGLE * settle + sin(_bob) * 0.012
+	tilt.rotation.z = _roll
+	var load_node: Node3D = model.get_node_or_null("Load")
+	if load_node:
+		load_node.position.z = -0.25 * settle * float(load_node.get_meta("slide", 1.0))
+
+## Starts the tipping animation (the real transfer happens in the game state; this only shows it).
+func tip() -> void:
+	if tip_t <= 0.0:
+		tip_t = TIP_TIME
 
 ## Shows what the cart carries: the pile grows with the load and takes the colour of the main material.
 func show_load(contents: Dictionary, capacity: int) -> void:

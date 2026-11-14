@@ -2338,6 +2338,8 @@ func cart_move(op: String, id: String, key: String, n := 9999) -> int:
 		"store":
 			if cart_near(id, storage_body):
 				moved = state.cart_store(id, key, n)
+				if moved > 0 and cart_nodes.has(id):
+					cart_nodes[id].tip()                        # the barrow tips its load out over the wheel
 		"take":
 			if cart_near(id, storage_body):
 				moved = state.cart_take(id, key, n)
@@ -2345,6 +2347,8 @@ func cart_move(op: String, id: String, key: String, n := 9999) -> int:
 			if cart_near(id, sell_body):
 				var before := state.money
 				moved = state.cart_sell(id, key, n)
+				if moved > 0 and cart_nodes.has(id):
+					cart_nodes[id].tip()
 				if moved > 0:
 					sfx["coin"].play()
 					_notify("Sold %d %s for %s" % [moved, prog.display(key).to_lower(), QuarryTheme.money_text(state.money - before)])

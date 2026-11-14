@@ -257,6 +257,19 @@ static func _load_pile(parent: Node3D, pos: Vector3, size: Vector3) -> Node3D:
 	load.set_meta("pile", mi)
 	return load
 
+## A wheel that can turn: its own node (named "Wheel_*", with its radius as meta) at `at`, built round the origin so rotate_x spins it on its axle.
+static func _wheel(parent: Node3D, wname: String, at: Vector3, r_tyre: float, w_tyre: float, r_hub: float, w_hub: float) -> void:
+	var pv := Node3D.new()
+	pv.name = wname
+	pv.position = at
+	pv.set_meta("radius", r_tyre)
+	var wb := Builder.new()
+	wb.along_x("dark", Vector3.ZERO, r_tyre, w_tyre, 12)
+	wb.along_x("bright", Vector3.ZERO, r_hub, w_hub, 8)
+	wb.box("steel", Vector3.ZERO, Vector3(w_hub * 0.6, r_tyre * 1.7, 0.03))          # spokes, so the turning shows
+	wb.finish(pv)
+	parent.add_child(pv)
+
 static func build_prop(id: String) -> Node3D:
 	var n := Node3D.new()
 	n.name = "Gear_" + id
@@ -272,8 +285,7 @@ static func build_prop(id: String) -> Node3D:
 				b.box("steel", Vector3(x, 0.36, 0), Vector3(0.05, 0.05, 1.12))
 			b.box("steel", Vector3(0, 0.3, 0.1), Vector3(0.9, 0.04, 0.04))              # axle
 			for x in [-0.46, 0.46]:
-				b.along_x("dark", Vector3(x, 0.28, 0.1), 0.28, 0.07, 12)
-				b.along_x("bright", Vector3(x, 0.28, 0.1), 0.07, 0.1, 8)
+				_wheel(n, "Wheel_L" if x < 0.0 else "Wheel_R", Vector3(x, 0.28, 0.1), 0.28, 0.07, 0.07, 0.1)
 			for x in [-0.28, 0.28]:
 				b.box("wood", Vector3(x, 0.52, -1.0), Vector3(0.04, 0.04, 0.95), Vector2(1, 1), Transform3D(Basis(Vector3.RIGHT, 0.0), Vector3.ZERO))
 			b.box("wood", Vector3(0, 0.55, -1.45), Vector3(0.64, 0.045, 0.045))          # pull bar
@@ -283,8 +295,7 @@ static func build_prop(id: String) -> Node3D:
 		"wheelbarrow": # single wheel, tapered tray, two handles, two legs
 			b.box("steel", Vector3(0, 0.5, 0.0), Vector3(0.52, 0.3, 0.66), Vector2(1.3, 1.25))
 			b.box("dark", Vector3(0, 0.36, 0.0), Vector3(0.4, 0.02, 0.56))
-			b.along_x("dark", Vector3(0, 0.24, -0.62), 0.24, 0.09, 12)
-			b.along_x("bright", Vector3(0, 0.24, -0.62), 0.07, 0.12, 8)
+			_wheel(n, "Wheel", Vector3(0, 0.24, -0.62), 0.24, 0.09, 0.07, 0.12)
 			for x in [-0.18, 0.18]:
 				b.box("wood", Vector3(x, 0.42, 0.62), Vector3(0.04, 0.04, 0.95))           # handles
 				b.box("dark", Vector3(x, 0.42, 1.05), Vector3(0.05, 0.05, 0.16))           # grips
@@ -298,8 +309,7 @@ static func build_prop(id: String) -> Node3D:
 			for z in [-0.2, 0.2]:
 				b.box("steel", Vector3(0, 0.5, z), Vector3(0.7, 0.04, 0.04))              # ribs
 			b.box("dark", Vector3(0, 0.36, 0.0), Vector3(0.5, 0.03, 0.66))
-			b.along_x("dark", Vector3(0, 0.26, -0.72), 0.27, 0.14, 12)
-			b.along_x("bright", Vector3(0, 0.26, -0.72), 0.09, 0.2, 8)
+			_wheel(n, "Wheel", Vector3(0, 0.26, -0.72), 0.27, 0.14, 0.09, 0.2)
 			for x in [-0.2, 0.2]:
 				b.box("steel", Vector3(x, 0.44, 0.65), Vector3(0.04, 0.04, 1.05))
 				b.box("dark", Vector3(x, 0.44, 1.12), Vector3(0.055, 0.055, 0.2))
