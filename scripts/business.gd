@@ -843,13 +843,14 @@ func belt_status(i: int) -> String:
 	if i < 0 or i >= conveyors.size() or links.size() != conveyors.size():
 		return "disconnected"
 	var link: Dictionary = links[i]
-	if link["src"].is_empty() or link["dst"].is_empty():
-		return "disconnected"
 	var c: Dictionary = conveyors[i]
 	if int(c["items"]) > 0:
-		if float(c["progress"]) >= 1.0 and ep_space(link["dst"], str(c["resource"])) < 1:
+		# material really slides along until it reaches the end; it is blocked there when nothing can take it (no next piece, or it is full)
+		if float(c["progress"]) >= 1.0 and (link["dst"].is_empty() or ep_space(link["dst"], str(c["resource"])) < 1):
 			return "blocked"
 		return "active"
+	if link["src"].is_empty() or link["dst"].is_empty():
+		return "disconnected"
 	if float(c["pull"]) > 0.0:
 		return "active"
 	return "idle"
