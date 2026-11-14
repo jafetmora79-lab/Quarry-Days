@@ -485,7 +485,8 @@ func _follow(v: QuarryVehicle, r: Dictionary, final_goal: Vector3, delta: float,
 		return true
 	var dir := wp - flat
 	var dy := angle_difference(v.global_rotation.y, yaw_of(dir))
-	var spd := 3.0 if absf(dy) < 0.7 else 1.4
+	var cruise := clampf(float(game.fleet.max_speed(game.fleet.vehicle(v.vehicle_id))) * 0.5, 2.5, 6.0)     # an auto crew drives at about half throttle
+	var spd := cruise if absf(dy) < 0.7 else cruise * 0.45
 	var steer_cmd := -dy * 2.0
 	# local avoidance: the nav route only knows the baked walkable surface, not soil, vehicles or loose obstacles
 	var av := _probe(v)

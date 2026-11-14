@@ -147,14 +147,19 @@ func load_ratio(v: Dictionary) -> float:
 func accel(v: Dictionary) -> float:
 	var s := spec(str(v["type"]))
 	var penalty := float(cfg.get("load_penalty", 0.45))
-	var a := float(s["accel"])
+	var a := float(s["accel"]) * tuning(kind(str(v["type"])), "accel")
 	if upgrades["engine"]:
 		a *= float(cfg["upgrades"]["engine"]["accel_mult"])
 		penalty *= float(cfg["upgrades"]["engine"]["load_penalty_mult"])
 	return a * (1.0 - penalty * load_ratio(v))
 
+## data/vehicles.json "tuning": global multipliers for balancing, by vehicle family.
+func tuning(kind_name: String, what: String) -> float:
+	var t: Dictionary = cfg.get("tuning", {})
+	return float(t.get("%s_%s_mult" % [kind_name, what], 1.0))
+
 func max_speed(v: Dictionary) -> float:
-	var m := float(spec(str(v["type"]))["max_speed"])
+	var m := float(spec(str(v["type"]))["max_speed"]) * tuning(kind(str(v["type"])), "speed")
 	if upgrades["engine"]:
 		m *= float(cfg["upgrades"]["engine"]["speed_mult"])
 	return m
