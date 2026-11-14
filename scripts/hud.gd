@@ -779,6 +779,33 @@ func _update_drive_plate() -> void:
 	set_bar_color(drive_load_bar, QuarryTheme.WARN if int(info["load"]) >= cap else QuarryTheme.GOOD)
 	drive_hint.text = str(info["action"]) if str(info["action"]) != "" else "WASD drive  Space brake  R recover  E exit"
 
+## The hotbar line under the tool name: every tool in reach with its number key, the one in hand brighter.
+var hotbar_label: RichTextLabel
+func _set_hotbar(prog: QuarryProgression) -> void:
+	if hotbar_label == null:
+		hotbar_label = RichTextLabel.new()
+		hotbar_label.bbcode_enabled = true
+		hotbar_label.fit_content = true
+		hotbar_label.scroll_active = false
+		hotbar_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hotbar_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		hotbar_label.add_theme_font_override("normal_font", QuarryTheme.hud())
+		hotbar_label.add_theme_font_override("bold_font", QuarryTheme.hud())
+		hotbar_label.add_theme_font_size_override("normal_font_size", QuarryTheme.pixel_font_size(QuarryTheme.SMALL))
+		hotbar_label.add_theme_font_size_override("bold_font_size", QuarryTheme.pixel_font_size(QuarryTheme.SMALL))
+		hotbar_label.name = "Hotbar"
+		tool_pips.get_parent().add_child(hotbar_label)
+		tool_pips.get_parent().move_child(hotbar_label, tool_pips.get_index())
+		tool_pips.visible = false
+	var bar := prog.hotbar()
+	var cur := prog.hotbar_slot()
+	var parts := []
+	for i in range(bar.size()):
+		var t: Dictionary = prog.gear_def(str(bar[i])) if str(bar[i]) != "" else prog.tools()[clampi(game.state.tool_tier, 0, prog.tools().size() - 1)]
+		var nm := str(t.get("title", "?")).split(" ")[-1].to_upper()
+		parts.append(("[color=#ffd266][b]%d %s[/b][/color]" % [i + 1, nm]) if i == cur else ("[color=#b8a88c]%d %s[/color]" % [i + 1, nm]))
+	hotbar_label.text = "  ".join(parts)
+
 func refresh_panels() -> void:
 	var st: QuarryState = game.state
 	var prog: QuarryProgression = game.prog
@@ -789,9 +816,10 @@ func refresh_panels() -> void:
 		top_dps = maxf(top_dps, prog.tool_dps(ti))
 	_pow_target = prog.tool_dps() / top_dps
 	power_label.text = "Mining power %.0f a second" % prog.tool_dps()
-	tool_icon.set_kind("hammer" if st.tool_tier == 0 else "pick")
-	var hard: String = ["", "Stone and coal", "Up to iron", "Up to copper", "Anything, gold too"][clampi(int(t.get("max_hardness", 1)), 0, 4)]
-	tool_pips.text = "Tool %d of %d   %s" % [st.tool_tier + 1, prog.tools().size(), hard]
+	tool_icon.set_kind("shovel" if str(t.get("class", "")) == "digging" else ("hammer" if st.tool_tier == 0 and st.equipped == "" else "pick"))
+	var hard: String = "Topsoil and gravel" if str(t.get("class", "")) == "digging" else ["", "Stone and coal", "Up to iron", "Up to copper", "Anything, gold too"][clampi(int(t.get("max_hardness", 1)), 0, 4)]
+	power_label.text = "%s" % hard if str(t.get("class", "")) == "digging" else power_label.text
+	_set_hotbar(prog)
 	var used := st.total(st.inventory)
 	var cap := st.capacity()
 	bag_label.text = "BAG %d/%d" % [used, cap]

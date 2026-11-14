@@ -195,6 +195,8 @@ func run() -> void:
 	# ---- D: the shop previews show the real models
 	var prev_ok := true
 	for id in prog.gear_ids():
+		if bool(prog.gear_def(str(id)).get("starter", false)):
+			continue                                   # the shovel is owned from the start, never sold
 		var offer: Dictionary = PurchaseOffers.gear(game, str(id), func(): pass)
 		var pm3: Node3D = QuarryPreview.build_model(game, offer["model"])
 		var this_ok: bool = pm3 != null and verts(pm3) >= 100 and offer["price"] > 0

@@ -134,7 +134,31 @@ func _process(delta: float) -> void:
 			var wind: float = def["wind"]
 			var strike: float = def["strike"]
 			var ang := rest
-			if p < 0.42:                                  # wind-up: ease out, working end goes up and back
+			var scoop: bool = str(def.get("style", "")) == "scoop"
+			if scoop:
+				# a shovel: lower the blade toward the soil, drive it in, lift the load, bring it back to rest
+				var mid := lerpf(rest, strike, 0.45)
+				if p < 0.3:
+					var a := p / 0.3
+					ang = lerpf(rest, mid, 1.0 - pow(1.0 - a, 2.0))
+					off = Vector3(0.0, -0.1, -0.04) * a
+				elif p < 0.52:
+					var a2 := (p - 0.3) / 0.22
+					ang = lerpf(mid, strike, a2 * a2)
+					off = Vector3(0.0, lerpf(-0.1, -0.16, a2), lerpf(-0.04, -0.16, a2))
+					weight = a2 * a2
+				elif p < 0.8:
+					var a3 := (p - 0.52) / 0.28
+					var e3 := 1.0 - pow(1.0 - a3, 3.0)
+					ang = lerpf(strike, wind, e3)
+					off = Vector3(0.0, lerpf(-0.16, 0.07, e3), lerpf(-0.16, -0.05, e3))
+					weight = 1.0 - clampf(a3 * 2.0, 0.0, 1.0)
+				else:
+					var a4 := (p - 0.8) / 0.2
+					var e4 := 1.0 - pow(1.0 - a4, 3.0)
+					ang = lerpf(wind, rest, e4)
+					off = Vector3(0.0, 0.07, -0.05).lerp(Vector3.ZERO, e4)
+			elif p < 0.42:                                  # wind-up: ease out, working end goes up and back
 				var a := p / 0.42
 				ang = lerpf(rest, wind, 1.0 - pow(1.0 - a, 3.0))
 				off = Vector3(0.0, 0.07 + float(def.get("lift", 0.0)), -0.10) * a
@@ -149,7 +173,7 @@ func _process(delta: float) -> void:
 				ang = lerpf(strike, rest, e) + sin(a * PI) * 0.05
 				off = Vector3(0.0, -0.03, -0.12).lerp(Vector3.ZERO, e)
 				weight = 1.0 - clampf(a * 2.0, 0.0, 1.0)
-			if p >= 0.58 and not impact_done:
+			if p >= float(def.get("impact_p", 0.58)) and not impact_done:
 				impact_done = true
 				if on_impact.is_valid():
 					on_impact.call()

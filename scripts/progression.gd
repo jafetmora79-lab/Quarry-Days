@@ -86,6 +86,46 @@ func cycle_tool() -> String:
 	state.equipped = str(opts[(i + 1) % opts.size()])
 	return state.equipped
 
+## The hotbar: the tools in hand-reach, in a fixed order - the shovel first, then the ladder tool ("" stands for it: hammer, pickaxes, drills), then the other tools you own.
+func hotbar() -> Array:
+	var out := []
+	if "shovel" in state.gear:
+		out.append("shovel")
+	out.append("")
+	for id in held_options():
+		if str(id) != "" and str(id) != "shovel":
+			out.append(str(id))
+	return out
+
+## Puts tool number `slot` (0-based) of the hotbar in hand. Returns the id selected, or null when the slot is empty.
+func select_slot(slot: int):
+	var bar := hotbar()
+	if slot < 0 or slot >= bar.size():
+		return null
+	state.equipped = str(bar[slot])
+	return state.equipped
+
+func hotbar_slot() -> int:
+	return maxi(0, hotbar().find(state.equipped))
+
+## Every game owns Grandpa's shovel. A new game starts with it in hand; an older save keeps whatever tool it had in hand and simply gains the shovel.
+func ensure_starter_tools(new_game := false) -> void:
+	if not ("shovel" in state.gear):
+		state.gear.append("shovel")
+	if new_game:
+		state.equipped = "shovel"
+
+## "" when the tool in hand suits the material; otherwise a short reason: loose ground (topsoil, gravel) is dug with a shovel, rock is cut with a pick or hammer.
+func tool_suits(res: String, tier := -1) -> String:
+	var t := tool(tier)
+	var loose := bool(material(res).get("loose", false))
+	var digs := str(t.get("class", "")) == "digging"
+	if loose and not digs:
+		return "Requires a shovel. Press 1 to take it out."
+	if digs and not loose:
+		return "Requires a pickaxe or a hammer for rock."
+	return ""
+
 ## Which of the five existing 3D tool models is shown for the tool in hand (extra tools reuse one; see the gear "model").
 func model_tier() -> int:
 	var t := tool()

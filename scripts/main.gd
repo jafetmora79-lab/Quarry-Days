@@ -172,9 +172,9 @@ func _ready() -> void:
 	var pcfg = JSON.parse_string(FileAccess.get_file_as_string("res://data/progression.json"))
 	prog = ProgressionScript.new(state, business, pcfg)
 	prog.natural_start_enabled = natural_start_enabled
+	prog.ensure_starter_tools(title_enabled)         # every game owns the shovel; the real new game (opened from the menu) starts with it in hand
 	_peek_save_layout()
 	_init_layout()
-	prog.protect = Callable(self, "_column_has_player")
 	business.prog = prog
 	state.money = int(pcfg.get("new_game_money", state.money))
 	state.money_earned.connect(_on_income)
@@ -1290,6 +1290,10 @@ func player_mine(kind: String, col: int, damage: float, point := Vector3.INF, co
 		return 0
 	var node: QuarryFormation = formation_nodes[kind]
 	var res := str(state.deposits[kind]["resource"])
+	var mismatch := prog.tool_suits(res)
+	if mismatch != "":
+		_tool_mismatch(mismatch)                 # a shovel for loose ground, a pick or hammer for rock
+		return 0
 	if not prog.can_mine(res):
 		_too_hard(res)
 		return 0
@@ -1308,9 +1312,6 @@ func player_mine(kind: String, col: int, damage: float, point := Vector3.INF, co
 			col = prog.nearest_column(kind, player.global_position if point == Vector3.INF else point, false)
 	if col < 0:
 		_notify("%s is cleared." % str(prog.fdef(kind)["title"]))
-		return 0
-	if _column_has_player(kind, col):
-		_notify("Step off that rock first - you are standing on it.")
 		return 0
 	var bag_room := state.capacity() - state.total(state.inventory)
 	var drop_room := maxi(0, int(prog.cfg.get("loose_piece_cap", 36)) - loose_count(kind))
@@ -1365,7 +1366,7 @@ func player_mine(kind: String, col: int, damage: float, point := Vector3.INF, co
 					var ny: int = col / d.x + oy
 					if (ox != 0 or oy != 0) and nx >= 0 and ny >= 0 and nx < d.x and ny < d.y:
 						var nc := ny * d.x + nx
-						if prog.column_minable(kind, nc) and not _column_has_player(kind, nc):
+						if prog.column_minable(kind, nc):
 							cands.append([absf(float(ox)) + absf(float(oy)), nc])
 			cands.sort_custom(func(a, b): return a[0] < b[0] or (a[0] == b[0] and a[1] < b[1]))
 			for k in range(mini(int(aoe.x), cands.size())):
@@ -1383,6 +1384,7 @@ func _player_mining(delta: float) -> void:
 	tv.equip(prog.model_tier())
 	power_feedback_t = maxf(0.0, power_feedback_t - delta)
 	too_hard_t = maxf(0.0, too_hard_t - delta)
+	_mismatch_t = maxf(0.0, _mismatch_t - delta)
 	bag_full_t = maxf(0.0, bag_full_t - delta)
 	var lmb := _mine_button_down()
 	if prog.is_continuous():
@@ -1881,8 +1883,14 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_F and held_cart != null and menu == "":
 		release_cart()
 		_notify("You let go of the cart.")
-	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_Q and not placement and not driving and menu == "" and name_dialog == null:
-		cycle_tool()
+	if event is InputEventKey and event.pressed and not event.echo and not placement and not driving and menu == "" and name_dialog == null and not construction \
+			and event.physical_keycode >= KEY_1 and event.physical_keycode <= KEY_9:
+		select_tool_slot(int(event.physical_keycode) - int(KEY_1))              # the hotbar
+	if event is InputEventMouseButton and event.pressed and not placement and not driving and menu == "" and name_dialog == null and gameplay_input_allowed() \
+			and event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+		var bar: Array = prog.hotbar()
+		var step := 1 if event.button_index == MOUSE_BUTTON_WHEEL_DOWN else -1
+		select_tool_slot(posmod(prog.hotbar_slot() + step, bar.size()))
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_N and not placement and not driving and menu == "" and name_dialog == null:
 		set_survey(not survey_on)
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_U and not placement and not driving and menu == "":
@@ -3756,6 +3764,7 @@ func _load(quiet := false) -> void:
 			rev += int(business.daily[day].get("revenue", 0))
 		state.earned = maxi(state.earned, rev + state.money)
 		prog.check_stages()
+	prog.ensure_starter_tools(false)                 # an older save gains Grandpa's shovel (and keeps the tool it had in hand)
 	var legacy := _migrate_legacy_deposits()
 	var resume_driving := fleet.driving_id
 	_reset_driving()
@@ -6950,6 +6959,24 @@ func buy_gear(id: String) -> bool:
 	return true
 
 ## Q: take the next tool you own into your hand.
+var _mismatch_t := 0.0
+## A short, useful reason when the tool in hand does not suit the material (at most one message a second, and the tool bounces).
+func _tool_mismatch(why: String) -> void:
+	if _mismatch_t > 0.0:
+		return
+	_mismatch_t = 1.0
+	_notify(why)
+	player.tool_view.deflect()
+
+## Puts tool number `slot` of the hotbar in hand (keys 1-9).
+func select_tool_slot(slot: int) -> void:
+	if prog.select_slot(slot) == null:
+		return
+	player.tool_view.equip(prog.model_tier(), false)
+	var t := prog.tool()
+	hud.toast(str(t["title"]), str(t.get("desc", "")), "info")
+	hud.refresh_panels()
+
 func cycle_tool() -> void:
 	if prog.held_options().size() < 2:
 		_notify("You only have one tool. Buy more at the workbench.")

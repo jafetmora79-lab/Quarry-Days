@@ -87,6 +87,7 @@ func run() -> void:
 					break
 				ex.global_position = game.soil.cell_center(nn) + Vector3(0, 0.1, 4.6)
 	st.tool_tier = 1
+	st.equipped = "shovel"                           # topsoil is dug with the shovel (every save owns one)
 	for round in range(400):
 		var rock_id := "q_top" if game.blueprint else "hillside_face_01"
 		var col := prog.nearest_column(rock_id, Vector3(-17, 0, -8), true, INF, "hand")

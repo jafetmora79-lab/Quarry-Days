@@ -42,6 +42,8 @@ func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("jump") and not event.is_echo():
+		_jump_buf = JUMP_BUFFER                    # Space shortly before touching down still counts
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not locked and not game_touch():
 		var look: Vector2 = event.screen_relative * MOUSE_LOOK_SCALE     # screen pixels: the same turn per hand movement in any window size
 		rotate_y(-look.x * 0.0024)
@@ -67,7 +69,7 @@ func _process(delta: float) -> void:
 	kick = move_toward(kick, 0.0, delta * 0.12)
 	shake = move_toward(shake, 0.0, delta * 0.16)
 	if not scripted_camera:
-		camera.rotation.x = pitch + kick
+		camera.rotation.x = pitch + kick - mantle_dip
 	camera.h_offset = sin(_shake_t * 63.0) * shake * 0.6
 	camera.v_offset = cos(_shake_t * 71.0) * shake * 0.5
 	if tool_view:
@@ -88,24 +90,65 @@ func _physics_process(delta: float) -> void:
 		velocity.x = move_toward(velocity.x, wish.x * speed, delta * 18)
 		velocity.z = move_toward(velocity.z, wish.z * speed, delta * 18)
 		_wish_flat = Vector3(wish.x, 0.0, wish.z)
+	_jump_buf = maxf(0.0, _jump_buf - delta)
 	if _mantle_t > 0.0:
-		# climbing onto a low ledge: a short, smooth lift (Phase 8.1: one rock tier can be climbed out of)
+		# climbing onto a ledge: up the face, then over the edge, eased, with the head dipping toward the ledge
 		_mantle_t = maxf(0.0, _mantle_t - delta)
-		global_position = _mantle_from.lerp(_mantle_to, 1.0 - _mantle_t / MANTLE_TIME)
+		var p := 1.0 - _mantle_t / MANTLE_TIME
+		if p < 0.55:
+			global_position = _mantle_from.lerp(_mantle_up, smoothstep(0.0, 1.0, p / 0.55))
+		else:
+			global_position = _mantle_up.lerp(_mantle_to, smoothstep(0.0, 1.0, (p - 0.55) / 0.45))
+		mantle_dip = sin(p * PI) * 0.16
 		velocity = Vector3.ZERO
+		if _mantle_t <= 0.0:
+			mantle_dip = 0.0
 		return
-	velocity.y -= 22.0 * delta
-	if not locked:
-		_try_mantle()
-		if _mantle_t > 0.0:
-			return
+	var on_floor_before := is_on_floor()
+	velocity.y -= GRAVITY * delta
+	var input_ok := _input_ok()
+	if not locked and input_ok:
+		if _jump_buf > 0.0 and on_floor_before:
+			if _try_mantle(true):                  # Space at a reachable ledge climbs it; anywhere else it jumps
+				_jump_buf = 0.0
+				return
+			velocity.y = sqrt(2.0 * GRAVITY * JUMP_HEIGHT)
+			_jump_buf = 0.0
+			jumped.emit()
+		else:
+			_try_mantle()
+			if _mantle_t > 0.0:
+				return
+	var fall_v := velocity.y
 	move_and_slide()
+	if is_on_floor() and not on_floor_before and fall_v < -3.0:
+		_land(-fall_v)
 
+## Is the game giving the player control (no dialogue, card, menu or cinematic)?
+func _input_ok() -> bool:
+	var g := get_parent()
+	if g != null and g.has_method("gameplay_input_allowed"):
+		return bool(g.gameplay_input_allowed())
+	return true
+
+## A soft landing: a small dip of the view that grows a little with the speed of the fall (no shake).
+func _land(speed: float) -> void:
+	kick = maxf(kick, -minf(0.03, 0.004 * speed))
+	landed.emit(speed)
+
+signal jumped
+signal landed(speed: float)
 
 # ------------------------------------------------------------------ ledge climbing (Phase 8.1)
 
-const MANTLE_MAX := 1.3          ## the tallest ledge that can be climbed: one rock tier (1.2 m)
-const MANTLE_TIME := 0.2
+const JUMP_HEIGHT := 0.9          ## how high a jump lifts the feet (m)
+const GRAVITY := 22.0
+const JUMP_BUFFER := 0.12
+var mantle_max := 1.25            ## the tallest ledge that can be climbed (m): one rock tier (1.2 m) with a little slack. Configurable.
+const MANTLE_TIME := 0.5
+var mantle_dip := 0.0
+var _jump_buf := 0.0
+var _mantle_up := Vector3.ZERO
 var _mantle_t := 0.0
 var _wish_flat := Vector3.ZERO
 var _mantle_from := Vector3.ZERO
@@ -113,33 +156,40 @@ var _mantle_to := Vector3.ZERO
 
 ## Walking into a low rock or ground ledge climbs it, so a one-tier step in the excavation is never a trap.
 ## Only quarry ground and rock count: never vehicles, machines or buildings.
-func _try_mantle() -> void:
+func _try_mantle(explicit := false) -> bool:
 	if not is_on_floor():
-		return
-	if _wish_flat.length() < 0.3:
-		return                                   # only when the player is pushing against the ledge
-	var dir := _wish_flat.normalized()
+		return false
+	var dir := -global_transform.basis.z
+	dir.y = 0.0
+	dir = dir.normalized()
+	if not explicit:
+		if _wish_flat.length() < 0.3:
+			return false                         # only when the player is pushing against the ledge
+		dir = _wish_flat.normalized()
 	var hit := KinematicCollision3D.new()
-	if not test_move(global_transform, dir * 0.2, hit):
-		return
+	if not test_move(global_transform, dir * (0.6 if explicit else 0.2), hit):
+		return false
 	# only a real wall in front counts as a ledge: touching the flat ground (floor-top contact, a seam, the safe margin) used to start a climb that lifted
 	# the player 20 cm and froze them for 0.2 s - the "bump" while walking across open ground
 	var n: Vector3 = hit.get_normal()
 	if n.y > 0.45 or n.dot(dir) > -0.35:
-		return
+		return false
 	var c = hit.get_collider()
 	if c == null or not (c is QuarryFormation or (c is Node and ((c as Node).has_meta("ground") or (c as Node).has_meta("climbable")))):
-		return
-	for h in [0.25, 0.5, 0.9, MANTLE_MAX]:
+		return false
+	var reach := hit.get_travel().length() + 0.62          # from here to just past the edge (the player's radius is 0.34)
+	for h in [0.25, 0.5, 0.9, mantle_max]:
 		var up := global_transform.translated(Vector3(0, h, 0))
 		if test_move(global_transform, Vector3(0, h, 0)):
 			break                                 # head room is gone: higher is no better
-		if test_move(up, dir * 0.6):
+		if test_move(up, dir * reach):
 			continue
-		var over := up.translated(dir * 0.6)
+		var over := up.translated(dir * reach)
 		if not test_move(over, Vector3(0, -(h + 0.1), 0)):
 			continue                              # nothing to stand on up there
 		_mantle_from = global_position
+		_mantle_up = up.origin
 		_mantle_to = over.origin
 		_mantle_t = MANTLE_TIME
-		return
+		return true
+	return false

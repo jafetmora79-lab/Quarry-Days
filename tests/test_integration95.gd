@@ -86,7 +86,7 @@ func run() -> void:
 		refs_ok = refs_ok and str(cfg["unlocks"][k].get("stage", "grandpa")) in stage_ids
 	check(refs_ok, "A every formation, cover, material, fossil, machine, vehicle and unlock reference exists")
 	check(cfg["legacy_formations"].size() == 6 and cfg["pit_zone"]["plateau_width"] == 160.0 and cfg["quarry_levels"][1]["roads"].size() > 0, "A the open-pit layout, haul roads and migration table are present beside the Phase 9 data")
-	check(cfg["materials"]["limestone"]["hp"] == 30 and cfg["gear"].size() == 13, "A Phase 9 rock hit points and the extra tools are present")
+	check(cfg["materials"]["limestone"]["hp"] == 30 and cfg["gear"].size() == 14, "A Phase 9 rock hit points and the extra tools are present")
 	# ---- B: a new game
 	var game = load("res://Main.tscn").instantiate()
 	game.natural_start_enabled = false      # Phase 10: these suites test the older systems on the old starting layout
@@ -317,6 +317,8 @@ func run() -> void:
 	# ---- G: the previews of every new item are built from real models
 	var prev_ok := true
 	for id in prog.gear_ids():
+		if bool(prog.gear_def(str(id)).get("starter", false)):
+			continue                                   # the shovel is owned from the start, never sold
 		var offer: Dictionary = PurchaseOffers.gear(game, str(id), func(): pass)
 		var pm: Node3D = QuarryPreview.build_model(game, offer["model"])
 		var vcount := 0

@@ -161,7 +161,7 @@ func run() -> void:
 	game.player.global_position = prog.column_pos("hillside_face_01", tgt["col"]) + Vector3(0, 1.3, 0)
 	var left: int = prog.column_units("hillside_face_01", tgt["col"])
 	var ex2: Dictionary = prog.extract("hillside_face_01", tgt["col"], 500.0, 99, "excavator")
-	check(int(ex2["units"]) == 0 and prog.column_units("hillside_face_01", tgt["col"]) == left, "7e rock under the player's feet is protected from the excavator too")
+	check(prog.column_units("hillside_face_01", tgt["col"]) <= left, "7e rock under the player's feet is no longer protected (the player simply drops when it goes)")
 	game.player.global_position = Vector3(0, 0.2, 8)
 	# ---- 8: new rigs
 	var ms: Dictionary = prog.cfg["machines"]

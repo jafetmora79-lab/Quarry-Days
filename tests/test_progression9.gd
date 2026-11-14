@@ -291,6 +291,7 @@ func run() -> void:
 		if j >= 0 and j < prog.column_count(hid):
 			nb3.append(prog.column_units(hid, j))
 	check(nb2 == nb3, "H a normal pickaxe leaves the neighbours alone")
+	game.state.gear.erase("shovel")                 # (the shovel sits first in the swap order: take it out for this check)
 	game.state.equipped = ""
 	game.cycle_tool()
 	check(game.state.equipped == "repaired_pickaxe", "H the swap key takes the next owned tool into your hand")

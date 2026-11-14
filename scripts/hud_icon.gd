@@ -52,6 +52,9 @@ func _draw() -> void:
 		"flag":
 			draw_line(Vector2(4, 2) * u, Vector2(4, 14) * u, Color(0.8, 0.7, 0.5), 1.4 * u)
 			draw_colored_polygon(PackedVector2Array([Vector2(4, 2) * u, Vector2(13, 4.5) * u, Vector2(4, 7.5) * u]), Color(0.98, 0.76, 0.34))
+		"shovel":
+			draw_line(Vector2(3, 14) * u, Vector2(10, 6) * u, Color(0.62, 0.45, 0.26), 1.8 * u)
+			draw_colored_polygon(PackedVector2Array([Vector2(9, 7) * u, Vector2(11.5, 3.5) * u, Vector2(14.5, 5.5) * u, Vector2(13, 9.5) * u]), Color(0.78, 0.8, 0.84))
 		"hammer":
 			draw_line(Vector2(3, 14) * u, Vector2(11, 5) * u, Color(0.62, 0.45, 0.26), 1.8 * u)
 			draw_rect(Rect2(8 * u, 2 * u, 6 * u, 4 * u), Color(0.75, 0.77, 0.8))

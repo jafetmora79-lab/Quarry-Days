@@ -7,7 +7,7 @@ class_name GearModels
 ##   tool tier numbers >= TIER_BASE are these tools: tier = TIER_BASE + index in IDS.
 
 const TIER_BASE := 10
-const IDS := ["pointed_chisel", "flat_chisel", "repaired_pickaxe", "sledgehammer", "steel_pickaxe", "hardened_pickaxe", "hand_splitter", "powered_hammer", "pneumatic_chisel"]
+const IDS := ["pointed_chisel", "flat_chisel", "repaired_pickaxe", "sledgehammer", "steel_pickaxe", "hardened_pickaxe", "hand_splitter", "powered_hammer", "pneumatic_chisel", "shovel"]
 
 const SWING := {"grip": Vector3(0.30, -0.42, -0.55), "scale": 0.8, "rest": -0.75, "yaw": 0.2, "wind": 0.1, "strike": -1.35}
 
@@ -31,6 +31,8 @@ const POSE := {
 		"hands": [["R", Vector3(0, 0.05, 0)], ["L", Vector3(0, 0.3, 0.26)]]},
 	"powered_hammer": {"grip": Vector3(0.28, -0.32, -0.5), "scale": 0.75, "power": true, "rest_rot": Vector3(0.1, 0.2, 0.0), "tip": Vector3(0, 0.12, -0.5), "spin": "pump_z", "amp": 0.012,
 		"hands": [["R", Vector3(0, 0.0, 0.08)], ["L", Vector3(-0.07, 0.14, -0.1)]]},
+	"shovel": {"grip": Vector3(0.30, -0.46, -0.55), "scale": 0.82, "rest": -0.9, "yaw": 0.18, "wind": -0.35, "strike": -1.6, "tip": Vector3(0, 0.84, -0.04), "style": "scoop", "impact_p": 0.5,
+		"hands": [["R", Vector3(0, 0.1, 0)], ["L", Vector3(0, 0.38, 0)]]},
 	"pneumatic_chisel": {"grip": Vector3(0.3, -0.14, -0.5), "scale": 0.75, "power": true, "rest_rot": Vector3(0.0, 0.3, 0.0), "model_pitch": 0.8, "tip": Vector3(0, -0.62, 0), "spin": "pump_y", "amp": 0.012,
 		"hands": [["R", Vector3(0.14, 0.0, 0)], ["L", Vector3(-0.14, 0.0, 0)]]},
 }
@@ -81,6 +83,16 @@ static func build_tool(id: String) -> Node3D:
 	n.name = "Gear_" + id
 	var b := Builder.new()
 	match id:
+		"shovel":              # a spade: ash shaft with a D-grip, a socket, and a wide steel blade bent a little forward into a scoop
+			b.box("wood", Vector3(0, 0.34, 0), Vector3(0.036, 0.7, 0.036))
+			b.box("wood", Vector3(0, -0.02, 0), Vector3(0.17, 0.034, 0.034))         # the D-grip: top bar...
+			for x in [-0.075, 0.075]:
+				b.box("wood", Vector3(x, -0.07, 0), Vector3(0.026, 0.1, 0.03))         # ...and its two legs
+			b.cyl("steel", Vector3(0, 0.66, 0), 0.032, 0.036, 0.12, 6)                # socket
+			b.box("steel", Vector3(0, 0.82, -0.025), Vector3(0.19, 0.2, 0.014))        # the blade
+			b.box("steel", Vector3(0, 0.96, -0.045), Vector3(0.15, 0.1, 0.014), Vector2(0.6, 1.0))   # its tip, bent forward
+			b.box("bright", Vector3(0, 0.99, -0.05), Vector3(0.07, 0.03, 0.012))        # a worn, bright cutting edge
+			b.box("rust", Vector3(0.05, 0.84, -0.034), Vector3(0.05, 0.08, 0.004))      # a patch of rust
 		"pointed_chisel":      # slim steel shaft, taped grip, mushroomed strike end and a long pointed tip
 			b.box("dark", Vector3(0, 0.05, 0), Vector3(0.042, 0.15, 0.042))
 			b.cyl("steel", Vector3(0, -0.045, 0), 0.026, 0.018, 0.035, 6)

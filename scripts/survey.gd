@@ -35,6 +35,10 @@ func targets() -> Array:
 		var n := int(lp["n"])
 		if n > prog.quarry_level + 1:
 			continue
+		if n < prog.quarry_level and prog.level_cleared_fraction(n) >= 0.995:
+			continue                          # a level that is fully cut is finished: its markers go (the excavated ground is there instead)
+		if n < prog.quarry_level and prog.level_built(n) and prog.level_cleared_fraction(n) > 0.0 and n != prog.quarry_level:
+			continue                          # only the level being cut and the one that opens next are marked
 		out.append({"id": "level_%d" % n, "rect": lp["rect"], "frame": "pit", "y": float(lp["y_top"]) + 0.05, "state": "active" if n <= prog.quarry_level else "next"})
 	return out
 
@@ -56,11 +60,20 @@ func refresh(force := false) -> void:
 	rects.clear()
 	for tg in t:
 		var host: Node3D = game.pit_zone if str(tg["frame"]) == "pit" else self
-		var mi := _build(tg)
+		var mi := _build(tg, host)
 		host.add_child(mi)
 		rects[str(tg["id"])] = mi
 
-func _build(tg: Dictionary) -> MeshInstance3D:
+## Height (in `host`'s frame) of the real ground under a point, or NAN where there is none within reach: markers stand on what is there, never in the air.
+func _ground_y(host: Node3D, lx: float, lz: float, y_hint: float) -> float:
+	var top := host.to_global(Vector3(lx, y_hint + 1.5, lz))
+	var q := PhysicsRayQueryParameters3D.create(top, top - Vector3(0, 30.0, 0))
+	var hit: Dictionary = game.get_world_3d().direct_space_state.intersect_ray(q)
+	if hit.is_empty():
+		return NAN
+	return host.to_local(hit["position"]).y
+
+func _build(tg: Dictionary, host: Node3D) -> MeshInstance3D:
 	var r: Rect2 = tg["rect"]
 	var y := float(tg["y"])
 	var soup := MeshKit.Soup.new()
@@ -77,13 +90,17 @@ func _build(tg: Dictionary) -> MeshInstance3D:
 		while t < len:
 			var seg := minf(DASH, len - t)
 			var c := a + dir * (t + seg * 0.5)
-			MeshKit.box_into(soup, Vector3.ZERO, Vector3(WIDTH, 0.02, seg), Vector2.ONE, Transform3D(Basis(Vector3.UP, yaw), Vector3(c.x, y, c.y)))
+			var gy := _ground_y(host, c.x, c.y, y)
+			if not is_nan(gy) and absf(gy - y) < 6.0:
+				MeshKit.box_into(soup, Vector3.ZERO, Vector3(WIDTH, 0.02, seg), Vector2.ONE, Transform3D(Basis(Vector3.UP, yaw), Vector3(c.x, gy + 0.05, c.y)))
 			t += DASH + GAP
 		var s := 0.0
 		while s <= len + 0.01:
 			var p := a + dir * s
-			MeshKit.box_into(stakes, Vector3(p.x, y + 0.45, p.y), Vector3(0.07, 0.9, 0.07))
-			MeshKit.box_into(stakes, Vector3(p.x + 0.16, y + 0.82, p.y), Vector3(0.3, 0.14, 0.02))
+			var sy := _ground_y(host, p.x, p.y, y)
+			if not is_nan(sy):                                  # a stake stands on the ground it is driven into
+				MeshKit.box_into(stakes, Vector3(p.x, sy + 0.45, p.y), Vector3(0.07, 0.9, 0.07))
+				MeshKit.box_into(stakes, Vector3(p.x + 0.16, sy + 0.82, p.y), Vector3(0.3, 0.14, 0.02))
 			s += STAKE_EVERY
 	var node := MeshInstance3D.new()
 	node.name = "Survey_" + str(tg["id"])

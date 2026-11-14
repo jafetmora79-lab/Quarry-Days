@@ -34,11 +34,13 @@
   },
   "topsoil": {
    "hp": 10,
-   "hardness": 0
+   "hardness": 0,
+   "loose": true
   },
   "gravel": {
    "hp": 16,
-   "hardness": 0
+   "hardness": 0,
+   "loose": true
   }
  },
  "tools": [
@@ -7629,6 +7631,19 @@
   "area_6_complete": "Area 6 contract complete"
  },
  "gear": {
+  "shovel": {
+   "title": "Shovel",
+   "cost": 0,
+   "class": "digging",
+   "model": 0,
+   "desc": "Grandpa's old shovel. Topsoil, loose soil and gravel only. Stone needs a hammer or a pickaxe.",
+   "power": 8.0,
+   "interval": 0.55,
+   "max_hardness": 0,
+   "sound": "hit_hammer",
+   "pitch": 0.6,
+   "starter": true
+  },
   "pointed_chisel": {
    "title": "Pointed Chisel",
    "cost": 40,

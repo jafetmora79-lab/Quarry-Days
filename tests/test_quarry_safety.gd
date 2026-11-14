@@ -174,11 +174,12 @@ func run() -> void:
 	game.player.velocity = Vector3.ZERO
 	await frames(2)
 	var before: int = prog.column_units(kind, col)
-	check(game._column_has_player(kind, col), "5 the column under the player is protected")
-	var ex: Dictionary = prog.extract(kind, col, 999.0)
-	check(int(ex["units"]) == 0 and prog.column_units(kind, col) == before, "5b no tool, crew, rig or companion can take it out from under them")
-	var mined: int = game.player_mine(kind, col, 999.0, top)
-	check(mined == 0 and prog.column_units(kind, col) == before, "5c the player's own pick refuses it too")
+	check(game._column_has_player(kind, col), "5 the player is standing on that column")
+	# Digging directly under the player is allowed (excavation overhaul): no protection stops the extraction. (That the player then drops onto the lower surface is
+	# tested with real formation colliders in test_excavation_gameplay.)
+	var mined: int = int(prog.extract(kind, col, 999.0)["units"])
+	check(mined > 0 and prog.column_units(kind, col) < before, "5b the rock under the player can be extracted (%d units): the protection is gone" % mined)
+	check(game.safety != null, "5c the rescue system stays available for genuinely broken states")
 	game.player.global_position = top + Vector3(6, 3.7, 0)
 	check(not game._column_has_player(kind, col), "5d a column the player is not on is not protected")
 	# ---- 6: a deep sealed pit is recovered from, a one-tier ledge is climbed
