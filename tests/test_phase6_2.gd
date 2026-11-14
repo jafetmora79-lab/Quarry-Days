@@ -152,7 +152,7 @@ func run() -> void:
 		game.hit_debris(node, 500.0, node.global_position)
 	check(prog.cleanup["done"] and prog.cleanup_left() == 0 and game.cleanup_nodes.is_empty(), "F clearing the last item completes the site")
 	check(st.money == money1 + int(cfg["gift"]), "F Walt's gift of $%d is paid exactly once" % int(cfg["gift"]))
-	check(game.hud.card_open() and game.hud.card_title.text.contains("WALT"), "F Walt's letter opens")
+	check(game.hud.card_open() and game.hud.letter.visible and game.hud.letter.header_text.contains("WALT"), "F Walt's letter opens")
 	game.hud.close_card()
 	check(prog.formation_locked(HID) == "" and not game.formation_nodes[HID].label.text.contains("CLEAR THE SITE"), "F the hillside unlocks")
 	var got2: int = game.player_mine(HID, 6 * 5 + 5, 100.0, prog.column_pos(HID, 6 * 5 + 5))

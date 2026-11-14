@@ -66,6 +66,8 @@ var dura_label: Label
 var popups: Control
 var toast_root: Control
 var card: PanelContainer
+var letter: QuarryLetter                 ## Grandpa's letters (a sheet of paper, several pages when long)
+var letter_callback: Callable
 var fade_rect: ColorRect
 var card_title: Label
 var card_body: Label
@@ -490,6 +492,14 @@ func _build() -> void:
 	card_body.custom_minimum_size = Vector2(500, 0)
 	card_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	cv.add_child(card_body)
+	letter = QuarryLetter.new()
+	letter.name = "Letter"
+	add_child(letter)
+	letter.closed.connect(func():
+		var cb := letter_callback
+		letter_callback = Callable()
+		if cb.is_valid():
+			cb.call())
 	card_hint = QuarryTheme.label("E / CLICK  CONTINUE", 12, Color(0.5, 0.36, 0.2), true)
 	card_hint.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
 	card_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -620,10 +630,25 @@ func fade_to(alpha: float, seconds: float) -> void:
 func fade_alpha() -> float:
 	return fade_rect.color.a
 
+## Shows a letter from Grandpa on a sheet of paper. `callback` runs when the last page has been put away.
+func show_letter(title: String, text: String, callback := Callable()) -> void:
+	letter_callback = callback
+	letter.open_letter(title, text)
+
 func card_open() -> bool:
-	return card.visible
+	return card.visible or (letter != null and letter.visible)
+
+## E or a click on a story card: closes it. On a letter it turns the page first. Returns true once nothing is open any more.
+func card_advance() -> bool:
+	if letter != null and letter.visible:
+		return letter.advance() and not letter.visible
+	close_card()
+	return true
 
 func close_card() -> void:
+	if letter != null and letter.visible:
+		letter.close()
+		return
 	if not card.visible:
 		return
 	card.visible = false

@@ -308,3 +308,7 @@ Priority: one continuous rock surface, then the simple background. No visual che
 - Loader, dump truck and excavators have real cabs: seat, steering wheel or joysticks, dashboard with lamps, pedals, ignition key, floor mat, hinged door, foot steps and grab rail.
 - Climbing in and out is a first-person sequence (door, step, doorway, seat); Tab toggles cab view while driving. Grandpa's first start climbs in, turns the key (dash lamps flicker with the stall) and climbs out.
 - Repairs: the camera moves to a vantage for each part; the hose now runs along the boom (it used to float in front of the cab) and is attached to it.
+
+## Terrain excavation and Grandpa's letter (branch claude/terrain-letter, on top of claude/machine-cabs)
+- Root cause of the holes and floating platforms: the loose-soil field (0.9 m of soil drawn and collided as its own layer) stood on top of the topsoil layer without being linked to it. An emptied soil cell drew a made-up limestone patch instead of the layer beneath, and digging topsoil left the soil above it floating over the hole. Soil now follows the topsoil columns (also repairs old saves), and an emptied cell shows the real layer.
+- Grandpa's letter is a compact sheet of aged paper (unfolds in 0.55 s, folds, curled corner, hand-drawn signature), paginated when long; E or a click turns the page, Esc puts it away, no mining or swings while it is open.

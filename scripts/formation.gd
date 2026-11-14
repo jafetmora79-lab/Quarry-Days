@@ -342,6 +342,8 @@ func refresh(instant := false) -> void:
 		_skin_sig = sig
 		_rebuild_skin(sig)
 		_refresh_decor()                 # only when the surface really changed
+		if fid == "q_top" and game and game.has_method("soil_follow_topsoil"):
+			game.soil_follow_topsoil()   # loose soil never floats over a column that was just dug
 	elif not skin:
 		_refresh_decor()
 	label.position = Vector3(0, top_y + 0.7, 0)

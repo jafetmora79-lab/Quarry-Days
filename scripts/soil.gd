@@ -4,7 +4,7 @@ class_name QuarrySoil
 ## (units_per_cell = layers x units_per_layer); the surface height of a cell is its fraction of full depth times the full depth.
 ## Digging only ever takes units out of a cell: the units become cargo, are dumped on the spoil heap, and are counted - nothing appears
 ## from nowhere. Collision is one box per cell inside ONE static body (a box is switched off when its cell is empty); the visible surface
-## is ONE mesh rebuilt when cells change, and the bare ground (limestone) shows through where a cell is empty.
+## is ONE mesh rebuilt when cells change; where a cell is empty nothing is drawn and the topsoil layer under it (the formation q_top) shows.
 
 var cols := 0
 var rows := 0
@@ -18,7 +18,6 @@ var active := PackedByteArray()          ## 1 = the cell is part of the soil fie
 var body: StaticBody3D
 var shapes: Array = []
 var surface: MeshInstance3D
-var bare: MeshInstance3D
 var _dirty := true
 var _dirty_cells := {}
 var removed_total := 0
@@ -60,12 +59,6 @@ func setup(cfg: Dictionary, mask: PackedByteArray, saved: Array) -> void:
 	surface.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	surface.material_override = MeshKit.mat("ExcavatedDirt")
 	add_child(surface)
-	bare = MeshInstance3D.new()
-	bare.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var bm := (MeshKit.mat("RockLimestone") as StandardMaterial3D).duplicate() as StandardMaterial3D
-	bm.albedo_color = Color(0.78, 0.74, 0.66)
-	bare.material_override = bm
-	add_child(bare)
 	refresh(true)
 
 ## Sets every cell from a saved list (an empty or mismatched list means untouched ground: full depth).
@@ -165,7 +158,6 @@ func _out(s: MeshKit.Soup, a: Vector3, b: Vector3, c: Vector3, hint: Vector3) ->
 
 func _rebuild_meshes() -> void:
 	var s := MeshKit.Soup.new()
-	var g := MeshKit.Soup.new()
 	for cz in range(rows):
 		for cx in range(cols):
 			var i := cz * cols + cx
@@ -173,14 +165,7 @@ func _rebuild_meshes() -> void:
 				continue
 			var h := height(i)
 			if h < 0.05:
-				# the bare ground shows: a slightly raised patch of limestone, so the layer underneath is seen
-				var a0 := _corner(cx, cz, 0.04)
-				var b0 := _corner(cx + 1, cz, 0.04)
-				var c0 := _corner(cx + 1, cz + 1, 0.04)
-				var d0 := _corner(cx, cz + 1, 0.04)
-				_out(g, a0, d0, c0, Vector3.UP)
-				_out(g, a0, c0, b0, Vector3.UP)
-				continue
+				continue           # an emptied cell draws NOTHING: the ground beneath it (the topsoil layer, drawn by its own formation) is what shows, not a made-up patch
 			var a := _corner(cx, cz, h)
 			var b := _corner(cx + 1, cz, h)
 			var c := _corner(cx + 1, cz + 1, h)
@@ -206,4 +191,3 @@ func _rebuild_meshes() -> void:
 				_out(s, q0, q1, p1, Vector3(o.x, 0, o.y))
 				_out(s, q0, p1, p0, Vector3(o.x, 0, o.y))
 	surface.mesh = s.mesh()
-	bare.mesh = g.mesh()

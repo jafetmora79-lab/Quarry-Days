@@ -865,7 +865,9 @@ func _on_site_cleared() -> void:
 		hud.popup_money(gift)
 		hud.toast("Site cleared!", "The hillside and the north gate are open. Walt sent $%d." % gift, "milestone")
 		player.locked = true
-		hud.show_card(str(cu.get("gift_title", "A LETTER")), str(cu.get("gift_text", "")), func(): player.locked = false)
+		hud.show_letter(str(cu.get("gift_title", "A LETTER")), str(cu.get("gift_text", "")), func():
+			player.locked = false
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
 	_sfx_unlock()
 	if formation_nodes.has(HILLSIDE_ID):
 		formation_nodes[HILLSIDE_ID].update_label()
@@ -1760,9 +1762,14 @@ func _unhandled_input(event: InputEvent) -> void:
 	if walter_dialog != null or fossil_dialog != null:
 		return                                      # the dialogue reads its own keys; nothing behind it may react (no interaction, no mining)
 	if hud and hud.card_open():
-		if event.is_action_pressed("interact") or event.is_action_pressed("ui_cancel") or (event is InputEventMouseButton and event.pressed):
-			hud.close_card()
-			if menu == "":
+		var turn: bool = event.is_action_pressed("interact") or (event is InputEventMouseButton and event.pressed)
+		if turn or event.is_action_pressed("ui_cancel"):
+			var is_letter: bool = hud.letter != null and hud.letter.visible
+			if turn:
+				hud.card_advance()                       # a letter turns its page (and closes after the last); a plain card closes
+			else:
+				hud.close_card()                         # Esc puts a letter away at once
+			if not is_letter and menu == "":
 				player.locked = false
 				Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 			get_viewport().set_input_as_handled()
@@ -2614,6 +2621,7 @@ func _ensure_opening() -> void:
 	_build_natural_ground(natural)
 	if soil and is_instance_valid(soil):
 		soil.apply(state.soil_units)
+		soil_follow_topsoil()
 		_update_spoil()
 	if natural and not bool(ex["started"]) and bool(prog.story["intro_seen"]) and not walter_intro_running:
 		_grandpa_to_post()
@@ -2758,6 +2766,27 @@ func _update_spoil() -> void:
 	mound.visible = state.soil_dumped > 0
 	mound.scale = Vector3(0.3 + 0.7 * f, 0.15 + 0.85 * f, 0.3 + 0.7 * f)
 	mound.position.y = -0.1
+
+## The loose soil lies ON the topsoil layer (the formation "q_top"). Where that layer has been dug away, the soil that stood on it goes with it: a cell can
+## never float over a hole. Safe to call at any time (building, a dig, a load); a cell sits wholly inside one topsoil column (both grids are on even metres).
+func soil_follow_topsoil() -> int:
+	if soil == null or not is_instance_valid(soil) or not prog.is_formation("q_top") or not formation_nodes.has("q_top"):
+		return 0
+	var cleared := 0
+	for i in range(soil.units.size()):
+		if int(soil.units[i]) <= 0:
+			continue
+		var col := prog.cell_index_at("q_top", soil.cell_center(i))
+		if col >= 0 and prog.column_units("q_top", col) <= 0:
+			soil.units[i] = 0
+			soil._dirty_cells[i] = true
+			soil._dirty = true
+			cleared += 1
+	if cleared > 0:
+		soil.refresh()
+		soil_sync_state()
+		nav_dirty = true
+	return cleared
 
 func soil_sync_state() -> void:
 	if soil and is_instance_valid(soil):
