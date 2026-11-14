@@ -18,6 +18,12 @@ var offer: Dictionary = {}
 var _model_key := ""
 var _spec_json := ""
 
+## In the computer's Machinery window the pane's text follows the window size like the rest of that window; in the shop panel (tight layout) it keeps its design size.
+var fit_text := false
+
+func _l(text: String, size := QuarryTheme.BODY, color := QuarryTheme.INK, heading := false, bold_face := false, shadow := false) -> Label:
+	return QuarryTheme.label(text, size, color, heading, bold_face, shadow) if fit_text else QuarryTheme.fixed_label(text, size, color, heading, bold_face, shadow)
+
 func setup(g) -> void:
 	game = g
 	add_theme_constant_override("separation", 5)
@@ -33,13 +39,13 @@ func setup(g) -> void:
 	holder.add_theme_stylebox_override("panel", cs)
 	holder.custom_minimum_size = Vector2(286, 168)       # shorter preview: the name, price, specs and the BUY button all fit under it
 	add_child(holder)
-	title_l = QuarryTheme.label("", QuarryTheme.HEAD, QuarryTheme.ACCENT, true)
+	title_l = _l("", QuarryTheme.HEAD, QuarryTheme.ACCENT, true)
 	title_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	title_l.custom_minimum_size = Vector2(280, 0)
 	add_child(title_l)
-	price_l = QuarryTheme.label("", QuarryTheme.HERO, QuarryTheme.MONEY, false, true)
+	price_l = _l("", QuarryTheme.HERO, QuarryTheme.MONEY, false, true)
 	add_child(price_l)
-	have_l = QuarryTheme.label("", QuarryTheme.SMALL, QuarryTheme.DIM)
+	have_l = _l("", QuarryTheme.SMALL, QuarryTheme.DIM)
 	add_child(have_l)
 	buy_btn = Button.new()                       # the BUY button sits right under the price, so it is always on screen; the specs follow
 	buy_btn.custom_minimum_size = Vector2(0, 30)
@@ -78,10 +84,10 @@ func show_offer(key: String, o: Dictionary) -> void:
 	for s in o.get("stats", []):
 		var line := HBoxContainer.new()
 		line.add_theme_constant_override("separation", 6)
-		var k := QuarryTheme.label(str(s[0]) + ":", QuarryTheme.SMALL, QuarryTheme.DIM)
+		var k := _l(str(s[0]) + ":", QuarryTheme.SMALL, QuarryTheme.DIM)
 		k.custom_minimum_size = Vector2(78, 0)
 		line.add_child(k)
-		var v := QuarryTheme.label(str(s[1]), QuarryTheme.SMALL, QuarryTheme.INK, false, true)
+		var v := _l(str(s[1]), QuarryTheme.SMALL, QuarryTheme.INK, false, true)
 		v.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		v.custom_minimum_size = Vector2(190, 0)
@@ -89,13 +95,13 @@ func show_offer(key: String, o: Dictionary) -> void:
 		info.add_child(line)
 	for c in o.get("compare", []):
 		var tone := str(c[1])
-		var cl := QuarryTheme.label(str(c[0]), QuarryTheme.SMALL, QuarryTheme.GOOD if tone == "good" else (QuarryTheme.WARN if tone == "bad" else QuarryTheme.DIM))
+		var cl := _l(str(c[0]), QuarryTheme.SMALL, QuarryTheme.GOOD if tone == "good" else (QuarryTheme.WARN if tone == "bad" else QuarryTheme.DIM))
 		cl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		cl.custom_minimum_size = Vector2(276, 0)
 		info.add_child(cl)
 	var reason := str(o.get("reason", ""))
 	if reason != "" and not owned_only:
-		var rl := QuarryTheme.label(reason, QuarryTheme.SMALL, QuarryTheme.WARN, false, true)
+		var rl := _l(reason, QuarryTheme.SMALL, QuarryTheme.WARN, false, true)
 		rl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		rl.custom_minimum_size = Vector2(276, 0)
 		info.add_child(rl)

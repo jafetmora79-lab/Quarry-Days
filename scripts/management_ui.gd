@@ -781,6 +781,7 @@ func _equipment() -> void:
 	hb.add_theme_constant_override("separation", 12)
 	content.add_child(hb)
 	var pane := QuarryOfferPane.new()
+	pane.fit_text = true
 	pane.setup(game)
 	pane.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	hb.add_child(pane)

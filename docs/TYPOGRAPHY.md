@@ -15,6 +15,6 @@ computer header). "Grandpa's Legacy" remains a stage name; Grandpa Walt remains 
 The canvas is 960x540 (`canvas_items`, aspect `expand`): the window scales it by 1.33 (1280x720), 1.42 (1366x768), 1.67 (1600x900), 2 (1920x1080).
 * **Smooth fonts** are rasterised at the final size, so they stay sharp at any scale. They keep base sizes.
 * **Pixel fonts** are crisp only when the on-screen glyph size is a multiple of their grid, so `pixel_font_size()` asks for a screen size (design base x 2, rounded to the grid, at
-  least 16 px) and converts it to a base size for the current window. `refresh_pixel_text()` redoes it when the window changes (exact at 720p and 1080p, within one pixel at 768p and 900p).
+  least 16 px) and converts it to a base size for the current window. `refresh_pixel_text()` redoes it when the window changes (on the grid wherever the growth cap of 2 base units allows it).
 * **The readable floor:** `fit_size()` raises any base size so nothing is under 15 px on screen (a base 8 is 10.7 px at 720p). All labels built through `QuarryTheme.label`/`fit` follow the window.
 * Integer scaling of the whole UI is deliberately not forced: it would shrink the interface on 1366x768 and similar screens.

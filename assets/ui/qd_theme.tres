@@ -3,7 +3,7 @@
 [ext_resource type="FontVariation" path="res://assets/fonts/qd_heading.tres" id="1_7t6qf"]
 [ext_resource type="FontVariation" path="res://assets/fonts/qd_body.tres" id="2_383r7"]
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_kbnyi"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_d8aeh"]
 content_margin_left = 6.0
 content_margin_top = 4.0
 content_margin_right = 6.0
@@ -23,7 +23,7 @@ shadow_color = Color(0, 0, 0, 0.32)
 shadow_offset = Vector2(0, 2)
 anti_aliasing = false
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_docil"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_qid11"]
 content_margin_left = 6.0
 content_margin_top = 4.0
 content_margin_right = 6.0
@@ -44,7 +44,7 @@ shadow_size = 3
 shadow_offset = Vector2(0, 2)
 anti_aliasing = false
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_rqfvg"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_yry4b"]
 content_margin_left = 6.0
 content_margin_top = 4.0
 content_margin_right = 6.0
@@ -64,7 +64,7 @@ shadow_color = Color(0, 0, 0, 0.32)
 shadow_offset = Vector2(0, 2)
 anti_aliasing = false
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_k8xfe"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_dph3v"]
 content_margin_left = 6.0
 content_margin_top = 4.0
 content_margin_right = 6.0
@@ -84,7 +84,7 @@ shadow_color = Color(0, 0, 0, 0.32)
 shadow_offset = Vector2(0, 2)
 anti_aliasing = false
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_wqs0p"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1ykig"]
 content_margin_left = 6.0
 content_margin_top = 4.0
 content_margin_right = 6.0
@@ -104,7 +104,7 @@ shadow_color = Color(0, 0, 0, 0.32)
 shadow_offset = Vector2(0, 2)
 anti_aliasing = false
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ibwar"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_5ehe7"]
 content_margin_left = 8.0
 content_margin_top = 6.0
 content_margin_right = 8.0
@@ -125,7 +125,7 @@ shadow_size = 3
 shadow_offset = Vector2(0, 2)
 anti_aliasing = false
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_72l6w"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_llxix"]
 content_margin_left = 8.0
 content_margin_top = 6.0
 content_margin_right = 8.0
@@ -146,7 +146,7 @@ shadow_size = 3
 shadow_offset = Vector2(0, 2)
 anti_aliasing = false
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_24bvk"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_g6hwx"]
 bg_color = Color(0.08, 0.06, 0.05, 0.9)
 corner_radius_top_left = 1
 corner_radius_top_right = 1
@@ -154,7 +154,7 @@ corner_radius_bottom_right = 1
 corner_radius_bottom_left = 1
 anti_aliasing = false
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_6tg3e"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hbx25"]
 bg_color = Color(0.98, 0.76, 0.34, 1)
 corner_radius_top_left = 1
 corner_radius_top_right = 1
@@ -162,7 +162,7 @@ corner_radius_bottom_right = 1
 corner_radius_bottom_left = 1
 anti_aliasing = false
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_311aj"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_mighh"]
 content_margin_left = 5.0
 content_margin_top = 3.0
 content_margin_right = 5.0
@@ -191,20 +191,20 @@ Button/colors/font_disabled_color = Color(0.55, 0.5, 0.42, 1)
 Button/colors/font_hover_color = Color(1, 0.95, 0.82, 1)
 Button/font_sizes/font_size = 9
 Button/fonts/font = ExtResource("1_7t6qf")
-Button/styles/disabled = SubResource("StyleBoxFlat_kbnyi")
-Button/styles/focus = SubResource("StyleBoxFlat_docil")
-Button/styles/hover = SubResource("StyleBoxFlat_rqfvg")
-Button/styles/normal = SubResource("StyleBoxFlat_k8xfe")
-Button/styles/pressed = SubResource("StyleBoxFlat_wqs0p")
+Button/styles/disabled = SubResource("StyleBoxFlat_d8aeh")
+Button/styles/focus = SubResource("StyleBoxFlat_qid11")
+Button/styles/hover = SubResource("StyleBoxFlat_yry4b")
+Button/styles/normal = SubResource("StyleBoxFlat_dph3v")
+Button/styles/pressed = SubResource("StyleBoxFlat_1ykig")
 Label/colors/font_color = Color(0.99, 0.95, 0.84, 1)
 Label/colors/font_shadow_color = Color(0, 0, 0, 0)
 Label/constants/line_spacing = 2
 Label/constants/shadow_offset_x = 1
 Label/constants/shadow_offset_y = 1
-Panel/styles/panel = SubResource("StyleBoxFlat_ibwar")
-PanelContainer/styles/panel = SubResource("StyleBoxFlat_72l6w")
-ProgressBar/styles/background = SubResource("StyleBoxFlat_24bvk")
-ProgressBar/styles/fill = SubResource("StyleBoxFlat_6tg3e")
+Panel/styles/panel = SubResource("StyleBoxFlat_5ehe7")
+PanelContainer/styles/panel = SubResource("StyleBoxFlat_llxix")
+ProgressBar/styles/background = SubResource("StyleBoxFlat_g6hwx")
+ProgressBar/styles/fill = SubResource("StyleBoxFlat_hbx25")
 TooltipLabel/colors/font_color = Color(0.99, 0.95, 0.84, 1)
 TooltipLabel/font_sizes/font_size = 9
-TooltipPanel/styles/panel = SubResource("StyleBoxFlat_311aj")
+TooltipPanel/styles/panel = SubResource("StyleBoxFlat_mighh")

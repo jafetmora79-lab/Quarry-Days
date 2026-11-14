@@ -112,7 +112,8 @@ static func theme() -> Theme:
 	t.set_stylebox("background", "ProgressBar", bar_box(Color(0.08, 0.06, 0.05, 0.9)))
 	t.set_stylebox("fill", "ProgressBar", bar_box(ACCENT))
 	t.set_font_size("font_size", "TooltipLabel", BODY)
-	fit_theme(t, BODY, BODY)
+	t.default_font_size = BODY                       # the HUD and the shop panels are laid out in canvas units: their text keeps its design size (reading text elsewhere follows the window)
+	t.set_font_size("font_size", "Button", BODY)
 	t.set_color("font_color", "TooltipLabel", INK)
 	t.set_stylebox("panel", "TooltipPanel", panel_box(Color(0.1, 0.08, 0.06, 0.97), BORDER_HI, 5, 2))
 	_theme = t
@@ -149,13 +150,18 @@ static func snap_pixel_px(target: float, grid: int) -> int:
 
 ## Base-canvas font size for a pixel font whose 1080p design size is `base` x 2 px.
 static func pixel_font_size(base: int, grid := 8) -> int:
-	return maxi(6, roundi(float(snap_pixel_px(float(base) * 2.0, grid)) / ui_scale()))
+	var snapped := maxi(6, roundi(float(snap_pixel_px(float(base) * 2.0, grid)) / ui_scale()))
+	return mini(snapped, base + 2)            # HUD plates are laid out in canvas units: grid snapping may enlarge a label by 2 base units at most (then it is merely off-grid)
 
 ## ---- The readable floor. Every size token is a base-canvas size (x2 at 1080p). At 1280x720 the canvas scale is only 1.33, so a base 8 would be 10.7 px on screen:
-## fit_size() raises any base size so the text is never smaller than MIN_PX (15 px) on screen, at whatever the window size is. At 1080p nothing changes.
-const MIN_PX := 15.0
+## fit_size() raises a base size (by at most 1 base unit) so the text is not smaller than about MIN_PX (14 px) on screen, at whatever the window size is. At 1080p nothing changes.
+const MIN_PX := 14.0
+const MAX_GROW := 1          ## a size grows by at most 1 base unit: the HUD plates and shop panels are laid out in canvas units and must not burst
 static func fit_size(base: int) -> int:
-	return maxi(base, ceili(MIN_PX / ui_scale() - 0.001))
+	return maxi(base, mini(ceili(MIN_PX / ui_scale() - 0.001), base + MAX_GROW))
+
+static func fixed_fit(c: Control, base: int) -> void:
+	c.add_theme_font_size_override("font_size", base)
 
 ## Registers a label (or button) whose size follows the window: `base` is its design size in canvas units.
 static func fit(c: Control, base: int) -> void:
@@ -213,6 +219,14 @@ static func mono_label(text: String, size := 14, color := INK) -> Label:
 	var l := label(text, size, color)
 	l.add_theme_font_override("font", mono())
 	_pixel(l, size, 16)
+	return l
+
+## The same label without the window-fitted growth: for the HUD plates and the shop panels, whose layouts are tight canvas-unit grids.
+static func fixed_label(text: String, size := BODY, color := INK, heading := false, bold_face := false, shadow := false) -> Label:
+	var l := label(text, size, color, heading, bold_face, shadow)
+	l.remove_from_group("fit_text")
+	l.remove_meta("fit_base")
+	l.add_theme_font_size_override("font_size", size)
 	return l
 
 static func money_text(v: int) -> String:

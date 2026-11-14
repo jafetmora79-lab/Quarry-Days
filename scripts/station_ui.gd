@@ -48,10 +48,10 @@ func setup(g) -> void:
 	var top := HBoxContainer.new()
 	top.add_theme_constant_override("separation", 10)
 	root.add_child(top)
-	title_label = QuarryTheme.label("", 12, ACCENT, true)
+	title_label = QuarryTheme.fixed_label("", 12, ACCENT, true)
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(title_label)
-	money_label = QuarryTheme.label("", FS + 2, MONEY, false, true)
+	money_label = QuarryTheme.fixed_label("", FS + 2, MONEY, false, true)
 	top.add_child(money_label)
 	var close := Button.new()
 	close.text = "CLOSE [Esc]"
@@ -81,7 +81,7 @@ func setup(g) -> void:
 	bar_box.alignment = BoxContainer.ALIGNMENT_CENTER
 	bar_box.add_theme_constant_override("separation", 8)
 	root.add_child(bar_box)
-	foot = QuarryTheme.label("", FS, DIM)
+	foot = QuarryTheme.fixed_label("", FS, DIM)
 	foot.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	foot.custom_minimum_size = Vector2(660, 0)
 	root.add_child(foot)
@@ -146,7 +146,7 @@ func _ensure_focus() -> void:
 			return
 
 func text(t: String, color := DIM, centered := false) -> Label:
-	var l := QuarryTheme.label(t, FS, color)
+	var l := QuarryTheme.fixed_label(t, FS, color)
 	if centered:
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -249,7 +249,7 @@ func make_button(key: String, label: String, enabled: bool, action: Callable, mi
 			b.add_theme_stylebox_override(st, _style(kind, st))
 		if kind == "toggle":
 			b.add_theme_font_override("font", QuarryTheme.body())
-			QuarryTheme.fit(b, QuarryTheme.SMALL)
+			QuarryTheme.fixed_fit(b, QuarryTheme.SMALL)
 		if kind == "main":
 			for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
 				b.add_theme_color_override(c, Color(0.16, 0.1, 0.04))
@@ -295,7 +295,7 @@ func slider_row(key: String, label: String, value: float, muted: bool, on_change
 	h.add_theme_constant_override("separation", 8)
 	h.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list.add_child(h)
-	var l := QuarryTheme.label(label, FS, DIM)
+	var l := QuarryTheme.fixed_label(label, FS, DIM)
 	l.custom_minimum_size = Vector2(58, 0)
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	h.add_child(l)
@@ -327,7 +327,7 @@ func slider_row(key: String, label: String, value: float, muted: bool, on_change
 		sl.add_theme_icon_override("grabber_disabled", gt)
 	buttons[key] = sl
 	h.add_child(sl)
-	var pct := QuarryTheme.label("muted" if muted else "%d%%" % int(round(value * 100.0)), FS, INK)
+	var pct := QuarryTheme.fixed_label("muted" if muted else "%d%%" % int(round(value * 100.0)), FS, INK)
 	sl.value_changed.connect(func(v: float):
 		on_change.call(v)
 		pct.text = "%d%%" % int(round(v * 100.0)))
@@ -340,7 +340,7 @@ func slider_row(key: String, label: String, value: float, muted: bool, on_change
 	h.add_child(mute)
 
 func _cell(t: String, color: Color, min_w: float, align := HORIZONTAL_ALIGNMENT_LEFT) -> Label:
-	var l := QuarryTheme.label(t, FS, color)
+	var l := QuarryTheme.fixed_label(t, FS, color)
 	l.custom_minimum_size = Vector2(min_w, 0)
 	l.horizontal_alignment = align
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -358,8 +358,8 @@ func item(key: String, title: String, desc: String, price: int, level_text: Stri
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	left.add_theme_constant_override("separation", 1)
 	h.add_child(left)
-	left.add_child(QuarryTheme.label(title, FS + 1, ACCENT if locked_note == "" else DIM, false, true))
-	var d := QuarryTheme.label(desc, FS, DIM)
+	left.add_child(QuarryTheme.fixed_label(title, FS + 1, ACCENT if locked_note == "" else DIM, false, true))
+	var d := QuarryTheme.fixed_label(desc, FS, DIM)
 	d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	d.custom_minimum_size = Vector2(250, 0)
 	d.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -375,7 +375,7 @@ func item(key: String, title: String, desc: String, price: int, level_text: Stri
 	else:
 		var pc := _cell(QuarryTheme.money_text(price) if price > 0 else "FREE", GOOD if affordable else WARN, 130, HORIZONTAL_ALIGNMENT_RIGHT)
 		pc.add_theme_font_override("font", QuarryTheme.bold())
-		QuarryTheme.fit(pc, FS + 1)
+		QuarryTheme.fixed_fit(pc, FS + 1)
 		mid.add_child(pc)
 	if level_text != "":
 		mid.add_child(_cell(level_text, DIM, 130, HORIZONTAL_ALIGNMENT_RIGHT))
@@ -404,8 +404,8 @@ func offer_item(key: String, title: String, desc: String, price: int, level_text
 	left.add_theme_constant_override("separation", 1)
 	left.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	h.add_child(left)
-	left.add_child(QuarryTheme.label(title, FS + 1, ACCENT if locked_note == "" else DIM, false, true))
-	var d := QuarryTheme.label(desc, FS - 1, DIM)
+	left.add_child(QuarryTheme.fixed_label(title, FS + 1, ACCENT if locked_note == "" else DIM, false, true))
+	var d := QuarryTheme.fixed_label(desc, FS - 1, DIM)
 	d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	d.custom_minimum_size = Vector2(150, 0)
 	d.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -467,7 +467,7 @@ func row(cells: Array, btns: Array, swatch := Color(0, 0, 0, 0), header := false
 	for c in cells:
 		var cell := _cell(str(c[0]), c[1], float(c[2]), c[3] if c.size() > 3 else HORIZONTAL_ALIGNMENT_LEFT)
 		if header:
-			QuarryTheme.fit(cell, QuarryTheme.SMALL)
+			QuarryTheme.fixed_fit(cell, QuarryTheme.SMALL)
 		elif c.size() > 4 and bool(c[4]):
 			cell.add_theme_font_override("font", QuarryTheme.bold())
 		h.add_child(cell)

@@ -360,3 +360,4 @@ Priority: one continuous rock surface, then the simple background. No visual che
 - Windows: per-app minimum sizes and a corner resize grip clamped to the desktop; section headings in Pixelify Sans; Esc closes the start menu first.
 - Quarry Plan: headline "now cutting" with real progress toward the next level, ACTIVE / OPEN / NEXT / LOCKED tags, depth, materials, progress bars, road costs and shortfalls. Sales: separate bag / bin / output columns and totals; only owned materials listed.
 - `test_quarry_os_polish`.
+- Typography follow-up: the readable-floor growth is capped (+1 base unit, text of the HUD and shop panels keeps its design size, pixel-font snapping may enlarge a label by 2 base units at most) after the first version burst the shop panel and HUD plates at 1280x720; the computer's Machinery pane follows the window size.
