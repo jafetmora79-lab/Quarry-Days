@@ -733,7 +733,7 @@ func _cleanup_beacon(body: Node3D, weed: bool) -> void:
 	ring.position = Vector3(0, 0.04, 0)
 	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	body.add_child(ring)
-	var lb := Label3D.new()
+	var lb := PixelLabel.new()
 	lb.text = "WEEDS" if weed else "RUBBLE"
 	lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	lb.no_depth_test = true
@@ -1030,7 +1030,7 @@ func _build_deposit(kind: String) -> void:
 	state.ensure_deposit(kind, str(info["resource"]), bool(info.get("infinite", false)))
 	var face := bool(info.get("infinite", false))
 	var body := _solid(world,kind+" deposit",info["pos"]+Vector3(0,1.2 if face else 0.9,0),Vector3(3.6,2.4,1.4) if face else Vector3(2.4,1.8,2.0),info["color"],float(info.get("yaw", 0.4)))
-	var status := Label3D.new()
+	var status := PixelLabel.new()
 	status.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	status.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	status.font_size = 28
@@ -2208,20 +2208,38 @@ func _build_workbench() -> void:
 	MeshKit.inst(bench, MeshKit.box(Vector3(0.05, 0.12, 0.2)), steel, b + Vector3(0.64, 1.13, 0.05) - bench.position)           # vise jaw
 	MeshKit.inst(bench, MeshKit.box(Vector3(0.32, 0.04, 0.22)), MeshKit.flat(Color(0.66, 0.5, 0.2)), b + Vector3(-0.35, 1.02, 0.0) - bench.position)   # parts tray
 	# pegboard on the wall above, clear of the door, the lamp and the whiteboard
-	MeshKit.inst(world, MeshKit.box(Vector3(1.5, 1.05, 0.04)), MeshKit.flat(Color(0.62, 0.5, 0.34)), Vector3(b.x, 1.78, TOOLSHED_POS.z + 2.205))
+	var wall_kit := Node3D.new()                     # the pegboard and the sign board hang on this one node
+	wall_kit.name = "WorkbenchWall"
+	world.add_child(wall_kit)
+	_visual_box(wall_kit, Vector3(b.x, 1.7, TOOLSHED_POS.z + 2.195), Vector3(1.5, 1.28, 0.03), Color(0.62, 0.5, 0.34))
 	workbench_tools = Node3D.new()
 	workbench_tools.name = "WorkbenchTools"
 	world.add_child(workbench_tools)
 	workbench_tools.position = Vector3(b.x, 1.72, TOOLSHED_POS.z + 2.15)
 	workbench_tools.rotation.y = -PI * 0.5            # tools are modelled along z: turn them to run along the wall
 	workbench_tools.scale = Vector3.ONE * 0.8
-	workbench_tag = Label3D.new()
-	workbench_tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	workbench_tag.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-	workbench_tag.font_size = 22
-	workbench_tag.pixel_size = 0.005
-	workbench_tag.outline_size = 8
-	workbench_tag.position = Vector3(b.x, 2.5, TOOLSHED_POS.z + 1.9)
+	# a wall sign above the pegboard: a wooden board in a dark steel frame with two bolts, the pixel-font text lettered on it
+	var sign_z := TOOLSHED_POS.z + 2.17
+	var sign_y := 2.52
+	_visual_box(wall_kit, Vector3(b.x, sign_y, sign_z + 0.012), Vector3(1.62, 0.44, 0.03), Color(0.22, 0.23, 0.25))
+	_visual_box(wall_kit, Vector3(b.x, sign_y, sign_z), Vector3(1.52, 0.34, 0.04), Color(0.36, 0.25, 0.15))
+	for sx in [-0.72, 0.72]:
+		_visual_box(wall_kit, Vector3(b.x + sx, sign_y + 0.14, sign_z - 0.03), Vector3(0.04, 0.04, 0.03), Color(0.5, 0.52, 0.55))
+	var title := PixelLabel.new()
+	title.text = "WORKBENCH"
+	title.font_size = 24
+	title.pixel_size = 0.0072
+	title.modulate = Color(1.0, 0.82, 0.42)
+	title.rotation.y = PI                                  # the board is on the back wall: the letters face out into the room
+	title.position = Vector3(b.x, sign_y + 0.07, sign_z - 0.03)
+	title.visibility_range_end = 9.0
+	world.add_child(title)
+	workbench_tag = PixelLabel.new()
+	workbench_tag.font_size = 16
+	workbench_tag.pixel_size = 0.0058
+	workbench_tag.modulate = Color(1.0, 0.95, 0.82)
+	workbench_tag.rotation.y = PI
+	workbench_tag.position = Vector3(b.x, sign_y - 0.065, sign_z - 0.03)
 	workbench_tag.visibility_range_end = 9.0
 	world.add_child(workbench_tag)
 	_refresh_workbench()
@@ -2291,23 +2309,24 @@ func _refresh_workbench() -> void:
 				(mi as MeshInstance3D).material_override = null
 				(mi as MeshInstance3D).material_overlay = _dim_mat
 		# a small name label under each tool
-		var lbl := Label3D.new()
+		var lbl := PixelLabel.new()
 		lbl.text = prog.item_title(id)
-		lbl.font_size = 14
-		lbl.pixel_size = 0.0035
-		lbl.outline_size = 5
-		lbl.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+		lbl.font_size = 8
+		lbl.pixel_size = 0.0054
+		lbl.width = 64.0                                # long names wrap onto two short lines instead of running into the next tool
+		lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		lbl.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 		lbl.modulate = Color(1, 0.95, 0.82) if (owned or is_next) else Color(0.6, 0.58, 0.52)
 		lbl.visibility_range_end = 5.0
 		lbl.rotation.y = -PI * 0.5                      # the parent is turned along the wall: face out of it
-		lbl.position = Vector3(-0.07, y - 0.19, z)
+		lbl.position = Vector3(-0.07, y - 0.17, z)
 		workbench_tools.add_child(lbl)
 	viewer.free()
 	var nt := prog.next_tool()
 	if nt.is_empty():
-		workbench_tag.text = "WORKBENCH\nAll tools owned"
+		workbench_tag.text = "All tools owned"
 	else:
-		workbench_tag.text = "WORKBENCH\nNext: %s  %s" % [str(nt["title"]), QuarryTheme.money_text(int(nt["cost"]))]
+		workbench_tag.text = "Next: %s  %s" % [str(nt["title"]), QuarryTheme.money_text(int(nt["cost"]))]
 	_refresh_gear_props()
 
 # ------------------------------------------------------------------ hauling aids and compressor standing in the yard (Phase 9)
@@ -3249,7 +3268,7 @@ func _create_crusher(index: int) -> void:
 	_visual_box(body,Vector3(0,0.68,0),Vector3(1.0,0.45,1.0),Color(0.44,0.39,0.28))
 	if art:
 		art.dress_crusher(body, tier)
-	var lbl := Label3D.new()
+	var lbl := PixelLabel.new()
 	lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	lbl.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	lbl.font_size = 26
@@ -3963,7 +3982,7 @@ func _style_fill(host: Node3D, fill: MeshInstance3D, items: Dictionary, label_y:
 		fill.material_override = MeshKit.mat(QuarryArt.ROCK_MAT.get(best, "RockLimestone"))
 	var lbl: Label3D = host.get_meta("fill_label") if host.has_meta("fill_label") else null
 	if lbl == null:
-		lbl = Label3D.new()
+		lbl = PixelLabel.new()
 		lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 		lbl.pixel_size = 0.0035
 		lbl.font_size = 40
@@ -4496,7 +4515,7 @@ func _survey_refresh() -> void:
 			mi.position = at
 			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			survey_root.add_child(mi)
-			var lb := Label3D.new()
+			var lb := PixelLabel.new()
 			lb.text = "%s +%d" % [prog.display(str(vn["res"])).to_upper(), int(vn["units"])]
 			lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 			lb.no_depth_test = true

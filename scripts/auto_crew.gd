@@ -99,7 +99,7 @@ func step(v: QuarryVehicle, delta: float) -> void:
 func _label(v: QuarryVehicle, rec: Dictionary, r: Dictionary) -> void:
 	var lbl: Label3D = v.get_meta("crew_label", null)
 	if lbl == null:
-		lbl = Label3D.new()
+		lbl = PixelLabel.new()
 		lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 		lbl.pixel_size = 0.006
 		lbl.font_size = 30

@@ -67,7 +67,7 @@ func setup(main_node, p: QuarryProgression, i: int) -> void:
 	cs.position = Vector3(0, 0.85, 0.65)
 	add_child(cs)
 	_build()
-	label = Label3D.new()
+	label = PixelLabel.new()
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	label.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	label.font_size = 26

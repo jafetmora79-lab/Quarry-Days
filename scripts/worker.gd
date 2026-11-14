@@ -892,7 +892,7 @@ func _bark_tick(delta: float) -> void:
 	if _flat(global_position, game.player.global_position) > 14.0 or game.dialog_worker == self:
 		return
 	if bark_label == null:
-		bark_label = Label3D.new()
+		bark_label = PixelLabel.new()
 		bark_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 		bark_label.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 		bark_label.font_size = 22

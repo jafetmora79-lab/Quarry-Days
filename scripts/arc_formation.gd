@@ -107,7 +107,7 @@ func setup(main_node, p: QuarryProgression, id: String) -> void:
 		add_child(mi)
 		crack_pool.append(mi)
 		crack_col.append(-1)
-	label = Label3D.new()
+	label = PixelLabel.new()
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	label.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	label.font_size = 30
