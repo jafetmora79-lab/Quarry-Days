@@ -24,7 +24,7 @@ func setup(entries: Array, is_timed := false) -> void:
 	name = "WalterDialog"
 	set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	custom_minimum_size = Vector2(620, 0)
-	add_theme_stylebox_override("panel", QuarryTheme.panel_box(QuarryTheme.BG, QuarryTheme.ACCENT, 12, 4))
+	add_theme_stylebox_override("panel", UiSkin.box("frame_dialog", QuarryTheme.panel_box(QuarryTheme.BG, QuarryTheme.ACCENT, 12, 4), [22, 18, 22, 18]))
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 6)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL

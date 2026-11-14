@@ -34,8 +34,12 @@ func set_hints(items: Array) -> void:
 		s.content_margin_right = 6
 		s.content_margin_top = 1
 		s.content_margin_bottom = 1
-		cap.add_theme_stylebox_override("panel", s)
-		cap.add_child(QuarryTheme.label(str(it[0]), QuarryTheme.SMALL, QuarryTheme.INK, false, true))
+		var wide: bool = str(it[0]).length() > 2
+		var art_name := "keycap_wide" if wide else "keycap_small"
+		cap.add_theme_stylebox_override("panel", UiSkin.box(art_name, s, [8 if wide else 6, 3, 8 if wide else 6, 4]))
+		cap.custom_minimum_size = Vector2(0, 20)
+		var key_label := QuarryTheme.label(str(it[0]), QuarryTheme.SMALL, Color(0.2, 0.13, 0.07) if UiSkin.has(art_name) else QuarryTheme.INK, false, true)
+		cap.add_child(key_label)
 		h.add_child(cap)
 		h.add_child(QuarryTheme.label(str(it[1]), QuarryTheme.SMALL, Color(0.9, 0.84, 0.7)))
 		add_child(h)

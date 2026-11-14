@@ -169,7 +169,7 @@ static var _styles := {}
 ## Button looks. All are warm plates with a darker lower edge (so they read as raised keys) and a lighter top edge:
 ##   "primary" (the default action button) brown plate, amber text edge   "main" the one call to action: amber fill, dark text
 ##   "danger" muted red (erase, dismiss)   "toggle" a flat small switch
-static func _style(kind: String, state: String) -> StyleBoxFlat:
+static func _style(kind: String, state: String) -> StyleBox:
 	var k := kind + state
 	if _styles.has(k):
 		return _styles[k]
@@ -201,6 +201,22 @@ static func _style(kind: String, state: String) -> StyleBoxFlat:
 		edge = Color(0.28, 0.24, 0.2)
 		low = Color(0.12, 0.1, 0.085)
 		drop = 2
+	var art: String = {"primary": "btn_primary", "main": "btn_main", "danger": "btn_danger"}.get(kind, "")
+	if art != "" and UiSkin.has(art):
+		# the generated button art, with the state shown by tint: hover lighter, pressed darker (and sunk by the content margins), disabled = the grey plate
+		var a_name: String = art
+		var tint := Color.WHITE
+		if state == "hover":
+			tint = Color(1.14, 1.12, 1.1)
+		elif state == "pressed":
+			tint = Color(0.82, 0.8, 0.78)
+		elif state == "disabled":
+			a_name = "btn_disabled"
+		var content := [10, 5 + (2 if state == "pressed" else 0), 10, 5 - (2 if state == "pressed" else 0)]
+		var skinned: StyleBox = UiSkin.box(a_name, null, content, tint)
+		if skinned != null:
+			_styles[k] = skinned
+			return skinned
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = bg
 	sb.border_color = edge

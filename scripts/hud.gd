@@ -133,10 +133,31 @@ func _bar(parent: Control, h: float, color: Color) -> ProgressBar:
 	b.custom_minimum_size = Vector2(0, h)
 	b.max_value = 1.0
 	b.step = 0.0
-	b.add_theme_stylebox_override("fill", QuarryTheme.bar_box(color))
 	b.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if UiSkin.has("bar_groove"):
+		# the generated art: an empty groove with brass end caps, and a separate fill that ProgressBar stretches to the REAL value
+		b.add_theme_stylebox_override("background", UiSkin.box("bar_groove", null, [7, 3, 7, 3]))
+		b.custom_minimum_size = Vector2(0, maxf(h, 11.0))
+	set_bar_color(b, color)
 	parent.add_child(b)
 	return b
+
+## Which fill art matches a colour: green (good), gold (accent / money), red (warning / cleanup), blue (info).
+static func fill_art_for(c: Color) -> String:
+	if c.r > 0.8 and c.g < 0.62:
+		return "bar_fill_red"
+	if c.b > c.r and c.b > c.g * 0.9:
+		return "bar_fill_blue"
+	if c.g > c.r + 0.05:
+		return "bar_fill_green"
+	return "bar_fill_gold"
+
+func set_bar_color(b: ProgressBar, color: Color) -> void:
+	var art := fill_art_for(color)
+	if UiSkin.has(art) and UiSkin.has("bar_groove"):
+		b.add_theme_stylebox_override("fill", UiSkin.box(art, null, [0, 0, 0, 0]))
+	else:
+		b.add_theme_stylebox_override("fill", QuarryTheme.bar_box(color))
 
 ## One titled progress row for the objective plate: TITLE ....... value / bar / small note.
 func _progress_block(parent: Control) -> Dictionary:
@@ -711,7 +732,7 @@ func _update_drive_plate() -> void:
 	var cap := maxi(1, int(info["capacity"]))
 	drive_load_bar.value = clampf(float(info["load"]) / float(cap), 0.0, 1.0)
 	drive_load_label.text = "%s %d / %d%s" % ["BUCKET" if str(info["kind"]) in ["loader", "excavator"] else "BED", int(info["load"]), cap, ("  %s" % game.prog.display(str(info["carried"]))) if str(info["carried"]) != "" else ""]
-	(drive_load_bar.get_theme_stylebox("fill") as StyleBoxFlat).bg_color = QuarryTheme.WARN if int(info["load"]) >= cap else QuarryTheme.GOOD
+	set_bar_color(drive_load_bar, QuarryTheme.WARN if int(info["load"]) >= cap else QuarryTheme.GOOD)
 	drive_hint.text = str(info["action"]) if str(info["action"]) != "" else "WASD drive  Space brake  R recover  E exit"
 
 func refresh_panels() -> void:
@@ -731,7 +752,7 @@ func refresh_panels() -> void:
 	var cap := st.capacity()
 	bag_label.text = "BAG %d/%d" % [used, cap]
 	_bag_target = float(used) / float(maxi(1, cap))
-	(bag_bar.get_theme_stylebox("fill") as StyleBoxFlat).bg_color = QuarryTheme.WARN if used >= cap else QuarryTheme.GOOD
+	set_bar_color(bag_bar, QuarryTheme.WARN if used >= cap else QuarryTheme.GOOD)
 	var items := []
 	for k in QuarryState.RESOURCE_NAMES:
 		if int(st.inventory[k]) > 0:
@@ -793,7 +814,7 @@ func refresh_panels() -> void:
 			blk["note"].text = str(rw["note"])
 			blk["note"].visible = str(rw["note"]) != ""
 			blk["target"] = clampf(float(rw["frac"]), 0.0, 1.0)
-			(blk["bar"].get_theme_stylebox("fill") as StyleBoxFlat).bg_color = rw["color"]
+			set_bar_color(blk["bar"], rw["color"])
 			blk["value"].add_theme_color_override("font_color", rw["color"])
 	status_label.visible = status_label.text != ""
 	var badge_lines := []

@@ -6,6 +6,7 @@ class_name QuarryPlate
 
 var accent := Color(0.98, 0.76, 0.34, 0.0)      ## alpha 0 = no strip
 var rivets := true
+var skinned := false                              ## the generated panel art draws the frame, light and rivets itself
 var _target_alpha := 1.0
 
 func _init(margin := 8, strip := Color(0, 0, 0, 0)) -> void:
@@ -27,12 +28,21 @@ func _init(margin := 8, strip := Color(0, 0, 0, 0)) -> void:
 	s.content_margin_right = margin
 	s.content_margin_top = margin - 2
 	s.content_margin_bottom = margin - 1
-	add_theme_stylebox_override("panel", s)
+	skinned = UiSkin.has("panel_main")
+	if skinned:
+		var m := 11
+		add_theme_stylebox_override("panel", UiSkin.box("panel_main", s, [m + (3 if strip.a > 0.0 else 0), m - 3, m, m - 3]))
+	else:
+		add_theme_stylebox_override("panel", s)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 func _draw() -> void:
 	var r := Rect2(Vector2.ZERO, size)
 	if r.size.x < 16.0 or r.size.y < 16.0:
+		return
+	if skinned:
+		if accent.a > 0.0:
+			draw_rect(Rect2(8, 11, 3, size.y - 22), accent)          # the coloured strip sits just inside the art's border
 		return
 	# a soft light falling from the top: a vertical gradient fading out over the upper half
 	var inner := r.grow(-4.0)
