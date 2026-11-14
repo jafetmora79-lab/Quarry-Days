@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "skills": {
+    "godot-project-organization": {
+      "source": "grndctrl/godot-skills",
+      "sourceType": "github",
+      "skillPath": "skills/godot-project-organization/SKILL.md",
+      "computedHash": "ff5f3a857ecefd7161914bc41fd33f40d72699d4c502659ad98ba2c1bc772d0d"
+    }
+  }
+}
