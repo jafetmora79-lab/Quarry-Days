@@ -346,6 +346,7 @@ func _build() -> void:
 	tool_label = QuarryTheme.label("ROCK HAMMER", 12, QuarryTheme.ACCENT, true)
 	tname.add_child(tool_label)
 	power_bar = _bar(tv, 5, QuarryTheme.ACCENT)
+	power_bar.visible = false                         # the tool plate has no progress bar: the name, power and tool lines say it all
 	power_label = QuarryTheme.label("", QuarryTheme.SMALL, QuarryTheme.DIM)
 	tv.add_child(power_label)
 	tool_pips = QuarryTheme.label("", QuarryTheme.SMALL, QuarryTheme.DIM)

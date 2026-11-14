@@ -106,6 +106,39 @@ func tool_aoe() -> Vector2:
 	var t := tool()
 	return Vector2(float(t.get("aoe", 0)), float(t.get("aoe_frac", 0.0)))
 
+## An unowned tool or cart that you have already outgrown: nothing it can do beats what you own (same or harder rock, cutting at least as fast; a cart that holds
+## no more than one you have). The workbench does not offer it, and the pegboard stops hanging it.
+func gear_obsolete(id: String) -> bool:
+	var g := gear_def(id)
+	if g.is_empty() or owns(id):
+		return false
+	var kind := str(g.get("kind", "tool"))
+	if kind == "cart":
+		var best_cap := 0
+		for c in state.carts:
+			best_cap = maxi(best_cap, int(cfg.get("gear", {}).get(str(c), {}).get("capacity", 0)))
+		return best_cap >= int(g.get("capacity", 0))
+	if kind != "tool":
+		return false
+	var gh := int(g.get("max_hardness", 1))
+	for res in ["limestone", "coal", "iron_ore", "copper_ore", "gold_ore"]:
+		var h := int(material(res).get("hardness", 1))
+		if h > gh:
+			continue
+		var g_dps := (float(g["dps"]) if g.has("dps") else float(g.get("power", 0.0)) / maxf(0.01, float(g.get("interval", 1.0)))) * float(g.get("affinity", {}).get(res, 1.0))
+		var best := 0.0
+		for i in range(mini(state.tool_tier, tools().size() - 1) + 1):
+			if int(tools()[i].get("max_hardness", 1)) >= h:
+				best = maxf(best, tool_dps(i))
+		for og in state.gear:
+			var d: Dictionary = cfg.get("gear", {}).get(str(og), {})
+			if str(d.get("kind", "tool")) == "tool" and int(d.get("max_hardness", 1)) >= h:
+				var o_dps := (float(d["dps"]) if d.has("dps") else float(d.get("power", 0.0)) / maxf(0.01, float(d.get("interval", 1.0)))) * float(d.get("affinity", {}).get(res, 1.0))
+				best = maxf(best, o_dps)
+		if g_dps > best + 0.001:
+			return false              # it is still the best at something
+	return true
+
 func gear_block_reason(id: String) -> String:
 	var g := gear_def(id)
 	if g.is_empty():

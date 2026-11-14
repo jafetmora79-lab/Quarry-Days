@@ -2232,8 +2232,14 @@ func _draw_upgrades(p: QuarryStationUI) -> void:
 	# Phase 9.2: the rest of the pegboard - specialist tools (Q swaps the tool in your hand) and hauling aids
 	var cats := [["TOOLS FOR THE JOB", ["pointed_chisel", "flat_chisel", "repaired_pickaxe", "sledgehammer", "steel_pickaxe", "hardened_pickaxe", "hand_splitter", "powered_hammer", "pneumatic_chisel", "air_compressor"]], ["HAULING", ["hand_cart", "wheelbarrow", "reinforced_wheelbarrow"]]]
 	for cat in cats:
-		p.text(str(cat[0]), QuarryTheme.ACCENT)
+		var shown := []
 		for gid in cat[1]:
+			if not prog.owns(str(gid)) and not prog.gear_obsolete(str(gid)):            # what you own, or have outgrown, is never offered again
+				shown.append(gid)
+		if shown.is_empty():
+			continue
+		p.text(str(cat[0]), QuarryTheme.ACCENT)
+		for gid in shown:
 			var gd := prog.gear_def(str(gid))
 			var have := prog.owns(str(gid))
 			var note := ""
@@ -2337,6 +2343,8 @@ func _refresh_workbench() -> void:
 	# [id, ladder tier or -1] in the order they are bought; ladder tools and the new tools interleave by price
 	var order := [["hand", 0], ["pointed_chisel", -1], ["pickaxe", 1], ["flat_chisel", -1], ["repaired_pickaxe", -1], ["reinforced", 2], ["sledgehammer", -1],
 		["steel_pickaxe", -1], ["hardened_pickaxe", -1], ["hand_splitter", -1], ["powered_hammer", -1], ["drill", 3], ["pneumatic_chisel", -1], ["jackhammer", 4]]
+	# the tools you have moved on from (an older ladder tool, a tool that nothing you own is worse than) come off the board: nothing offers them again
+	order = order.filter(func(o): return int(o[1]) >= state.tool_tier if int(o[1]) >= 0 else not prog.gear_obsolete(str(o[0])))
 	var viewer := QuarryToolView.new()               # only used to build the ladder models without hands
 	for i in range(order.size()):
 		var id: String = order[i][0]

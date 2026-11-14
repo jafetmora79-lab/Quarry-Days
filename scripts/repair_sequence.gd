@@ -8,7 +8,7 @@ class_name RepairSequence
 ## About 4-5 s each. The part is consumed exactly once, at the commit step (after the player can no longer cancel with Esc); a cancel before that leaves everything
 ## as it was. Mining is blocked for the whole time (the player is locked, see Main.gameplay_input_allowed).
 
-const SOCKET := {"battery": Vector3(0.62, 1.58, 0.45), "hose": Vector3(0.72, 1.07, -1.04), "fuel": Vector3(-0.62, 1.54, 0.55)}
+const SOCKET := {"battery": Vector3(0.56, 1.5, 0.45), "hose": Vector3(0.72, 1.07, -1.04), "fuel": Vector3(-0.62, 1.54, 0.55)}
 ## The hose runs along the boom's right face (the boom stands at x 0.55): from the pump port on the front of the boom pedestal to the cylinder port on the boom itself.
 ## (It used to float in front of the cab, attached to nothing.) VANTAGE: where the person stands to do each job, so the part and the socket are both in view.
 const HOSE_A := Vector3(0.72, 0.93, -0.68)         ## the pump port on the boom pedestal
@@ -108,41 +108,32 @@ func _spark(at_local: Vector3) -> void:
 # ------------------------------------------------------------------ battery
 
 func _battery() -> void:
-	var tray: Vector3 = SOCKET["battery"]
-	var pivot := Node3D.new()                                   # the access panel, hinged along its rear edge
-	pivot.position = tray + Vector3(0, 0.08, 0.15)
-	props.add_child(pivot)
-	_mesh(pivot, Vector3(0.46, 0.03, 0.32), Color(0.48, 0.5, 0.46), Vector3(0, 0, -0.16))
+	# the pocket in the hood (x 0.34..0.78, z 0.33..0.57, floor at y 1.33): the battery is lifted over it, lowered down INTO it until it rests on the floor with its top a
+	# hand's breadth proud of the hood, then the two cables are clipped to the terminals and laid away over the top
+	var rest := Vector3(0.56, 1.33, 0.45)
 	var bat := OpeningModels.part("battery")
 	bat.position = _hand()
-	bat.visible = false
 	props.add_child(bat)
-	var cable_r := _mesh(props, Vector3(0.02, 0.02, 0.2), Color(0.8, 0.12, 0.1), tray + Vector3(0.16, 0.24, 0.25))
-	var cable_b := _mesh(props, Vector3(0.02, 0.02, 0.2), Color(0.08, 0.08, 0.09), tray + Vector3(-0.16, 0.24, 0.25))
+	var cable_r := _mesh(props, Vector3(0.02, 0.02, 0.22), Color(0.8, 0.12, 0.1), Vector3(0.66, 1.66, 0.62))
+	var cable_b := _mesh(props, Vector3(0.02, 0.02, 0.22), Color(0.08, 0.08, 0.09), Vector3(0.46, 1.66, 0.62))
 	cable_r.visible = false
 	cable_b.visible = false
 	var tw := _chain()
-	tw.tween_callback(func(): game.sfx["hit_pick"].play())
-	tw.tween_property(pivot, "rotation:x", 1.75, 0.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)       # panel opens
-	tw.tween_callback(func(): bat.visible = true)
-	tw.tween_property(bat, "position", tray + Vector3(0, 0.7, 0), 0.5).set_trans(Tween.TRANS_SINE)                   # lifted over the tray
-	tw.tween_property(bat, "position", tray + Vector3(0, 0.0, 0), 0.7).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)   # lowered in
-	tw.tween_property(bat, "position", tray + Vector3(0, 0.025, 0), 0.08)                                              # settles with a small bump
-	tw.tween_property(bat, "position", tray, 0.08)
+	tw.tween_property(bat, "position", rest + Vector3(0, 0.75, 0), 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)       # lifted over the pocket
+	tw.tween_property(bat, "position", rest + Vector3(0, 0.1, 0), 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)           # lowered into it
+	tw.tween_property(bat, "position", rest, 0.12).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)                                # and down onto the floor
 	tw.tween_callback(func(): game.sfx["hit_reinforced"].play())
 	tw.tween_interval(0.25)
 	tw.tween_callback(func():
 		cable_r.visible = true
-		_spark(tray + Vector3(0.1, 0.3, 0.05)))                                                                          # first terminal
+		_spark(Vector3(0.66, 1.62, 0.5)))                                                                                           # first terminal
 	tw.tween_interval(0.35)
 	tw.tween_callback(func():
 		cable_b.visible = true
-		_spark(tray + Vector3(-0.1, 0.3, 0.05)))                                                                         # second terminal
+		_spark(Vector3(0.46, 1.62, 0.5)))                                                                                           # second terminal
 	tw.tween_interval(0.3)
 	tw.tween_callback(_commit)
-	tw.tween_property(pivot, "rotation:x", 0.0, 0.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)             # panel closes
-	tw.tween_callback(func(): game.sfx["hit_pick"].play())
-	tw.tween_interval(0.35)
+	tw.tween_interval(0.4)
 	tw.tween_callback(func(): _end(true))
 
 # ------------------------------------------------------------------ hydraulic hose

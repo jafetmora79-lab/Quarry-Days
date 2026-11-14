@@ -468,7 +468,7 @@ func _sign(parent: Node3D, tex_key: String, pos: Vector3, size: Vector2, yaw := 
 
 func _office() -> void:
 	var c: Vector3 = game.OFFICE_POS
-	_walls(c, M_SIDING, M_DRYWALL, 2.8, [["L", -0.35, 1.1, 1.3], ["L", 1.55, 1.1, 1.3], ["R", -1.45, 1.1, 1.3], ["R", 0.45, 1.1, 1.3], ["B", 1.8, 1.6, 1.4]])
+	_walls(c, M_SIDING, M_DRYWALL, 2.8, [["L", -0.35, 1.1, 1.3], ["L", 1.55, 1.1, 1.3], ["R", -1.45, 1.1, 1.3], ["R", 0.45, 1.1, 1.3]])
 	_gable_roof(c, "CorrugatedRed", 5.6, 5.6, 2.8, 1.1)
 	quad_flat(M_LINO, c, Vector2(4.6, 4.5), 0.0, 0.165)
 	_sign(root, "Sign_Office", c + Vector3(0, 2.5, -2.51), Vector2(2.2, 0.55), PI)

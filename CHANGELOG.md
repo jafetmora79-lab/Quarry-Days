@@ -319,3 +319,9 @@ Priority: one continuous rock surface, then the simple background. No visual che
 - Windows are real: the walls of the office, home and tool shed are cut around each opening, each window has a reveal, frame, two sashes of clear glass, casing, sill and curtains, and you can see into the room. Glass on all machines is clear, so their cabs show.
 - The highlight outline no longer draws round glass or cab interiors (it produced stray yellow slivers).
 - The yard's east gap, which led out to empty woodland, is closed with a locked service gate.
+
+## Battery pocket, office back window, tool plate, workbench (branch claude/battery-tools-ui)
+- The excavator's hood has a real pocket for the battery; the repair lowers the battery into it and clips the cables on top (bought excavators come with one).
+- The office's back-wall window (which ran past the corner) is gone.
+- The tool plate has no progress bar.
+- The workbench and its pegboard no longer offer tools or carts you own or have outgrown (a tool is outgrown when nothing about it beats what you have).

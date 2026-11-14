@@ -8,6 +8,12 @@ static func _inst(parent: Node3D, soup: MeshKit.Soup, mat: Material) -> MeshInst
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	return mi
 
+## The battery pocket cut into the excavator's hood (turret space): its opening (x, z, width, depth), floor height, and the battery's own size. The battery is smaller than the
+## opening, and sits on the floor with its top a hand's breadth above the hood (1.55).
+const POCKET := Rect2(0.34, 0.33, 0.44, 0.24)
+const POCKET_FLOOR := 1.33
+const BATTERY_SIZE := Vector3(0.36, 0.26, 0.2)
+
 ## The three loose parts (lying on the ground, origin at the ground).
 static func part(id: String) -> Node3D:
 	var n := Node3D.new()
@@ -55,7 +61,7 @@ static func part(id: String) -> Node3D:
 
 ## The state of the three repairs on the excavator itself (model units of VehicleModels.excavator: hood at y 1.2, z +0.45).
 ## A missing battery shows the empty tray and loose cables; a split hose hangs limp with an oil stain; an unfuelled tank has an open filler.
-static func fitted(parent: Node3D, battery: bool, hose: bool, fuel: bool, ground: Node3D = null, arm: Node3D = null) -> Node3D:
+static func fitted(parent: Node3D, battery: bool, hose: bool, fuel: bool, ground: Node3D = null, arm: Node3D = null, battery_only := false) -> Node3D:
 	var n := Node3D.new()
 	n.name = "OpeningParts"
 	var dark := MeshKit.Soup.new()
@@ -63,18 +69,28 @@ static func fitted(parent: Node3D, battery: bool, hose: bool, fuel: bool, ground
 	var accent := MeshKit.Soup.new()
 	var steel := MeshKit.Soup.new()
 	var oil := MeshKit.Soup.new()
+	var red := MeshKit.Soup.new()
 	if battery:
-		MeshKit.box_into(dark, Vector3(0.62, 1.66, 0.45), Vector3(0.34, 0.22, 0.2))
-		MeshKit.box_into(accent, Vector3(0.62, 1.78, 0.45), Vector3(0.36, 0.02, 0.05))
-		for x in [0.54, 0.7]:
-			MeshKit.frustum_into(steel, Vector3(x, 1.77, 0.5), 0.025, 0.02, 0.05, 6)
+		# the battery sits DOWN in the pocket in the hood (floor y 1.33; its top stands 4 cm proud of the hood), strapped, with its two cables laid over the top and away
+		# toward the engine
+		MeshKit.box_into(dark, Vector3(0.56, 1.46, 0.45), Vector3(0.36, 0.26, 0.2))
+		MeshKit.box_into(accent, Vector3(0.56, 1.6, 0.45), Vector3(0.38, 0.02, 0.05))
+		MeshKit.box_into(accent, Vector3(0.56, 1.46, 0.552), Vector3(0.2, 0.08, 0.01))
+		for x in [0.46, 0.66]:
+			MeshKit.frustum_into(steel, Vector3(x, 1.59, 0.5), 0.025, 0.02, 0.05, 6)
+		MeshKit.tube_into(red, [Vector3(0.66, 1.62, 0.5), Vector3(0.7, 1.64, 0.58), Vector3(0.78, 1.6, 0.72), Vector3(0.86, 1.57, 0.9), Vector3(0.9, 1.555, 1.0)], 0.013, 5)
+		MeshKit.tube_into(dark, [Vector3(0.46, 1.62, 0.5), Vector3(0.42, 1.64, 0.58), Vector3(0.3, 1.6, 0.72), Vector3(0.2, 1.57, 0.9), Vector3(0.15, 1.555, 1.0)], 0.013, 5)
 	else:
-		MeshKit.box_into(rust, Vector3(0.62, 1.58, 0.45), Vector3(0.38, 0.06, 0.24))               # the empty tray
-		for dx in [0.5, 0.74]:
-			MeshKit.box_into(dark, Vector3(dx, 1.5, 0.52), Vector3(0.025, 0.2, 0.025))             # loose cables
+		MeshKit.box_into(rust, Vector3(0.56, 1.34, 0.45), Vector3(0.42, 0.02, 0.22))               # the empty pocket: a rusty floor...
+		MeshKit.box_into(red, Vector3(0.66, 1.46, 0.5), Vector3(0.022, 0.22, 0.022))                # ...and the two cable ends hanging into it
+		MeshKit.box_into(dark, Vector3(0.46, 1.46, 0.5), Vector3(0.022, 0.22, 0.022))
+		MeshKit.box_into(steel, Vector3(0.66, 1.57, 0.5), Vector3(0.05, 0.03, 0.05))
+		MeshKit.box_into(steel, Vector3(0.46, 1.57, 0.5), Vector3(0.05, 0.03, 0.05))
 	var hose_s := MeshKit.Soup.new()
 	var fit_s := MeshKit.Soup.new()
-	if hose:
+	if battery_only:
+		pass                   # a bought machine: its hose is part of the model, nothing is torn or dripping
+	elif hose:
 		# along the boom's right face, in the boom's own frame (arm origin = turret (0.55, 1.05, -0.5)), so it follows the boom when it moves
 		var pts := []
 		for k in range(0, 9):
@@ -98,6 +114,7 @@ static func fitted(parent: Node3D, battery: bool, hose: bool, fuel: bool, ground
 	_inst(n, rust, MeshKit.flat(Color(0.42, 0.2, 0.12)))
 	_inst(n, accent, MeshKit.flat(Color(0.86, 0.66, 0.12)))
 	_inst(n, steel, MeshKit.mat("SteelPlate"))
+	_inst(n, red, MeshKit.flat(Color(0.8, 0.12, 0.1)))
 	if hose:
 		var hn := Node3D.new()
 		hn.name = "BoomHose"

@@ -287,14 +287,22 @@ static func excavator(v) -> void:
 	MeshKit.box_into(p[paint], Vector3(0, 0.68, 0.0), Vector3(1.7, 0.2, 2.6))                                       # undercarriage
 	MeshKit.drum_into(p["SteelPlate"], Vector3(0, 0.84, 0.0), 0.72, 0.18, 12)                                      # slewing ring
 	# upper body: engine hood and counterweight at the back, boom foot at the front
-	MeshKit.box_into(u[paint], Vector3(0.1, 1.2, 0.45), Vector3(1.7, 0.7, 1.7), Vector2(0.96, 0.9))
+	# the engine hood, with the BATTERY POCKET cut into its top (x 0.34..0.78, z 0.33..0.57, 0.22 m deep): the lower body is solid up to the pocket floor, and the
+	# top course is four pieces round the opening, so the battery really sits down inside the hood (see OpeningModels.fitted / RepairSequence)
+	MeshKit.box_into(u[paint], Vector3(0.1, 1.09, 0.45), Vector3(1.7, 0.48, 1.7))
+	MeshKit.box_into(u[paint], Vector3(-0.19, 1.44, 0.45), Vector3(1.06, 0.22, 1.55))
+	MeshKit.box_into(u[paint], Vector3(0.85, 1.44, 0.45), Vector3(0.14, 0.22, 1.55))
+	MeshKit.box_into(u[paint], Vector3(0.56, 1.44, 0.0), Vector3(0.44, 0.22, 0.65))
+	MeshKit.box_into(u[paint], Vector3(0.56, 1.44, 0.9), Vector3(0.44, 0.22, 0.65))
+	for rim in [[Vector3(0.56, 1.555, 0.33), Vector3(0.5, 0.012, 0.03)], [Vector3(0.56, 1.555, 0.57), Vector3(0.5, 0.012, 0.03)], [Vector3(0.34, 1.555, 0.45), Vector3(0.03, 0.012, 0.27)], [Vector3(0.78, 1.555, 0.45), Vector3(0.03, 0.012, 0.27)]]:
+		MeshKit.box_into(u["SteelPlate"], rim[0], rim[1])                                                    # a steel rim round the pocket
 	MeshKit.box_into(u["SteelPlate"], Vector3(0.1, 1.4, 1.45), Vector3(1.7, 0.78, 0.45))                           # counterweight
 	MeshKit.box_into(u[paint], Vector3(0.55, 0.98, -0.5), Vector3(0.62, 0.5, 0.4))                                   # boom pedestal: the boom's foot is hinged to the body here
 	MeshKit.drum_into(u["SteelPlate"], Vector3(0.55, 1.05, -0.5), 0.1, 0.7, 8)                                      # boom foot pin
 	MeshKit.box_into(u["Hazard"], Vector3(0.1, 1.05, 1.69), Vector3(1.6, 0.1, 0.02))
 	MeshKit.frustum_into(u["SteelPlate"], Vector3(0.6, 1.62, 0.85), 0.07, 0.06, 0.65, 6)                           # exhaust
-	for z in [0.2, 0.55, 0.9]:
-		MeshKit.box_into(u["SteelPlate"], Vector3(0.1, 1.56, z), Vector3(1.1, 0.02, 0.08))                         # louvres
+	for z in [0.05, 0.85, 1.05]:
+		MeshKit.box_into(u["SteelPlate"], Vector3(0.1, 1.56, z), Vector3(1.1, 0.02, 0.08))                         # louvres (clear of the battery pocket)
 	# cab on the left, glazed on three sides
 	for x in [-0.78, -0.12]:
 		for z in [-0.6, 0.15]:
@@ -306,6 +314,8 @@ static func excavator(v) -> void:
 	v.turret.name = "Turret"
 	v.model_root.add_child(v.turret)
 	_emit(v.turret, u)
+	if str(v.get("vtype")) != "starter_excavator":
+		OpeningModels.fitted(v.turret, true, false, true, null, null, true)       # a bought machine has its battery (and cables) in the pocket; Grandpa's is repaired by the player
 	var glass := MeshKit.Soup.new()
 	MeshKit.box_into(glass, Vector3(-0.45, 1.95, -0.642), Vector3(0.7, 0.8, 0.02))
 	MeshKit.box_into(glass, Vector3(-0.098, 1.95, -0.22), Vector3(0.02, 0.8, 0.68))          # the left side is the door
