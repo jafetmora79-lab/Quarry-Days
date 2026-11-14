@@ -305,9 +305,16 @@ func slider_row(key: String, label: String, value: float, muted: bool, on_change
 	var fill := QuarryTheme.bar_box(QuarryTheme.ACCENT if not muted else Color(0.4, 0.34, 0.26))
 	fill.content_margin_top = 3
 	fill.content_margin_bottom = 3
-	sl.add_theme_stylebox_override("slider", track)
-	sl.add_theme_stylebox_override("grabber_area", fill)
-	sl.add_theme_stylebox_override("grabber_area_highlight", fill)
+	var gtrack := UiSkin.box("bar_groove", null, [8, 5, 8, 5])
+	var gfill := UiSkin.box("bar_fill_gold" if not muted else "bar_fill_red", null, [4, 5, 4, 5])
+	sl.add_theme_stylebox_override("slider", gtrack if gtrack != null else track)
+	sl.add_theme_stylebox_override("grabber_area", gfill if gfill != null else fill)
+	sl.add_theme_stylebox_override("grabber_area_highlight", gfill if gfill != null else fill)
+	if UiSkin.has("slider_grabber_gold"):
+		var gt := UiSkin.tex("slider_grabber_gold")
+		sl.add_theme_icon_override("grabber", gt)
+		sl.add_theme_icon_override("grabber_highlight", gt)
+		sl.add_theme_icon_override("grabber_disabled", gt)
 	buttons[key] = sl
 	h.add_child(sl)
 	var pct := QuarryTheme.label("muted" if muted else "%d%%" % int(round(value * 100.0)), FS, INK)

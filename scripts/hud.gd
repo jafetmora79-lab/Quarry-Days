@@ -364,6 +364,9 @@ func _build() -> void:
 	# ---- prompt + message above the bottom bar
 	prompt_panel = QuarryPlate.new(7)
 	prompt_panel.name = "PromptPlate"
+	if UiSkin.has("plate_prompt"):
+		prompt_panel.skinned = true
+		prompt_panel.add_theme_stylebox_override("panel", UiSkin.box("plate_prompt", null, [18, 8, 18, 8]))
 	add_child(prompt_panel)
 	prompt_panel.set_anchor(SIDE_LEFT, 0.5)
 	prompt_panel.set_anchor(SIDE_RIGHT, 0.5)
@@ -891,7 +894,8 @@ func _make_toast(title: String, sub: String, kind: String) -> Control:
 	var p := PanelContainer.new()
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var border: Color = {"unlock": QuarryTheme.ACCENT, "milestone": QuarryTheme.GOOD, "sale": QuarryTheme.MONEY, "warn": QuarryTheme.WARN}.get(kind, QuarryTheme.BORDER_HI)
-	p.add_theme_stylebox_override("panel", QuarryTheme.panel_box(QuarryTheme.BG, border, 10, 3))
+	var toast_art: String = "plate_banner" if kind == "milestone" else "plate_toast"
+	p.add_theme_stylebox_override("panel", UiSkin.box(toast_art, QuarryTheme.panel_box(QuarryTheme.BG, border, 10, 3), [20, 12, 20, 12]))
 	toast_root.add_child(p)
 	var v := _vbox(p, 1)
 	var t := QuarryTheme.label(title.to_upper(), 16 if kind == "milestone" else 12, border, true)

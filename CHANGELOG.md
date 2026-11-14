@@ -288,3 +288,9 @@ Priority: one continuous rock surface, then the simple background. No visual che
 - Buyable freely placed crusher with collision-aware placement, input/output bins and real processing timer.
 - Continuous 48-minute day/night cycle, save/load of machine state and individual uncollected pieces, pause menu and synthesized effects.
 - Headless test suite covering the economy, mining, crusher, upgrades, placement, clock and save/load.
+
+## HUD art integration
+- Generated HUD sheets cut by `tools/ui_sheet_cut.py` into `assets/ui/hud/`; `UiSkin` nine-slices them with flat fallbacks.
+- Skinned: panels, buttons, key caps, bars, dialog frames, prompt plate, toasts/banners, sliders.
+- Portraits are snips of the real 3D models only; no generated faces.
+- Not yet skinned: objective checklist markers, minimap frame, icon mapping, main-menu buttons.

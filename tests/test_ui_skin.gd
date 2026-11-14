@@ -10,6 +10,8 @@ func _init() -> void:
 	for nm in ["panel_main", "btn_primary", "btn_main", "btn_danger", "btn_disabled", "frame_dialog", "bar_groove", "bar_fill_green", "keycap_small", "keycap_wide"]:
 		check(UiSkin.has(nm), "art exists: " + nm)
 		check(UiSkin.box(nm, null) is StyleBoxTexture, "skin box: " + nm)
+	for nm in UiSkin.MARGINS.keys():
+		check(UiSkin.has(nm), "every nine-slice piece in MARGINS exists: " + nm)
 	var fb := StyleBoxFlat.new()
 	check(UiSkin.box("no_such_piece", fb) == fb, "missing art falls back to flat style")
 	var d := DirAccess.get_files_at("res://assets/ui/hud/icons")
