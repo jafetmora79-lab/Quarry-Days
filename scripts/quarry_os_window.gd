@@ -50,7 +50,7 @@ func setup(os_node: QuarryOS, id: String, title: String, icon: Texture2D, sz: Ve
 	title_label = Label.new()
 	title_label.text = title
 	title_label.add_theme_font_override("font", QuarryTheme.head())
-	title_label.add_theme_font_size_override("font_size", QuarryTheme.BODY + 1)
+	QuarryTheme.fit(title_label, QuarryTheme.BODY + 1)
 	title_label.add_theme_color_override("font_color", Color(1, 1, 1))
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE

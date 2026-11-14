@@ -144,7 +144,7 @@ func _draw() -> void:
 		var side := Vector2(-fwd.y, fwd.x)
 		draw_colored_polygon(PackedVector2Array([pm + fwd * 5.0, pm - fwd * 3.0 + side * 3.0, pm - fwd * 1.5, pm - fwd * 3.0 - side * 3.0]), Color(1, 1, 1))
 	draw_rect(clip, Color(0.62, 0.5, 0.3), false, 1.5)
-	draw_string(QuarryTheme.hud(), Vector2(size.x - 13.0, 13.0), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.95, 0.9, 0.75))
+	draw_string(QuarryTheme.hud(), Vector2(size.x - 13.0, 13.0), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, QuarryTheme.pixel_font_size(10), Color(0.95, 0.9, 0.75))
 
 ## Draws once into nothing (tests call this to be sure the drawing code runs without errors on the current state).
 func _draw_test_safe() -> void:

@@ -87,7 +87,6 @@ static func theme() -> Theme:
 		return _theme
 	var t := Theme.new()
 	t.default_font = body()
-	t.default_font_size = BODY
 	t.set_constant("line_spacing", "Label", 2)
 	t.set_color("font_color", "Label", INK)
 	t.set_color("font_shadow_color", "Label", Color(0, 0, 0, 0.0))        # a text shadow is drawn glyph by glyph and is NOT batched (hundreds of draw calls on a busy HUD): plates give the contrast instead; floating text asks for one (label(..., shadow))
@@ -106,13 +105,16 @@ static func theme() -> Theme:
 	t.set_stylebox("pressed", "Button", bp)
 	t.set_stylebox("disabled", "Button", bd)
 	t.set_stylebox("focus", "Button", panel_box(Color(0, 0, 0, 0), Color(1.0, 0.92, 0.55), 6, 3))      # a visible outline for keyboard / gamepad focus, distinct from hover
-	t.set_font_size("font_size", "Button", BODY)
 	t.set_font("font", "Button", head())                       # buttons are set in the heading face everywhere
 	t.set_color("font_color", "Button", INK)
 	t.set_color("font_hover_color", "Button", Color(1, 0.95, 0.82))
 	t.set_color("font_disabled_color", "Button", Color(0.55, 0.5, 0.42))
 	t.set_stylebox("background", "ProgressBar", bar_box(Color(0.08, 0.06, 0.05, 0.9)))
 	t.set_stylebox("fill", "ProgressBar", bar_box(ACCENT))
+	t.set_font_size("font_size", "TooltipLabel", BODY)
+	fit_theme(t, BODY, BODY)
+	t.set_color("font_color", "TooltipLabel", INK)
+	t.set_stylebox("panel", "TooltipPanel", panel_box(Color(0.1, 0.08, 0.06, 0.97), BORDER_HI, 5, 2))
 	_theme = t
 	return t
 
@@ -121,7 +123,7 @@ static func label(text: String, size := BODY, color := INK, heading := false, bo
 	l.add_theme_constant_override("line_spacing", 2)
 	l.text = text
 	l.add_theme_font_override("font", head() if heading else (bold() if bold_face else body()))
-	l.add_theme_font_size_override("font_size", size)
+	fit(l, size)
 	l.add_theme_color_override("font_color", color)
 	if shadow:
 		l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.6))     # only for text that floats over the 3D scene (no plate behind it)
@@ -132,16 +134,85 @@ static func label(text: String, size := BODY, color := INK, heading := false, bo
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l
 
+## ---- Pixel fonts at any window size. Silkscreen and VT323 are true pixel fonts: they are only crisp when the on-screen glyph size is a whole multiple of their pixel
+## grid (8 px for Silkscreen, 16 px for VT323). The window scales the 960x540 canvas by 1.33 (720p), 1.42 (768p), 1.67 (900p) or 2 (1080p), so a fixed base size lands
+## between grid steps at most of them. Pixel-font labels therefore ask for a size in screen pixels (a base size x 2 = its 1080p size, rounded to the grid, never below
+## 16 px) and are re-sized to base units whenever the window changes. Smooth fonts (Nunito Sans, Pixelify Sans) are rasterised at the final size by the stretch mode and
+## stay sharp at every scale, so they keep plain base sizes. The text is never made smaller than 16 px on screen.
+static func ui_scale() -> float:
+	var tree := Engine.get_main_loop() as SceneTree
+	var win := Vector2(tree.root.size) if tree != null and tree.root != null else Vector2(DisplayServer.window_get_size())
+	return maxf(0.5, minf(win.x / 960.0, win.y / 540.0))
+
+static func snap_pixel_px(target: float, grid: int) -> int:
+	return maxi(16, int(floor(target / float(grid) + 0.25)) * grid)
+
+## Base-canvas font size for a pixel font whose 1080p design size is `base` x 2 px.
+static func pixel_font_size(base: int, grid := 8) -> int:
+	return maxi(6, roundi(float(snap_pixel_px(float(base) * 2.0, grid)) / ui_scale()))
+
+## ---- The readable floor. Every size token is a base-canvas size (x2 at 1080p). At 1280x720 the canvas scale is only 1.33, so a base 8 would be 10.7 px on screen:
+## fit_size() raises any base size so the text is never smaller than MIN_PX (15 px) on screen, at whatever the window size is. At 1080p nothing changes.
+const MIN_PX := 15.0
+static func fit_size(base: int) -> int:
+	return maxi(base, ceili(MIN_PX / ui_scale() - 0.001))
+
+## Registers a label (or button) whose size follows the window: `base` is its design size in canvas units.
+static func fit(c: Control, base: int) -> void:
+	c.set_meta("fit_base", base)
+	c.add_to_group("fit_text")
+	c.add_theme_font_size_override("font_size", fit_size(base))
+
+static var _live_themes: Array = []
+## Registers a Theme whose default and button sizes follow the window (base sizes in its metadata).
+static func fit_theme(t: Theme, default_base: int, button_base: int, button_pixel_grid := 0) -> void:
+	t.set_meta("default_base", default_base)
+	t.set_meta("button_base", button_base)
+	t.set_meta("button_grid", button_pixel_grid)
+	_live_themes.append(weakref(t))
+	_apply_theme(t)
+
+static func _apply_theme(t: Theme) -> void:
+	t.default_font_size = fit_size(int(t.get_meta("default_base")))
+	var g := int(t.get_meta("button_grid"))
+	t.set_font_size("font_size", "Button", pixel_font_size(int(t.get_meta("button_base")), g) if g > 0 else fit_size(int(t.get_meta("button_base"))))
+
+## Re-sizes every registered label, button and theme (called when the window size changes).
+static func refresh_pixel_text(tree: SceneTree) -> void:
+	for n in tree.get_nodes_in_group("pixel_text"):
+		var l := n as Label
+		if l != null and l.has_meta("pixel_base"):
+			l.add_theme_font_size_override("font_size", pixel_font_size(int(l.get_meta("pixel_base")), int(l.get_meta("pixel_grid"))))
+	for n in tree.get_nodes_in_group("fit_text"):
+		var c := n as Control
+		if c != null and c.has_meta("fit_base") and not c.has_meta("pixel_base"):
+			c.add_theme_font_size_override("font_size", fit_size(int(c.get_meta("fit_base"))))
+	var alive := []
+	for w in _live_themes:
+		var t = (w as WeakRef).get_ref()
+		if t != null:
+			_apply_theme(t)
+			alive.append(w)
+	_live_themes = alive
+
+static func _pixel(l: Label, base: int, grid: int) -> void:
+	l.set_meta("pixel_base", base)
+	l.set_meta("pixel_grid", grid)
+	l.add_to_group("pixel_text")
+	l.add_theme_font_size_override("font_size", pixel_font_size(base, grid))
+
 ## A Silkscreen HUD label (day and time, bag, minimap and category labels).
 static func hud_label(text: String, size := HUD, color := INK, shadow := false) -> Label:
 	var l := label(text, size, color, false, false, shadow)
 	l.add_theme_font_override("font", hud())
+	_pixel(l, size, 8)
 	return l
 
 ## A VT323 readout label (digital counters).
 static func mono_label(text: String, size := 14, color := INK) -> Label:
 	var l := label(text, size, color)
 	l.add_theme_font_override("font", mono())
+	_pixel(l, size, 16)
 	return l
 
 static func money_text(v: int) -> String:

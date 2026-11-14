@@ -140,9 +140,8 @@ func _make_theme() -> Theme:
 		return _os_page_theme()
 	var t := Theme.new()
 	t.default_font = QuarryTheme.body()
-	t.default_font_size = QuarryTheme.BODY
 	t.set_font("font", "Button", QuarryTheme.bold())
-	t.set_font_size("font_size", "Button", QuarryTheme.BODY)
+	QuarryTheme.fit_theme(t, QuarryTheme.BODY, QuarryTheme.BODY)
 	var frame := QuarryTheme.panel_box(Color(0.13, 0.1, 0.075, 0.97), QuarryTheme.BORDER_HI, 12, 4)
 	t.set_stylebox("panel", "PanelContainer", frame)
 	t.set_stylebox("normal", "Button", _box(Color(0.24, 0.18, 0.12), Color(0.5, 0.37, 0.23), 2, 4))
@@ -170,12 +169,11 @@ func _make_theme() -> Theme:
 func _os_page_theme() -> Theme:
 	var t := Theme.new()
 	t.default_font = QuarryTheme.body()
-	t.default_font_size = QuarryTheme.BODY
 	var base := QuarryOS.new()
 	var bt := base.os_theme()
 	base.free()
 	t.set_font("font", "Button", QuarryTheme.hud())
-	t.set_font_size("font_size", "Button", QuarryTheme.HUD)
+	QuarryTheme.fit_theme(t, QuarryTheme.BODY, QuarryTheme.HUD, 8)
 	for st in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
 		t.set_stylebox(st, "Button", bt.get_stylebox(st, "Button"))
 	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color", "font_disabled_color"]:
@@ -210,7 +208,7 @@ func _label(text: String, color := INK, size := 12, wrap := true) -> Label:
 	var l := Label.new()
 	l.text = text
 	l.add_theme_color_override("font_color", color)
-	l.add_theme_font_size_override("font_size", size)
+	QuarryTheme.fit(l, size)
 	if wrap:
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -257,7 +255,7 @@ func refresh() -> void:
 	var b: QuarryBusiness = game.business
 	if not embedded:                              # the shell: the one-line summary, the desktop clock and every open window
 		var clock := int(game.state.clock_minutes)
-		header.text = "GRANDPA WALT'S QUARRY  -  DAY %d  %s   %s   STAFF %d/%d   STAGE: %s" % [clock / 1440 + 1, game.fmt_time(clock), QuarryTheme.money_text(game.state.money), b.employees.size(), b.max_employees(), str(game.prog.stage_info()["title"]).to_upper()]
+		header.text = "QUARRY DAYS  -  DAY %d  %s   %s   STAFF %d/%d   STAGE: %s" % [clock / 1440 + 1, game.fmt_time(clock), QuarryTheme.money_text(game.state.money), b.employees.size(), b.max_employees(), str(game.prog.stage_info()["title"]).to_upper()]
 		if tab != _synced_tab:                        # old style: `management.tab = "equipment"; management.refresh()` opens that application
 			open_tab(tab)
 		if os != null:

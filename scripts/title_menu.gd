@@ -66,9 +66,8 @@ func setup(main_node, save_exists: bool) -> void:
 	col.offset_top = 70.0
 	col.offset_bottom = -40.0
 	add_child(col)
-	col.add_child(_label("GRANDPA", 34, ACCENT, true))
-	col.add_child(_label("WALT'S", 34, ACCENT, true))
-	col.add_child(_label("QUARRY", 34, INK, true))
+	col.add_child(_label("QUARRY", 42, ACCENT, true))                      # the game's name: QUARRY DAYS, in Pixelify Sans
+	col.add_child(_label("DAYS", 42, INK, true))
 	col.add_child(_label("Cut the rock. Run the business. Keep the family quarry alive.", QuarryTheme.BODY, DIM))
 	var gap := Control.new()
 	gap.custom_minimum_size = Vector2(0, 22)
@@ -99,7 +98,7 @@ func _button(text: String, action: Callable) -> Button:
 	b.focus_mode = Control.FOCUS_NONE
 	b.custom_minimum_size = Vector2(250, 40)
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	b.add_theme_font_size_override("font_size", QuarryTheme.HEAD)
+	QuarryTheme.fit(b, QuarryTheme.HEAD)
 	b.add_theme_font_override("font", QuarryTheme.head())
 	b.pressed.connect(action)
 	if UiSkin.has("btn_main"):                      # the generated button art, the same as the in-game menus

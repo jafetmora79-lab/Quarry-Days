@@ -98,6 +98,8 @@ func setup(main_node) -> void:
 	if OS.has_feature("mobile") or game.touch_mode:
 		get_viewport().size_changed.connect(_apply_safe_area)
 		_apply_safe_area()
+	get_viewport().size_changed.connect(func(): QuarryTheme.refresh_pixel_text(get_tree()))      # pixel-font labels follow the window scale
+	QuarryTheme.refresh_pixel_text.call_deferred(get_tree())
 
 ## Keeps the plates out of a phone's notch and rounded corners: the display's safe area, converted from window pixels to canvas units, as insets
 ## (left, top, right, bottom). Zero on a desktop, where the whole window is safe.

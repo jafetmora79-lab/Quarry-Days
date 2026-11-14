@@ -349,3 +349,8 @@ Priority: one continuous rock surface, then the simple background. No visual che
 - Leaving the computer: the tool dips away on entry and rises back into the hand on exit (`tool_view.suppressed` keeps blueprint hands from re-showing it); the cursor starts centred on the desktop.
 - The held tool tucks down and back when a wall, desk or machine is closer than ~0.9 m (never for rock or rubble you are working).
 - `test_workstation`: layout orientation, outline coverage, prompt format, camera path clearance from 15 spots, triple-enter, shop-from-desktop exit, clicks on desktop / cards / menus never swing the tool.
+
+## Typography and branding polish (claude/typography-branding)
+- Main menu title is QUARRY DAYS (two lines, Pixelify Sans, 42 base px); the computer header says QUARRY DAYS; project and window title were already Quarry Days.
+- Pixel fonts (Silkscreen, VT323) are sized to their pixel grid for the current window and re-sized when it changes; a 15 px on-screen floor applies to every themed label, button and theme (`QuarryTheme.fit_size`); Pixelify Sans now renders smooth (it was unfiltered); project default theme `assets/ui/qd_theme.tres` (tooltips and unthemed controls). Letter pagination follows the fitted size.
+- `test_typography`; `docs/TYPOGRAPHY.md`.

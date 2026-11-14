@@ -58,7 +58,7 @@ func _ready() -> void:
 	title_l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
 	title_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(title_l)
-	body_l = QuarryTheme.label("", FONT, INK)
+	body_l = QuarryTheme.label("", FONT, INK)         # (fitted: never under 15 px on screen; the page layout uses the same size)
 	body_l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
 	body_l.add_theme_constant_override("line_spacing", 6)
 	body_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -92,7 +92,7 @@ static func paginate(text: String, allow_signature := true) -> Dictionary:
 	if allow_signature and not paras.is_empty() and String(paras[paras.size() - 1]).begins_with("-") and String(paras[paras.size() - 1]).to_lower().contains("walt"):
 		paras.pop_back()
 		signed_by = true
-	var chars_per_line := int((W - MARGIN_X * 2.0) / (float(FONT) * 0.55))
+	var chars_per_line := int((W - MARGIN_X * 2.0) / (float(QuarryTheme.fit_size(FONT)) * 0.55))
 	var out: Array = []
 	var cur: Array = []
 	var used := 0
@@ -159,14 +159,14 @@ func _show_page(animate := true) -> void:
 
 ## Sheet size: fixed width, a height that fits the longest page (so turning the page never makes the sheet jump).
 func _layout() -> void:
-	var chars_per_line := int((W - MARGIN_X * 2.0) / (float(FONT) * 0.55))
+	var chars_per_line := int((W - MARGIN_X * 2.0) / (float(QuarryTheme.fit_size(FONT)) * 0.55))
 	var most := 6
 	for p in pages:
 		var lines := 0
 		for part in String(p).split("\n"):
 			lines += maxi(1, int(ceil(float(String(part).length()) / float(chars_per_line))))
 		most = maxi(most, lines)
-	var line_h := float(FONT) * 1.45 + 6.0
+	var line_h := float(QuarryTheme.fit_size(FONT)) * 1.45 + 6.0
 	var h := 36.0 + 22.0 + 10.0 + float(most) * line_h + 8.0 + (54.0 if signed else 4.0) + 34.0
 	h = clampf(h, 260.0, 500.0)
 	paper.custom_minimum_size = Vector2(W, h)

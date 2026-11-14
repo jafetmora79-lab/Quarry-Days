@@ -92,9 +92,8 @@ func box(kind: String, margin := 3) -> StyleBox:
 func os_theme() -> Theme:
 	var t := Theme.new()
 	t.default_font = QuarryTheme.body()
-	t.default_font_size = QuarryTheme.BODY
 	t.set_font("font", "Button", QuarryTheme.hud())
-	t.set_font_size("font_size", "Button", QuarryTheme.HUD)
+	QuarryTheme.fit_theme(t, QuarryTheme.BODY, QuarryTheme.HUD, 8)
 	for st in ["normal", "hover"]:
 		t.set_stylebox(st, "Button", box("raised", 4))
 	t.set_stylebox("pressed", "Button", box("pressed", 4))
@@ -193,12 +192,8 @@ func _make_icon(a: Array) -> Control:
 		fb.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		fb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		img.add_child(fb)
-	var l := Label.new()
+	var l := QuarryTheme.hud_label(str(a[1]), QuarryTheme.BODY, Color(1, 1, 1))
 	l.name = "Caption"
-	l.text = str(a[1])
-	l.add_theme_font_override("font", QuarryTheme.hud())
-	l.add_theme_font_size_override("font_size", QuarryTheme.BODY)
-	l.add_theme_color_override("font_color", Color(1, 1, 1))
 	l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
 	l.add_theme_constant_override("shadow_offset_x", 1)
 	l.add_theme_constant_override("shadow_offset_y", 1)
@@ -264,11 +259,7 @@ func _build_taskbar() -> void:
 	th.add_child(clock_label)
 
 func _tray_label(color: Color) -> Label:
-	var l := Label.new()
-	l.add_theme_font_override("font", QuarryTheme.hud())
-	l.add_theme_font_size_override("font_size", QuarryTheme.BODY)
-	l.add_theme_color_override("font_color", color)
-	return l
+	return QuarryTheme.hud_label("", QuarryTheme.BODY, color)
 
 func _build_start_menu() -> void:
 	start_menu = PanelContainer.new()

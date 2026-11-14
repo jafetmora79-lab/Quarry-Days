@@ -21,6 +21,7 @@ window/handheld/orientation=0
 
 [gui]
 
+theme/custom="res://assets/ui/qd_theme.tres"
 theme/custom_font="res://assets/fonts/qd_body.tres"
 
 [layer_names]

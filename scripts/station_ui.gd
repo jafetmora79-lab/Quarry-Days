@@ -249,7 +249,7 @@ func make_button(key: String, label: String, enabled: bool, action: Callable, mi
 			b.add_theme_stylebox_override(st, _style(kind, st))
 		if kind == "toggle":
 			b.add_theme_font_override("font", QuarryTheme.body())
-			b.add_theme_font_size_override("font_size", QuarryTheme.SMALL)
+			QuarryTheme.fit(b, QuarryTheme.SMALL)
 		if kind == "main":
 			for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
 				b.add_theme_color_override(c, Color(0.16, 0.1, 0.04))
@@ -375,7 +375,7 @@ func item(key: String, title: String, desc: String, price: int, level_text: Stri
 	else:
 		var pc := _cell(QuarryTheme.money_text(price) if price > 0 else "FREE", GOOD if affordable else WARN, 130, HORIZONTAL_ALIGNMENT_RIGHT)
 		pc.add_theme_font_override("font", QuarryTheme.bold())
-		pc.add_theme_font_size_override("font_size", FS + 1)
+		QuarryTheme.fit(pc, FS + 1)
 		mid.add_child(pc)
 	if level_text != "":
 		mid.add_child(_cell(level_text, DIM, 130, HORIZONTAL_ALIGNMENT_RIGHT))
@@ -467,7 +467,7 @@ func row(cells: Array, btns: Array, swatch := Color(0, 0, 0, 0), header := false
 	for c in cells:
 		var cell := _cell(str(c[0]), c[1], float(c[2]), c[3] if c.size() > 3 else HORIZONTAL_ALIGNMENT_LEFT)
 		if header:
-			cell.add_theme_font_size_override("font_size", QuarryTheme.SMALL)
+			QuarryTheme.fit(cell, QuarryTheme.SMALL)
 		elif c.size() > 4 and bool(c[4]):
 			cell.add_theme_font_override("font", QuarryTheme.bold())
 		h.add_child(cell)
