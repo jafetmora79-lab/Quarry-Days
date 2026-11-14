@@ -333,16 +333,21 @@ func _add_hands(n: Node3D, t: int) -> void:
 func _hand(n: Node3D, right: bool, at: Vector3, inv: Basis, inv_s: float, cam_dir := Vector3.ZERO) -> void:
 	var dir_m: Vector3 = (inv * (cam_dir if cam_dir != Vector3.ZERO else (HAND_R_DIR if right else HAND_L_DIR))).normalized()
 	var basis := VeilRig.basis_zy(dir_m, Vector3.UP)
-	# gloved fist closed round the handle, a thumb on top, a reflective cuff band, then the jacket sleeve
-	var fist := MeshKit.inst(n, MeshKit.box(Vector3(0.075, 0.07, 0.085) * inv_s), MeshKit.flat(GLOVE), at)
-	fist.basis = basis
-	var thumb := MeshKit.inst(n, MeshKit.box(Vector3(0.028, 0.03, 0.06) * inv_s), MeshKit.flat(SKIN), at + (basis * Vector3(0.0, 0.045, -0.02)) * inv_s)
-	thumb.basis = basis
-	var band := MeshKit.inst(n, MeshKit.box(Vector3(0.088, 0.088, 0.02) * inv_s), MeshKit.flat(BAND), at + dir_m * 0.075 * inv_s)
-	band.basis = basis
-	var arm := MeshKit.box(Vector3(0.085, 0.085, 0.30) * inv_s)
-	var af := MeshKit.inst(n, arm, MeshKit.flat(SLEEVE), at + dir_m * 0.22 * inv_s)
-	af.basis = basis
+	# a real forearm: a tapered sleeve with a rolled cuff, a gloved fist with knuckles and a thumb, all rounded (cylinders, not boxes)
+	var along := Basis(Quaternion(Vector3.UP, dir_m))      # +Y of this basis runs down the forearm, away from the grip
+	var glove := MeshKit.flat(GLOVE)
+	var fist_m := MeshKit.frustum(0.040 * inv_s, 0.036 * inv_s, 0.085 * inv_s, 10)
+	var fist := MeshKit.inst(n, fist_m, glove, at - dir_m * 0.02 * inv_s)
+	fist.basis = along
+	var knuckle_m := MeshKit.frustum(0.022 * inv_s, 0.018 * inv_s, 0.09 * inv_s, 8)       # the row of knuckles across the back of the hand
+	var knuckle := MeshKit.inst(n, knuckle_m, glove, at + (basis * Vector3(0.0, 0.03, 0.01)) * inv_s)
+	knuckle.basis = Basis(Quaternion(Vector3.UP, basis * Vector3(1, 0, 0)))
+	var thumb := MeshKit.inst(n, MeshKit.frustum(0.014 * inv_s, 0.011 * inv_s, 0.06 * inv_s, 6), MeshKit.flat(SKIN), at + (basis * Vector3(0.0, 0.038, -0.025)) * inv_s)
+	thumb.basis = Basis(Quaternion(Vector3.UP, basis * Vector3(0, 0, 1)))
+	var cuff := MeshKit.inst(n, MeshKit.frustum(0.046 * inv_s, 0.046 * inv_s, 0.022 * inv_s, 10), MeshKit.flat(BAND), at + dir_m * 0.066 * inv_s)
+	cuff.basis = along
+	var sleeve := MeshKit.inst(n, MeshKit.frustum(0.048 * inv_s, 0.064 * inv_s, 0.30 * inv_s, 10), MeshKit.flat(SLEEVE), at + dir_m * 0.085 * inv_s)
+	sleeve.basis = along
 
 ## Chisels are held in one hand and struck with a small hammer in the other. The striker (hammer head, handle, fist and sleeve) is its own node:
 ## it draws back, drives onto the chisel's strike end exactly at the impact moment, and recovers (see _pose_striker).

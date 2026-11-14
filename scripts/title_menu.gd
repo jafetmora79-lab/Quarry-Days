@@ -40,8 +40,19 @@ func setup(main_node, save_exists: bool) -> void:
 	shade.offset_right = 360.0
 	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(shade)
+	if UiSkin.has("panel_main"):                    # the framed plate the writing sits on
+		var frame := Panel.new()
+		frame.add_theme_stylebox_override("panel", UiSkin.box("panel_main", null, [0, 0, 0, 0]))
+		frame.set_anchors_and_offsets_preset(Control.PRESET_LEFT_WIDE)
+		frame.offset_left = 14.0
+		frame.offset_right = 352.0
+		frame.offset_top = 14.0
+		frame.offset_bottom = -14.0
+		frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(frame)
 	var edge := ColorRect.new()
 	edge.color = QuarryTheme.BORDER
+	edge.visible = not UiSkin.has("panel_main")
 	edge.set_anchors_and_offsets_preset(Control.PRESET_LEFT_WIDE)
 	edge.offset_left = 358.0
 	edge.offset_right = 360.0
@@ -90,6 +101,13 @@ func _button(text: String, action: Callable) -> Button:
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	b.add_theme_font_size_override("font_size", QuarryTheme.HEAD)
 	b.pressed.connect(action)
+	if UiSkin.has("btn_main"):                      # the generated button art, the same as the in-game menus
+		for st in ["normal", "hover", "pressed", "disabled"]:
+			b.add_theme_stylebox_override(st, preload("res://scripts/station_ui.gd")._style("main", st))
+		for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+			b.add_theme_color_override(c, Color(0.16, 0.1, 0.04))
+		b.add_theme_color_override("font_disabled_color", Color(0.55, 0.5, 0.42))
+		b.custom_minimum_size = Vector2(250, 44)
 	return b
 
 func _on_new() -> void:

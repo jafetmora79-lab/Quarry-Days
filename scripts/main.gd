@@ -1962,7 +1962,7 @@ func _draw_menu() -> void:
 			p.begin("PAUSED", -1, "Esc resume   F5 save   F9 load")
 			p.fit(340.0, 332.0)                       # after begin(), which resets the panel to the big size
 			p.text("The game saves itself every minute and when you close it." if not _confirm_new else "Erase your save and start a brand new game? Press ERASE & RESTART again to confirm.", QuarryTheme.DIM if not _confirm_new else QuarryTheme.WARN, true)
-			p.vbutton("resume", "RESUME", true, func(): _confirm_new = false; _close_menu(), "main", 34.0)
+			p.vbutton("resume", "RESUME", true, func(): _confirm_new = false; _close_menu(), "primary", 34.0)
 			p.vbutton_pair(["save", "SAVE GAME", true, func(): _save()], ["load", "LOAD GAME", true, func(): _load()])
 			p.vbutton("main_menu", "MAIN MENU", true, func(): to_main_menu())
 			p.list.add_child(HSeparator.new())
@@ -2144,22 +2144,17 @@ func _tool_line(tier: int) -> String:
 
 func _draw_upgrades(p: QuarryStationUI) -> void:
 	p.begin("WORKBENCH", state.money, "Click BUY on the bench. Keys 1-6 also work.")
-	var top := 0.0
-	for i in range(prog.tools().size()):
-		top = maxf(top, prog.tool_dps(i))
-	p.text("IN YOUR HAND", QuarryTheme.ACCENT)
-	p.text(_tool_line(state.tool_tier), QuarryTheme.INK)
-	p.text(_bar(prog.tool_dps(state.tool_tier), top) + "  %.0f damage a second" % prog.tool_dps(state.tool_tier), QuarryTheme.GOOD)
 	var nt := prog.next_tool()
 	var tools_total := prog.tools().size()
+	p.text("You are holding the %s  (%.0f damage a second)" % [str(prog.tool()["title"]), prog.tool_dps(state.tool_tier)], QuarryTheme.INK)
 	if nt.is_empty():
 		p.text("Every tool on the pegboard is yours. The jackhammer breaks anything.", QuarryTheme.GOOD)
 		p.offer_item("tool", str(prog.tool()["title"]), str(prog.tool().get("desc", "")), 0, "In your hand", PurchaseOffers.tool_owned(self))
 	else:
 		var nxt := state.tool_tier + 1
-		p.text("NEXT ON THE PEGBOARD", QuarryTheme.ACCENT)
-		p.text(_tool_line(nxt), QuarryTheme.INK)
-		p.text(_bar(prog.tool_dps(nxt), top) + "  %.0f damage a second  (+%d%%)" % [prog.tool_dps(nxt), prog.tool_gain_percent(state.tool_tier, nxt)], QuarryTheme.MONEY)
+		p.text("NEXT UPGRADE", QuarryTheme.ACCENT)
+		var hard_n: String = ["", "stone and coal", "up to iron", "up to copper", "anything, gold too"][clampi(int(nt.get("max_hardness", 1)), 0, 4)]
+		p.text("%.0f damage a second, %d%% more than now. Rock hardness: %s" % [prog.tool_dps(nxt), prog.tool_gain_percent(state.tool_tier, nxt), hard_n], QuarryTheme.GOOD)
 		var newly := int(nt.get("max_hardness", 1)) > int(prog.tool().get("max_hardness", 1))
 		var short := maxi(0, int(nt["cost"]) - state.money)
 		var lock_txt := prog.unlock_missing_text(str(nt["id"]))

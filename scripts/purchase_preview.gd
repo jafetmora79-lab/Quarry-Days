@@ -167,7 +167,7 @@ static func build_model(game, spec: Dictionary) -> Node3D:
 				gm.rotation = Vector3(0, 0, deg_to_rad(65)) if not GearModels.POSE.get(GearModels.id_of(int(spec["tier"])), {}).get("power", false) else Vector3(0, deg_to_rad(40), 0)
 				return gholder
 			var tv := QuarryToolView.new()
-			var m: Node3D = tv._build(int(spec["tier"]))
+			var m: Node3D = tv._build(int(spec["tier"]), false)     # the shop shows the tool alone, no floating hands
 			var holder := Node3D.new()
 			holder.add_child(m)
 			m.scale = Vector3.ONE * 2.2

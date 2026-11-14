@@ -215,9 +215,9 @@ func run() -> void:
 		var fists := 0
 		var nearest := 9.0
 		for mi in mdl.find_children("*", "MeshInstance3D", true, false):
-			if (mi as MeshInstance3D).mesh is BoxMesh or true:
-				var sz: Vector3 = (mi as MeshInstance3D).mesh.get_aabb().size
-				if absf(sz.z - 0.30 / float(tv.TOOL[tier].get("scale", 1.0))) < 0.01:
+			var sm := (mi as MeshInstance3D).material_override as StandardMaterial3D        # the forearm is the orange sleeve
+			if sm != null and sm.albedo_color.is_equal_approx(QuarryToolView.SLEEVE):
+				if true:
 					fists += 1
 					var cam_local: Vector3 = game.player.camera.global_transform.affine_inverse() * (mi as MeshInstance3D).global_position
 					nearest = minf(nearest, -cam_local.z)

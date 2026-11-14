@@ -45,6 +45,7 @@ var stage_label: Label
 var objective_label: Label
 var objective_bar: ProgressBar
 var objective_detail: Label
+var objective_rows: VBoxContainer     ## the same lines as objective_detail, drawn with the checkbox art (the label keeps the text)
 var objective_pct: Label
 var progress_box: VBoxContainer
 var progress_blocks: Array = []   ## up to three {root, title, value, bar, note, target}: the site cleanup and open area contracts, each with its own bar
@@ -300,6 +301,9 @@ func _build() -> void:
 	objective_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	objective_detail.custom_minimum_size = Vector2(226, 0)
 	v2.add_child(objective_detail)
+	objective_rows = VBoxContainer.new()
+	objective_rows.add_theme_constant_override("separation", 2)
+	v2.add_child(objective_rows)
 	progress_box = VBoxContainer.new()
 	progress_box.add_theme_constant_override("separation", 5)
 	progress_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -793,6 +797,7 @@ func refresh_panels() -> void:
 		_obj_target = 1.0 if all_met else minf(frac, 0.99)
 		objective_pct.text = "%d%%" % (100 if all_met else clampi(int(ceil(frac * 100.0 - 0.0001)), 0, 99))
 		objective_detail.text = "\n".join(detail) if not detail.is_empty() else "Ready!"
+		_objective_rows(detail)
 	else:
 		stage_label.text = "STAGE %d/%d  %s" % [prog.stage + 1, prog.stages().size(), str(prog.stage_info()["title"]).to_upper()]
 		# every business stage is done: the quarry itself is the goal
@@ -804,6 +809,7 @@ func refresh_panels() -> void:
 		if not nxt.is_empty():
 			hint = "\nNext: %s - %s" % [str(nxt.get("title", "")), ("opens at %d%% cut" % int(float(nxt.get("unlock", 0.6)) * 100.0)) if prog.level_built(ql + 1) else "being surveyed"]
 		objective_detail.text = "Level cut: %d%%%s" % [int(_obj_target * 100.0), hint]
+		_objective_rows(Array(objective_detail.text.split("\n")))
 		objective_pct.text = "%d%%" % int(_obj_target * 100.0)
 	status_label.text = game.hud_status_text(false)
 	var rows: Array = game.hud_progress_rows()
@@ -964,3 +970,35 @@ func _update_build_plate(delta: float) -> void:
 		hl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		hl.custom_minimum_size = Vector2(210, 0)
 		build_lines.add_child(hl)
+
+## The checklist with the generated checkbox art: "[ ] ..." open, "[x] ..." done, anything else a plain note.
+func _objective_rows(lines: Array) -> void:
+	for c in objective_rows.get_children():
+		c.queue_free()
+	var art := UiSkin.has("checkbox_empty") and UiSkin.has("checkbox_done")
+	objective_detail.visible = not art
+	if not art:
+		return
+	for ln in lines:
+		var t := str(ln)
+		var mark := ""
+		if t.begins_with("[ ] ") or t.begins_with("[x] "):
+			mark = "checkbox_empty" if t.begins_with("[ ] ") else "checkbox_done"
+			t = t.substr(4)
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 5)
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var box := TextureRect.new()
+		box.custom_minimum_size = Vector2(14, 14)
+		box.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		box.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		box.texture = UiSkin.tex(mark) if mark != "" else null
+		box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(box)
+		var l := QuarryTheme.label(t, QuarryTheme.SMALL, QuarryTheme.DIM if mark != "checkbox_done" else QuarryTheme.GOOD)
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		l.custom_minimum_size = Vector2(206, 0)
+		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(l)
+		objective_rows.add_child(row)

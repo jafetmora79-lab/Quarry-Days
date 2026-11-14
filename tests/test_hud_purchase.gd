@@ -109,7 +109,7 @@ func run() -> void:
 	for t in ["drill_rig", "improved_rig", "rock_breaker", "heavy_breaker"]:
 		ok_models = ok_models and QuarryPreview.build_model(game, {"kind": "rig", "type": t}).find_children("*", "MeshInstance3D", true, false).size() > 8
 	for k in [{"kind": "crusher", "tier": 1}, {"kind": "crusher", "tier": 2}, {"kind": "output"}, {"kind": "conveyor", "belt": "right"}, {"kind": "tool", "tier": 0}, {"kind": "tool", "tier": 4}]:
-		ok_models = ok_models and QuarryPreview.build_model(game, k).find_children("*", "MeshInstance3D", true, false).size() > 3
+		ok_models = ok_models and QuarryPreview.build_model(game, k).find_children("*", "MeshInstance3D", true, false).size() > (0 if k["kind"] == "tool" else 3)
 	check(ok_models, "4 every vehicle, rig, crusher, storage, belt and tool has a preview model built from the game's own code")
 	# ---- 5: machinery orders: click an item, its model shows, then decide
 	game.state.money = 100000

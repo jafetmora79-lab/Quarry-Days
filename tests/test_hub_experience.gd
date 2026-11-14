@@ -198,7 +198,7 @@ func run() -> void:
 	var all := []
 	texts(game.panel, all)
 	var joined := " | ".join(all)
-	check(joined.contains("WORKBENCH") and joined.contains("IN YOUR HAND") and joined.contains("NEXT ON THE PEGBOARD"), "6d the panel shows the tool in hand and the next one")
+	check(joined.contains("WORKBENCH") and joined.contains("You are holding") and joined.contains("NEXT UPGRADE"), "6d the panel shows the tool in hand and the next one")
 	check(joined.contains("damage a second") and joined.contains("hardness") and joined.contains("%"), "6e with damage, speed and hardness, and the gain in percent")
 	check(joined.contains("Need $"), "6f too little money shows what is missing instead of a buy button")
 	game._close_menu()

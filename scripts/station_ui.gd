@@ -250,6 +250,12 @@ func make_button(key: String, label: String, enabled: bool, action: Callable, mi
 			for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
 				b.add_theme_color_override(c, Color(0.16, 0.1, 0.04))
 		b.add_theme_color_override("font_disabled_color", Color(0.55, 0.5, 0.42))
+	var ring := StyleBoxFlat.new()                  # keyboard / pad focus: a thin soft outline, not a loud yellow box
+	ring.bg_color = Color(0, 0, 0, 0)
+	ring.set_border_width_all(1)
+	ring.border_color = Color(1, 1, 1, 0.28)
+	ring.set_corner_radius_all(3)
+	b.add_theme_stylebox_override("focus", ring)
 	b.text = label
 	b.disabled = not enabled
 	b.custom_minimum_size = Vector2(min_w, 40 if game.touch_mode else 24)       # a finger needs a taller target
@@ -306,7 +312,7 @@ func slider_row(key: String, label: String, value: float, muted: bool, on_change
 	fill.content_margin_top = 3
 	fill.content_margin_bottom = 3
 	var gtrack := UiSkin.box("bar_groove", null, [8, 5, 8, 5])
-	var gfill := UiSkin.box("bar_fill_gold" if not muted else "bar_fill_red", null, [4, 5, 4, 5])
+	var gfill := UiSkin.box("bar_fill_green" if not muted else "bar_fill_red", null, [4, 5, 4, 5])
 	sl.add_theme_stylebox_override("slider", gtrack if gtrack != null else track)
 	sl.add_theme_stylebox_override("grabber_area", gfill if gfill != null else fill)
 	sl.add_theme_stylebox_override("grabber_area_highlight", gfill if gfill != null else fill)
