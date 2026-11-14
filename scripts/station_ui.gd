@@ -96,6 +96,14 @@ func fit(w: float, h: float) -> void:
 	offset_top = -h * 0.5
 	offset_bottom = h * 0.5
 	foot.custom_minimum_size.x = w - 40.0
+	grow_horizontal = Control.GROW_DIRECTION_BOTH            # if the content ever needs more room it grows from the centre, never off to one side
+	grow_vertical = Control.GROW_DIRECTION_BOTH
+	custom_minimum_size = Vector2(w, h)                       # the panel is exactly the size asked for unless its content really needs more
+	_nudge.call_deferred()                                   # a container keeps its old size when only the content got smaller: make it re-measure
+
+func _nudge() -> void:
+	offset_right += 0.5
+	offset_right -= 0.5
 
 func begin(title: String, money := -1, hint := "") -> void:
 	if title != _pane_menu:
@@ -104,7 +112,6 @@ func begin(title: String, money := -1, hint := "") -> void:
 	offers.clear()
 	if pane:
 		pane.visible = false
-		fit(700, 470)
 	_scroll_keep = scroll.scroll_vertical
 	for c in list.get_children():
 		list.remove_child(c)
