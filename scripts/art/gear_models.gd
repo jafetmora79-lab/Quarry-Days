@@ -15,13 +15,13 @@ const SWING := {"grip": Vector3(0.30, -0.42, -0.55), "scale": 0.8, "rest": -0.75
 ## `strike` are the pitch angles at the top of the back-swing and at the blow (the chisels tap with small angles, the
 ## sledgehammer winds up high over the shoulder, the splitter is pressed and its lever pumped).
 const POSE := {
-	"pointed_chisel": {"grip": Vector3(0.28, -0.40, -0.52), "scale": 1.0, "rest": -0.95, "yaw": 0.12, "wind": -0.45, "strike": -1.1, "tip": Vector3(0, 0.44, 0),
-		"hands": [["R", Vector3(0, 0.05, 0)]]},
-	"flat_chisel": {"grip": Vector3(0.28, -0.40, -0.52), "scale": 1.0, "rest": -0.95, "yaw": 0.12, "wind": -0.4, "strike": -1.12, "tip": Vector3(0, 0.43, 0),
-		"hands": [["R", Vector3(0, 0.05, 0)]]},
+	"pointed_chisel": {"grip": Vector3(0.28, -0.40, -0.52), "scale": 1.0, "rest": -0.95, "yaw": 0.12, "wind": -0.9, "strike": -1.05, "tip": Vector3(0, 0.44, 0),
+		"hands": [["L", Vector3(0, 0.12, 0)]]},
+	"flat_chisel": {"grip": Vector3(0.28, -0.40, -0.52), "scale": 1.0, "rest": -0.95, "yaw": 0.12, "wind": -0.9, "strike": -1.05, "tip": Vector3(0, 0.43, 0),
+		"hands": [["L", Vector3(0, 0.12, 0)]]},
 	"repaired_pickaxe": {"grip": Vector3(0.30, -0.42, -0.55), "scale": 0.8, "rest": -0.75, "yaw": 0.2, "wind": 0.1, "strike": -1.35, "tip": Vector3(0, 0.5, -0.28),
 		"hands": [["R", Vector3(0, 0.15, 0)], ["L", Vector3(0, 0.36, 0)]]},
-	"sledgehammer": {"grip": Vector3(0.32, -0.46, -0.5), "scale": 0.82, "rest": -0.55, "yaw": 0.15, "wind": 0.75, "strike": -1.5, "tip": Vector3(0, 0.74, -0.15), "lift": 0.1,
+	"sledgehammer": {"grip": Vector3(0.32, -0.46, -0.64), "scale": 0.82, "rest": -0.55, "yaw": 0.15, "wind": 0.75, "strike": -1.5, "tip": Vector3(0, 0.74, -0.15), "lift": 0.1,
 		"hands": [["R", Vector3(0, 0.12, 0)], ["L", Vector3(0, 0.4, 0)]]},
 	"steel_pickaxe": {"grip": Vector3(0.30, -0.42, -0.55), "scale": 0.78, "rest": -0.75, "yaw": 0.2, "wind": 0.1, "strike": -1.35, "tip": Vector3(0, 0.55, -0.31),
 		"hands": [["R", Vector3(0, 0.14, 0)], ["L", Vector3(0, 0.4, 0)]]},

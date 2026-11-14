@@ -219,14 +219,14 @@
   ],
   "tool grip": [
     {
-      "check": "pointed_chisel R hand",
-      "gap_m": 0.021,
+      "check": "pointed_chisel L hand",
+      "gap_m": 0,
       "note": "",
       "ok": true
     },
     {
-      "check": "flat_chisel R hand",
-      "gap_m": 0.018,
+      "check": "flat_chisel L hand",
+      "gap_m": 0.005,
       "note": "",
       "ok": true
     },

@@ -120,12 +120,14 @@ func _process(delta: float) -> void:
 	var off := Vector3.ZERO
 	var rest: float = def.get("rest", 0.0)
 	var weight := 0.0
+	var strike_p := -1.0
 	if not is_power:
 		rot.x = rest
 		rot.y = float(def.get("yaw", 0.0))
 		if phase >= 0.0:
 			phase += delta / duration
 			var p := phase
+			strike_p = p
 			var wind: float = def["wind"]
 			var strike: float = def["strike"]
 			var ang := rest
@@ -192,6 +194,8 @@ func _process(delta: float) -> void:
 				"pump_z":
 					if phase < 0.0:
 						spinner.position.z = -0.33 - absf(sin(_t * 48.0)) * 0.05 * v
+	if model and model.has_meta("striker"):
+		_pose_striker(model.get_meta("striker"), strike_p)
 	pivot.rotation = rot
 	var placed := base + bob + off + Vector3(0, -lower, 0)
 	# working end in camera space, then pull it toward the point on the crosshair ray where the rock is
@@ -216,6 +220,8 @@ func _build(t: int, with_hands := true) -> Node3D:
 		var gn := GearModels.build_tool(GearModels.id_of(t))
 		gn.rotation.x = float(_def(t).get("model_pitch", 0.0))      # the pneumatic chisel leans forward like the jackhammer
 		_add_hands(gn, t)
+		if GearModels.id_of(t) in ["pointed_chisel", "flat_chisel"]:
+			_add_striker(gn, t)
 		for gi in gn.find_children("*", "GeometryInstance3D", true, false):
 			gi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		return gn
@@ -311,24 +317,65 @@ const GLOVE := Color(0.17, 0.18, 0.21)
 const SLEEVE := Color(0.86, 0.46, 0.16)        # the miners' orange work jacket
 const BAND := Color(0.86, 0.86, 0.78)          # reflective cuff band
 
-func _add_hands(n: Node3D, t: int) -> void:
+func _hand_frame(t: int) -> Array:
 	var def: Dictionary = _def(t)
 	var pivot_b := Basis.from_euler(def["rest_rot"]) if bool(def.get("power", false)) else Basis.from_euler(Vector3(float(def.get("rest", 0.0)), float(def.get("yaw", 0.0)), 0.0))
 	var model_b := Basis.from_euler(Vector3(float(def.get("model_pitch", 0.0)), 0.0, 0.0))
-	var inv := (pivot_b * model_b).inverse()
-	var inv_s := 1.0 / float(def.get("scale", 1.0))
+	return [(pivot_b * model_b).inverse(), 1.0 / float(def.get("scale", 1.0))]
+
+func _add_hands(n: Node3D, t: int) -> void:
+	var def: Dictionary = _def(t)
+	var fr := _hand_frame(t)
 	for h in (def["hands"] if def.has("hands") else HANDS[t]):
-		var right: bool = h[0] == "R"
-		var dir_m: Vector3 = (inv * (HAND_R_DIR if right else HAND_L_DIR)).normalized()
-		var at: Vector3 = h[1]
-		var basis := VeilRig.basis_zy(dir_m, Vector3.UP)
-		# gloved fist closed round the handle, a thumb on top, a reflective cuff band, then the jacket sleeve
-		var fist := MeshKit.inst(n, MeshKit.box(Vector3(0.075, 0.07, 0.085) * inv_s), MeshKit.flat(GLOVE), at)
-		fist.basis = basis
-		var thumb := MeshKit.inst(n, MeshKit.box(Vector3(0.028, 0.03, 0.06) * inv_s), MeshKit.flat(SKIN), at + (basis * Vector3(0.0, 0.045, -0.02)) * inv_s)
-		thumb.basis = basis
-		var band := MeshKit.inst(n, MeshKit.box(Vector3(0.088, 0.088, 0.02) * inv_s), MeshKit.flat(BAND), at + dir_m * 0.075 * inv_s)
-		band.basis = basis
-		var arm := MeshKit.box(Vector3(0.085, 0.085, 0.30) * inv_s)
-		var af := MeshKit.inst(n, arm, MeshKit.flat(SLEEVE), at + dir_m * 0.22 * inv_s)
-		af.basis = basis
+		_hand(n, h[0] == "R", h[1], fr[0], fr[1])
+
+## One gloved fist with its cuff band and jacket sleeve, closed at `at` (model space) of `parent`; the sleeve runs toward the screen edge.
+func _hand(n: Node3D, right: bool, at: Vector3, inv: Basis, inv_s: float, cam_dir := Vector3.ZERO) -> void:
+	var dir_m: Vector3 = (inv * (cam_dir if cam_dir != Vector3.ZERO else (HAND_R_DIR if right else HAND_L_DIR))).normalized()
+	var basis := VeilRig.basis_zy(dir_m, Vector3.UP)
+	# gloved fist closed round the handle, a thumb on top, a reflective cuff band, then the jacket sleeve
+	var fist := MeshKit.inst(n, MeshKit.box(Vector3(0.075, 0.07, 0.085) * inv_s), MeshKit.flat(GLOVE), at)
+	fist.basis = basis
+	var thumb := MeshKit.inst(n, MeshKit.box(Vector3(0.028, 0.03, 0.06) * inv_s), MeshKit.flat(SKIN), at + (basis * Vector3(0.0, 0.045, -0.02)) * inv_s)
+	thumb.basis = basis
+	var band := MeshKit.inst(n, MeshKit.box(Vector3(0.088, 0.088, 0.02) * inv_s), MeshKit.flat(BAND), at + dir_m * 0.075 * inv_s)
+	band.basis = basis
+	var arm := MeshKit.box(Vector3(0.085, 0.085, 0.30) * inv_s)
+	var af := MeshKit.inst(n, arm, MeshKit.flat(SLEEVE), at + dir_m * 0.22 * inv_s)
+	af.basis = basis
+
+## Chisels are held in one hand and struck with a small hammer in the other. The striker (hammer head, handle, fist and sleeve) is its own node:
+## it draws back, drives onto the chisel's strike end exactly at the impact moment, and recovers (see _pose_striker).
+const STRIKER_DIR := Vector3(0.85, -0.5, 0.15)     ## the striking forearm runs out to the right edge, away from the camera, so it never clips it
+const STRIKE_POINT := Vector3(0, -0.075, 0)      ## the chisel's mushroomed strike end, model space
+func _add_striker(n: Node3D, t: int) -> void:
+	var fr := _hand_frame(t)
+	var inv: Basis = fr[0]
+	var inv_s: float = fr[1]
+	var striker := Node3D.new()
+	striker.name = "Striker"
+	n.add_child(striker)
+	var dir_m: Vector3 = (inv * STRIKER_DIR).normalized()
+	var basis := VeilRig.basis_zy(dir_m, Vector3.UP)
+	MeshKit.inst(striker, MeshKit.box(Vector3(0.07, 0.055, 0.07)), MeshKit.mat("SteelPlate"), Vector3.ZERO)
+	MeshKit.inst(striker, MeshKit.box(Vector3(0.05, 0.012, 0.05)), MeshKit.mat("SteelPlate"), Vector3(0, 0.032, 0))
+	var handle := MeshKit.inst(striker, MeshKit.box(Vector3(0.028, 0.028, 0.2)), MeshKit.mat(QuarryArt.M_WOOD), dir_m * 0.1)
+	handle.basis = basis
+	_hand(striker, true, dir_m * 0.17, inv, inv_s, STRIKER_DIR)
+	n.set_meta("striker", striker)
+
+## Striker position along the chisel's axis behind the strike end: drawn back during the wind-up, driving in over the strike stretch so the face meets the
+## chisel at phase 0.58 (the frame the damage lands), then recovering. `p` is the swing phase, or -1 when idle (hovering just behind the chisel).
+func _pose_striker(striker: Node3D, p: float) -> void:
+	var d := 0.12
+	if p >= 0.0:
+		if p < 0.42:
+			var a := p / 0.42
+			d = lerpf(0.12, 0.24, 1.0 - pow(1.0 - a, 3.0))
+		elif p < 0.58:
+			var a2 := (p - 0.42) / 0.16
+			d = lerpf(0.24, 0.0, a2 * a2)
+		else:
+			var a3 := clampf((p - 0.58) / 0.42, 0.0, 1.0)
+			d = lerpf(0.0, 0.12, 1.0 - pow(1.0 - a3, 3.0))
+	striker.position = STRIKE_POINT + Vector3(0, -0.03 - d, 0)
