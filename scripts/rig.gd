@@ -32,6 +32,9 @@ var pad_pos := Vector3.ZERO
 var fwd := Vector3.FORWARD
 var advance := 0.0          # metres crept forward from the pad toward the receding rock face
 var _nav_adv := 0.0
+var outriggers: Array = []   ## stabiliser legs: {"pivot", "foot", "side"}; they extend and plant when the machine works and fold in when it stops
+var power := 1.0             ## this machine's dps relative to the basic drilling rig: stronger machines spin, strike and shake harder
+var heavy := false           ## the heavy-duty breaker: slower, harder, heavier blows
 const PIVOT_H := 1.0
 const L1 := 1.9
 const L2 := 1.75
@@ -43,6 +46,8 @@ func setup(main_node, p: QuarryProgression, i: int) -> void:
 	var r: Dictionary = prog.rigs[i]
 	rtype = str(r["type"])
 	rkind = str(prog.machine(rtype).get("kind", "drill" if rtype == "drill_rig" else "breaker"))
+	power = clampf(float(prog.machine(rtype).get("dps", 78.0)) / 78.0, 1.0, 10.0)
+	heavy = rtype == "heavy_breaker"
 	var pad := prog.pad(str(r["formation"]), int(r["pad"]))
 	name = "Rig_%d" % int(r["id"])
 	pad_pos = pad["pos"]
@@ -112,6 +117,21 @@ func _build() -> void:
 	MeshKit.box_into(p["SteelGreen"], Vector3(0.5, 1.0, 0.25), Vector3(0.5, 0.5, 0.6))                      # output bin
 	MeshKit.box_into(p["SteelPlate"], Vector3(0.5, 0.7, 0.25), Vector3(0.52, 0.1, 0.62))
 	_emit(self, p)
+	for sd in [-1.0, 1.0]:
+		for oz in [-0.35, 1.45]:
+			var pv := Node3D.new()
+			pv.position = Vector3(sd * 0.82, 0.6, oz)
+			add_child(pv)
+			var op := _soups(["SteelPlate", "Hazard"])
+			MeshKit.box_into(op["SteelPlate"], Vector3(sd * -0.35, 0.0, 0.0), Vector3(0.7, 0.12, 0.14))       # the beam that slides out from under the deck
+			_emit(pv, op)
+			var foot := Node3D.new()
+			pv.add_child(foot)
+			var fp := _soups(["SteelPlate", "Hazard"])
+			MeshKit.box_into(fp["SteelPlate"], Vector3(0, -0.28, 0), Vector3(0.1, 0.5, 0.1))                    # the jack
+			MeshKit.box_into(fp["Hazard"], Vector3(0, -0.55, 0), Vector3(0.34, 0.06, 0.34))                    # the pad that meets the ground
+			_emit(foot, fp)
+			outriggers.append({"pivot": pv, "foot": foot, "side": sd})
 	MeshKit.inst(self, MeshKit.box(Vector3(0.5, 0.42, 0.04)), MeshKit.mat(QuarryArt.M_GLASS), Vector3(-0.45, 1.35, -0.11))
 	bin_fill = MeshKit.inst(self, MeshKit.rock(Vector3(0.44, 0.3, 0.54), 91, 3, 6), MeshKit.mat("RockLimestone"), Vector3(0.5, 1.02, 0.25))
 	bin_fill.visible = false
@@ -219,7 +239,17 @@ func _process(delta: float) -> void:
 	var tp := target_point()
 	var want_adv := _desired_advance(tp)
 	advance = move_toward(advance, want_adv, delta * 0.3)
-	position = pad_pos + fwd * advance
+	# stabilisers: out and planted while working (the crawler stands still on them), folded in when idle
+	var deploy := smoothstep(0.0, 0.5, work)
+	for o in outriggers:
+		(o["pivot"] as Node3D).position.x = float(o["side"]) * lerpf(0.95, 1.2, deploy)
+		(o["foot"] as Node3D).position.y = lerpf(0.22, 0.0, deploy)     # the pad lifts clear when folded, and meets the ground at full deploy
+	var jitter := 0.0
+	if rkind == "drill":
+		jitter = sin(_t * 61.0) * 0.004 * e * minf(power, 3.0)          # the whole machine hums on its jacks; stronger rigs shake more
+	else:
+		jitter = -pow(maxf(0.0, sin(_blow * TAU)), 6.0) * 0.012 * e * (2.2 if heavy else 1.0)      # each blow kicks the chassis down onto its jacks
+	position = pad_pos + fwd * advance + Vector3(0, jitter, 0)
 	r["advance"] = advance
 	if absf(advance - _nav_adv) > 0.4 and absf(advance - want_adv) < 0.01:
 		_nav_adv = advance
@@ -238,7 +268,7 @@ func _process(delta: float) -> void:
 		var reach := Vector2(horiz, up).length()
 		feed = move_toward(feed, clampf(reach - 2.1, 0.0, 0.7) * e, delta * 0.5)
 		tool_node.position.z = -0.9 - feed
-		tool_node.rotate_z(delta * 30.0 * e)
+		tool_node.rotate_z(delta * 30.0 * (0.8 + 0.2 * sqrt(power)) * e)
 		boom.position.x = sin(_t * 47.0) * 0.006 * e # vibration
 	else:
 		# two-link IK in the boom plane (law of cosines), elbow up
@@ -250,14 +280,14 @@ func _process(delta: float) -> void:
 		boom.rotation.x = pitch_a
 		stick.rotation.x = pitch_b
 		if working:
-			_blow += delta * 4.0
+			_blow += delta * (2.4 if heavy else 4.0)
 			if _blow >= 1.0:
 				_blow -= 1.0
 				if blow_audio and game.player and game.player.global_position.distance_to(global_position) < 35.0:
-					blow_audio.pitch_scale = randf_range(0.92, 1.08)
+					blow_audio.pitch_scale = randf_range(0.92, 1.08) * (0.72 if heavy else 1.0)
 					blow_audio.play()
 		var strike := pow(maxf(0.0, sin(_blow * TAU)), 6.0) * e
-		tool_node.position.z = -1.5 - 0.18 * strike
+		tool_node.position.z = -1.5 - (0.28 if heavy else 0.18) * strike
 		stick.position.y = 0.02 * strike
 	# contact effects only while really extracting
 	_fx_t -= delta
