@@ -74,7 +74,7 @@ func run() -> void:
 	game.enter_vehicle(ex)
 	check(game.driving == null, "B it cannot be driven before the repairs")
 	var spec: Dictionary = game.fleet.spec("starter_excavator")
-	check(int(spec["dig_hardness"]) == 0 and float(spec["capacity"]) <= 3 and float(spec["max_speed"]) < 2.0, "B it digs nothing harder than soil (hardness 0), carries 3 and creeps along")
+	check(int(spec["dig_hardness"]) == 0 and float(spec["capacity"]) <= 3 and float(spec["max_speed"]) < 3.0 and float(spec["max_speed"]) < float(game.fleet.spec("compact_excavator")["max_speed"]), "B it digs nothing harder than soil (hardness 0), carries 3 and is the slowest excavator")
 	var walter_ok: bool = game.walter_node != null and is_instance_valid(game.walter_node) and game.walter_node.global_position.distance_to(Vector3(-7.2, 0, 15.6) if game.blueprint else Vector3(-14.9, 0, 5.6)) < 1.5
 	check(walter_ok, "B Grandpa stands by the workshop")
 	# parts
@@ -88,7 +88,11 @@ func run() -> void:
 	game._pick_up_part("hose")
 	check(prog.carried_part() == "battery" and game.opening_parts.has("hose"), "B only one part can be carried")
 	game._use_starter(ex)
-	await frames(120)
+	var waited := 0
+	while game.repair_seq != null and waited < 60 * 12:      # the repair is a 4-5 s sequence now
+		await physics_frame
+		waited += 1
+	await frames(20)
 	check(prog.repair_done("battery") and prog.carried_part() == "" and not game.repair_busy and not game.player.locked, "B the battery is fitted after the short repair, and play resumes")
 	var deco1: Node = ex.turret.get_node("OpeningParts")
 	check(deco1 != null and deco1.find_children("*", "MeshInstance3D", true, false).size() >= 1, "B the machine shows the fitted battery")
@@ -102,17 +106,27 @@ func run() -> void:
 	check(prog.repair_done("battery") and not prog.repair_done("hose") and game.fleet.vehicles.size() == 2 and game.opening_parts.size() == 2 and not game.opening_parts.has("battery"), "C the repair record survives saving: battery done, two parts still lie there, one excavator")
 	ex = game._starter_vehicle()
 	# ---- D: finish the repairs and the start
+	var wait_repair := func():
+		var w := 0
+		while game.repair_seq != null and w < 60 * 12:
+			await physics_frame
+			w += 1
+		await frames(20)
 	game._pick_up_part("hose")
 	game._use_starter(ex)
-	await frames(120)
+	await wait_repair.call()
 	game._pick_up_part("fuel")
 	game._use_starter(ex)
-	await frames(120)
+	await wait_repair.call()
+	await frames(30)
 	check(prog.repairs_complete() and game.walter_dialog != null and not prog.excavator_ready(), "D with the last repair Grandpa speaks, and the machine is not yet running")
 	game.enter_vehicle(ex)
 	check(game.driving == null, "D it still cannot be driven while it has not started")
 	await skip_dialogs(game, 1)
-	await frames(100)
+	var started_wait := 0
+	while game.walter_dialog == null and started_wait < 60 * 14:       # the first start is a crank, one stall, a second crank (about 7 s)
+		await physics_frame
+		started_wait += 1
 	var said_it := game.walter_dialog != null
 	await skip_dialogs(game, 3)
 	await frames(30)

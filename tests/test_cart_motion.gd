@@ -74,7 +74,13 @@ func run() -> void:
 	root.add_child(game)
 	await process_frame
 	await frames(3)
+	if game.walter_dialog:
+		game.walter_dialog.skip()                        # an open conversation blocks gameplay input (by design)
 	game.hud.close_card()
+	game._cine_tween().kill()
+	game._remove_walter()
+	await frames(20)
+	game.player.locked = false
 	game.state.gear.append("air_compressor")
 	game._refresh_gear_props()
 	await frames(5)
