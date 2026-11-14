@@ -443,7 +443,7 @@ var _row_n := 0
 ## Table row: a swatch + cells (text, colour, width[, align[, bold]]) and trailing buttons
 ## [key, label, enabled, action, min_width, kind]. Rows alternate background shades; `header` rows are flat
 ## captions that keep the swatch column so headings line up with the values below.
-func row(cells: Array, btns: Array, swatch := Color(0, 0, 0, 0), header := false) -> void:
+func row(cells: Array, btns: Array, swatch := Color(0, 0, 0, 0), header := false, material := "") -> void:
 	var card: PanelContainer
 	if header:
 		card = _box(Color(0, 0, 0, 0), Color(0, 0, 0, 0), 5) # same margins as a row, so columns line up
@@ -459,6 +459,8 @@ func row(cells: Array, btns: Array, swatch := Color(0, 0, 0, 0), header := false
 	sw.custom_minimum_size = Vector2(8, 20)
 	sw.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(sw)
+	if material != "":
+		h.add_child(UiArt.material_icon(material, 28.0))             # a picture of the material in front of its name
 	for c in cells:
 		var cell := _cell(str(c[0]), c[1], float(c[2]), c[3] if c.size() > 3 else HORIZONTAL_ALIGNMENT_LEFT)
 		if header:

@@ -30,6 +30,9 @@ var content: VBoxContainer
 var scroll: ScrollContainer
 var header: Label
 var status: Label
+var taskbar: PanelContainer
+var task_app: Label
+var task_info: Label
 var tab_buttons := {}
 var confirm_fire := -1
 
@@ -55,7 +58,7 @@ func setup(main_node) -> void:
 	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(header)
 	back_button = Button.new()
-	back_button.text = "< COMPUTER"
+	back_button.text = "< DESKTOP"
 	back_button.custom_minimum_size = Vector2(110, 28)
 	back_button.pressed.connect(func(): _set_tab("home"))
 	top.add_child(back_button)
@@ -85,6 +88,22 @@ func setup(main_node) -> void:
 	scroll.add_child(content)
 	status = _label("", GOOD, QuarryTheme.BODY)
 	root.add_child(status)
+	taskbar = PanelContainer.new()
+	taskbar.add_theme_stylebox_override("panel", _box(Color(0.05, 0.09, 0.12), Color(0.22, 0.36, 0.42), 1, 5))
+	root.add_child(taskbar)
+	var tb := HBoxContainer.new()
+	tb.add_theme_constant_override("separation", 10)
+	taskbar.add_child(tb)
+	var start := Button.new()
+	start.text = "QUARRY OS"
+	start.custom_minimum_size = Vector2(96, 24)
+	start.pressed.connect(func(): _set_tab("home"))
+	tb.add_child(start)
+	task_app = _label("", Color(0.8, 0.92, 1.0), 11, false)
+	task_app.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tb.add_child(task_app)
+	task_info = _label("", Color(0.8, 0.92, 1.0), 11, false)
+	tb.add_child(task_info)
 
 func _make_theme() -> Theme:
 	var t := Theme.new()
@@ -176,6 +195,14 @@ func refresh() -> void:
 	var b: QuarryBusiness = game.business
 	var clock := int(game.state.clock_minutes)
 	header.text = "GRANDPA WALT'S QUARRY  -  DAY %d  %s   %s   STAFF %d/%d   STAGE: %s" % [clock / 1440 + 1, game.fmt_time(clock), QuarryTheme.money_text(game.state.money), b.employees.size(), b.max_employees(), str(game.prog.stage_info()["title"]).to_upper()]
+	var app_title := "Desktop"
+	for c in CARDS:
+		if str(c[4]) == tab or str(c[0]) == tab:
+			app_title = str(c[1]).capitalize()
+	if tab in ["staff", "hire", "payroll"]:
+		app_title = "Employees"
+	task_app.text = ("[ %s ]" % app_title) if tab != "home" else ""
+	task_info.text = "DAY %d  %s     %s" % [clock / 1440 + 1, game.fmt_time(clock), QuarryTheme.money_text(game.state.money)]
 	for id in tab_buttons:
 		tab_buttons[id].button_pressed = id == tab
 	subtabs.visible = tab in ["staff", "hire", "payroll"]
@@ -269,63 +296,94 @@ func _plan() -> void:
 # ------------------------------------------------------------------ home (cards)
 
 func _home() -> void:
-	content.add_child(_label("Pick what you want to do. Everything the quarry office can do is behind one of these cards.", DIM))
-	var grid := GridContainer.new()
-	grid.columns = 3
-	grid.add_theme_constant_override("h_separation", 10)
-	grid.add_theme_constant_override("v_separation", 10)
-	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	content.add_child(grid)
+	# the office computer is a small fake desktop: shortcut icons for the things you do here, and a sticky note with the next goal
+	var desk := PanelContainer.new()
+	desk.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	desk.custom_minimum_size = Vector2(0, 360)
+	var wall := _box(Color(0.065, 0.13, 0.17), Color(0.24, 0.4, 0.46), 2, 14)
+	desk.add_theme_stylebox_override("panel", wall)
+	content.add_child(desk)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 10)
+	desk.add_child(col)
+	var icons := HFlowContainer.new()
+	icons.add_theme_constant_override("h_separation", 12)
+	icons.add_theme_constant_override("v_separation", 12)
+	icons.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.add_child(icons)
 	var b: QuarryBusiness = game.business
 	for c in CARDS:
-		var extra := ""
+		var badge := ""
 		match str(c[0]):
-			"employees": extra = "%d of %d hired" % [b.employees.size(), b.max_employees()]
-			"machinery": extra = "%d machine(s) in the yard" % game.fleet.vehicles.size()
-			"sales": extra = "Bag and storage bin sell from here"
-		var card := _home_card(str(c[1]), str(c[2]), extra, str(c[3]))
+			"employees": badge = "%d/%d hired" % [b.employees.size(), b.max_employees()]
+			"machinery": badge = "%d in yard" % game.fleet.vehicles.size()
+			"sales": badge = ""
+		var tile := _desktop_icon(str(c[1]), str(c[2]), badge, str(c[3]))
 		var first: String = str(c[4])
-		card.pressed.connect(func(): _set_tab(first))
-		grid.add_child(card)
+		tile.pressed.connect(func(): _set_tab(first))
+		icons.add_child(tile)
+	var gap := Control.new()
+	gap.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	col.add_child(gap)
+	var bottom := HBoxContainer.new()
+	col.add_child(bottom)
+	var wm := _label("QUARRY OS", Color(0.3, 0.5, 0.56), 16, false)
+	wm.add_theme_font_override("font", QuarryTheme.bold())
+	bottom.add_child(wm)
+	var sp := Control.new()
+	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bottom.add_child(sp)
+	var note := PanelContainer.new()
+	note.add_theme_stylebox_override("panel", _box(Color(0.95, 0.86, 0.5), Color(0.62, 0.5, 0.2), 1, 8))
+	note.custom_minimum_size = Vector2(250, 0)
+	bottom.add_child(note)
+	var nv := VBoxContainer.new()
+	nv.add_theme_constant_override("separation", 2)
+	note.add_child(nv)
+	var next_i := mini(game.prog.stage + 1, game.prog.stages().size() - 1)
+	var nt := _label("NEXT GOAL: " + str(game.prog.stage_info(next_i)["title"]).to_upper(), Color(0.3, 0.2, 0.05), 11, true)
+	nv.add_child(nt)
+	nv.add_child(_label(str(game.prog.stage_info(next_i).get("goal", "")), Color(0.25, 0.18, 0.06), 11, true))
 
-## One card of the office computer's home page: the icon on its plate at the left, then the title, what it is for, and one status line. The button itself
-## is empty; the layout lives in child containers (which ignore the mouse), so the whole card is the click target and the arrow keys / gamepad focus it.
-func _home_card(title: String, desc: String, extra: String, icon_name: String) -> Button:
-	var card := Button.new()
-	card.focus_mode = Control.FOCUS_ALL
-	card.custom_minimum_size = Vector2(268, 104)
-	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	card.text = ""
-	var m := MarginContainer.new()
-	m.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	m.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	for side in ["left", "right", "top", "bottom"]:
-		m.add_theme_constant_override("margin_" + side, 10)
-	card.add_child(m)
-	var h := HBoxContainer.new()
-	h.add_theme_constant_override("separation", 12)
-	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	m.add_child(h)
-	if UiArt.has_icon(icon_name):
-		h.add_child(UiArt.icon_plate(icon_name, 64.0, 7.0))
+## One shortcut on the desktop: a small icon with its name underneath and a one-word status; the whole tile is the button.
+func _desktop_icon(title: String, desc: String, badge: String, icon_name: String) -> Button:
+	var tile := Button.new()
+	tile.set_meta("desktop_icon", true)
+	tile.focus_mode = Control.FOCUS_ALL
+	tile.custom_minimum_size = Vector2(104, 92)
+	tile.text = ""
+	tile.tooltip_text = desc
+	var clear := StyleBoxFlat.new()
+	clear.bg_color = Color(0, 0, 0, 0)
+	var hover := _box(Color(0.3, 0.52, 0.62, 0.28), Color(0.5, 0.75, 0.85, 0.7), 1, 4)
+	var down := _box(Color(0.3, 0.52, 0.62, 0.5), Color(0.7, 0.9, 1.0, 0.9), 1, 4)
+	tile.add_theme_stylebox_override("normal", clear)
+	tile.add_theme_stylebox_override("hover", hover)
+	tile.add_theme_stylebox_override("pressed", down)
+	tile.add_theme_stylebox_override("hover_pressed", down)
+	tile.add_theme_stylebox_override("focus", hover)
 	var v := VBoxContainer.new()
-	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	v.alignment = BoxContainer.ALIGNMENT_CENTER
-	v.add_theme_constant_override("separation", 2)
+	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	v.offset_top = 8
+	v.alignment = BoxContainer.ALIGNMENT_BEGIN            # every icon sits at the same height, with or without a status line
+	v.add_theme_constant_override("separation", 3)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	h.add_child(v)
-	var t := _label(title, ACCENT, 13, false)
-	t.add_theme_font_override("font", QuarryTheme.bold())
+	tile.add_child(v)
+	if UiArt.has_icon(icon_name):
+		var ic := UiArt.icon_rect(icon_name, 48.0)
+		ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		v.add_child(ic)
+	var t := _label(title.capitalize(), Color(0.93, 0.97, 1.0), 11, false)
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(t)
-	var d := _label(desc, INK, 11)
-	d.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_child(d)
-	if extra != "":
-		var e := _label(extra, GOOD, 11, false)
-		e.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		v.add_child(e)
-	return card
+	var e := _label(badge, GOOD, 10, false)
+	e.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	e.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	e.visible = badge != ""
+	v.add_child(e)
+	return tile
 
 # ------------------------------------------------------------------ staff
 

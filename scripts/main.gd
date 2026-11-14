@@ -1985,11 +1985,43 @@ func _draw_menu() -> void:
 		"upgrades": _draw_upgrades(p)
 		"cart": _draw_cart(p, idx)
 		"storage":
-			p.begin("STORAGE   %d / %d" % [state.total(state.storage), state.storage_capacity()], -1, "Optional keys: 1-6 store all, Shift+1-6 take all")
+			var used := state.total(state.storage)
+			var cap := state.storage_capacity()
+			p.begin("STORAGE", -1, "Optional keys: 1-8 store all, Shift+1-8 take all")
+			var meter := HBoxContainer.new()
+			meter.add_theme_constant_override("separation", 10)
+			p.list.add_child(meter)
+			meter.add_child(UiArt.icon_rect("storage", 32.0))
+			var mv := VBoxContainer.new()
+			mv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			mv.add_theme_constant_override("separation", 2)
+			meter.add_child(mv)
+			mv.add_child(QuarryTheme.label("%d of %d units used" % [used, cap], QuarryTheme.BODY, QuarryTheme.WARN if used >= cap else QuarryTheme.INK))
+			var bar := ProgressBar.new()
+			bar.min_value = 0
+			bar.max_value = float(maxi(1, cap))
+			bar.value = float(used)
+			bar.show_percentage = false
+			bar.custom_minimum_size = Vector2(0, 12)
+			bar.add_theme_stylebox_override("background", UiSkin.box("bar_groove", QuarryTheme.bar_box(Color(0.08, 0.06, 0.05, 0.95)), [7, 3, 7, 3]))
+			bar.add_theme_stylebox_override("fill", UiSkin.box("bar_fill_red" if used >= cap else "bar_fill_green", QuarryTheme.bar_box(QuarryTheme.GOOD), [4, 3, 4, 3]))
+			mv.add_child(bar)
+			var owned_any := false
 			for i in range(RESOURCE_ORDER.size()):
 				var key: String = RESOURCE_ORDER[i]
-				p.row([[prog.display(key), QuarryTheme.INK, 150], ["bag %d" % int(state.inventory[key]), QuarryTheme.DIM, 90], ["stored %d" % int(state.storage[key]), QuarryTheme.DIM, 110]],
-					[["store_" + key, "STORE ALL", int(state.inventory[key]) > 0, func(): menu_act("storage", i, false)], ["take_" + key, "TAKE ALL", int(state.storage[key]) > 0, func(): menu_act("storage", i, true)]], QuarryTheme.RES_COLORS.get(key, Color.WHITE))
+				var nb := int(state.inventory[key])
+				var ns := int(state.storage[key])
+				if nb <= 0 and ns <= 0:
+					continue                                    # only what you own: no rows of zeros
+				owned_any = true
+				p.row([[prog.display(key), QuarryTheme.INK, 110, HORIZONTAL_ALIGNMENT_LEFT, true], ["bag %d" % nb, QuarryTheme.INK if nb > 0 else QuarryTheme.DIM, 70], ["stored %d" % ns, QuarryTheme.INK if ns > 0 else QuarryTheme.DIM, 90]],
+					[["store_" + key, "STORE ALL", nb > 0 and used < cap, func(): menu_act("storage", i, false)], ["take_" + key, "TAKE ALL", ns > 0, func(): menu_act("storage", i, true)]], QuarryTheme.RES_COLORS.get(key, Color.WHITE), false, key)
+			var bag_total := state.total(state.inventory)
+			p.button_bar([["store_all", "STORE EVERYTHING", bag_total > 0 and used < cap, func(): _storage_all(true), 190, "primary"], ["take_all", "TAKE EVERYTHING", used > 0, func(): _storage_all(false), 190]])
+			if not owned_any:
+				p.text("Nothing in your bag or in the bin yet. Mine some rock, then bring it here to keep it safe.", QuarryTheme.DIM)
+			if used >= cap:
+				p.text("The bin is full. Sell something at the office computer, or upgrade the storage at the workbench.", QuarryTheme.WARN)
 		"crusher":
 			if idx >= 0 and idx < state.crushers.size():
 				var c: Dictionary = state.crushers[idx]
@@ -2141,6 +2173,13 @@ func _draw_sell(p: QuarryStationUI) -> void:
 			[["clerk_" + key, "Clerk: " + ("on" if ok else "off"), true, func(): menu_act("sell", i, true), 84, "toggle"], ["sell_" + key, "SELL", true, func(): menu_act("sell", i, false), 80, "primary"]], QuarryTheme.RES_COLORS.get(key, Color.WHITE))
 	p.button_bar([["sell_all", "SELL ALL   %s" % QuarryTheme.money_text(total_value), total_value > 0, func(): menu_act("sell", RESOURCE_ORDER.size(), false), 260, "primary"], ["office", "OFFICE COMPUTER", true, func(): _open_menu("manage"), 200]])
 	p.text("Prices are the same at every stage. A sale never pays less than $1. 'Clerk' chooses what the sales clerk may sell for you.", QuarryTheme.DIM)
+
+func _storage_all(store: bool) -> void:
+	for key in RESOURCE_ORDER:
+		if store:
+			state.deposit_item(key, 999)
+		else:
+			state.withdraw_item(key, 999)
 
 func _price_text(v: float) -> String:
 	return ("%d" % int(v)) if absf(v - round(v)) < 0.005 else ("%.2f" % v)

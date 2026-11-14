@@ -99,7 +99,7 @@ func run() -> void:
 	await frames(4)
 	var cards := []
 	for b in mg.content.find_children("*", "Button", true, false):
-		if (b as Button).custom_minimum_size.y >= 100.0:
+		if b.has_meta("desktop_icon"):
 			cards.append(b)
 	check(cards.size() == ManagementScript.CARDS.size(), "the home page shows all %d cards (%d)" % [ManagementScript.CARDS.size(), cards.size()])
 	var plates := 0
@@ -108,9 +108,9 @@ func run() -> void:
 		if not (cb as Button).find_children("*", "TextureRect", true, false).is_empty():
 			plates += 1
 		var labs: Array = (cb as Button).find_children("*", "Label", true, false)
-		if labs.size() >= 2 and (labs[0] as Label).text != "" and (labs[1] as Label).text != "":
+		if labs.size() >= 1 and (labs[0] as Label).text != "" and (cb as Button).tooltip_text != "":
 			titled += 1
-	check(plates == cards.size() and titled == cards.size(), "each card has its icon plate, a title and a description")
+	check(plates == cards.size() and titled == cards.size(), "each desktop icon has its picture, a name and a tooltip")
 	var click_through := true
 	for cb in cards:
 		for ch in (cb as Button).find_children("*", "Control", true, false):

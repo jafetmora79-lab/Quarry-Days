@@ -86,3 +86,18 @@ static func _rect(t: Texture2D, px: float) -> TextureRect:
 	r.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR            # smooth, shaded art (not pixel art): bilinear keeps its edges clean at every size
 	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return r
+
+## The picture of a material (stone, coal, iron, crushed stone, copper, gold, topsoil, pit gravel) from the HUD icon sheet, crisp at any size.
+const MATERIAL_ICONS := {"limestone": "ore_limestone", "coal": "ore_coal", "iron_ore": "ore_iron", "crushed_stone": "crushed_pile", "copper_ore": "ore_copper", "gold_ore": "ore_gold", "topsoil": "topsoil_pile", "gravel": "gravel_pile"}
+
+static func material_icon(key: String, px := 32.0) -> TextureRect:
+	var t := _tex("res://assets/ui/hud/icons/%s.png" % str(MATERIAL_ICONS.get(key, "crate_ore")))
+	var r := TextureRect.new()
+	r.texture = t
+	r.custom_minimum_size = Vector2(px, px)
+	r.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	r.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	r.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	r.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return r

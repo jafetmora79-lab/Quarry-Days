@@ -302,3 +302,4 @@ Priority: one continuous rock surface, then the simple background. No visual che
 - Rebalanced prices, rewards and stage earnings (see docs/ECONOMY_REPAIR.md). Player upgrades are gated by stage.
 - Vehicles need only money and the stage: no automation milestone. The storage bin grows with the stage (80 / 140 base at Moving Mountains / Deeper Ground).
 - Fixed unreachable rewards (lockbox, first gold), the gold bench now has rig pads, the permit is gone from the new quarry, more iron pockets in Area 2.
+- Office computer is now a fake desktop (shortcut icons, sticky note with the next goal, taskbar); the storage bin shows a capacity bar and material icons, only for what you own, with Store/Take everything.
