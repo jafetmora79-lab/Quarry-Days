@@ -101,6 +101,6 @@ func _process(delta: float) -> void:
 	blend = move_toward(blend, 1.0 if active else 0.0, delta * 4.5)
 	visible = blend > 0.01
 	if tool_view:
-		tool_view.visible = blend < 0.15
+		tool_view.visible = blend < 0.15 and not tool_view.suppressed
 	var e := smoothstep(0.0, 1.0, blend)
 	position = Vector3(0.0, lerpf(-0.75, -0.30, e) + sin(_t * 1.6) * 0.004 * e, -0.62)

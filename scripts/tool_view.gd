@@ -25,6 +25,9 @@ var deflect_t := 0.0
 var bob_t := 0.0
 var moving := 0.0
 var _t := 0.0
+var obstruct := 0.0         ## 0..1 set by the game: something solid (a wall, a desk) is right in front, so the tool is tucked down and back instead of poking through it
+var _obs := 0.0
+var suppressed := false     ## the game keeps the tool out of sight (at the computer): other code that shows or hides it respects this
 
 ## Per-tool first-person pose. Camera space: -Z is forward, +X right, +Y up. Swing tools hold their handle along +Y
 ## from the grip; `rest`/`wind`/`strike` are pitch angles (rad) about the grip (negative = working end forward).
@@ -158,6 +161,10 @@ func _process(delta: float) -> void:
 	else:
 		var rr: Vector3 = def["rest_rot"]
 		rot = rr
+	_obs = move_toward(_obs, obstruct, delta * 5.0)          # eased both ways: no pop when a wall comes or goes
+	if _obs > 0.0:
+		rot.x += 0.45 * _obs
+		off += Vector3(0.03, -0.14, 0.14) * _obs
 	if deflect_t > 0.0:
 		deflect_t = maxf(0.0, deflect_t - delta)
 		rot.x += sin(deflect_t / 0.3 * PI) * 0.5

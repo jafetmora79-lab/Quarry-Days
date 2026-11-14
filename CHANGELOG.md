@@ -342,3 +342,10 @@ Priority: one continuous rock surface, then the simple background. No visual che
 - Garage: the header, columns on footings and sloping rafters now follow the roof line; truss ends no longer poke through the roof, side walls follow the slope (no gap), sign mounted on the header.
 - Workshop walls are industrial; the workshop's hidden placeholder roof slab no longer shows; office desk stands against the back wall with the CRT facing the room and a chair (collider at seat height, aiming at it also targets the computer); dining chairs moved clear of the door swing; bathroom partitions end at the ceiling; shed drums are round and clear of the shelving.
 - `test_architecture`: roofs, garage slope, floating-detail registry, door swing arcs.
+
+## Workstation and interaction polish (claude/workstation-interaction)
+- Prompts share one format ("E — Use the computer", "E — Open storage"); the computer, the swivel chair and doors now really get the outline (doors and the merged-art desk had nothing to outline before: `_highlight_meshes_for`, a silhouette proxy for the CRT and desk).
+- The mouse lies to the sitter's right of the keyboard; the chair has a seat-height collider and aiming at it uses the computer.
+- Leaving the computer: the tool dips away on entry and rises back into the hand on exit (`tool_view.suppressed` keeps blueprint hands from re-showing it); the cursor starts centred on the desktop.
+- The held tool tucks down and back when a wall, desk or machine is closer than ~0.9 m (never for rock or rubble you are working).
+- `test_workstation`: layout orientation, outline coverage, prompt format, camera path clearance from 15 spots, triple-enter, shop-from-desktop exit, clicks on desktop / cards / menus never swing the tool.

@@ -1538,10 +1538,22 @@ func _update_highlight() -> void:
 		return
 	_clear_highlight()
 	highlight_node = t
-	var meshes := t.find_children("*", "MeshInstance3D", true, false)
+	for m in _highlight_meshes_for(t):
+		m.material_overlay = _highlight_material()
+		highlight_meshes.append(m)
+
+## The solid meshes that get the outline for a target: its own visuals, or (doors, the computer) the visuals that belong to it but sit beside its collider.
+func _highlight_meshes_for(t: Node3D) -> Array:
+	var out := []
+	var pool := t.find_children("*", "MeshInstance3D", true, false)
 	if t is MeshInstance3D:
-		meshes.append(t)
-	for mi in meshes:
+		pool.append(t)
+	var kind := str(t.get_meta("kind", ""))
+	if kind == "door" and t.get_parent() != null:
+		pool.append_array(t.get_parent().find_children("*", "MeshInstance3D", true, false))     # the leaf, its glass, hinges and handle are siblings of the collider
+	if kind == "office" and computer_proxy != null and is_instance_valid(computer_proxy):
+		pool.append(computer_proxy)                                                               # the CRT and desk are part of the merged art: this proxy is their silhouette
+	for mi in pool:
 		var m := mi as MeshInstance3D
 		if m.visible and m.mesh != null and not (m.get_parent() is Label3D) and m.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY:
 			# only solid outer surfaces are outlined: not glass (it would grow a yellow ghost around every pane), and not a cab's interior or its tiny parts, whose
@@ -1551,8 +1563,19 @@ func _update_highlight() -> void:
 				continue
 			if m.get_parent() != null and (m.get_parent().name == "Interior" or m.get_parent().name == "OpeningParts"):
 				continue
-			m.material_overlay = _highlight_material()
-			highlight_meshes.append(m)
+			if m.material_override is BaseMaterial3D and (m.material_override as BaseMaterial3D).transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
+				continue
+			out.append(m)
+	return out
+
+var computer_proxy: MeshInstance3D       ## (art) the desk and CRT silhouette used for the computer's outline
+
+## One look for every interaction prompt: the key, a dash, then the action with its first letter capitalised ("E — Use the computer").
+func _fmt_prompt(p: String) -> String:
+	if p.begins_with("E: "):
+		var rest := p.substr(3)
+		return "E — " + rest.substr(0, 1).to_upper() + rest.substr(1)
+	return p
 
 func _look_target() -> Node3D:
 	var start := player.camera.global_position
@@ -1560,9 +1583,21 @@ func _look_target() -> Node3D:
 	var query := PhysicsRayQueryParameters3D.create(start,end)
 	query.exclude = [player.get_rid()]
 	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	_look_dist = start.distance_to(hit["position"]) if hit else 99.0
 	if hit and hit["collider"] is Node3D:
 		return hit["collider"]
 	return null
+
+var _look_dist := 99.0
+
+## Tuck the held tool down and back when a wall, desk or machine is closer than about 0.9 m (never for rock or rubble you are working: those are what it is for).
+func _update_tool_obstruction() -> void:
+	var o := 0.0
+	if last_target != null and is_instance_valid(last_target) and not driving:
+		var k := str(last_target.get_meta("kind", ""))
+		if not (k in ["deposit", "debris", "piece", "pile", "ground"]):
+			o = clampf((0.95 - _look_dist) / 0.35, 0.0, 1.0)
+	player.tool_view.obstruct = o
 
 ## Which contract area the player (or the machine they drive) is standing in: the yard-side Area 1 by its rectangle, the pit areas by
 ## the pit's own frame and floor height (basin floor = Area 2, the level-2 pit = Area 3). "" in the yard or elsewhere.
@@ -1664,6 +1699,7 @@ func _physics_process(delta: float) -> void:
 			_update_deposit_label(kind)
 	last_target = null if driving else _look_target()
 	_update_highlight()
+	_update_tool_obstruction()
 	if placement:
 		_update_ghost()
 	_player_mining(delta)
@@ -1702,7 +1738,7 @@ func _physics_process(delta: float) -> void:
 				var ci := int(last_target.get_meta("index"))
 				var link: Dictionary = business.links[ci] if ci < business.links.size() else {}
 				prompt = "Conveyor #%d: %s -> %s | B to move" % [ci + 1, business.describe_ep(link.get("src", {})), business.describe_ep(link.get("dst", {}))]
-			"office": prompt = "E: management office"
+			"office": prompt = "E: use the computer"
 			"worker":
 				var who := business.employee(int(last_target.get_meta("employee")))
 				if not who.is_empty():
@@ -1713,8 +1749,8 @@ func _physics_process(delta: float) -> void:
 			"cart":
 				var cid := str(last_target.get_meta("cart"))
 				prompt = "E: %s  (%d / %d)" % [str(prog.gear_def(cid).get("title", cid)), state.cart_total(cid), state.cart_cap(cid)]
-			"upgrades": prompt = "E: use the workbench and tools"
-			"storage": prompt = "E: storage"
+			"upgrades": prompt = "E: use the workbench"
+			"storage": prompt = "E: open storage"
 			"vehicle":
 				var vrec := fleet.vehicle(int(last_target.get_meta("vehicle_id")))
 				if not vrec.is_empty() and str(vrec["type"]) == "starter_excavator" and not prog.excavator_ready():
@@ -1729,7 +1765,7 @@ func _physics_process(delta: float) -> void:
 		prompt = str(hud_drive_info().get("action", ""))
 	if placement:
 		prompt = "PLACE %s: %s | left click place | R rotate | G grid %s | Esc cancel%s" % [placement_kind.replace("output","output storage").to_upper(), "VALID" if ghost_valid else "BLOCKED", "on" if grid_snap else "off", placement_hint]
-	hud.set_prompt(prompt)
+	hud.set_prompt(_fmt_prompt(prompt))
 	hud.conversation = _conversation_active()
 	_pulse_cleanup(delta)
 	hud.hint_text = _hint_text()
@@ -1954,7 +1990,11 @@ func enter_pc() -> void:
 	player.velocity = Vector3.ZERO                          # the body stands still: the camera is its child
 	player.set_physics_process(false)
 	player.scripted_camera = true
-	player.tool_view.visible = false
+	player.tool_view.equip_t = 0.0                           # the tool dips out of view as you reach for the keyboard (hidden once it is down)
+	get_tree().create_timer(0.2).timeout.connect(func():
+		if pc_active:
+			player.tool_view.suppressed = true
+			player.tool_view.visible = false)
 	pc_return = player.camera.global_transform
 	pc_body = player.global_position
 	var a := pc_return
@@ -1977,7 +2017,9 @@ func exit_pc() -> void:
 		pc_active = false
 		player.set_physics_process(true)
 		player.scripted_camera = false
+		player.tool_view.suppressed = false
 		player.tool_view.visible = true
+		player.tool_view.equip_t = 0.5                       # raised back into the hand
 		player.locked = false)
 
 func _open_menu(kind: String, index := -1) -> void:

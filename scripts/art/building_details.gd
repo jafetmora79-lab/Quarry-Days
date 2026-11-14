@@ -92,11 +92,20 @@ static func office_interior(a, c: Vector3) -> void:
 	col(a, m + Vector3(0, 0.15, -0.1225), Vector3(0.34, 0.025, 0.004), Color(0.75, 0.75, 0.75))           # a taskbar strip on the screen
 	col(a, m + Vector3(-0.15, 0.15, -0.124), Vector3(0.05, 0.02, 0.004), Color(0.2, 0.3, 0.55))
 	game.pc_screen_pos = m + Vector3(0, 0.275, -0.1215)
+	# the outline proxy for the interaction highlight: the monitor, the desk top and the pedestals as inset boxes (1 cm inside the real surfaces, so only the outline shows)
+	var ps := MeshKit.Soup.new()
+	for pb in [[m + Vector3(0, 0.27, -0.04), Vector3(0.46, 0.36, 0.12)], [m + Vector3(0, 0.27, 0.15), Vector3(0.34, 0.28, 0.24)], [m + Vector3(0, 0.02, 0), Vector3(0.26, 0.03, 0.22)],
+			[d + Vector3(0, 0.97, 0), Vector3(1.88, 0.04, 0.88)], [d + Vector3(-0.78, 0.55, 0), Vector3(0.3, 0.74, 0.76)], [d + Vector3(0.78, 0.55, 0), Vector3(0.3, 0.74, 0.76)]]:
+		MeshKit.box_into(ps, pb[0], pb[1])
+	var proxy := MeshKit.inst(a.root, ps.mesh(), MeshKit.flat(Color(0.2, 0.2, 0.2)))
+	proxy.name = "ComputerHighlight"
+	game.computer_proxy = proxy
 	# keyboard, mouse and mat on the sitter's side of the monitor
 	col(a, d + Vector3(-0.3, 1.015, -0.28), Vector3(0.44, 0.025, 0.15), plastic)
 	col(a, d + Vector3(-0.3, 1.03, -0.28), Vector3(0.38, 0.008, 0.1), plastic.darkened(0.2))
-	col(a, d + Vector3(0.1, 1.007, -0.28), Vector3(0.22, 0.01, 0.2), Color(0.18, 0.28, 0.4))
-	col(a, d + Vector3(0.1, 1.025, -0.28), Vector3(0.06, 0.03, 0.1), plastic)
+	# (the sitter faces +z, so their right hand is -x: the mouse and its mat lie to the right of the keyboard)
+	col(a, d + Vector3(-0.72, 1.007, -0.28), Vector3(0.22, 0.01, 0.2), Color(0.18, 0.28, 0.4))
+	col(a, d + Vector3(-0.72, 1.025, -0.28), Vector3(0.06, 0.03, 0.1), plastic)
 	# papers and invoices, a mug, a pencil cup, a paperweight rock and a framed photo, all lying on the desk top
 	col(a, d + Vector3(0.62, 1.01, -0.1), Vector3(0.28, 0.02, 0.36), Color(0.95, 0.93, 0.85), 0.2)
 	col(a, d + Vector3(0.64, 1.03, -0.12), Vector3(0.26, 0.012, 0.34), Color(0.9, 0.88, 0.78), -0.1)

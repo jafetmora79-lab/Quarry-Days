@@ -488,6 +488,7 @@ func open_desktop() -> void:
 	refresh_tray()
 	if active == null:
 		start_button.call_deferred("grab_focus")
+	Input.warp_mouse(Vector2(DisplayServer.window_get_size()) * 0.5)       # the cursor appears in the middle of the screen, on the desktop
 	for w in windows:
 		w.position = clamp_pos(w.position, w.size)
 	var img: Image = tex("cursor.png").get_image() if tex("cursor.png") != null else null
