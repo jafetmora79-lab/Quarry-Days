@@ -56,7 +56,7 @@
   {
    "id": "pickaxe",
    "title": "Worn Pickaxe",
-   "cost": 90,
+   "cost": 150,
    "power": 9,
    "interval": 0.56,
    "max_hardness": 2,
@@ -67,7 +67,7 @@
   {
    "id": "reinforced",
    "title": "Reinforced Pickaxe",
-   "cost": 350,
+   "cost": 600,
    "power": 14,
    "interval": 0.5,
    "max_hardness": 2,
@@ -78,7 +78,7 @@
   {
    "id": "drill",
    "title": "Corded Rock Drill",
-   "cost": 4500,
+   "cost": 6000,
    "dps": 100,
    "max_hardness": 3,
    "sound": "drill_loop",
@@ -89,7 +89,7 @@
   {
    "id": "jackhammer",
    "title": "Heavy Jackhammer",
-   "cost": 14000,
+   "cost": 16000,
    "dps": 180,
    "max_hardness": 4,
    "sound": "jackhammer_loop",
@@ -101,28 +101,28 @@
  "player_upgrades": {
   "faster_mining": {
    "title": "Mining Technique",
-   "cost": 90,
+   "cost": 250,
    "effect": "MINING SPEED +25%"
   },
   "larger_backpack": {
    "title": "Larger Backpack",
-   "cost": 55,
+   "cost": 90,
    "effect": "BAG +16"
   },
   "hauling_harness": {
    "title": "Hauling Harness",
-   "cost": 700,
+   "cost": 900,
    "effect": "BAG +30"
   },
   "efficient_crusher": {
    "title": "Crusher Tuning",
-   "cost": 150,
+   "cost": 300,
    "effect": "CRUSHING 45% FASTER"
   },
   "expanded_storage": {
    "title": "Expanded Storage",
-   "cost": 120,
-   "effect": "STORAGE +40"
+   "cost": 240,
+   "effect": "STORAGE +60"
   }
  },
  "loose_piece_cap": 36,
@@ -139,14 +139,14 @@
    "unlocks": [
     "Rock Hammer"
    ],
-   "price_mult": 0.22
+   "price_mult": 1.0
   },
   {
    "id": "better_tools",
    "title": "Better Tools",
-   "goal": "Earn $150, clear the site, get Grandpa's excavator running and haul away the first soil. Then buy better hand tools at the workbench.",
+   "goal": "Earn $500 clear the site, get Grandpa's excavator running and haul away the first soil. Then buy better hand tools at the workbench.",
    "req": {
-    "earned": 150,
+    "earned": 500,
     "milestones": [
      "cleanup_done",
      "excavator_running",
@@ -161,14 +161,14 @@
     "Hand Cart",
     "Repaired Pickaxe"
    ],
-   "price_mult": 0.1
+   "price_mult": 1.0
   },
   {
    "id": "workshop",
    "title": "The Workshop",
-   "goal": "Earn $600 and own a pickaxe. The workshop sells heavier, more specialised tools.",
+   "goal": "Earn $1,700 and own a pickaxe. The workshop sells heavier, more specialised tools.",
    "req": {
-    "earned": 600,
+    "earned": 1700,
     "owns": [
      "pickaxe"
     ]
@@ -180,14 +180,14 @@
     "Reinforced Wheelbarrow",
     "Workshop upgrades"
    ],
-   "price_mult": 0.12
+   "price_mult": 1.0
   },
   {
    "id": "breaking_ground",
    "title": "Breaking Ground",
-   "goal": "Earn $1,800 and make a workbench upgrade. Start processing stone.",
+   "goal": "Earn $4,800 and make a workbench upgrade. Start processing stone.",
    "req": {
-    "earned": 1800,
+    "earned": 4800,
     "owns": [
      "reinforced"
     ],
@@ -202,14 +202,14 @@
     "Stone Crusher",
     "Output Storage"
    ],
-   "price_mult": 0.13
+   "price_mult": 1.0
   },
   {
    "id": "first_employee",
    "title": "First Employee",
-   "goal": "Earn $4,000, find iron and run a crusher. Then you can hire help.",
+   "goal": "Earn $12,000 find iron and run a crusher. Then you can hire help.",
    "req": {
-    "earned": 4000,
+    "earned": 12000,
     "discover": [
      "iron_ore"
     ],
@@ -222,14 +222,14 @@
     "Conveyors",
     "Employee improvements"
    ],
-   "price_mult": 0.15
+   "price_mult": 1.0
   },
   {
    "id": "power_pressure",
    "title": "Power and Pressure",
-   "goal": "Earn $9,000, hire a worker and sell crushed stone. Powered tools come next.",
+   "goal": "Earn $28,000 hire a worker and sell crushed stone. Powered tools come next.",
    "req": {
-    "earned": 9000,
+    "earned": 28000,
     "employees": 1,
     "delivered": {
      "crushed_stone": 30
@@ -242,14 +242,14 @@
     "Pneumatic Chisel",
     "Front Loader"
    ],
-   "price_mult": 0.4
+   "price_mult": 1.0
   },
   {
    "id": "moving_mountains",
    "title": "Moving Mountains",
-   "goal": "Earn $20,000, own a crusher and open the first bench of the quarry.",
+   "goal": "Earn $45,000 own a crusher and open the first bench of the quarry.",
    "req": {
-    "earned": 20000,
+    "earned": 45000,
     "crushers": 1,
     "quarry_level": 2
    },
@@ -263,9 +263,9 @@
   {
    "id": "industrial_quarry",
    "title": "Industrial Quarry",
-   "goal": "Earn $45,000 and keep the first bench open. (Further industrial equipment arrives in a later update.)",
+   "goal": "Earn $85,000 and keep the first bench open. (Further industrial equipment arrives in a later update.)",
    "req": {
-    "earned": 45000,
+    "earned": 85000,
     "quarry_level": 2,
     "milestones": [
      "area_3_complete"
@@ -279,24 +279,24 @@
   {
    "id": "deeper_ground",
    "title": "Deeper Ground",
-   "goal": "Earn $100,000 and open the third level.",
+   "goal": "Earn $150,000 and open the third level.",
    "req": {
-    "earned": 100000,
+    "earned": 150000,
     "quarry_level": 3
    },
    "unlocks": [
-    "Excavation permit",
     "Industrial truck",
-    "Rock breakers"
+    "Rock breakers",
+    "Heavy excavator"
    ],
    "price_mult": 1.0
   },
   {
    "id": "mass_production",
    "title": "Mass Production",
-   "goal": "Earn $250,000. (Future content.)",
+   "goal": "Earn $230,000. (Future content.)",
    "req": {
-    "earned": 250000,
+    "earned": 230000,
     "quarry_level": 3,
     "milestones": [
      "area_4_complete"
@@ -308,9 +308,9 @@
   {
    "id": "beneath_mountain",
    "title": "Beneath the Mountain",
-   "goal": "Earn $600,000 and reach the lowest level. (Future content.)",
+   "goal": "Earn $330,000 and reach the lowest level. (Future content.)",
    "req": {
-    "earned": 600000,
+    "earned": 330000,
     "quarry_level": 4,
     "milestones": [
      "area_5_complete"
@@ -322,9 +322,9 @@
   {
    "id": "quarry_empire",
    "title": "Quarry Empire",
-   "goal": "Earn $1,500,000. (Future content.)",
+   "goal": "Earn $450,000. (Future content.)",
    "req": {
-    "earned": 1500000,
+    "earned": 450000,
     "quarry_level": 4,
     "milestones": [
      "area_6_complete"
@@ -5025,10 +5025,10 @@
    ],
    "veins": {
     "seed": 21,
-    "count": 24,
+    "count": 60,
     "mix": [
      "coal",
-     "coal",
+     "iron_ore",
      "iron_ore"
     ]
    },
@@ -6411,6 +6411,20 @@
     "q_a2_rock",
     "q_a2_gravel",
     "q_top"
+   ],
+   "pads": [
+    [
+     20.0,
+     -12.0,
+     -72.5,
+     3.1416
+    ],
+    [
+     34.0,
+     -12.0,
+     -72.5,
+     3.1416
+    ]
    ]
   }
  },
@@ -6917,8 +6931,8 @@
    "first_clear": {
     "title": "GRANDPA'S LOCKBOX",
     "trigger": "first_formation_cleared",
-    "text": "Under the last of the rock sits a rusted lockbox. Inside:\n\n- A faded photo of the crew in 1971, standing on this same floor.\n- Mining records: 'Core sample, 3.5 m below the north bench: copper staining, trace gold.'\n- A note: 'Didn't have the machines to go deeper. Maybe you will.'\n\nThere's also an old savings bond. It's still good.",
-    "reward": 400
+    "text": "A rusted lockbox lies on the cut ground. Inside:\n\n- A faded photo of the crew in 1971, standing on this same floor.\n- Mining records: 'Core sample, 3.5 m below the north bench: copper staining, trace gold.'\n- A note: 'Didn't have the machines to go deeper. Maybe you will.'\n\nThere's also an old savings bond. It's still good.",
+    "reward": 150
    }
   },
   "intro2_title": "YOUR FIRST DAY",
@@ -6926,7 +6940,7 @@
  },
  "cleanup": {
   "_comment": "Phase 6.2 tutorial, moved to Area 1: the weeds and rubble now lie in the starter cut north of the operations yard (never in the yard). Positions are fixed so saves can store what is left; item ids (w0.., h0..) keep their meaning.",
-  "gift": 600,
+  "gift": 150,
   "weed_hp": 6,
   "heap_units": 5,
   "heap_unit_hp": 10,
@@ -7366,7 +7380,7 @@
    "id": "l1_quarter",
    "title": "A quarter of the surface",
    "text": "A quarter of the surface quarry is cut away.",
-   "reward": 500,
+   "reward": 250,
    "when": {
     "cleared": {
      "level": 1,
@@ -7378,7 +7392,7 @@
    "id": "l1_half",
    "title": "Half the surface",
    "text": "Half of the surface quarry is gone.",
-   "reward": 1200,
+   "reward": 600,
    "when": {
     "cleared": {
      "level": 1,
@@ -7389,8 +7403,8 @@
   {
    "id": "level2_open",
    "title": "The first bench",
-   "text": "Quarry level 2 is open: coal and iron.",
-   "reward": 2500,
+   "text": "Quarry level 2 is open: the first limestone bench.",
+   "reward": 1200,
    "when": {
     "quarry_level": 2
    }
@@ -7399,7 +7413,7 @@
    "id": "l2_half",
    "title": "Bench half cut",
    "text": "Half of the first bench is excavated.",
-   "reward": 3500,
+   "reward": 1750,
    "when": {
     "cleared": {
      "level": 2,
@@ -7410,8 +7424,8 @@
   {
    "id": "level3_open",
    "title": "The deep quarry",
-   "text": "Quarry level 3 is open: richer iron and copper.",
-   "reward": 6000,
+   "text": "Quarry level 3 is open: coal and iron.",
+   "reward": 3000,
    "when": {
     "quarry_level": 3
    }
@@ -7420,7 +7434,7 @@
    "id": "l3_half",
    "title": "Deep bench half cut",
    "text": "Half of the deep quarry is excavated.",
-   "reward": 9000,
+   "reward": 4500,
    "when": {
     "cleared": {
      "level": 3,
@@ -7431,8 +7445,8 @@
   {
    "id": "level4_open",
    "title": "The lower quarry",
-   "text": "Quarry level 4 is open: copper and gold.",
-   "reward": 14000,
+   "text": "Quarry level 4 is open: the industrial bench, iron and copper.",
+   "reward": 7000,
    "when": {
     "quarry_level": 4
    }
@@ -7441,10 +7455,13 @@
    "id": "first_gold",
    "title": "Gold!",
    "text": "The first gold-bearing rock is out of the ground.",
-   "reward": 5000,
+   "reward": 2500,
    "when": {
     "mined": {
-     "formation": "bench_l4_gold"
+     "formation": [
+      "bench_l4_gold",
+      "q_a5_gold"
+     ]
     }
    }
   }
@@ -7574,6 +7591,27 @@
     "air_compressor",
     "drill"
    ]
+  },
+  "larger_backpack": {
+   "stage": "grandpa"
+  },
+  "faster_mining": {
+   "stage": "workshop"
+  },
+  "expanded_storage": {
+   "stage": "workshop"
+  },
+  "efficient_crusher": {
+   "stage": "breaking_ground",
+   "owns": [
+    "crusher"
+   ]
+  },
+  "hauling_harness": {
+   "stage": "breaking_ground",
+   "owns": [
+    "hand_cart"
+   ]
   }
  },
  "unlocks_comment": "Phase 9.1 hybrid unlocks: every entry lists what must be true BEFORE the item can be bought (money is the item's price). stage = a stage id; owns = tools/equipment already owned; discover = minerals found; delivered = minerals sold; milestones = built-in or story milestones; earned; quarry_level; story = story flags.",
@@ -7582,7 +7620,7 @@
   "workshop_upgrade": "Buy a workbench upgrade",
   "crusher_built": "Build a crusher",
   "excavator_running": "Repair Grandpa's excavator",
-  "soil_hauled": "Haul 24 loads of soil to the spoil heap",
+  "soil_hauled": "Haul 24 units of soil to the spoil heap",
   "area_1_complete": "Area 1 contract complete",
   "area_2_complete": "Area 2 contract complete",
   "area_3_complete": "Area 3 contract complete",
@@ -7593,7 +7631,7 @@
  "gear": {
   "pointed_chisel": {
    "title": "Pointed Chisel",
-   "cost": 35,
+   "cost": 40,
    "class": "precision",
    "model": 0,
    "desc": "Fast, light taps. Cuts soft stone and coal far quicker than the hammer, but cannot touch iron.",
@@ -7609,7 +7647,7 @@
   },
   "flat_chisel": {
    "title": "Flat Chisel",
-   "cost": 110,
+   "cost": 180,
    "class": "precision",
    "model": 0,
    "desc": "Wide, clean cuts through stone and coal: the best tool for soft rock until you can afford power.",
@@ -7625,7 +7663,7 @@
   },
   "repaired_pickaxe": {
    "title": "Repaired Pickaxe",
-   "cost": 180,
+   "cost": 300,
    "class": "general",
    "model": 1,
    "desc": "A properly re-handled pickaxe. Solid on stone, coal and iron.",
@@ -7636,7 +7674,7 @@
   },
   "sledgehammer": {
    "title": "Sledgehammer",
-   "cost": 450,
+   "cost": 700,
    "class": "impact",
    "model": 0,
    "desc": "Heavy and slow. Each blow also hits two neighbouring exposed blocks at half strength.",
@@ -7650,7 +7688,7 @@
   },
   "steel_pickaxe": {
    "title": "Steel Pickaxe",
-   "cost": 700,
+   "cost": 1100,
    "class": "general",
    "model": 2,
    "desc": "Steel head, steady swing. Gets into copper-hard rock.",
@@ -7661,7 +7699,7 @@
   },
   "hardened_pickaxe": {
    "title": "Hardened Pickaxe",
-   "cost": 1200,
+   "cost": 1800,
    "class": "general",
    "model": 2,
    "desc": "Hardened steel: the best hand pick you can buy.",
@@ -7673,7 +7711,7 @@
   },
   "hand_splitter": {
    "title": "Hand Rock Splitter",
-   "cost": 1600,
+   "cost": 2300,
    "class": "impact",
    "model": 0,
    "desc": "Wedges and drives a seam: each blow also splits up to three neighbouring exposed blocks at 60%.",
@@ -7687,7 +7725,7 @@
   },
   "powered_hammer": {
    "title": "Powered Hammer",
-   "cost": 2500,
+   "cost": 3500,
    "class": "impact",
    "model": 3,
    "desc": "A motor-driven hammer: quick heavy blows that also hit two neighbours.",
@@ -7702,7 +7740,7 @@
   },
   "pneumatic_chisel": {
    "title": "Pneumatic Chisel",
-   "cost": 6500,
+   "cost": 7500,
    "class": "precision",
    "model": 4,
    "desc": "Hold to chisel at speed. Superb on stone and coal. Needs the compressor.",
@@ -7718,7 +7756,7 @@
   },
   "air_compressor": {
    "title": "Air Compressor",
-   "cost": 3500,
+   "cost": 4500,
    "class": "equipment",
    "model": 3,
    "desc": "Powers the pneumatic tools: every powered tool you hold works 15% faster.",
@@ -7727,7 +7765,7 @@
   },
   "hand_cart": {
    "title": "Hand Cart",
-   "cost": 120,
+   "cost": 160,
    "class": "cart",
    "model": 0,
    "desc": "Wheel your load: the bag holds 20 more.",
@@ -7736,7 +7774,7 @@
   },
   "wheelbarrow": {
    "title": "Wheelbarrow",
-   "cost": 280,
+   "cost": 400,
    "class": "cart",
    "model": 0,
    "desc": "A proper barrow: the bag holds 40 more.",
@@ -7745,7 +7783,7 @@
   },
   "reinforced_wheelbarrow": {
    "title": "Reinforced Wheelbarrow",
-   "cost": 750,
+   "cost": 1000,
    "class": "cart",
    "model": 0,
    "desc": "Steel tray, pneumatic tyre: the bag holds 70 more.",
@@ -7925,7 +7963,7 @@
     "soil_hauled": 24,
     "debris": "all"
    },
-   "reward": 300,
+   "reward": 120,
    "note": "One shallow cut just beyond the yard gate: weeds and rubble, a soil field, the first rock face. Everything the player removes here stays removed.",
    "requires": []
   },
@@ -7949,7 +7987,7 @@
     "recovered": 150,
     "visit": 1
    },
-   "reward": 800,
+   "reward": 300,
    "note": "Through the quarry gate and down the corridor to the basin: the curved basin bench of the same excavation, a wider face of rock to cut and haul back toward the yard."
   },
   {
@@ -7972,7 +8010,7 @@
     "recovered": 100,
     "visit": 1
    },
-   "reward": 1600,
+   "reward": 700,
    "note": "The first lower working surface, cut into the basin floor and reached by the 20 m ramp once enough of the level above is excavated (coal and iron)."
   },
   {
@@ -7996,7 +8034,7 @@
     "shipped": 80,
     "visit": 1
    },
-   "reward": 6000,
+   "reward": 2500,
    "note": "The third level: a broad bench with room for excavators, loaders and trucks. Cut iron and copper, and load trucks for shipment."
   },
   {
@@ -8022,7 +8060,7 @@
     "shipped": 60,
     "visit": 1
    },
-   "reward": 15000,
+   "reward": 7000,
    "note": "The fourth level, copper side: deeper, harder rock that needs a stronger machine and a working haul route up the ramps.",
    "z_range_filled": [
     -116.0,
@@ -8052,7 +8090,7 @@
     "shipped": 40,
     "visit": 1
    },
-   "reward": 40000,
+   "reward": 18000,
    "note": "The deepest floor of the same excavation: the gold bench. The last contract needs real excavation, recovery and truck shipments.",
    "z_range_filled": [
     -128.0,
@@ -8369,7 +8407,7 @@
     "soil_hauled": 24,
     "debris": "all"
    },
-   "reward": 300,
+   "reward": 120,
    "rect": [
     -122.0,
     -104.0,
@@ -8398,7 +8436,7 @@
     "recovered": 150,
     "visit": 1
    },
-   "reward": 800,
+   "reward": 300,
    "frame": "pit",
    "level": 2
   },
@@ -8418,7 +8456,7 @@
     "recovered": 100,
     "visit": 1
    },
-   "reward": 1600,
+   "reward": 700,
    "frame": "pit",
    "level": 3
   },
@@ -8439,7 +8477,7 @@
     "shipped": 80,
     "visit": 1
    },
-   "reward": 6000,
+   "reward": 2500,
    "frame": "pit",
    "level": 4
   },
@@ -8459,7 +8497,7 @@
     "shipped": 60,
     "visit": 1
    },
-   "reward": 15000,
+   "reward": 7000,
    "frame": "pit",
    "level": 5,
    "x_range": [
@@ -8469,7 +8507,7 @@
   },
   {
    "id": "area_6",
-   "title": "AREA 5 - FINAL GOLD CUT",
+   "title": "AREA 6 - FINAL GOLD CUT",
    "formations": [
     "q_a5_gold"
    ],
@@ -8483,7 +8521,7 @@
     "shipped": 40,
     "visit": 1
    },
-   "reward": 40000,
+   "reward": 18000,
    "frame": "pit",
    "level": 5,
    "x_range": [

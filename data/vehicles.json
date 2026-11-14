@@ -26,8 +26,7 @@
   "vehicles": {
     "loader": {
       "title": "Front Loader",
-      "price": 3200,
-      "requires": "mechanized",
+      "price": 3200, 
       "capacity": 6,
       "accel": 3.2,
       "max_speed": 5.0,
@@ -48,8 +47,7 @@
     "compact_truck": {
       "title": "Compact Haul Truck",
       "kind": "truck",
-      "price": 4200,
-      "requires": "mechanized",
+      "price": 4200, 
       "gate": "industry",
       "capacity": 12,
       "accel": 4.6,
@@ -71,8 +69,7 @@
     },
     "truck": {
       "title": "Dump Truck",
-      "price": 6500,
-      "requires": "automated",
+      "price": 6500, 
       "capacity": 20,
       "accel": 4.0,
       "max_speed": 12.0,
@@ -94,8 +91,7 @@
     "heavy_truck": {
       "title": "Heavy Dump Truck",
       "kind": "truck",
-      "price": 12500,
-      "requires": "automated",
+      "price": 12500, 
       "gate": "large",
       "capacity": 44,
       "accel": 3.0,
@@ -118,8 +114,7 @@
     "industrial_truck": {
       "title": "Industrial Haul Truck",
       "kind": "truck",
-      "price": 24000,
-      "requires": "automated",
+      "price": 24000, 
       "gate": "deep",
       "capacity": 90,
       "accel": 2.3,
@@ -142,8 +137,7 @@
     "compact_excavator": {
       "title": "Compact Excavator",
       "kind": "excavator",
-      "price": 7500,
-      "requires": "automated",
+      "price": 7500, 
       "gate": "large",
       "capacity": 8,
       "accel": 2.8,
@@ -169,8 +163,7 @@
     "heavy_excavator": {
       "title": "Heavy Excavator",
       "kind": "excavator",
-      "price": 32000,
-      "requires": "automated",
+      "price": 32000, 
       "gate": "deep",
       "capacity": 20,
       "accel": 2.2,

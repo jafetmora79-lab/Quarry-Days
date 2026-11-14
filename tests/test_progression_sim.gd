@@ -52,10 +52,17 @@ func simulate(strategy: String, horizon := 14400.0, start_late := false) -> Dict
 	var upgrades := ["larger_backpack", "faster_mining", "expanded_storage"]
 	var hired := 0
 	var worker_cd := 0.0
+	var log := []                       # [minute, what] for purchases, rewards and stage changes (printed with SIMLOG=1)
+	var seen := {}
+	var rewards := {"gift": false, "area1": false, "area2": false, "q1": false, "q2": false}
 	var hp := func(r: String) -> float: return float(p.material(r)["hp"])
 	while t < horizon:
 		t += 1.0
 		if t >= CLEANUP_AT:
+			if not rewards["gift"]:
+				rewards["gift"] = true
+				s.money += int(pcfg["cleanup"]["gift"])
+				log.append([t, "cleanup letter +$%d" % int(pcfg["cleanup"]["gift"])])
 			p.cleanup["done"] = true
 			for k in ["battery", "hose", "fuel", "started", "legacy"]: p.story["excavator"][k] = true
 		# --- the player's work: the best $ per second among the rock the tool can break (stone, coal, iron are all in the yard)
@@ -117,10 +124,27 @@ func simulate(strategy: String, horizon := 14400.0, start_late := false) -> Dict
 		if s.crushers.size() > 0 and int(s.lifetime["sold"].get("crushed_stone", 0)) < 30 and int(t) % 26 == 0:
 			s.note_lifetime("sold", "crushed_stone", 12)
 		# --- purchases, in the strategy's order, using the real unlock rules
+		# contract and milestone rewards at the times a player earns them (modelled: Area 1 about 10 minutes in, 25% of the surface at 30)
+		if not rewards["area1"] and t >= 600.0:
+			rewards["area1"] = true
+			s.money += int(p.area_def("area_1")["reward"])
+			log.append([t, "Area 1 contract +$%d" % int(p.area_def("area_1")["reward"])])
+		if not rewards["q1"] and t >= 1800.0:
+			rewards["q1"] = true
+			s.money += 250
+			log.append([t, "quarter of the surface +$250"])
+		if not rewards["area2"] and t >= 2400.0 and p.stage >= 1:
+			rewards["area2"] = true
+			s.money += int(p.area_def("area_2")["reward"])
+			log.append([t, "Area 2 contract +$%d" % int(p.area_def("area_2")["reward"])])
+		if not rewards["q2"] and t >= 3000.0:
+			rewards["q2"] = true
+			s.money += 600
+			log.append([t, "half of the surface +$600"])
 		if int(t) % 5 == 0:
 			p.check_stages()
 			for k in upgrades:
-				if not s.upgrades[k] and s.money >= int(cfg["upgrades"][k]) and p.stage >= 1:
+				if not s.upgrades[k] and p.unlocked(k) and s.money >= int(cfg["upgrades"][k]):
 					if k == "larger_backpack" or s.earned > 400:
 						s.buy_upgrade(k)
 			var wants := []
@@ -184,8 +208,23 @@ func simulate(strategy: String, horizon := 14400.0, start_late := false) -> Dict
 			for i in range(1, 12):
 				if p.stage >= i and not times.has(i):
 					times[i] = t
+					log.append([t, "STAGE %d reached, cash $%d" % [i + 1, s.money]])
+			var owned_now := {}
+			for g2 in s.gear: owned_now["gear:" + str(g2)] = true
+			for c2 in s.carts: owned_now["cart:" + str(c2)] = true
+			for u2 in s.upgrades: if s.upgrades[u2]: owned_now["upgrade:" + str(u2)] = true
+			if s.tool_tier > 0: owned_now["tool tier %d" % s.tool_tier] = true
+			if s.crushers.size() > 0: owned_now["crusher"] = true
+			if hired > 0: owned_now["worker"] = true
+			for k2 in owned_now:
+				if not seen.has(k2):
+					seen[k2] = true
+					log.append([t, "bought " + str(k2)])
 		if p.stage >= 5 and strategy != "full":
 			break
+	if OS.get_environment("SIMLOG") == strategy:
+		for e in log:
+			print("  [%5.1f min] %s" % [float(e[0]) / 60.0, str(e[1])])
 	return {"stage": p.stage, "times": times, "t": t, "money": s.money, "earned": s.earned, "tool": str(p.tool()["id"]), "hired": hired}
 
 func run() -> void:
@@ -204,7 +243,7 @@ func run() -> void:
 		check(r["times"].has(5), "%s player reaches Power and Pressure (stage 6)" % strat)
 		if r["times"].has(5):
 			var mins := float(r["times"][5]) / 60.0
-			check(mins >= 110.0 and mins <= 200.0, "%s player needs about 2 to 3.3 hours for stages 1-5 and reaches Power and Pressure (%.0f min)" % [strat, mins])
+			check(mins >= 90.0 and mins <= 200.0, "%s player needs about 1.5 to 3.3 hours for stages 1-5 and reaches Power and Pressure (%.0f min)" % [strat, mins])
 	check(int(late["stage"]) >= 5, "an existing late-game save is already past Power and Pressure")
 	print("RESULT: %d checks, %d failures" % [checks, failures.size()])
 	quit(1 if failures.size() > 0 else 0)

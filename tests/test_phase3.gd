@@ -43,9 +43,7 @@ func run_tests() -> void:
 func test_fleet_logic() -> void:
 	var gate := QuarryFleet.new(QuarryBusiness.new(QuarryState.new(cfg), bcfg), vcfg)
 	gate.state.money = 99999
-	check(gate.buy("loader", Vector3.ZERO).is_empty() and gate.state.money == 99999, "loader locked until Mechanized Quarry; nothing charged")
-	gate.business.milestones["mechanized"] = true
-	check(not gate.buy("loader", Vector3.ZERO).is_empty() and gate.buy("truck", Vector3.ZERO).is_empty(), "truck still locked until Automated Business")
+	check(not gate.buy("loader", Vector3.ZERO).is_empty() and not gate.buy("truck", Vector3.ZERO).is_empty(), "the loader and trucks need money and the stage only: no factory milestones")
 	var poor := make(3199)
 	check(poor.buy("loader", Vector3.ZERO).is_empty() and poor.state.money == 3199, "cannot buy the loader without $3,200")
 	var f := make()

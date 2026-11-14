@@ -138,13 +138,13 @@ func test_balance() -> void:
 		var mine_t: float = bag / (p.tool_dps(tier) / hp)
 		return bag * price / (mine_t + trip)
 	var first: float = (float(p.tools()[1]["cost"]) - float(pcfg["new_game_money"])) / float(per_s.call(0))
-	check(first > 20.0 and first < 180.0, "12 first pickaxe after about %.0f s of hand mining (meaningful, not a grind)" % first)
+	check(first > 20.0 and first < 300.0, "12 first pickaxe after about %.0f s of hand mining (meaningful, not a grind)" % first)
 	var steps := []
 	for t in range(1, p.tools().size() - 1):
 		steps.append(float(p.tools()[t + 1]["cost"]) / float(per_s.call(t)))
 	var ok := true
 	for v in steps:
-		ok = ok and v < 3200.0       # Phase 9: later tools are deliberately a longer saving goal
+		ok = ok and v < 5400.0       # later tools are a longer saving goal (limestone-only worst case: real players mine coal, iron and crushed stone)
 	check(ok, "12 each later tool is a few minutes of mining with the previous one (%s s)" % str(steps.map(func(v): return int(v))))
 	var stone := float(p.max_units("stone_mountain"))
 	var manual := stone / (p.tool_dps(1) / hp) / 60.0
@@ -165,7 +165,7 @@ func test_balance() -> void:
 func test_stages() -> void:
 	var p := fresh()
 	check(p.stage == 0 and not p.unlocked("hire") and not p.unlocked("crusher"), "12 a new quarry starts at Grandpa's Legacy: no staff, no machinery")
-	p.state.add_income(150, "sale")
+	p.state.add_income(500, "sale")
 	p.check_stages()
 	check(p.stage == 0, "12 $150 alone does not open Better Tools: the site must be cleared too")
 	p.cleanup["done"] = true
@@ -179,13 +179,13 @@ func test_stages() -> void:
 	p.area_check("area_1")
 	p.check_stages()
 	check(p.stage == 1, "12 money, a cleared site, a running excavator, hauled soil and the Area 1 contract open the Better Tools stage")
-	p.state.add_income(450, "sale")
+	p.state.add_income(1200, "sale")
 	p.check_stages()
-	check(p.stage == 1, "12 The Workshop needs a pickaxe as well as $600 earned")
+	check(p.stage == 1, "12 The Workshop needs a pickaxe as well as $1,700 earned")
 	p.state.tool_tier = 1
 	p.check_stages()
 	check(p.stage == 2 and not p.unlocked("crusher") and not p.unlocked("hire"), "12 The Workshop stage unlocks neither machinery nor hiring")
-	p.state.add_income(1200, "sale")
+	p.state.add_income(3100, "sale")
 	p.state.tool_tier = 2
 	p.state.upgrades["larger_backpack"] = true
 	p.check_stages()
@@ -194,14 +194,14 @@ func test_stages() -> void:
 	p.area_check("area_2")
 	p.check_stages()
 	check(p.stage == 3 and p.unlocked("crusher") and p.unlocked("output") and not p.unlocked("hire"), "12 Breaking Ground unlocks the crusher and storage, still no staff")
-	p.state.add_income(2200, "sale")
+	p.state.add_income(7200, "sale")
 	p.state.crushers.append({})
 	p.state.inventory["iron_ore"] = 1
 	p.check_stages()
 	check(p.stage == 4 and p.unlocked("hire") and not p.unlocked("loader"), "12 First Employee: earnings, iron found and a crusher unlock hiring")
 	p.state.money = 1000
 	p.business.hire("rosa")
-	p.state.add_income(5000, "sale")
+	p.state.add_income(16000, "sale")
 	p.check_stages()
 	check(p.stage == 4, "12 money and a crew alone do not open Power and Pressure: crushed stone must be sold")
 	p.state.note_lifetime("sold", "crushed_stone", 30)

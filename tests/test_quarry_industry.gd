@@ -43,7 +43,7 @@ func run() -> void:
 	var ok_stats := true
 	for t in types:
 		var s := fleet.spec(t)
-		for key in ["title", "price", "capacity", "accel", "max_speed", "size", "best_use", "speed_label", "accel_label", "requires", "gate"]:
+		for key in ["title", "price", "capacity", "accel", "max_speed", "size", "best_use", "speed_label", "accel_label", "gate"]:
 			if not s.has(key):
 				ok_stats = false
 				printerr("   %s lacks %s" % [t, key])
@@ -193,12 +193,12 @@ func run() -> void:
 	var ids2 := []
 	for g in got:
 		ids2.append(g["id"])
-	check("l1_quarter" in ids2 and "l1_half" in ids2 and game.state.money == m1 + 500 + 1200, "9b cutting the surface pays the quarter and half bonuses (%s)" % str(ids2))
-	check(prog.check_quarry_milestones().is_empty() and game.state.money == m1 + 1700, "9c each is paid only once")
+	check("l1_quarter" in ids2 and "l1_half" in ids2 and game.state.money == m1 + 250 + 600, "9b cutting the surface pays the quarter and half bonuses (%s)" % str(ids2))
+	check(prog.check_quarry_milestones().is_empty() and game.state.money == m1 + 850, "9c each is paid only once")
 	prog.quarry_level = 2
 	var m2: int = game.state.money
 	got = prog.check_quarry_milestones()
-	check(got.size() == 1 and got[0]["id"] == "level2_open" and game.state.money == m2 + 2500, "9d opening level 2 pays its bonus")
+	check(got.size() == 1 and got[0]["id"] == "level2_open" and game.state.money == m2 + 1200, "9d opening level 2 pays its bonus")
 	var snap2 := prog.snapshot()
 	prog.story["milestones"] = {}
 	prog.restore(snap2, [])

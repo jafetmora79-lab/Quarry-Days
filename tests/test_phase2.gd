@@ -177,7 +177,7 @@ func test_clerk_sales() -> void:
 	check(int(sale["units"]) == 0 and b.state.money == money, "10 nothing sold without authorization")
 	b.authorized["crushed_stone"] = true
 	sale = b.clerk_sell(clerk)
-	check(int(sale["units"]) == 3 and b.state.money == money + 33, "10 clerk sells 3 crushed stone for $33")
+	check(int(sale["units"]) == 3 and b.state.money == money + 21, "10 clerk sells 3 crushed stone for $21")
 	check(int(b.state.storage["crushed_stone"]) == 0 and b.output_total(0) == 4, "10 sold stock removed from storage then output storage")
 	check(int(b.state.storage["limestone"]) == 9, "10 unauthorized limestone untouched")
 	check(b.chain["sold"], "10 automated crushed-stone sale counts toward the chain")
@@ -217,7 +217,7 @@ func test_upgrades() -> void:
 	b.state.storage["crushed_stone"] = 6
 	money = b.state.money
 	var sale := b.clerk_sell(clerk)
-	check(int(sale["units"]) == 6 and b.state.money - money == int(floor(66 * 1.06)), "11 trained clerk sells 6 per transaction with a 6% bonus")
+	check(int(sale["units"]) == 6 and b.state.money - money == int(round(42 * 1.06)), "11 trained clerk sells 6 per transaction with a 6% bonus")
 	var copy := make()
 	copy.restore(JSON.parse_string(JSON.stringify(b.snapshot())))
 	check(int(copy.employee(int(miner["id"]))["upgrade"]) == 3 and int(copy.stat(copy.employee(int(hauler["id"])), "carry")) == 9, "11 upgrades persist through save data")
@@ -255,8 +255,8 @@ func test_exploits() -> void:
 	b3.state.storage["coal"] = 2
 	var m := b3.state.money
 	var sale := b3.clerk_sell(clerk)
-	check(int(sale["units"]) == 2 and b3.state.money == m + 24 and b3.stock("coal") == 0, "14 clerk cannot sell more than the stock")
-	check(int(b3.clerk_sell(clerk)["units"]) == 0 and b3.state.money == m + 24, "14 empty stock earns nothing")
+	check(int(sale["units"]) == 2 and b3.state.money == m + 14 and b3.stock("coal") == 0, "14 clerk cannot sell more than the stock")
+	check(int(b3.clerk_sell(clerk)["units"]) == 0 and b3.state.money == m + 14, "14 empty stock earns nothing")
 	var fee_before := b3.state.money
 	b3.fire(int(clerk["id"]))
 	b3.hire("petra")
@@ -316,7 +316,7 @@ func scene_tests() -> void:
 	var rev0 := int(game.business.day_stats(game.business.current_day())["revenue"])
 	await frames(game, 1500, func(): return int(game.state.storage["crushed_stone"]) < 4)
 	check(int(game.state.storage["crushed_stone"]) == 1, "10 clerk in the world sells stock at the counter")
-	check(int(game.business.day_stats(game.business.current_day())["revenue"]) - rev0 == 33 and game.state.money > m, "10 automated sale awards exactly $33")
+	check(int(game.business.day_stats(game.business.current_day())["revenue"]) - rev0 == 21 and game.state.money > m, "10 automated sale awards exactly $21")
 	# --- miner: walks, strikes the deposit, picks up the pieces, delivers them to storage
 	game.state.clock_minutes = 600.0
 	game.business.payroll_minute = 600

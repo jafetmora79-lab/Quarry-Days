@@ -67,7 +67,7 @@ func run() -> void:
 	for s in p0.stages():
 		earn_ok = earn_ok and int(s["req"].get("earned", 0)) > last
 		last = int(s["req"].get("earned", 0))
-	check(earn_ok and int(p0.stages()[11]["req"]["earned"]) == 1500000, "A earnings run from $0 to $1,500,000 without gaps or repeats")
+	check(earn_ok and int(p0.stages()[11]["req"]["earned"]) == 450000, "A earnings run from $0 to $450,000 without gaps or repeats")
 	var refs_ok := true
 	var ids: Dictionary = cfg["formations"]
 	for lv in cfg["quarry_levels"]:

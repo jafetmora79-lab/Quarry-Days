@@ -294,3 +294,11 @@ Priority: one continuous rock surface, then the simple background. No visual che
 - Skinned: panels, buttons, key caps, bars, dialog frames, prompt plate, toasts/banners, sliders.
 - Portraits are snips of the real 3D models only; no generated faces.
 - Not yet skinned: objective checklist markers, minimap frame, icon mapping, main-menu buttons.
+
+## Economy and progression repair (branch claude/economy-repair)
+- Prices no longer change with the stage (all multipliers 1.0). Sales never round down to $0.
+- The sales booth sells from the bag, the storage bin and the output storages in one sale, and lists only what you own.
+- Loose soil can no longer be tipped into storage (it was a script error); the spoil heap counts it toward Area 1 and pays nothing. Truck prompts say what a load earns.
+- Rebalanced prices, rewards and stage earnings (see docs/ECONOMY_REPAIR.md). Player upgrades are gated by stage.
+- Vehicles need only money and the stage: no automation milestone. The storage bin grows with the stage (80 / 140 base at Moving Mountains / Deeper Ground).
+- Fixed unreachable rewards (lockbox, first gold), the gold bench now has rig pads, the permit is gone from the new quarry, more iron pockets in Area 2.

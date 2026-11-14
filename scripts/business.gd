@@ -486,7 +486,7 @@ func sorter_sell(i: int) -> int:
 			continue
 		outputs[i]["items"][res] = int(outputs[i]["items"][res]) - n
 		outputs[i]["sorted"][res] = int(outputs[i]["sorted"].get(res, 0)) - n
-		var pay := int(round(float(n) * state.unit_price(res) * float(cfg.get("sort_bonus", 1.3))))
+		var pay := state.payout(res, n, float(cfg.get("sort_bonus", 1.3)))
 		state.add_income(pay, "sorted")
 		state.note_lifetime("sold", res, n)
 		total += pay
@@ -508,6 +508,8 @@ func ep_space(ep: Dictionary, res: String) -> int:
 		return 0
 	match str(ep["type"]):
 		"storage":
+			if not state.storage.has(res):
+				return 0                      # loose "soil" is not a stored material: it goes on the spoil heap
 			return maxi(0, state.storage_capacity() - state.total(state.storage))
 		"crusher":
 			if res != "limestone":
@@ -636,6 +638,57 @@ func _scan_crushers() -> void:
 			_add_daily("crushed", done)
 			check_milestones()
 
+# ---------------------------------------------------------------- selling from every store
+
+## Units of a material waiting in output storages and hoppers (the sorting table has its own sale).
+func output_units(res: String) -> int:
+	var n := 0
+	for i in range(outputs.size()):
+		if variant_of(i) != "sorter":
+			n += int(outputs[i]["items"].get(res, 0))
+	return n
+
+## Everything the sales booth can sell of a material: bag, storage bin, output storages and hoppers.
+func sellable_units(res: String) -> int:
+	return int(state.inventory.get(res, 0)) + int(state.storage.get(res, 0)) + output_units(res)
+
+## Sells up to `limit` units of a material from the bag, then the storage bin, then the output storages, as ONE sale (one
+## rounding, one payment). Returns {"units", "money", "bag", "storage", "output"}.
+func sell_material(res: String, limit := 1 << 30) -> Dictionary:
+	var out := {"units": 0, "money": 0, "bag": 0, "storage": 0, "output": 0}
+	if not state.inventory.has(res):
+		return out
+	var left := limit
+	var nb := mini(left, int(state.inventory[res]))
+	state.inventory[res] -= nb
+	left -= nb
+	var ns := mini(left, int(state.storage.get(res, 0)))
+	state.storage[res] = int(state.storage.get(res, 0)) - ns
+	left -= ns
+	var no := 0
+	for i in range(outputs.size()):
+		if left <= 0:
+			break
+		if variant_of(i) == "sorter":
+			continue
+		var t := mini(left, int(outputs[i]["items"].get(res, 0)))
+		if t > 0:
+			outputs[i]["items"][res] = int(outputs[i]["items"][res]) - t
+			left -= t
+			no += t
+	var units := nb + ns + no
+	if units <= 0:
+		return out
+	var pay := state.payout(res, units)
+	state.note_lifetime("sold", res, units)
+	state.add_income(pay, "sale")
+	out["units"] = units
+	out["money"] = pay
+	out["bag"] = nb
+	out["storage"] = ns
+	out["output"] = no
+	return out
+
 # ---------------------------------------------------------------- clerk sales
 
 func stock(res: String) -> int:
@@ -659,7 +712,7 @@ func clerk_sell(e: Dictionary) -> Dictionary:
 				break
 			left -= ep_take({"type": "output", "index": i}, res, left)
 		var units := want - left
-		var earned := int(floor(units * state.unit_price(res) * stat(e, "price_mult") + 0.0001))
+		var earned := state.payout(res, units, stat(e, "price_mult"))
 		state.add_income(earned, "clerk")
 		state.note_lifetime("sold", res, units)
 		_add_daily("revenue", earned)

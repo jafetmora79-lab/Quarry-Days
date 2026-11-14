@@ -605,7 +605,7 @@ func _milestones(b: QuarryBusiness) -> void:
 		jc.add_child(_label(str(je["text"]), INK, QuarryTheme.BODY))
 	var info := [
 		["first_employee", "1. FIRST EMPLOYEE", "Hire your first worker.", "Remote management with M anywhere and +5% staff productivity."],
-		["mechanized", "2. MECHANIZED QUARRY", "Own a crusher and employ a machine operator.", "Conveyor belts under MACHINERY and the Front Loader in EQUIPMENT."],
+		["mechanized", "2. MECHANIZED QUARRY", "Own a crusher and employ a machine operator.", "Conveyor belts under MACHINERY."],
 		["automated", "3. AUTOMATED BUSINESS", "Run an automated production chain: Miner -> Storage -> Hauler/Conveyor -> Crusher -> Output storage -> Sales clerk, until the clerk has sold %d crushed stone." % b.sales_goal(), "Opens the east quarry expansion (new deposits, rubble piles and building space) and the Dump Truck."],
 	]
 	for m in info:
@@ -741,7 +741,9 @@ func _upgrades() -> void:
 		row.add_child(_button("Turn off" if bool(r["on"]) else "Turn on", func(): rr["on"] = not bool(rr["on"]); _say("")))
 	var ec := _card()
 	ec.add_child(_label("DEEP EXCAVATION", ACCENT))
-	if prog.level_unlocked >= 2:
+	if prog.filled_world():
+		ec.add_child(_label("Each level opens by itself once enough of the level above is excavated. Access roads are ordered under Quarry Plan.", INK, QuarryTheme.BODY))
+	elif prog.level_unlocked >= 2:
 		ec.add_child(_label("The lower level is open: copper vein and gold seam, reached by the ramp.", GOOD, QuarryTheme.BODY))
 	else:
 		var why := prog.permit_block_reason()

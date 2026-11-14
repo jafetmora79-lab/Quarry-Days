@@ -118,7 +118,7 @@ func scene_tests() -> void:
 	var cp: int = int(st.config["prices"]["coal"])
 	game._open_menu("sell", -1)
 	check(game.panel.buttons.has("sell_limestone") and game.panel.buttons.has("sell_all") and game.panel.buttons.has("clerk_coal"), "2 the sales booth has Sell, Sell All and clerk buttons")
-	check(game.panel.buttons["sell_iron_ore"].disabled and not game.panel.buttons["sell_limestone"].disabled, "2 Sell is disabled for materials you do not have")
+	check(not game.panel.buttons.has("sell_iron_ore") and not game.panel.buttons["sell_limestone"].disabled, "2 materials you do not own have no row at all")
 	click(game, "sell_limestone")
 	check(st.money == 4 * lp and st.inventory["limestone"] == 0, "2 clicking Sell sells the whole stack ($%d)" % (4 * lp))
 	check(pop_texts(game).has("+$%d" % (4 * lp)), "3 a green '+$%d' pop-up shows the sale amount (%s)" % [4 * lp, str(pop_texts(game))])
@@ -150,6 +150,7 @@ func scene_tests() -> void:
 		c.free()
 	game.hud.money_merge.clear()
 	st.money = 20
+	game.prog.stage = 1                       # the backpack opens at Better Tools
 	game._open_menu("upgrades", -1)
 	var cost: int = int(st.config["upgrades"]["larger_backpack"])
 	check(game.panel.buttons["up_larger_backpack"].disabled and game.panel.pane.buy_btn.disabled, "2 unaffordable upgrades have disabled buttons")

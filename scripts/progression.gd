@@ -900,9 +900,17 @@ func check_stages() -> void:
 	check_levels()
 	apply_stage_effects()
 
-## The stage sets what buyers pay (a small quarry sells small lots): data "price_mult" of the stage, 1.0 from Moving Mountains on.
+## Prices are constant (the stage "price_mult" values are all 1.0). The stage only enlarges the storage bin.
 func apply_stage_effects() -> void:
-	state.price_mult = float(stage_info().get("price_mult", 1.0))
+	state.price_mult = 1.0              # prices never change with the stage: the same material always pays the same
+	# room in the storage bin for the trucks of the stage (a truck bed can always be tipped): Moving Mountains brings the 20-44 unit
+	# trucks, Deeper Ground the 90 unit industrial truck
+	var bonus := 0
+	if stage >= stage_index("moving_mountains"):
+		bonus += 40
+	if stage >= stage_index("deeper_ground"):
+		bonus += 60
+	state.storage_stage_bonus = bonus
 
 # ------------------------------------------------------------------ quarry levels (Phase 7.1)
 
@@ -1289,6 +1297,8 @@ func permit_cost() -> int:
 	return int(cfg.get("excavation", {}).get("permit_cost", 5000))
 
 func permit_block_reason() -> String:
+	if filled_world():
+		return "Not needed: the quarry's levels open as you excavate"
 	if level_unlocked >= 2:
 		return "The lower level is already open"
 	if not unlocked("permit"):
@@ -1691,8 +1701,13 @@ func milestone_met(m: Dictionary) -> bool:
 		if level_cleared_fraction(int(c["level"])) < float(c["fraction"]):
 			return false
 	if w.has("mined"):
-		var id := str(w["mined"]["formation"])
-		if not state.deposits.has(id) or int(state.deposits[id].get("mined", 0)) <= 0:
+		var f = w["mined"]["formation"]
+		var ids: Array = f if f is Array else [f]                 # any of the listed formations (the old and the new quarry have different gold benches)
+		var hit := false
+		for id in ids:
+			if state.deposits.has(str(id)) and int(state.deposits[str(id)].get("mined", 0)) > 0:
+				hit = true
+		if not hit:
 			return false
 	return true
 

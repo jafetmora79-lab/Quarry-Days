@@ -116,7 +116,7 @@ func scene_resources() -> void:
 		for n in range(5):
 			game._strike("limestone_face")
 	check(int(game.state.inventory["limestone"]) == 6, "3 broke player can still hand-mine the quarry face (3 breaks -> 6 stone)")
-	check(game.state.sell("limestone", 99) == 6 and game.state.money == 30, "3 face limestone sells: $0 -> $30, recovery possible without free money")
+	check(game.state.sell("limestone", 99) == 6 and game.state.money == 18, "3 face limestone sells: $0 -> $18, recovery possible without free money")
 	# staff draw from the same formation units, with conservation
 	game.state.money = 2000
 	game.state.clock_minutes = 480.0

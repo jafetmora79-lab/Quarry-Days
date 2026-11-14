@@ -47,8 +47,8 @@ func run() -> void:
 	# ---- A: the twelve stage definitions
 	var p := fresh()
 	var st: Array = p.stages()
-	var expected := [["grandpa", 0], ["better_tools", 150], ["workshop", 600], ["breaking_ground", 1800], ["first_employee", 4000], ["power_pressure", 9000], ["moving_mountains", 20000],
-		["industrial_quarry", 45000], ["deeper_ground", 100000], ["mass_production", 250000], ["beneath_mountain", 600000], ["quarry_empire", 1500000]]
+	var expected := [["grandpa", 0], ["better_tools", 500], ["workshop", 1700], ["breaking_ground", 4800], ["first_employee", 12000], ["power_pressure", 28000], ["moving_mountains", 45000],
+		["industrial_quarry", 85000], ["deeper_ground", 150000], ["mass_production", 230000], ["beneath_mountain", 330000], ["quarry_empire", 450000]]
 	var ok := st.size() == 12
 	var ordered := true
 	var last := -1
@@ -164,11 +164,11 @@ func run() -> void:
 	check(g.gear_block_reason("pointed_chisel").contains("Stage 2") and not g.buy_gear("pointed_chisel"), "D a locked tool says which stage it needs and cannot be bought")
 	g.cleanup["done"] = true
 	for k in ["battery", "hose", "fuel", "started", "legacy"]: g.story["excavator"][k] = true
-	g.state.add_income(150, "sale")
+	g.state.add_income(500, "sale")
 	g.check_stages()
 	var m0 := g.state.money
-	check(g.buy_gear("pointed_chisel") and g.state.money == m0 - 35 and g.state.equipped == "pointed_chisel", "D the Pointed Chisel costs $35 and goes into your hand")
-	check(not g.buy_gear("pointed_chisel") and g.state.money == m0 - 35 and g.state.gear.count("pointed_chisel") == 1, "D buying it twice is refused and charges nothing")
+	check(g.buy_gear("pointed_chisel") and g.state.money == m0 - 40 and g.state.equipped == "pointed_chisel", "D the Pointed Chisel costs $40 and goes into your hand")
+	check(not g.buy_gear("pointed_chisel") and g.state.money == m0 - 40 and g.state.gear.count("pointed_chisel") == 1, "D buying it twice is refused and charges nothing")
 	check(g.can_mine("limestone") and not g.can_mine("iron_ore"), "D the chisel cuts soft rock but not iron")
 	check(g.tool_modifier("limestone") > 1.4 and g.tool_modifier("iron_ore") == 1.0, "D chisels are soft-rock specialists (x%.1f on stone)" % g.tool_modifier("limestone"))
 	check(g.tool_dps() * g.tool_modifier("limestone") > g.tool_dps(0) * 2.5, "D the chisel is at least 2.5x the hammer on stone")
@@ -180,10 +180,10 @@ func run() -> void:
 	h.state.money = 5000
 	h.cleanup["done"] = true
 	for k in ["battery", "hose", "fuel", "started", "legacy"]: h.story["excavator"][k] = true
-	h.state.add_income(150, "sale")
+	h.state.add_income(500, "sale")
 	h.check_stages()
 	var cap0 := h.state.capacity()
-	check(h.buy_gear("hand_cart") and h.state.cart_cap("hand_cart") == 20 and h.state.capacity() == cap0, "E the Hand Cart ($120) is a container of 20 on its own; the bag stays %d" % cap0)
+	check(h.buy_gear("hand_cart") and h.state.cart_cap("hand_cart") == 20 and h.state.capacity() == cap0, "E the Hand Cart ($160) is a container of 20 on its own; the bag stays %d" % cap0)
 	h.state.add_item("limestone", 100)
 	check(h.state.cart_load_from_bag("hand_cart", "limestone", 100) == 18 or h.state.cart_total("hand_cart") <= 20, "E and it really takes load from the bag")
 	check(not h.buy_gear("wheelbarrow") and h.gear_block_reason("wheelbarrow").contains("Stage 3"), "E the wheelbarrow waits for the Workshop stage")

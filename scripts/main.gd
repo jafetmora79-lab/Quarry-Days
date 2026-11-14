@@ -842,6 +842,13 @@ func _finish_debris(id: String, node: Node3D, what: String) -> void:
 ## A contract is complete: a clear notice, the reward (paid once by the progression), and the next job when there is one.
 func _on_area_completed(id: String) -> void:
 	var def := prog.area_def(id)
+	if id == "area_1" and prog.filled_world() and not prog.story["found"].get("first_clear", false):
+		# the new quarry has no starting rock pile to clear: Grandpa's lockbox turns up when the first contract is done
+		prog.mark_found("first_clear")
+		prog.story["found_at"] = "q_top"
+		_spawn_discovery("first_clear", "q_top")
+		if hud:
+			hud.toast("Something in the cut...", "An old lockbox is lying on the ground inside the gate.", "unlock")
 	if hud:
 		hud.toast(str(def.get("title", id)) + " COMPLETE", "Contract reward $%d. The rest of the rock here stays yours to cut." % int(def.get("reward", 0)), "milestone")
 	_sfx_unlock()
@@ -2109,25 +2116,34 @@ func _draw_cart(p: QuarryStationUI, idx: int) -> void:
 	p.text("The crate and the office are %s." % ("in reach of this cart" if (near_store or near_sell) else "too far away: push the cart close to one"), QuarryTheme.DIM)
 
 func _draw_sell(p: QuarryStationUI) -> void:
-	var bag_value := 0
+	var total_value := 0
+	var any := false
 	for key in RESOURCE_ORDER:
-		bag_value += int(round(float(int(state.inventory[key]) + int(state.storage.get(key, 0))) * state.unit_price(key)))
-	p.begin("SALES", state.money, "Optional keys: 1-8 sell, 9 sell all, Shift+1-8 clerk on/off")
+		var n := business.sellable_units(key)
+		if n > 0:
+			any = true
+			total_value += state.payout(key, n)
+	p.begin("SALES", state.money, "Sells from your bag, the storage bin and the output storages. Shift+1-8 clerk on/off")
 	var R := HORIZONTAL_ALIGNMENT_RIGHT
-	p.row([["MATERIAL", QuarryTheme.DIM, 110], ["BAG", QuarryTheme.DIM, 44, R], ["STORAGE", QuarryTheme.DIM, 64, R], ["PRICE EACH", QuarryTheme.DIM, 80, R], ["SALE VALUE", QuarryTheme.DIM, 90, R]], [], Color(0, 0, 0, 0), true)
+	if not any:
+		p.text("Nothing to sell yet. Mine some rock, or collect it from storage: whatever you own shows up here.", QuarryTheme.DIM)
+	else:
+		p.row([["MATERIAL", QuarryTheme.DIM, 110], ["IN BAG", QuarryTheme.DIM, 54, R], ["IN STORAGE", QuarryTheme.DIM, 76, R], ["PRICE EACH", QuarryTheme.DIM, 80, R], ["VALUE", QuarryTheme.DIM, 90, R]], [], Color(0, 0, 0, 0), true)
 	for i in range(RESOURCE_ORDER.size()):
 		var key: String = RESOURCE_ORDER[i]
 		var nb := int(state.inventory[key])
-		var ns := int(state.storage.get(key, 0))
+		var ns := int(state.storage.get(key, 0)) + business.output_units(key)
 		var n := nb + ns
-		var price_f := state.unit_price(key)
+		if n <= 0:
+			continue                              # only what you actually own: no empty rows for materials you have not found
 		var ok: bool = business.authorized[key]
-		p.row([[prog.display(key), QuarryTheme.INK, 110, HORIZONTAL_ALIGNMENT_LEFT, true], [str(nb), QuarryTheme.INK if nb > 0 else QuarryTheme.DIM, 44, R], [str(ns), QuarryTheme.INK if ns > 0 else QuarryTheme.DIM, 64, R], [("$%.2f" % price_f) if state.price_mult < 0.995 else ("$%d" % int(price_f)), QuarryTheme.DIM, 80, R], [QuarryTheme.money_text(int(round(float(n) * price_f))), QuarryTheme.MONEY if n > 0 else QuarryTheme.DIM, 90, R, true]],
-			[["clerk_" + key, "Clerk: " + ("on" if ok else "off"), true, func(): menu_act("sell", i, true), 84, "toggle"], ["sell_" + key, "SELL", n > 0, func(): menu_act("sell", i, false), 80, "primary"]], QuarryTheme.RES_COLORS.get(key, Color.WHITE))
-	p.button_bar([["sell_all", "SELL ALL   %s" % QuarryTheme.money_text(bag_value), bag_value > 0, func(): menu_act("sell", RESOURCE_ORDER.size(), false), 260, "primary"], ["office", "OFFICE COMPUTER", true, func(): _open_menu("manage"), 200]])
-	p.text("'Clerk' chooses what the sales clerk may sell for you. It never stops you selling by hand.")
-	if state.price_mult < 0.995:
-		p.text("Small lots: buyers pay %d%% of the full price. The pay rises as your quarry grows." % int(round(state.price_mult * 100.0)), QuarryTheme.DIM)
+		p.row([[prog.display(key), QuarryTheme.INK, 110, HORIZONTAL_ALIGNMENT_LEFT, true], [str(nb), QuarryTheme.INK if nb > 0 else QuarryTheme.DIM, 54, R], [str(ns), QuarryTheme.INK if ns > 0 else QuarryTheme.DIM, 76, R], ["$%s" % _price_text(state.unit_price(key)), QuarryTheme.DIM, 80, R], [QuarryTheme.money_text(state.payout(key, n)), QuarryTheme.MONEY, 90, R, true]],
+			[["clerk_" + key, "Clerk: " + ("on" if ok else "off"), true, func(): menu_act("sell", i, true), 84, "toggle"], ["sell_" + key, "SELL", true, func(): menu_act("sell", i, false), 80, "primary"]], QuarryTheme.RES_COLORS.get(key, Color.WHITE))
+	p.button_bar([["sell_all", "SELL ALL   %s" % QuarryTheme.money_text(total_value), total_value > 0, func(): menu_act("sell", RESOURCE_ORDER.size(), false), 260, "primary"], ["office", "OFFICE COMPUTER", true, func(): _open_menu("manage"), 200]])
+	p.text("Prices are the same at every stage. A sale never pays less than $1. 'Clerk' chooses what the sales clerk may sell for you.", QuarryTheme.DIM)
+
+func _price_text(v: float) -> String:
+	return ("%d" % int(v)) if absf(v - round(v)) < 0.005 else ("%.2f" % v)
 
 ## The workbench panel (Phase 8.3): what is in your hand, what the next tool on the pegboard would change, the price, and the
 ## other upgrades. Same data and purchases as before (menu_act "upgrades"); only the presentation is new.
@@ -2178,8 +2194,9 @@ func _draw_upgrades(p: QuarryStationUI) -> void:
 		var key: String = UPGRADE_MENU[i]
 		var info: Dictionary = prog.cfg.get("player_upgrades", {}).get(key, {})
 		var owned: bool = state.upgrades[key]
+		var open_ := owned or prog.unlocked(key)
 		p.item("up_" + key, str(info.get("title", key)), str(info.get("effect", "")), int(state.config["upgrades"][key]),
-			"INSTALLED" if owned else "", "OWNED" if owned else "BUY", not owned, func(): menu_act("upgrades", i + 1, false))
+			"INSTALLED" if owned else "", "OWNED" if owned else "BUY", (not owned) and open_, func(): menu_act("upgrades", i + 1, false), "" if open_ else prog.unlock_missing_text(key))
 
 ## Workbench in the office: the bench top, a vise, and the pegboard of tools above it (Phase 8.3). The tools you own hang
 ## in full colour; the next one is lit and has a price tag; the rest are dim.
@@ -2492,7 +2509,9 @@ func _draw_shop(p: QuarryStationUI) -> void:
 				owned += 1
 		var ok := prog.unlocked(t)
 		p.offer_item("shop_" + t, str(pair[1]), str(pair[2]), int(prog.machine(t)["price"]), "Owned: %d" % owned, _shop_offer(t, int(pair[3])), "" if ok else "Unlocks at the %s stage" % prog.feature_stage_title(t))
-	if prog.level_unlocked >= 2:
+	if prog.filled_world():
+		pass                                    # the new quarry's levels open as you excavate: there is no permit to buy
+	elif prog.level_unlocked >= 2:
 		p.item("shop_permit", "Excavation permit", "The lower level is open.", 0, "OWNED", "OWNED", false, func(): pass)
 	else:
 		var pok := prog.unlocked("permit")
@@ -3583,7 +3602,7 @@ func _validate_loaded_position() -> void:
 
 func _on_milestone(id: String) -> void:
 	if hud:
-		var titles := {"first_employee": ["Milestone: First Employee", "Remote management (M) and +5% staff productivity"], "mechanized": ["Milestone: Mechanized Quarry", "Conveyor belts and the front loader unlocked"], "automated": ["Milestone: Automated Business", "The east expansion is open"]}
+		var titles := {"first_employee": ["Milestone: First Employee", "Remote management (M) and +5% staff productivity"], "mechanized": ["Milestone: Mechanized Quarry", "Conveyor belts unlocked"], "automated": ["Milestone: Automated Business", "The east expansion is open"]}
 		var t: Array = titles.get(id, [id, ""])
 		hud.toast(str(t[0]), str(t[1]), "milestone")
 		_sfx_unlock()
@@ -4806,6 +4825,22 @@ func dump_target(point: Vector3, radius: float, from: QuarryVehicle) -> Dictiona
 					best = {"truck": other}
 	return best
 
+## What tipping the load at a target means, in plain words: does it pay, does it count toward an objective.
+func _unload_note(rec: Dictionary, t: Dictionary) -> String:
+	var soil_n := int(rec["cargo"].get("soil", 0))
+	if t.has("spoil"):
+		return "soil: no pay, counts toward Area 1" if soil_n > 0 else ""
+	if t.has("truck"):
+		return "loading a truck: no pay yet"
+	var worth := 0
+	for k in rec["cargo"]:
+		if str(k) != "soil":
+			worth += state.payout(str(k), int(rec["cargo"][k]))
+	var note := "worth about %s when sold" % QuarryTheme.money_text(worth) if worth > 0 else ""
+	if soil_n > 0:
+		note += ("; " if note != "" else "") + "loose soil cannot be stored: tip it on the spoil heap"
+	return note
+
 func _target_name(t: Dictionary) -> String:
 	if t.has("spoil"):
 		return "the spoil heap"
@@ -4840,7 +4875,7 @@ func vehicle_dump(v: QuarryVehicle, quiet := false) -> int:
 	v.dump_timer = 1.0
 	if moved > 0:
 		fx.chunk_break(v.work_point() + Vector3(0, 1.0, 0), "limestone")
-	if not quiet: _notify("Dumped %d into %s.%s" % [moved, _target_name(t), (" %d left in the bucket (target full or wrong material)." % fleet.cargo_total(rec)) if fleet.cargo_total(rec) > 0 else ""])
+	if not quiet: _notify("Dumped %d into %s.%s%s" % [moved, _target_name(t), (" %d left in the bucket (target full or wrong material)." % fleet.cargo_total(rec)) if fleet.cargo_total(rec) > 0 else "", (" Loose soil cannot be stored: use the spoil heap.") if int(rec["cargo"].get("soil", 0)) > 0 and not t.has("spoil") else ""])
 	return moved
 
 ## A delivery to a destination (storage crate, crusher, output storage) is the only thing that counts as a shipment, and only for the units
@@ -4863,7 +4898,7 @@ func truck_finish_unload(v: QuarryVehicle, t: Dictionary) -> int:
 	var rec := fleet.vehicle(v.vehicle_id)
 	if t.has("spoil"):
 		var sm := _dump_soil(rec)
-		_notify("Tipped %d soil onto the spoil heap." % sm)
+		_notify("Tipped %d soil onto the spoil heap. Soil pays nothing; it counts toward the Area 1 contract." % sm)
 		return sm
 	if rec.is_empty() or not t.has("ep") or not business.ep_valid(t["ep"]):
 		return 0
@@ -4871,7 +4906,7 @@ func truck_finish_unload(v: QuarryVehicle, t: Dictionary) -> int:
 	_credit_delivery(rec)
 	if moved > 0:
 		fx.chunk_break(v.work_point() + Vector3(0, 0.8, 0), "limestone")
-	_notify("Unloaded %d into %s.%s" % [moved, _target_name(t), (" %d stays on the truck (target full or wrong material)." % fleet.cargo_total(rec)) if fleet.cargo_total(rec) > 0 else ""])
+	_notify("Unloaded %d into %s.%s%s" % [moved, _target_name(t), (" %d stays on the truck (target full or wrong material)." % fleet.cargo_total(rec)) if fleet.cargo_total(rec) > 0 else "", (" Loose soil cannot be stored: take it to the spoil heap.") if int(rec["cargo"].get("soil", 0)) > 0 else ""])
 	return moved
 
 ## Everything the vehicle plate and the prompt line need while a machine is driven: its name, speed against its top speed, load against capacity (and what
@@ -4899,6 +4934,9 @@ func hud_drive_info() -> Dictionary:
 		var t := dump_target(point, 3.0, driving)
 		if not t.is_empty():
 			action = "Right click: unload into " + _target_name(t)
+			var un := _unload_note(rec, t)
+			if un != "":
+				action += " (%s)" % un
 	if driving.vkind == "excavator" and action == "":
 		if not excavator_target(driving).is_empty():
 			action = "Hold left click: dig %s" % prog.display(str(excavator_target(driving)["res"]))
@@ -6213,6 +6251,8 @@ func _spawn_discovery(did: String, formation: String) -> void:
 	if discovery_nodes.has(did) or not prog.is_formation(formation):
 		return
 	var c: Vector3 = prog.formation_origin_world(formation)
+	if prog.filled_world() and formation == "q_top":
+		c = Vector3(6.0, -1.2, -16.0)          # the new quarry: the lockbox lies on the cut ground just inside the gate
 	var body := _solid(world, "Lockbox", Vector3(c.x, c.y + 0.25, c.z), Vector3(0.7, 0.5, 0.45), Color(0.32, 0.22, 0.14), 0.4)
 	body.set_meta("kind", "discovery")
 	body.set_meta("discovery", did)
@@ -6498,21 +6538,17 @@ func sell_from_bag(keys: Array) -> int:
 	var total := 0
 	var parts := []
 	for key in keys:
-		var n := int(state.inventory[key])
-		var ns := int(state.storage.get(key, 0))
-		if n <= 0 and ns <= 0:
+		var r := business.sell_material(str(key))          # bag, then storage bin, then output storages: one sale, one rounding
+		if int(r["units"]) <= 0:
 			continue
-		var before := state.money
-		state.sell(key, n)                    # the bag first, then whatever waits in the storage bin
-		state.sell_storage(key, ns)
-		total += state.money - before
-		parts.append("%d %s" % [n + ns, prog.display(key).to_upper()])
+		total += int(r["money"])
+		parts.append("%d %s" % [int(r["units"]), prog.display(key).to_upper()])
 	if total > 0:
 		sfx["coin"].play()
 		hud.toast("Sold " + ", ".join(parts), "+" + QuarryTheme.money_text(total), "sale")
 		_notify("Sold %s for %s" % [", ".join(parts), QuarryTheme.money_text(total)])
 	else:
-		_notify("Nothing of that in your bag or in storage.")
+		_notify("Nothing of that in your bag, the storage bin or the output storages.")
 	return total
 
 func buy_next_tool() -> bool:
@@ -6562,6 +6598,9 @@ func cycle_tool() -> void:
 
 func buy_player_upgrade(key: String) -> bool:
 	var info: Dictionary = prog.cfg.get("player_upgrades", {}).get(key, {})
+	if not state.upgrades.get(key, false) and not prog.unlocked(key):
+		_notify(prog.unlock_missing_text(key))
+		return false
 	if not state.buy_upgrade(key):
 		_notify("Already owned" if state.upgrades.get(key, false) else "Need $%d" % int(state.config["upgrades"].get(key, 0)))
 		return false

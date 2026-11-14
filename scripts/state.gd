@@ -117,7 +117,7 @@ func cart_sell(id: String, key: String, n: int) -> int:
 		return 0
 	_cart_pull(id, key, m)
 	note_lifetime("sold", key, m)
-	add_income(int(round(float(m) * unit_price(key))), "sale")
+	add_income(payout(key, m), "sale")
 	return m
 
 ## Every unit the player owns in any container (bag, storage, carts): the conserved quantity in transfers.
@@ -131,8 +131,12 @@ func note_lifetime(kind: String, key: String, amount: int) -> void:
 	if amount > 0:
 		lifetime[kind][key] = int(lifetime[kind].get(key, 0)) + amount
 
+## The bin is sized for the trucks of the stage: the stage adds room (storage_stage_bonus, set by the progression) so a truck
+## bed can always be tipped; Expanded Storage adds more on top.
+var storage_stage_bonus := 0
+
 func storage_capacity() -> int:
-	return int(config.get("storage_capacity", 40)) + (40 if upgrades["expanded_storage"] else 0)
+	return int(config.get("storage_capacity", 40)) + storage_stage_bonus + (60 if upgrades["expanded_storage"] else 0)
 
 func total(items: Dictionary) -> int:
 	var result := 0
@@ -154,7 +158,7 @@ func sell(key: String, amount: int) -> int:
 	var sold: int = mini(amount, int(inventory[key]))
 	inventory[key] -= sold
 	note_lifetime("sold", key, sold)
-	add_income(int(round(float(sold) * unit_price(key))), "sale")
+	add_income(payout(key, sold), "sale")
 	return sold
 
 ## Sells what is in the storage bin (not only what is in the bag).
@@ -166,12 +170,19 @@ func sell_storage(key: String, amount: int) -> int:
 		return 0
 	storage[key] -= sold
 	note_lifetime("sold", key, sold)
-	add_income(int(round(float(sold) * unit_price(key))), "sale")
+	add_income(payout(key, sold), "sale")
 	return sold
 
 ## What the buyers pay for one unit right now (the base price times the stage's pay factor).
 func unit_price(key: String) -> float:
 	return float(config["prices"].get(key, 0)) * price_mult
+
+## What `units` of a material pay: the price times the units, rounded to whole dollars, but never $0 for a real sale of a
+## material that has a price (a lot of 1 topsoil pays $1, not nothing). Every sale path uses this one rule.
+func payout(key: String, units: int, factor := 1.0) -> int:
+	if units <= 0 or unit_price(key) <= 0.0:
+		return 0
+	return maxi(1, int(round(float(units) * unit_price(key) * factor)))
 
 ## Every revenue source goes through here so lifetime earnings (stage progress) stay honest.
 func add_income(amount: int, source := "sale") -> void:

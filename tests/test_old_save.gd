@@ -97,7 +97,7 @@ func run() -> void:
 			st.inventory[ik] = 0
 	check(prog.area_complete("area_1"), "the migrated save completes the Area 1 contract by playing on")
 	var gained := st.money - money0
-	check(gained >= 300 and gained <= 300 + 600 + 200, "the contract reward is paid once on top of the cleanup letter ($%d gained)" % gained)
+	check(gained >= 120 and gained <= 120 + 150 + 200, "the contract reward is paid once on top of the cleanup letter ($%d gained)" % gained)
 	var m1 := st.money
 	prog.area_check("area_1")
 	check(st.money == m1, "and not again")

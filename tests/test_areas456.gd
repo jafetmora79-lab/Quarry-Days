@@ -103,9 +103,9 @@ func run() -> void:
 	var m0 := st.money
 	prog.area_add("area_4", "shipped", 80)
 	prog.area_check("area_4")
-	check(prog.area_complete("area_4") and st.money == m0 + 6000, "Area 4 completes and pays $6,000 once (%d)" % (st.money - m0))
+	check(prog.area_complete("area_4") and st.money == m0 + 2500, "Area 4 completes and pays $2,500 once (%d)" % (st.money - m0))
 	prog.area_check("area_4")
-	check(st.money == m0 + 6000, "never twice")
+	check(st.money == m0 + 2500, "never twice")
 	check(prog.area_available("area_5") and not prog.area_available("area_6"), "Area 5 opens after Area 4")
 	for k in ["rock", "recovered", "visited", "shipped"]:
 		prog.area_add("area_5", k, 200 if k != "visited" else 1)

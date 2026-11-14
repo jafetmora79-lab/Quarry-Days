@@ -75,9 +75,9 @@ func run() -> void:
 	check(p3.area_complete("area_1"), "Area 1 completes")
 	check(p3.area_available("area_2") and not p3.area_complete("area_2"), "Area 2 opens; it still needs the player to reach it")
 	p3.area_visit("area_2")
-	check(p3.area_complete("area_2") and g3.state.money == money0 + 300 + 800, "reaching Area 2 completes it from the banked work, paid once (%d)" % (g3.state.money - money0))
+	check(p3.area_complete("area_2") and g3.state.money == money0 + 120 + 300, "reaching Area 2 completes it from the banked work, paid once (%d)" % (g3.state.money - money0))
 	p3.area_check("area_2")
-	check(g3.state.money == money0 + 1100, "never paid twice")
+	check(g3.state.money == money0 + 420, "never paid twice")
 	# shipments: loading a truck is not one; delivering is, once, for the area the rock came from
 	g3.state.money = 900000
 	g3.state.add_item("limestone", 0)

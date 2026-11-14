@@ -45,6 +45,8 @@ func run() -> void:
 	# sell menu
 	game.state.inventory["limestone"] = 12
 	game.state.inventory["coal"] = 3
+	for k in game.state.inventory.keys():
+		game.state.inventory[k] = 1                  # the booth only lists what you own
 	game._open_menu("sell", -1)
 	await process_frame
 	await process_frame
