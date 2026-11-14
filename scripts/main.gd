@@ -117,6 +117,8 @@ var title_enabled := DisplayServer.get_name() != "headless"      ## the main men
 var title: QuarryTitleMenu
 var music: QuarryMusic
 var survey: QuarrySurvey
+var ramps: QuarryRamps               ## temporary haul ramps (the ramp tool)
+var plan_view: QuarryPlanView         ## the handheld quarry plan (Q)
 var dialog: QuarryIntroDialog         # the introduction with a new employee, while it is open
 var dialog_worker: Node3D
 var _forced_sleep := false
@@ -256,6 +258,9 @@ func _ready() -> void:
 	music.setup(self)
 	survey = QuarrySurvey.new()
 	survey.setup(self)
+	ramps = QuarryRamps.new()
+	ramps.setup(self)
+	ramps.restore(state.ramps)
 	_update_light()
 	_refresh_stage_hud()
 	if autosave_enabled and FileAccess.file_exists(SAVE_PATH):
@@ -1387,6 +1392,12 @@ func _player_mining(delta: float) -> void:
 	_mismatch_t = maxf(0.0, _mismatch_t - delta)
 	bag_full_t = maxf(0.0, bag_full_t - delta)
 	var lmb := _mine_button_down()
+	if str(prog.tool().get("class", "")) == "survey":
+		_ramp_tool(lmb)                                # the ramp tool plans and builds; it never swings
+		return
+	if ramps != null and ramps.ghost != null and ramps.ghost.visible:
+		ramps.hide_ghost()
+	ramp_prompt = ""
 	if prog.is_continuous():
 		tv.operating = lmb
 		if lmb:
@@ -1489,6 +1500,9 @@ func _setup_ui() -> void:
 	panel = QuarryStationUI.new()
 	ui.add_child(panel)
 	(panel as QuarryStationUI).setup(self)
+	plan_view = QuarryPlanView.new()
+	ui.add_child(plan_view)
+	plan_view.setup(self)
 
 func _notify(s: String) -> void:
 	message = s
@@ -1763,6 +1777,8 @@ func _physics_process(delta: float) -> void:
 				prompt = "%s: %d units - scoop it with a front loader" % [fleet.cfg["piles"][str(last_target.get_meta("pile"))]["title"], int(fleet.piles[str(last_target.get_meta("pile"))]["amount"])]
 	if construction and not placement:
 		prompt = _construction_prompt()
+	if ramp_prompt != "" and not driving and menu == "":
+		prompt = ramp_prompt
 	if driving:
 		prompt = str(hud_drive_info().get("action", ""))
 	if placement:
@@ -1847,6 +1863,11 @@ func _unhandled_input(event: InputEvent) -> void:
 				_save(true)                          # opening the pause menu is a natural checkpoint
 		get_viewport().set_input_as_handled()
 		return
+	if menu == "plan":
+		if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_Q:
+			_close_menu()
+			get_viewport().set_input_as_handled()
+		return
 	if menu == "manage":
 		if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_M:
 			_close_menu()
@@ -1883,6 +1904,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_F and held_cart != null and menu == "":
 		release_cart()
 		_notify("You let go of the cart.")
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_Q and not placement and not driving and name_dialog == null and not construction:
+		if menu == "plan":
+			_close_menu()
+		elif menu == "" and gameplay_input_allowed():
+			open_plan()
+		return
 	if event is InputEventKey and event.pressed and not event.echo and not placement and not driving and menu == "" and name_dialog == null and not construction \
 			and event.physical_keycode >= KEY_1 and event.physical_keycode <= KEY_9:
 		select_tool_slot(int(event.physical_keycode) - int(KEY_1))              # the hotbar
@@ -2058,6 +2085,8 @@ func _close_menu() -> void:
 	panel.visible = false
 	panel.pane.pause()                              # the preview stops rendering while no shop is open
 	management.visible = false
+	if plan_view != null:
+		plan_view.visible = false
 	player.locked = false
 	crusher_audio.stream_paused = false
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -3764,6 +3793,8 @@ func _load(quiet := false) -> void:
 			rev += int(business.daily[day].get("revenue", 0))
 		state.earned = maxi(state.earned, rev + state.money)
 		prog.check_stages()
+	if ramps != null:
+		ramps.restore(state.ramps)                       # temporary haul ramps come back exactly as they were (older saves have none)
 	prog.ensure_starter_tools(false)                 # an older save gains Grandpa's shovel (and keeps the tool it had in hand)
 	var legacy := _migrate_legacy_deposits()
 	var resume_driving := fleet.driving_id
@@ -6960,6 +6991,60 @@ func buy_gear(id: String) -> bool:
 
 ## Q: take the next tool you own into your hand.
 var _mismatch_t := 0.0
+var ramp_prompt := ""
+var _ramp_lmb_prev := false
+var _ramp_rmb_prev := false
+
+## The ramp tool in hand: shows the plan under the crosshair (green when it can be built, red with the reason when not); left click builds it, right click removes
+## the ramp you are looking at (never one that is occupied).
+func _ramp_tool(lmb: bool) -> void:
+	player.tool_view.operating = false
+	var rmb := Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) and gameplay_input_allowed()
+	var start := player.camera.global_position
+	var fwd := -player.camera.global_transform.basis.z
+	var q := PhysicsRayQueryParameters3D.create(start, start + fwd * 16.0, 1)
+	q.exclude = [player.get_rid()]
+	var hit := get_world_3d().direct_space_state.intersect_ray(q)
+	var look_ramp := -1
+	if not hit.is_empty() and hit["collider"] is Node3D and (hit["collider"] as Node3D).has_meta("ramp_id"):
+		look_ramp = int((hit["collider"] as Node3D).get_meta("ramp_id"))
+	if hit.is_empty() or (look_ramp < 0 and float(hit["normal"].y) < 0.5):
+		ramps.hide_ghost()
+		ramp_prompt = "RAMP TOOL: aim at the ground where the ramp should start (face the way it climbs)"
+		_ramp_lmb_prev = lmb
+		_ramp_rmb_prev = rmb
+		return
+	var plan := ramps.evaluate(hit["position"], player.rotation.y)
+	if look_ramp >= 0 and not (lmb and false):
+		# aiming at a ramp: only its top landing is a start for the next stage (evaluate snaps to it); otherwise show removal
+		var near_landing := not ramps.landing_near(hit["position"]).is_empty()
+		if not near_landing:
+			ramps.hide_ghost()
+			ramp_prompt = "RAMP: right click removes it" + ("" if ramps.removal_block(look_ramp) == "" else "  -  " + ramps.removal_block(look_ramp))
+			if rmb and not _ramp_rmb_prev:
+				var why := ramps.remove(look_ramp)
+				_notify("Ramp removed." if why == "" else why)
+				if why == "":
+					_sfx_unlock()
+			_ramp_lmb_prev = lmb
+			_ramp_rmb_prev = rmb
+			return
+	ramps.show_ghost(plan)
+	if bool(plan["valid"]):
+		ramp_prompt = "RAMP: left click builds it  -  %d%% grade, %.0f m long, climbs %.1f m%s" % [roundi(float(plan["slope"]) * 100.0), float(plan["len"]), float(plan["y1"]) - float(plan["y0"]), ("  |  " + str(plan["note"])) if str(plan["note"]) != "" else ""]
+	else:
+		ramp_prompt = "RAMP: " + str(plan["reason"])
+	if lmb and not _ramp_lmb_prev:
+		if bool(plan["valid"]):
+			var id := ramps.place(plan)
+			if id >= 0:
+				_sfx_at("hit_pick", hit["position"], -4.0)
+				fx.impact(hit["position"] + Vector3(0, 0.3, 0), "limestone", 0.6)
+				_notify("Ramp built: %d%% grade, %.0f m. Press right click on it to take it away again." % [roundi(float(plan["slope"]) * 100.0), float(plan["len"])])
+		else:
+			_notify(str(plan["reason"]))
+	_ramp_lmb_prev = lmb
+	_ramp_rmb_prev = rmb
 ## A short, useful reason when the tool in hand does not suit the material (at most one message a second, and the tool bounces).
 func _tool_mismatch(why: String) -> void:
 	if _mismatch_t > 0.0:
@@ -6969,6 +7054,28 @@ func _tool_mismatch(why: String) -> void:
 	player.tool_view.deflect()
 
 ## Puts tool number `slot` of the hotbar in hand (keys 1-9).
+## Q: the handheld quarry plan.
+func open_plan() -> void:
+	if menu != "" or driving or placement:
+		return
+	menu = "plan"
+	if hud:
+		hud.menu_open = true
+	panel.visible = false
+	management.visible = false
+	player.locked = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	plan_view.open()
+
+## The ring outlines in the 3D world on or off (kept in the save).
+func set_plan_outlines(on: bool) -> void:
+	state.plan_outlines = on
+	if survey != null:
+		survey.refresh(true)
+
+func ramps_for_plan() -> Array:
+	return ramps.plan_segments() if ramps != null else []
+
 func select_tool_slot(slot: int) -> void:
 	if prog.select_slot(slot) == null:
 		return

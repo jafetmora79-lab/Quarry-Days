@@ -816,9 +816,11 @@ func refresh_panels() -> void:
 		top_dps = maxf(top_dps, prog.tool_dps(ti))
 	_pow_target = prog.tool_dps() / top_dps
 	power_label.text = "Mining power %.0f a second" % prog.tool_dps()
-	tool_icon.set_kind("shovel" if str(t.get("class", "")) == "digging" else ("hammer" if st.tool_tier == 0 and st.equipped == "" else "pick"))
+	tool_icon.set_kind("flag" if str(t.get("class", "")) == "survey" else "shovel" if str(t.get("class", "")) == "digging" else ("hammer" if st.tool_tier == 0 and st.equipped == "" else "pick"))
 	var hard: String = "Topsoil and gravel" if str(t.get("class", "")) == "digging" else ["", "Stone and coal", "Up to iron", "Up to copper", "Anything, gold too"][clampi(int(t.get("max_hardness", 1)), 0, 4)]
-	power_label.text = "%s" % hard if str(t.get("class", "")) == "digging" else power_label.text
+	if str(t.get("class", "")) == "survey":
+		hard = "Plans and builds haul ramps"
+	power_label.text = "%s" % hard if str(t.get("class", "")) in ["digging", "survey"] else power_label.text
 	_set_hotbar(prog)
 	var used := st.total(st.inventory)
 	var cap := st.capacity()

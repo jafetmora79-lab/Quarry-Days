@@ -313,6 +313,24 @@
       "gap_m": 0.01,
       "note": "",
       "ok": true
+    },
+    {
+      "check": "shovel R hand",
+      "gap_m": 0.018,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "shovel L hand",
+      "gap_m": 0.018,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "ramp_plan R hand",
+      "gap_m": 0.015,
+      "note": "",
+      "ok": true
     }
   ],
   "tool tip": [
@@ -367,6 +385,18 @@
     {
       "check": "pneumatic_chisel working tip on the model",
       "gap_m": 0.006,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "shovel working tip on the model",
+      "gap_m": 0.008,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "ramp_plan working tip on the model",
+      "gap_m": 0.015,
       "note": "",
       "ok": true
     }

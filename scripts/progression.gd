@@ -110,8 +110,9 @@ func hotbar_slot() -> int:
 
 ## Every game owns Grandpa's shovel. A new game starts with it in hand; an older save keeps whatever tool it had in hand and simply gains the shovel.
 func ensure_starter_tools(new_game := false) -> void:
-	if not ("shovel" in state.gear):
-		state.gear.append("shovel")
+	for id in gear_ids():
+		if bool(cfg["gear"][id].get("starter", false)) and not (id in state.gear):
+			state.gear.append(id)                 # the shovel and the ramp plan: everyone owns them
 	if new_game:
 		state.equipped = "shovel"
 

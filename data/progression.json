@@ -7644,6 +7644,18 @@
    "pitch": 0.6,
    "starter": true
   },
+  "ramp_plan": {
+   "title": "Ramp Plan",
+   "cost": 0,
+   "class": "survey",
+   "model": 0,
+   "desc": "Plan and build a temporary haul ramp out of an excavation. Left click builds, right click removes.",
+   "power": 0,
+   "interval": 1.0,
+   "max_hardness": 0,
+   "sound": "hit_hammer",
+   "starter": true
+  },
   "pointed_chisel": {
    "title": "Pointed Chisel",
    "cost": 40,

@@ -162,8 +162,8 @@ func refresh() -> void:
 		var id := str(def["id"])
 		var stt := ring_state(id)
 		var pr := prog.area_progress(id)
-		var tag := {"done": "DONE", "active": "ACTIVE", "next": "NEXT", "later": "LATER"}[stt]
-		var col := {"done": Color(0.2, 0.5, 0.2), "active": Color(0.62, 0.36, 0.05), "next": Color(0.35, 0.3, 0.2), "later": Color(0.5, 0.45, 0.38)}[stt]
+		var tag: String = {"done": "DONE", "active": "ACTIVE", "next": "NEXT", "later": "LATER"}[stt]
+		var col: Color = {"done": Color(0.2, 0.5, 0.2), "active": Color(0.62, 0.36, 0.05), "next": Color(0.35, 0.3, 0.2), "later": Color(0.5, 0.45, 0.38)}[stt]
 		var line := "RING %d  %s  %s" % [n, tag, ("%d%%" % int(pr.get("pct", 0))) if stt in ["done", "active"] and not pr.is_empty() else ""]
 		var l := QuarryTheme.label(line, QuarryTheme.BODY, col, stt == "active")
 		list_box.add_child(l)
@@ -219,9 +219,9 @@ func _draw_map() -> void:
 		var p0 := _to_map(r.position, b)
 		var p1 := _to_map(r.end, b)
 		var rect := Rect2(p0, p1 - p0).abs()
-		var fill := {"done": Color(0.35, 0.65, 0.35, 0.4), "active": Color(0.98, 0.7, 0.2, 0.5), "next": Color(0.8, 0.75, 0.6, 0.15), "later": Color(0.6, 0.55, 0.45, 0.12)}[stt]
+		var fill: Color = {"done": Color(0.35, 0.65, 0.35, 0.4), "active": Color(0.98, 0.7, 0.2, 0.5), "next": Color(0.8, 0.75, 0.6, 0.15), "later": Color(0.6, 0.55, 0.45, 0.12)}[stt]
 		map.draw_rect(rect, fill)
-		var edge := {"done": Color(0.2, 0.5, 0.2), "active": Color(0.75, 0.42, 0.05), "next": Color(0.4, 0.35, 0.25), "later": Color(0.55, 0.5, 0.42)}[stt]
+		var edge: Color = {"done": Color(0.2, 0.5, 0.2), "active": Color(0.75, 0.42, 0.05), "next": Color(0.4, 0.35, 0.25), "later": Color(0.55, 0.5, 0.42)}[stt]
 		if stt in ["done", "active"]:
 			map.draw_rect(rect, edge, false, 2.0 if stt == "active" else 1.0)
 		else:

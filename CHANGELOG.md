@@ -361,3 +361,11 @@ Priority: one continuous rock surface, then the simple background. No visual che
 - Quarry Plan: headline "now cutting" with real progress toward the next level, ACTIVE / OPEN / NEXT / LOCKED tags, depth, materials, progress bars, road costs and shortfalls. Sales: separate bag / bin / output columns and totals; only owned materials listed.
 - `test_quarry_os_polish`.
 - Typography follow-up: the readable-floor growth is capped (+1 base unit, text of the HUD and shop panels keeps its design size, pixel-font snapping may enlarge a label by 2 base units at most) after the first version burst the shop panel and HUD plates at 1280x720; the computer's Machinery pane follows the window size.
+
+## Excavation overhaul (claude/excavation-overhaul)
+- Space jumps (0.9 m) and climbs ledges up to 1.25 m with an eased two-stage mantle; landing dips the view slightly. No air jumps; blocked during menus, dialogue, cards and the computer.
+- Shovel for loose ground, hammer / pickaxes for rock, with the reason shown when the tool does not suit; hotbar on 1-9 and the wheel; Q is now the quarry plan. Starter gear (`"starter": true`): shovel and ramp plan.
+- The column under the player can be dug away; the player drops onto the new surface.
+- Temporary haul ramps (ramp plan tool): validated preview, solid graded wedge, staging, removal rules, saved. A loaded truck drives up and down in the test.
+- The quarry plan (Q): rings, contract vs overall progress, outlines switch, roads and ramps; survey stakes stand on real ground and completed levels lose theirs.
+- Tests: `test_movement`, `test_ramps`, `test_excavation_gameplay`; the old "column under the player is protected" assertions now assert the new rule.

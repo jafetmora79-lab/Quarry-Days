@@ -24,8 +24,8 @@ func setup(main_node) -> void:
 func targets() -> Array:
 	var out := []
 	var prog: QuarryProgression = game.prog
-	if game.pit_zone == null:
-		return out
+	if game.pit_zone == null or not game.state.plan_outlines:
+		return out                              # outlines switched off in the quarry plan
 	if prog.natural_start() and game.natural_start_enabled:
 		var a := prog.area_def("area_1")
 		if not a.is_empty() and not prog.area_complete("area_1"):
@@ -66,7 +66,7 @@ func refresh(force := false) -> void:
 
 ## Height (in `host`'s frame) of the real ground under a point, or NAN where there is none within reach: markers stand on what is there, never in the air.
 func _ground_y(host: Node3D, lx: float, lz: float, y_hint: float) -> float:
-	var top := host.to_global(Vector3(lx, y_hint + 1.5, lz))
+	var top := host.to_global(Vector3(lx, y_hint + 14.0, lz))              # from well above: a ray that starts inside rock would miss that rock
 	var q := PhysicsRayQueryParameters3D.create(top, top - Vector3(0, 30.0, 0))
 	var hit: Dictionary = game.get_world_3d().direct_space_state.intersect_ray(q)
 	if hit.is_empty():
