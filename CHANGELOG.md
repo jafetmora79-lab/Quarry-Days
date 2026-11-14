@@ -1,5 +1,16 @@
 # Changelog
 
+### Machinery overhaul (branch claude/quarry-machinery-overhaul)
+- **Auto crew (J / R3 / AUTO button):** a bought excavator or dump truck can run itself. The excavator digs, swings and loads a truck, crusher, output, storage or the spoil heap; the truck hauls on the nav route (round the soil field too), turns, backs up, tips and returns. It uses the normal dig / dump / transfer code, so nothing is created or lost. Running cost per bucket / trip is `auto_cost` in `data/vehicles.json` ($3-$9). The flag is saved with the vehicle.
+- **Belts and crushers:** a lamp on each belt shows active / idle / blocked / disconnected; crushers vibrate and animate at their real processing speed.
+- **Deliveries:** stationary machinery arrives on a flatbed with a crate (cosmetic; the order is paid and in inventory at once). K / L3 / SKIP skips any delivery with the same end state.
+- **Workers:** idle fidgets (look round, wipe brow); a clerk can be assigned to a sorting table (sorting pose, starts batches).
+- **Rigs and breakers:** stabiliser legs, chassis hum / kick per blow, heavy breaker slower and heavier.
+- **Sorting table, carts, compressor:** rocks in their own colours and per-mineral trays; carts have turning wheels, lean, tip out and show the player's hands on the handles; the compressor runs, shakes and drives a visible air hose only while an air tool works.
+- **First person:** chisels are held and struck with a hammer; every tool stays clear of the camera; each tool's hit sound follows its power and class.
+- **Opening:** two establishing shots before the meeting with Grandpa (skippable, once only).
+- **Tests:** `tools/run_tests.sh` runs every suite in parallel (about 3 minutes); `--changed` runs only the suites that touch changed files.
+
 ### The named cast
 - **Every person has their own model:** Grandpa Walter, Dr. Evelyn Marsh and all twelve hireable workers (Rosa, Dmitri, Ines, Nia, Tomas, Hana, Sofia, Bram, Lucia, Felix, Petra, Omar). Each has a distinct face, nose, ears, build, height and posture, plus their own hair, outfit and gear: hard hats, hi-vis, coveralls, ear defenders, glasses, beards and moustaches, tool belts, radios, gloves, a satchel and a cardigan. Built in THE VEIL's pixel low-poly style by `tools/character_cast/` (see its README).
 - **Same rig as before:** the existing 22-bone humanoid with the same sockets and bone frames, so every worker animation, tool grip and Walter's cutscenes work unchanged.

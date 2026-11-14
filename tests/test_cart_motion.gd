@@ -58,6 +58,13 @@ func run() -> void:
 			slid = minf(slid, load_node.position.z - float(load_node.get_meta("rest_z", load_node.position.z)))
 		check(deepest < -0.5, "%s: unloading tips the barrow forward over the wheel (%.2f rad)" % [id, deepest])
 		check(absf(c.tilt.rotation.x) < 0.05 and c.tip_t == 0.0, "%s: and it comes back level" % id)
+		check((c.grip_hands != null) == (id != "hand_cart"), "%s: gloved hands on the handles exactly for the push carts" % id)
+		if c.grip_hands:
+			check(not c.grip_hands.visible, "%s: the hands are hidden while the cart stands alone" % id)
+			c.held = true
+			await frames(3)
+			check(c.grip_hands.visible, "%s: and on the handles while someone pushes it" % id)
+			c.held = false
 		c.queue_free()
 		await process_frame
 	# ---- the compressor: shakes and runs only while a powered tool is really in use
@@ -77,13 +84,9 @@ func run() -> void:
 	for ch in prop.get_children():
 		if ch is Node3D and not ch is CollisionShape3D and not ch is AudioStreamPlayer3D:
 			model = ch
-	var tier := -1
-	for t in range(0, 12):
-		if game.prog.is_continuous(t):
-			tier = t
-			break
-	check(tier >= 0, "there is a hold-to-drill powered tool")
-	game.state.tool_tier = tier
+	game.state.gear.append("pneumatic_chisel")
+	game.state.equipped = "pneumatic_chisel"
+	check(bool(game.prog.tool().get("powered", false)), "the pneumatic chisel is an air tool")
 	game.touch_mode = true
 	game.touch_mine = true                               # the same "mouse held" input a touch player gives
 	var peak := 0.0
@@ -93,8 +96,12 @@ func run() -> void:
 		peak = maxf(peak, (model.position - at_rest).length())
 	check(game.compressor_run > 0.9 and game.compressor_audio != null and game.compressor_audio.playing, "while a powered tool is in use the compressor runs and the motor loop plays")
 	check(peak > 0.0015 and peak < 0.02, "and its body vibrates (%.4f m)" % peak)
+	check(game.hose_node != null and game.hose_node.visible and game.hose_node.mesh != null, "the air hose runs from the compressor to the tool while it works")
+	var hose_aabb: AABB = game.hose_node.mesh.get_aabb()
+	check(hose_aabb.size.length() > 0.5, "and it spans the distance between them (%.1f m)" % hose_aabb.size.length())
 	game.touch_mine = false
 	await frames(150)
+	check(not game.hose_node.visible, "the hose is not drawn once the tool is released")
 	check(game.compressor_run < 0.02 and not game.compressor_audio.playing and model.position.length() < 0.0005, "when the tool is released it winds down, goes silent and stops shaking")
 	print("RESULT: %d checks, %d failures" % [checks, failures.size()])
 	quit(1 if failures.size() > 0 else 0)

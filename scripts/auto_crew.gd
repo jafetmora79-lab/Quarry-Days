@@ -309,6 +309,134 @@ func _drive(v: QuarryVehicle, target_speed: float, steer: float) -> void:
 		brake = true
 	v.input = {"throttle": throttle, "steer": clampf(steer, -1.0, 1.0), "brake": brake}
 
+# ------------------------------------------------------------------ routing around the soil field
+
+const SOIL_BLOCK := 0.3          ## soil at least this deep stops a truck (it is a solid ledge to the hull)
+
+func _soil_blocked(p: Vector3) -> bool:
+	var soil = game.soil
+	if soil == null or not is_instance_valid(soil):
+		return false
+	var i: int = soil.cell_at(Vector3(p.x, 0.0, p.z))
+	return i >= 0 and soil.height(i) >= SOIL_BLOCK
+
+func _path_hits_soil(path: PackedVector3Array) -> bool:
+	for k in range(path.size() - 1):
+		var a := path[k]
+		var b := path[k + 1]
+		var n := int(ceil(a.distance_to(b) / 1.0))
+		for j in range(n + 1):
+			if _soil_blocked(a.lerp(b, float(j) / float(maxi(1, n)))):
+				return true
+	return false
+
+## A* over a grid of the soil's own cell size covering both ends, soil cells (and the ring around them, a truck is wide) blocked, the surroundings of the
+## two ends cleared so a machine standing against the field can still get out. Returns waypoints, or an empty array when there is no way round.
+func soil_route(from: Vector3, to: Vector3) -> PackedVector3Array:
+	var soil = game.soil
+	if soil == null:
+		return PackedVector3Array()
+	var cell: float = float(soil.cell)
+	var lo := Vector2(minf(from.x, to.x), minf(from.z, to.z)) - Vector2(14.0, 14.0)
+	var hi := Vector2(maxf(from.x, to.x), maxf(from.z, to.z)) + Vector2(14.0, 14.0)
+	var cols := int(ceil((hi.x - lo.x) / cell))
+	var rows := int(ceil((hi.y - lo.y) / cell))
+	if cols * rows > 9000 or cols < 2 or rows < 2:
+		return PackedVector3Array()
+	var f2 := Vector2(from.x, from.z)
+	var t2 := Vector2(to.x, to.z)
+	var raw := PackedByteArray()
+	raw.resize(cols * rows)
+	for j in range(rows):
+		for i in range(cols):
+			var c := lo + Vector2((float(i) + 0.5) * cell, (float(j) + 0.5) * cell)
+			raw[j * cols + i] = 1 if _soil_blocked(Vector3(c.x, 0.0, c.y)) else 0
+	var blocked := PackedByteArray()
+	blocked.resize(cols * rows)
+	for j in range(rows):
+		for i in range(cols):
+			var c := lo + Vector2((float(i) + 0.5) * cell, (float(j) + 0.5) * cell)
+			var b := 0
+			for dj in range(-1, 2):
+				for di in range(-1, 2):
+					var ii := i + di
+					var jj := j + dj
+					if ii >= 0 and jj >= 0 and ii < cols and jj < rows and raw[jj * cols + ii] == 1:
+						b = 1
+			if c.distance_to(f2) < 3.6 or c.distance_to(t2) < 3.6:
+				b = 0
+			blocked[j * cols + i] = b
+	var si := clampi(int((f2.x - lo.x) / cell), 0, cols - 1)
+	var sj := clampi(int((f2.y - lo.y) / cell), 0, rows - 1)
+	var gi := clampi(int((t2.x - lo.x) / cell), 0, cols - 1)
+	var gj := clampi(int((t2.y - lo.y) / cell), 0, rows - 1)
+	var dist := {}
+	var prev := {}
+	var open: Array = [[0.0, si, sj]]
+	dist[sj * cols + si] = 0.0
+	var found := false
+	while not open.is_empty():
+		open.sort_custom(func(a, b): return a[0] < b[0])
+		var cur: Array = open.pop_front()
+		var ci: int = cur[1]
+		var cj: int = cur[2]
+		if ci == gi and cj == gj:
+			found = true
+			break
+		var cd: float = float(dist.get(cj * cols + ci, 1e9))
+		for dj in range(-1, 2):
+			for di in range(-1, 2):
+				if di == 0 and dj == 0:
+					continue
+				var ni := ci + di
+				var nj := cj + dj
+				if ni < 0 or nj < 0 or ni >= cols or nj >= rows or blocked[nj * cols + ni] == 1:
+					continue
+				if di != 0 and dj != 0 and (blocked[cj * cols + ni] == 1 or blocked[nj * cols + ci] == 1):
+					continue                          # no cutting a corner of the field
+				var nd := cd + (1.4142 if di != 0 and dj != 0 else 1.0)
+				var key := nj * cols + ni
+				if nd < float(dist.get(key, 1e9)):
+					dist[key] = nd
+					prev[key] = cj * cols + ci
+					var h := Vector2(float(ni - gi), float(nj - gj)).length()
+					open.append([nd + h, ni, nj])
+	if not found:
+		return PackedVector3Array()
+	var cells: Array = []
+	var k := gj * cols + gi
+	while true:
+		cells.push_front(k)
+		if k == sj * cols + si:
+			break
+		k = int(prev[k])
+	# string-pull: keep only the corners, so the truck drives straight lines where the way is clear
+	var pts: Array = []
+	for ck in cells:
+		pts.append(Vector3(lo.x + (float(int(ck) % cols) + 0.5) * cell, from.y, lo.y + (float(int(ck) / cols) + 0.5) * cell))
+	var out := PackedVector3Array([from])
+	var anchor := 0
+	while anchor < pts.size() - 1:
+		var far := anchor + 1
+		for m in range(pts.size() - 1, anchor, -1):
+			if _line_clear(pts[anchor] if anchor > 0 else from, pts[m], blocked, lo, cell, cols, rows):
+				far = m
+				break
+		out.append(pts[far])
+		anchor = far
+	out.append(to)
+	return out
+
+func _line_clear(a: Vector3, b: Vector3, blocked: PackedByteArray, lo: Vector2, cell: float, cols: int, rows: int) -> bool:
+	var n := int(ceil(a.distance_to(b) / (cell * 0.5)))
+	for j in range(n + 1):
+		var p := a.lerp(b, float(j) / float(maxi(1, n)))
+		var i := int((p.x - lo.x) / cell)
+		var jj := int((p.z - lo.y) / cell)
+		if i < 0 or jj < 0 or i >= cols or jj >= rows or blocked[jj * cols + i] == 1:
+			return false
+	return true
+
 func _stop(v: QuarryVehicle) -> void:
 	v.input = {"throttle": 0.0, "steer": 0.0, "brake": true}
 
@@ -319,6 +447,11 @@ func _plan(v: QuarryVehicle, goal: Vector3, r: Dictionary) -> void:
 		path = NavigationServer3D.map_get_path(game.nav_map, v.global_position, g, true)
 	if path.size() < 2:
 		path = PackedVector3Array([v.global_position, goal])
+	# the nav mesh does not know the soil field: when the route would run into standing soil, re-plan around it on the soil grid
+	if _path_hits_soil(path):
+		var detour := soil_route(v.global_position, goal)
+		if detour.size() >= 2:
+			path = detour
 	r["path"] = path
 	r["pi"] = 1 if path.size() > 1 else 0
 	r["stuck_t"] = 0.0

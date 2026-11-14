@@ -73,5 +73,29 @@ func run() -> void:
 	game._close_menu()
 	await process_frame
 	check(t.visible, "controls return when the menu closes")
+	# AUTO (auto crew) and SKIP (delivery) buttons appear only when they can do something
+	var auto_b: Dictionary = {}
+	var skip_b: Dictionary = {}
+	for b in QuarryTouchControls.BUTTONS:
+		if b["id"] == "auto":
+			auto_b = b
+		if b["id"] == "skip":
+			skip_b = b
+	check(not auto_b.is_empty() and not skip_b.is_empty(), "AUTO and SKIP buttons exist")
+	check(not t._active(auto_b) and not t._active(skip_b), "with no machine in view and no delivery arriving, neither is offered")
+	var rec_a: Dictionary = game.fleet.give("compact_excavator", Vector3(30, 0.2, 30), 0.0)
+	game._sync_vehicles(true)
+	await process_frame
+	var vn = game.vehicle_nodes[int(rec_a["id"])]
+	game.last_target = vn
+	check(t._active(auto_b), "looking at an excavator that can run a crew offers AUTO")
+	var presses := {"j": 0}
+	var key_watch := InputEventKey.new()
+	t._button_down("auto")
+	await process_frame
+	check(bool(game.fleet.vehicle(vn.vehicle_id).get("auto", false)), "pressing AUTO switches the auto crew on")
+	game.delivery.jobs.append({"vehicle": vn, "driver": null, "slot": Vector3.ZERO, "stage": "drive", "wps": [], "t": 0.0, "wait": 0.0})
+	check(t._active(skip_b), "SKIP is offered while a delivery is on its way")
+	game.delivery.jobs.clear()
 	print("RESULT: %d checks, %d failures" % [checks, failures.size()])
 	quit(1 if not failures.is_empty() else 0)

@@ -18,6 +18,7 @@ var _prev_yaw := 0.0
 var _roll := 0.0
 var _bob := 0.0
 var _anim_frame := -1
+var grip_hands: Node3D           ## the player's gloved hands on the handles of a push cart: shown only while the cart is held
 var rolled_total := 0.0         ## signed radians the first wheel has turned in all (tests)
 const TIP_TIME := 1.6
 const TIP_ANGLE := 0.62
@@ -50,6 +51,8 @@ func setup(id: String) -> void:
 	for w in model.get_children():
 		if str(w.name).begins_with("Wheel"):
 			wheels.append(w)
+	if mode_of(id) == "push":
+		_add_grip_hands()
 	var cs := CollisionShape3D.new()
 	var box := BoxShape3D.new()
 	var sz: Vector3 = SIZE.get(id, Vector3(0.9, 0.9, 1.5))
@@ -77,12 +80,37 @@ func follow(target: Vector3, yaw: float, delta: float) -> float:
 
 ## Wheels turn with the distance really rolled, the body leans into a turn and bobs gently over the ground, and unloading tips it forward over the front
 ## wheel (the load slides toward the lip as it tips).
+const GRIPS := {"wheelbarrow": Vector3(0.18, 0.42, 1.05), "reinforced_wheelbarrow": Vector3(0.2, 0.44, 1.12)}
+
+## Gloved fists closed on the two handle grips with the jacket sleeves running back toward the player, so someone is visibly pushing the barrow. (A hand
+## cart is pulled from the bar behind the player's back, out of view, so it has none.)
+func _add_grip_hands() -> void:
+	var g: Vector3 = GRIPS.get(cart_id, Vector3(0.18, 0.42, 1.05))
+	grip_hands = Node3D.new()
+	grip_hands.name = "GripHands"
+	model.add_child(grip_hands)
+	for sx in [-1.0, 1.0]:
+		var at := Vector3(sx * g.x, g.y + 0.015, g.z)
+		var dir := Vector3(sx * 0.3, 0.35, 0.89).normalized()                    # back toward the player, slightly up and out
+		var basis := VeilRig.basis_zy(dir, Vector3.UP)
+		var fist := MeshKit.inst(grip_hands, MeshKit.box(Vector3(0.09, 0.08, 0.1)), MeshKit.flat(QuarryToolView.GLOVE), at)
+		fist.basis = basis
+		var band := MeshKit.inst(grip_hands, MeshKit.box(Vector3(0.1, 0.1, 0.02)), MeshKit.flat(QuarryToolView.BAND), at + dir * 0.08)
+		band.basis = basis
+		var arm := MeshKit.inst(grip_hands, MeshKit.box(Vector3(0.095, 0.095, 0.5)), MeshKit.flat(QuarryToolView.SLEEVE), at + dir * 0.34)
+		arm.basis = basis
+		for gi in [fist, band, arm]:
+			gi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	grip_hands.visible = false
+
 func _physics_process(delta: float) -> void:
 	if _anim_frame != Engine.get_physics_frames():       # not driven by follow() this frame: still settle, tip and (if shoved) roll
 		_animate(delta)
 
 func _animate(delta: float) -> void:
 	_anim_frame = Engine.get_physics_frames()
+	if grip_hands:
+		grip_hands.visible = held
 	var travelled := 0.0
 	var fwd := -global_transform.basis.z
 	if _prev != Vector3.INF:

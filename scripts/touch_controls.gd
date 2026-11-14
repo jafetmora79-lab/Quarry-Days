@@ -3,7 +3,7 @@ class_name QuarryTouchControls
 ## On-screen controls for touch devices (Godot on Android). Enabled on mobile builds and with the `--touch` user
 ## argument (`godot --path . -- --touch`). Left thumb: move stick. Right thumb: MINE (hold), USE (E), RUN (toggle).
 ## Drag anywhere else to look around. Context buttons appear when needed (PLACE / ROTATE while placing,
-## ALT while driving). Menus keep using ordinary taps (the engine emulates mouse clicks from touch).
+## ALT while driving, AUTO on a machine that can run an auto crew, SKIP while a delivery arrives). Menus keep using ordinary taps (the engine emulates mouse clicks from touch).
 ## Controls hide while a menu or story card is open. Positions are in the 960x540 base canvas.
 
 var game
@@ -28,6 +28,8 @@ const BUTTONS := [
 	{"id": "place", "label": "PLACE", "x": -215.0, "y": -165.0, "r": 40.0, "ctx": "place"},
 	{"id": "rotate", "label": "ROT", "x": -310.0, "y": -105.0, "r": 32.0, "ctx": "place"},
 	{"id": "alt", "label": "ALT", "x": -215.0, "y": -165.0, "r": 40.0, "ctx": "drive"},
+	{"id": "auto", "label": "AUTO", "x": -310.0, "y": -190.0, "r": 34.0, "ctx": "auto"},
+	{"id": "skip", "label": "SKIP", "x": -310.0, "y": -265.0, "r": 34.0, "ctx": "skip"},
 ]
 
 func setup(main_node) -> void:
@@ -52,6 +54,8 @@ func _active(b: Dictionary) -> bool:
 	match str(b.get("ctx", "")):
 		"place": return game.placement or game.construction
 		"drive": return game.driving != null
+		"auto": return game.crew != null and game.crew.eligible(game.crew_candidate()) == ""      # a machine that can run an auto crew is driven or aimed at
+		"skip": return game.delivery != null and not game.delivery.jobs.is_empty()                # a delivery is on its way
 	return true
 
 func _shown() -> bool:
@@ -170,6 +174,8 @@ func _button_down(id: String) -> void:
 			_mouse(MOUSE_BUTTON_LEFT, true)
 			_mouse(MOUSE_BUTTON_LEFT, false)
 		"rotate": _key(KEY_R)
+		"auto": _key(KEY_J)
+		"skip": _key(KEY_K)
 		"alt":
 			_mouse(MOUSE_BUTTON_RIGHT, true)
 			_mouse(MOUSE_BUTTON_RIGHT, false)

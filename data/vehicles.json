@@ -66,7 +66,8 @@
       "accel_label": "High",
       "best_use": "Small, affordable loads and tight yards",
       "cab_paint": "PaintYellow",
-      "bed_paint": "PaintYellow"
+      "bed_paint": "PaintYellow",
+      "auto_cost": 3
     },
     "truck": {
       "title": "Dump Truck",
@@ -87,7 +88,8 @@
       "speed_label": "Medium",
       "accel_label": "Medium",
       "best_use": "Everyday hauling between the pit, storage and the crushers",
-      "gate": "large"
+      "gate": "large",
+      "auto_cost": 4
     },
     "heavy_truck": {
       "title": "Heavy Dump Truck",
@@ -110,7 +112,8 @@
       "accel_label": "Low",
       "best_use": "Bulk material between the pit and the plant",
       "cab_paint": "PaintRed",
-      "bed_paint": "PaintOrange"
+      "bed_paint": "PaintOrange",
+      "auto_cost": 6
     },
     "industrial_truck": {
       "title": "Industrial Haul Truck",
@@ -133,7 +136,8 @@
       "accel_label": "Very low",
       "best_use": "Late-game bulk transport from the deepest levels",
       "cab_paint": "PaintOrange",
-      "bed_paint": "PaintRed"
+      "bed_paint": "PaintRed",
+      "auto_cost": 9
     },
     "compact_excavator": {
       "title": "Compact Excavator",
@@ -159,7 +163,8 @@
       "speed_label": "Slow",
       "accel_label": "Medium",
       "best_use": "Digging soft rock (limestone, coal, iron) and clearing loose rock fast",
-      "paint": "PaintYellow"
+      "paint": "PaintYellow",
+      "auto_cost": 3
     },
     "heavy_excavator": {
       "title": "Heavy Excavator",
@@ -185,7 +190,8 @@
       "speed_label": "Very slow",
       "accel_label": "Low",
       "best_use": "High-volume excavation, copper included",
-      "paint": "PaintOrange"
+      "paint": "PaintOrange",
+      "auto_cost": 6
     },
     "starter_excavator": {
       "title": "Grandpa's Mini Excavator",

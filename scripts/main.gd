@@ -1166,7 +1166,20 @@ func _play_tool_hit() -> void:
 	var t := prog.tool()
 	var key := str(t.get("sound", "hit_pick"))
 	var a: AudioStreamPlayer = sfx.get(key, hit_audio)
-	a.pitch_scale = randf_range(0.93, 1.07)
+	# every tool has its own voice from its real strength: precision tools tap high and light, heavy and impact tools thud low and loud, and the more
+	# power a tool has the lower and fuller its blow sounds (the same sample, shaped by pitch and volume)
+	var power := float(t.get("power", float(t.get("dps", 10.0)) * 0.25))
+	var cls := str(t.get("class", "general"))
+	var pitch := clampf(1.18 - 0.014 * power, 0.78, 1.2)
+	var vol := clampf(-6.0 + 0.22 * power, -6.0, 1.0)
+	if cls == "precision":
+		pitch = clampf(pitch + 0.14, 0.9, 1.35)
+		vol -= 2.0
+	elif cls == "impact":
+		pitch -= 0.06
+		vol += 1.5
+	a.pitch_scale = randf_range(0.97, 1.03) * pitch
+	a.volume_db = vol
 	a.play()
 
 func _sfx_at(key: String, at: Vector3, db := 0.0) -> void:
@@ -1742,9 +1755,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		delivery.finish_all()                      # the same end state as the drive: the machine parked on its bay, no driver, nothing duplicated
 		_notify("Delivery skipped: %d machine%s parked." % [n_skipped, "" if n_skipped == 1 else "s"])
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_J and not placement and menu == "" and name_dialog == null:
-		var cv: QuarryVehicle = driving
-		if cv == null and last_target != null and str(last_target.get_meta("kind", "")) == "vehicle":
-			cv = vehicle_nodes.get(int(last_target.get_meta("vehicle_id")))
+		var cv: QuarryVehicle = crew_candidate()
 		if cv != null:
 			crew.toggle(cv)
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_B:
@@ -4249,6 +4260,14 @@ func free_parking_slot(type := "loader") -> Variant:
 func free_fallback_slot(type := "loader") -> Variant:
 	return _find_parking(type, true)
 
+## The machine J / R3 / the AUTO button act on: the one being driven, else the vehicle the player is looking at.
+func crew_candidate() -> QuarryVehicle:
+	if driving != null:
+		return driving
+	if last_target != null and is_instance_valid(last_target) and str(last_target.get_meta("kind", "")) == "vehicle":
+		return vehicle_nodes.get(int(last_target.get_meta("vehicle_id")))
+	return null
+
 func last_target_vehicle_node(rec: Dictionary) -> QuarryVehicle:
 	return vehicle_nodes.get(int(rec["id"]))
 
@@ -6076,12 +6095,12 @@ func build_info() -> Dictionary:
 
 func _hint_text() -> String:
 	if driving:
-		return "WASD drive  Mouse look  Space brake  R recover  E exit vehicle"
+		return "WASD drive  Mouse look  Space brake  R recover  E exit vehicle" + ("  J auto crew" if crew.eligible(driving) == "" else "")
 	if placement:
 		return "Left click place  R rotate  G grid snap  Esc cancel"
 	if construction:
 		return "Left click select a machine  B move  X sell  Esc leave construction"
-	return "WASD move  SHIFT sprint  left click mine  E use  M manage  B build  F5 save  ESC pause"
+	return "WASD move  SHIFT sprint  left click mine  E use  M manage  B build  F5 save  ESC pause" + ("  J auto crew" if crew.eligible(crew_candidate()) == "" else "") + ("  K skip delivery" if delivery and not delivery.jobs.is_empty() else "")
 
 ## Small status lines under the clock: deliveries waiting in the construction inventory, vehicles on their way, belts
 ## that are not connected at both ends.
@@ -6400,7 +6419,7 @@ func _update_compressor(delta: float) -> void:
 	var prop = gear_props.get("air_compressor")
 	if prop == null or not is_instance_valid(prop):
 		return
-	var working: bool = player != null and player.tool_view != null and player.tool_view.operating and prog.is_continuous() and not driving
+	var working: bool = player != null and player.tool_view != null and player.tool_view.operating and bool(prog.tool().get("powered", false)) and not driving
 	compressor_run = move_toward(compressor_run, 1.0 if working else 0.0, delta * (2.5 if working else 1.0))
 	var model: Node3D = null
 	for c in prop.get_children():
@@ -6422,6 +6441,35 @@ func _update_compressor(delta: float) -> void:
 		compressor_audio.play()
 	elif compressor_run <= 0.02 and compressor_audio.playing:
 		compressor_audio.stop()
+	_update_hose(prop, compressor_run > 0.02)
+
+## The air hose: from the compressor's gauge port to the tool in the player's hands while an air tool works; it sags between the two and lies in the grass
+## otherwise (nothing is drawn while the tool is idle). Rebuilt each frame only while visible.
+var hose_node: MeshInstance3D
+
+func _update_hose(prop: Node3D, show: bool) -> void:
+	if hose_node == null:
+		hose_node = MeshInstance3D.new()
+		hose_node.name = "AirHose"
+		hose_node.material_override = MeshKit.mat(QuarryArt.M_RUBBER)
+		hose_node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		world.add_child(hose_node)
+	hose_node.visible = show
+	if not show or player == null or player.camera == null:
+		return
+	var a: Vector3 = prop.global_transform * Vector3(0.12, 0.62, -0.46)                 # the gauge port, where the model's own hose leaves
+	var b: Vector3 = player.camera.global_transform * Vector3(0.3, -0.5, -0.45)         # the tool in the player's hands
+	var d := a.distance_to(b)
+	var sag := minf(2.5, 0.12 * d)
+	var pts := []
+	for k in range(13):
+		var u := float(k) / 12.0
+		var pnt := a.lerp(b, u)
+		pnt.y = maxf(pnt.y - sin(u * PI) * sag, 0.03 if u < 0.92 else pnt.y)            # sags, but never below the ground
+		pts.append(pnt)
+	var so := MeshKit.Soup.new()
+	MeshKit.tube_into(so, pts, 0.02, 5)
+	hose_node.mesh = so.mesh()
 
 func _update_machines(delta: float) -> void:
 	_update_compressor(delta)

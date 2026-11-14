@@ -57,6 +57,10 @@ func run() -> void:
 	# ---- bindings per situation
 	check(QuarryGamepad.binding(QuarryGamepad.Y, "walk").get("key", 0) == KEY_M and QuarryGamepad.binding(QuarryGamepad.DDOWN, "walk").get("key", 0) == KEY_B, "on foot: Y opens management, d-pad down is build mode")
 	check(QuarryGamepad.binding(QuarryGamepad.RB, "drive").get("mouse", 0) == MOUSE_BUTTON_RIGHT and bool(QuarryGamepad.binding(QuarryGamepad.DUP, "drive").get("hold", false)) and QuarryGamepad.binding(QuarryGamepad.DUP, "drive").get("key", 0) == KEY_UP, "driving: RB dumps, the d-pad works the boom (held)")
+	check(QuarryGamepad.binding(QuarryGamepad.R3, "walk").get("key", 0) == KEY_J and QuarryGamepad.binding(QuarryGamepad.R3, "drive").get("key", 0) == KEY_J, "R3 toggles the auto crew, on foot and driving")
+	check(QuarryGamepad.binding(QuarryGamepad.L3, "walk").get("key", 0) == KEY_K and QuarryGamepad.binding(QuarryGamepad.L3, "drive").get("key", 0) == KEY_K, "L3 skips a delivery, on foot and driving")
+	check(QuarryGamepad.binding(QuarryGamepad.R3, "menu").is_empty() and QuarryGamepad.binding(QuarryGamepad.L3, "place").is_empty(), "the stick clicks do nothing in menus or while placing")
+	check(QuarryGamepad.pad_hints([["J", "auto crew"], ["K", "skip delivery"]]) == [["R3", "auto crew"], ["L3", "skip delivery"]], "the hint bar names them in pad terms")
 	check(QuarryGamepad.binding(QuarryGamepad.A, "place").get("mouse", 0) == MOUSE_BUTTON_LEFT, "placing: A places")
 	check(QuarryGamepad.binding(QuarryGamepad.Y, "menu").is_empty(), "in a menu nothing is generated (the menu's own focus navigation handles the pad)")
 	check(pad.context() == "walk", "context on foot")

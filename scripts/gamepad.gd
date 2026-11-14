@@ -4,6 +4,7 @@ class_name QuarryGamepad
 ##   on foot   left stick move, right stick look, RT mine (hold), LT alt, LB sprint, A use, X rotate, Y management, d-pad down build, START pause / back
 ##   driving   left stick drive, right stick spin the cab / look, RT dig / scoop, RB dump / unload, LT brake, A get out, Y recover,
 ##             d-pad up / down boom, d-pad left / right stick, X / LB curl the bucket, START pause
+##   both      R3 (right stick click) auto crew on / off, L3 (left stick click) skip a delivery
 ##   placing   RT or A place, X rotate, d-pad down grid, B / START cancel
 ## Actions the game reads through InputMap get joypad events added here; everything the game reads straight from the keyboard or the mouse (the
 ## management and build keys, the excavator joints, mine / dump clicks) is generated as the matching key or mouse event, the same way the touch buttons do.
@@ -32,6 +33,8 @@ const BACK := 4
 const START := 6
 const LB := 9
 const RB := 10
+const L3 := 7                       # left stick click
+const R3 := 8                       # right stick click
 const DUP := 11
 const DDOWN := 12
 const DLEFT := 13
@@ -73,6 +76,11 @@ static func _has_joy_button(act: String, idx: int) -> bool:
 
 ## What the pad button means in the current situation: {"key": Key, "hold": bool} for a key, {"mouse": MouseButton, "hold": bool} for a click, or {}.
 static func binding(button: int, ctx: String) -> Dictionary:
+	if ctx == "walk" or ctx == "drive":
+		if button == R3:
+			return {"key": KEY_J}              # auto crew on / off for the machine you drive or look at
+		if button == L3:
+			return {"key": KEY_K}              # skip the delivery that is arriving
 	match ctx:
 		"drive":
 			match button:
@@ -232,6 +240,8 @@ static func pad_hints(items: Array, driving := false, placing := false) -> Array
 			"G": t = "DPAD DOWN"
 			"B": t = "DPAD DOWN"
 			"M": t = "Y"
+			"J": t = "R3"
+			"K": t = "L3"
 			"ESC": t = "START"
 		out.append([t, it[1]])
 	return out
