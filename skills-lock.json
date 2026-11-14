@@ -1,6 +1,12 @@
 {
   "version": 2,
   "skills": {
+    "blender-image-to-3d": {
+      "source": "majidmanzarpour/blender-game-skills",
+      "sourceType": "github",
+      "skillPath": "skills/blender-image-to-3d/SKILL.md",
+      "computedHash": "94d6669dc51759e540a5d7a0a2924a0a9b2f5dd893d0876bd9c38389f32f9a22"
+    },
     "godot-project-organization": {
       "source": "grndctrl/godot-skills",
       "sourceType": "github",
