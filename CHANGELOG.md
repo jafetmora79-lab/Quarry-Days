@@ -1,5 +1,9 @@
 # Changelog
 
+### Ground gaps and the objective window
+- **Holes round the quarry fixed:** the topsoil field's outer edge no longer wobbles (it pulled back from the grass and left a strip of void showing the background colour), and the grass now covers everything outside the field exactly - the old cut-out did not match the soil, which left a whole band bare along the south side. `tests/test_ground_cover.gd` samples the ring round the field.
+- **Objective window:** the stage bar is the average of its requirements with a percentage, "Clear Grandpa's overgrown site" counts real weeds and rubble (14/40, not 0%), the cleanup and each open area contract get their own bar, and percentages round up so the first bit of work shows (never 100% before the end). `tests/test_objective_progress.gd` keeps them honest.
+
 ### Menus, HUD and walking polish
 - **Conversations:** while Grandpa or a new hire talks (and during the opening shots) the HUD plates, objective, hint bar and prompt fade out, the dialog sits at the bottom edge, and nobody is outlined.
 - **No outline on people:** workers and Grandpa are never highlighted (it spoiled the character art).

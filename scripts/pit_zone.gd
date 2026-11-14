@@ -440,6 +440,32 @@ func _build_fence_art(vis: Node3D) -> void:
 func _wob(y: float, x: float, z: float) -> float:
 	return y + 0.02 * sin(x * 0.9 + z * 0.4)
 
+## The ground rectangle (world x, z) the blueprint quarry's topsoil field stands on: the outer edges of the first formation's columns.
+func _soil_footprint() -> Rect2:
+	var id := "q_top"
+	if game == null or game.prog == null or not game.prog.is_formation(id):
+		return Rect2()
+	var n: int = game.prog.column_count(id)
+	var cell := float(game.prog.fdef(id)["cell"])
+	var lo := Vector2(1e9, 1e9)
+	var hi := Vector2(-1e9, -1e9)
+	for i in range(n):
+		var p: Vector3 = game.prog.column_pos(id, i)
+		lo = Vector2(minf(lo.x, p.x), minf(lo.y, p.z))
+		hi = Vector2(maxf(hi.x, p.x), maxf(hi.y, p.z))
+	if n == 0:
+		return Rect2()
+	return Rect2(lo.x - cell * 0.5, lo.y - cell * 0.5, hi.x - lo.x + cell, hi.y - lo.y + cell)
+
+## The same rectangle in this node's own coordinates (the ground meshes are built there; the node itself stands a few metres off the world origin).
+func _soil_footprint_local() -> Rect2:
+	var w := _soil_footprint()
+	if w.size.x <= 0.0:
+		return w
+	var a := to_loc(Vector3(w.position.x, 0.0, w.position.y))
+	var b := to_loc(Vector3(w.end.x, 0.0, w.end.y))
+	return Rect2(minf(a.x, b.x), minf(a.z, b.z), absf(b.x - a.x), absf(b.z - a.z))
+
 func _cell_quads(s: MeshKit.Soup, x0: float, x1: float, z0: float, z1: float, y: float, step: float, skip_hole := false, holes: Array = []) -> void:
 	var hx := basin_w * 0.5
 	var x := x0
@@ -483,7 +509,13 @@ func _build_art() -> void:
 	_cell_quads(road, -corr_w * 0.5, corr_w * 0.5, -corr_len, 3.0, 0.015, 1.0)
 	MeshKit.inst(vis, road.mesh(), MeshKit.mat("GroundRoad"))
 	var plat := MeshKit.Soup.new()
-	_cell_quads(plat, -plat_w * 0.5, plat_w * 0.5, z1, z0, 0.01, 3.0, true)
+	var foot := _soil_footprint_local()
+	if flat and foot.size.x > 0.0:
+		# the blueprint quarry: grass everywhere except exactly under the topsoil field (whose own surface and the basin floor below it cover that rectangle).
+		# The cells are 2 m so the footprint's edges fall on cell edges: nothing overlaps it and no strip is left bare (the old rectangle did not match the soil)
+		_cell_quads(plat, -plat_w * 0.5, plat_w * 0.5, minf(z1 - 8.0, foot.position.y - 4.0), z0, 0.01, 2.0, false, [foot])
+	else:
+		_cell_quads(plat, -plat_w * 0.5, plat_w * 0.5, z1, z0, 0.01, 3.0, true)
 	MeshKit.inst(vis, plat.mesh(), MeshKit.mat(GRASS_DRY if flat else "ExcavatedDirt"))        # the land around the fenced quarry is dry grass; the quarry itself is bare soil
 	var basin := MeshKit.Soup.new()
 	_cell_quads(basin, -hx, hx, zn, zs, basin_y + 0.012, 2.0, false, basin_holes)

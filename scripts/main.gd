@@ -6226,14 +6226,44 @@ func hud_waypoint() -> Dictionary:
 				return {"pos": OFFICE_POS, "label": "Build the level %d road at the office" % n}
 	return {}
 
-func hud_status_text() -> String:
+## Structured progress for the objective plate: [{title, value, frac, note, color}] for the site cleanup and the open area contracts.
+func hud_progress_rows() -> Array:
+	var rows := []
+	if prog.cleanup_active():
+		var done_n: int = prog.cleanup_total() - prog.cleanup_left()
+		var note := ""
+		var nx := nearest_cleanup()
+		if not nx.is_empty():
+			note = "%s: %s %d m %s" % ["LAST ONE" if prog.cleanup_left() == 1 else "Next", "weeds" if nx["weed"] else "rubble", int(nx["dist"]), nx["dir"]]
+		rows.append({"title": "SITE CLEANUP", "value": "%d / %d" % [done_n, prog.cleanup_total()], "frac": float(done_n) / float(maxi(1, prog.cleanup_total())), "note": note, "color": Color(0.95, 0.42, 0.34)})
+	var shown := 0
+	for a in prog.area_defs():
+		var aid := str(a["id"])
+		if shown < 2 and prog.area_available(aid) and not prog.area_complete(aid):
+			var ap := prog.area_progress(aid)
+			if not ap.is_empty():
+				var parts: Array = ap["parts"]
+				var note2 := ""
+				var sum := 0.0
+				var texts := []
+				for pt in parts:
+					var f := clampf(float(pt["have"]) / float(maxi(1, int(pt["need"]))), 0.0, 1.0)
+					sum += f
+					if f < 1.0 and texts.size() < 2:
+						texts.append("%s %d/%d" % [str(pt["label"]).split(" ")[0], int(pt["have"]), int(pt["need"])])
+				note2 = "  -  ".join(texts)
+				rows.append({"title": str(ap["title"]).to_upper(), "value": "%d%%" % int(ap["pct"]), "frac": sum / float(maxi(1, parts.size())), "note": note2, "color": QuarryTheme.GOOD})
+				shown += 1
+	return rows
+
+func hud_status_text(include_progress := true) -> String:
 	var lines := []
 	if blueprint:
 		for n in range(2, prog.quarry_level + 1):
 			if not prog.road_built(n) and prog.level_def(n).has("roads"):
 				lines.append("Level %d is open: build its road at the office computer (Quarry Plan, $%d)" % [n, prog.road_cost(n)])
 				break
-	if prog.cleanup_active():
+	if include_progress and prog.cleanup_active():
 		lines.append("Site cleanup %d/%d" % [prog.cleanup_total() - prog.cleanup_left(), prog.cleanup_total()])
 		var nx := nearest_cleanup()
 		if not nx.is_empty():
@@ -6241,7 +6271,7 @@ func hud_status_text() -> String:
 	var shown := 0
 	for a in prog.area_defs():
 		var aid := str(a["id"])
-		if shown < 2 and prog.area_available(aid) and not prog.area_complete(aid):
+		if include_progress and shown < 2 and prog.area_available(aid) and not prog.area_complete(aid):
 			var ap := prog.area_progress(aid)
 			if not ap.is_empty():
 				var next_part := ""

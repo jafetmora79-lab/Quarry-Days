@@ -369,6 +369,12 @@ func _rebuild_skin(heights: Array) -> void:
 		var base := origin + Vector3((float(gx) - 0.5) * cell, 0, (float(gy) - 0.5) * cell)
 		var jx := (_corner_noise(gx, gy, 1) - 0.5) * 2.0 * jit
 		var jz := (_corner_noise(gx, gy, 2) - 0.5) * 2.0 * jit
+		# the outer boundary of the grid stays exactly on the grid line: a wobbling edge pulled the soil back from the ground around it and left a
+		# strip of void (the background colour showing) all round the quarry
+		if gx == 0 or gx == d.x:
+			jx = 0.0
+		if gy == 0 or gy == d.y:
+			jz = 0.0
 		var jy := -_corner_noise(gx, gy, 3) * (0.02 if str(prog.fdef(fid).get("frame", "")) == "pit" else 0.10)       # the walking surface and what you see agree to 2 cm (the collider top is flat)
 		if h <= 0.0:
 			return Vector3(base.x + jx, 0.0, base.z + jz)

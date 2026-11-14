@@ -45,6 +45,9 @@ var stage_label: Label
 var objective_label: Label
 var objective_bar: ProgressBar
 var objective_detail: Label
+var objective_pct: Label
+var progress_box: VBoxContainer
+var progress_blocks: Array = []   ## up to three {root, title, value, bar, note, target}: the site cleanup and open area contracts, each with its own bar
 var status_label: Label
 var prompt_panel: PanelContainer
 var prompt_label: Label
@@ -134,6 +137,32 @@ func _bar(parent: Control, h: float, color: Color) -> ProgressBar:
 	b.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(b)
 	return b
+
+## One titled progress row for the objective plate: TITLE ....... value / bar / small note.
+func _progress_block(parent: Control) -> Dictionary:
+	var root := VBoxContainer.new()
+	root.add_theme_constant_override("separation", 2)
+	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.visible = false
+	parent.add_child(root)
+	root.add_child(HSeparator.new())
+	var head := HBoxContainer.new()
+	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(head)
+	var title := QuarryTheme.label("", QuarryTheme.SMALL, QuarryTheme.INK, false, true)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	title.custom_minimum_size = Vector2(150, 0)
+	head.add_child(title)
+	var value := QuarryTheme.label("", QuarryTheme.SMALL, QuarryTheme.ACCENT, false, true)
+	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	head.add_child(value)
+	var bar := _bar(root, 6, QuarryTheme.GOOD)
+	var note := QuarryTheme.label("", QuarryTheme.SMALL, QuarryTheme.DIM)
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	note.custom_minimum_size = Vector2(226, 0)
+	root.add_child(note)
+	return {"root": root, "title": title, "value": value, "bar": bar, "note": note, "target": 0.0}
 
 func _build() -> void:
 	# ---- top-left: time + money
@@ -234,15 +263,28 @@ func _build() -> void:
 	srow.add_child(HudIcon.new("flag", 13))
 	stage_label = QuarryTheme.label("STAGE 1", 12, QuarryTheme.ACCENT, true)
 	srow.add_child(stage_label)
+	var nrow := HBoxContainer.new()
+	nrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v2.add_child(nrow)
 	objective_label = QuarryTheme.label("", QuarryTheme.BODY)
 	objective_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	objective_label.custom_minimum_size = Vector2(226, 0)
-	v2.add_child(objective_label)
-	objective_bar = _bar(v2, 7, QuarryTheme.ACCENT)
+	objective_label.custom_minimum_size = Vector2(170, 0)
+	objective_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nrow.add_child(objective_label)
+	objective_pct = QuarryTheme.label("", QuarryTheme.BODY, QuarryTheme.ACCENT, false, true)
+	objective_pct.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	nrow.add_child(objective_pct)
+	objective_bar = _bar(v2, 8, QuarryTheme.ACCENT)
 	objective_detail = QuarryTheme.label("", QuarryTheme.SMALL, QuarryTheme.DIM)
 	objective_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	objective_detail.custom_minimum_size = Vector2(226, 0)
 	v2.add_child(objective_detail)
+	progress_box = VBoxContainer.new()
+	progress_box.add_theme_constant_override("separation", 5)
+	progress_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v2.add_child(progress_box)
+	for pi in range(3):
+		progress_blocks.append(_progress_block(progress_box))
 	status_label = QuarryTheme.label("", QuarryTheme.BODY, QuarryTheme.INK)
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status_label.custom_minimum_size = Vector2(226, 0)
@@ -701,12 +743,14 @@ func refresh_panels() -> void:
 		var info := prog.stage_info(next)
 		stage_label.text = "STAGE %d/%d  %s" % [prog.stage + 1, prog.stages().size(), str(prog.stage_info()["title"]).to_upper()]
 		var reqs := prog.requirement_progress(next)
-		var frac := 1.0
+		var frac_sum := 0.0
+		var frac_n := 0
 		var detail := []
 		var done_n := 0
 		var more := 0
 		for r in reqs:
-			frac = minf(frac, float(r[1]) / maxf(0.0001, float(r[2])))
+			frac_sum += clampf(float(r[1]) / maxf(0.0001, float(r[2])), 0.0, 1.0)         # the bar is the AVERAGE of the requirements: every bit of work moves it
+			frac_n += 1
 			var done_r := float(r[1]) >= float(r[2]) - 0.00001
 			# compact checklist: only the first few open requirements are spelled out; finished ones are counted so progress is never a surprise
 			if done_r:
@@ -720,7 +764,10 @@ func refresh_panels() -> void:
 		if more > 0:
 			detail.append("+%d more" % more)
 		objective_label.text = "Next: %s" % str(info["title"])
-		_obj_target = clampf(frac, 0.0, 1.0)
+		var frac := frac_sum / float(maxi(1, frac_n))
+		var all_met: bool = prog.requirements_met(next)
+		_obj_target = 1.0 if all_met else minf(frac, 0.99)
+		objective_pct.text = "%d%%" % (100 if all_met else clampi(int(ceil(frac * 100.0 - 0.0001)), 0, 99))
 		objective_detail.text = "\n".join(detail) if not detail.is_empty() else "Ready!"
 	else:
 		stage_label.text = "STAGE %d/%d  %s" % [prog.stage + 1, prog.stages().size(), str(prog.stage_info()["title"]).to_upper()]
@@ -733,7 +780,22 @@ func refresh_panels() -> void:
 		if not nxt.is_empty():
 			hint = "\nNext: %s - %s" % [str(nxt.get("title", "")), ("opens at %d%% cut" % int(float(nxt.get("unlock", 0.6)) * 100.0)) if prog.level_built(ql + 1) else "being surveyed"]
 		objective_detail.text = "Level cut: %d%%%s" % [int(_obj_target * 100.0), hint]
-	status_label.text = game.hud_status_text()
+		objective_pct.text = "%d%%" % int(_obj_target * 100.0)
+	status_label.text = game.hud_status_text(false)
+	var rows: Array = game.hud_progress_rows()
+	for bi in range(progress_blocks.size()):
+		var blk: Dictionary = progress_blocks[bi]
+		blk["root"].visible = bi < rows.size()
+		if bi < rows.size():
+			var rw: Dictionary = rows[bi]
+			blk["title"].text = str(rw["title"])
+			blk["value"].text = str(rw["value"])
+			blk["note"].text = str(rw["note"])
+			blk["note"].visible = str(rw["note"]) != ""
+			blk["target"] = clampf(float(rw["frac"]), 0.0, 1.0)
+			(blk["bar"].get_theme_stylebox("fill") as StyleBoxFlat).bg_color = rw["color"]
+			blk["value"].add_theme_color_override("font_color", rw["color"])
+	status_label.visible = status_label.text != ""
 	var badge_lines := []
 	var warn := false
 	for b in game.hud_badges():
@@ -746,6 +808,11 @@ func refresh_panels() -> void:
 func _amount(r: Array) -> String:
 	if str(r[0]).begins_with("Earn"):
 		return "%s / %s" % [QuarryTheme.money_text(int(r[1])), QuarryTheme.money_text(int(r[2]))]
+	if r.size() > 3:
+		match str(r[3]):
+			"pct": return "%d%%" % int(float(r[1]) / maxf(0.0001, float(r[2])) * 100.0)
+			"count": return "%d/%d" % [int(r[1]), int(r[2])]
+			"flag": return "0/1" if float(r[1]) < float(r[2]) else "done"
 	if str(r[0]).begins_with("Clear"):
 		return "%d%%" % int(float(r[1]) * 100.0)
 	return "%d/%d" % [int(r[1]), int(r[2])]
@@ -831,6 +898,9 @@ func _ease_bars(delta: float) -> void:
 	power_bar.value = lerpf(power_bar.value, _pow_target, k)
 	if absf(objective_bar.value - _obj_target) < 0.002:
 		objective_bar.value = _obj_target
+	for blk in progress_blocks:
+		var pb: ProgressBar = blk["bar"]
+		pb.value = lerpf(pb.value, float(blk["target"]), k)
 
 ## The blueprint plate shows while placing or moving a structure and in construction mode: what, how it is turned, whether the
 ## ground is valid, what it costs and what it connects to.

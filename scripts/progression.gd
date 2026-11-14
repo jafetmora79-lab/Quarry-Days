@@ -749,7 +749,10 @@ func area_progress(id: String) -> Dictionary:
 		frac += clampf(float(pt["have"]) / float(maxi(1, int(pt["need"]))), 0.0, 1.0)
 		if int(pt["have"]) < int(pt["need"]):
 			done_all = false
-	return {"parts": parts, "pct": int(floor(100.0 * frac / float(maxi(1, parts.size())))) if not bool(st["complete"]) else 100, "complete": bool(st["complete"]) or done_all, "reward": int(def.get("reward", 0)), "title": str(def["title"])}
+	var raw := 100.0 * frac / float(maxi(1, parts.size()))
+	# rounded UP (1% as soon as anything is done, never 100% until the contract really completes), so the number moves with the work
+	var shown := clampi(int(ceil(raw - 0.0001)), 0, 99)
+	return {"parts": parts, "pct": shown if not bool(st["complete"]) else 100, "complete": bool(st["complete"]) or done_all, "reward": int(def.get("reward", 0)), "title": str(def["title"])}
 
 func area_complete(id: String) -> bool:
 	return bool(area_state(id)["complete"])
@@ -868,7 +871,8 @@ func requirement_progress(i: int) -> Array:
 			"quarry_level": out.append(["Open quarry level %d" % int(target), float(quarry_level), float(target)])
 			"milestones":
 				for m in target:
-					out.append([milestone_title(str(m)), 1.0 if milestone_done(str(m)) else 0.0, 1.0])
+					var mm := milestone_measure(str(m))
+					out.append([milestone_title(str(m)), mm[0], mm[1], mm[2]])
 			"owns":
 				for o in target:
 					out.append(["Own the %s" % item_title(str(o)), 1.0 if owns(str(o)) else 0.0, 1.0])
@@ -1197,6 +1201,28 @@ func milestone_done(id: String) -> bool:
 	if bool(story.get("milestones", {}).get(id, false)):
 		return true
 	return business != null and bool(business.milestones.get(id, false))
+
+## What a milestone has really measured so far: [have, need, unit]. A milestone that is only ever done or not shows 0 or 1 of 1; the ones with real work
+## behind them (clearing the site, hauling soil, repairing the excavator, an area's contract) report the actual amount, so every weed pulled and every
+## load hauled moves the objective bar and its percentage instead of the number jumping from 0 to done.
+func milestone_measure(id: String) -> Array:
+	if milestone_done(id):
+		return [1.0, 1.0, "flag"] if id not in ["cleanup_done", "soil_hauled", "excavator_running"] and not id.ends_with("_complete") else [100.0, 100.0, "pct"]
+	match id:
+		"cleanup_done":
+			var tot := cleanup_total()
+			if tot > 0:
+				return [float(tot - cleanup_left()), float(tot), "count"]
+		"soil_hauled":
+			var need := int(opening_cfg().get("soil_hauled_units", 24))
+			return [float(mini(state.soil_dumped, need)), float(need), "count"]
+		"excavator_running":
+			return [float(mini(repairs_done(), 3)), 4.0, "count"]            # three repairs, then the first start
+		"area_1_complete", "area_2_complete", "area_3_complete", "area_4_complete", "area_5_complete", "area_6_complete":
+			var ap := area_progress(id.replace("_complete", ""))
+			if not ap.is_empty():
+				return [minf(float(ap["pct"]), 99.0), 100.0, "pct"]
+	return [0.0, 1.0, "flag"]
 
 func milestone_title(id: String) -> String:
 	return str(cfg.get("milestone_titles", {}).get(id, id.replace("_", " ")))
