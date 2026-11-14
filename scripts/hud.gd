@@ -608,12 +608,14 @@ func show_mining(text: String, fraction: float) -> void:
 	dura_bar.value = clampf(fraction, 0.0, 1.0)
 	dura_timer = 1.2
 
+## Every story card (the first-day notes, the fossil, the egg, discoveries) is now a sheet of paper like Grandpa's letter, never the old full-width beige box. The old card
+## nodes stay hidden (their text is kept for anything that reads it).
 func show_card(title: String, body: String, callback := Callable()) -> void:
 	card_title.text = title
 	card_body.text = body
-	card_callback = callback
-	card.visible = true
-	card.modulate.a = 0.0
+	card_callback = Callable()
+	letter_callback = callback
+	letter.open_letter(title, body, false)
 
 ## Fades the screen to black (alpha 1) or back (0), used when going to sleep.
 var _fade_tween: Tween
@@ -645,9 +647,16 @@ func card_advance() -> bool:
 	close_card()
 	return true
 
-func close_card() -> void:
+## Esc: the paper folds away (animated). close_card() below closes at once (code and tests).
+func card_dismiss() -> void:
 	if letter != null and letter.visible:
 		letter.close()
+	else:
+		close_card()
+
+func close_card() -> void:
+	if letter != null and letter.visible:
+		letter.close(true)
 		return
 	if not card.visible:
 		return

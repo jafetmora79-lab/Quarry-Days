@@ -312,3 +312,10 @@ Priority: one continuous rock surface, then the simple background. No visual che
 ## Terrain excavation and Grandpa's letter (branch claude/terrain-letter, on top of claude/machine-cabs)
 - Root cause of the holes and floating platforms: the loose-soil field (0.9 m of soil drawn and collided as its own layer) stood on top of the topsoil layer without being linked to it. An emptied soil cell drew a made-up limestone patch instead of the layer beneath, and digging topsoil left the soil above it floating over the hole. Soil now follows the topsoil columns (also repairs old saves), and an emptied cell shows the real layer.
 - Grandpa's letter is a compact sheet of aged paper (unfolds in 0.55 s, folds, curled corner, hand-drawn signature), paginated when long; E or a click turns the page, Esc puts it away, no mining or swings while it is open.
+
+## UI, windows and world bounds (branch claude/ui-windows-bounds, on top of claude/terrain-letter)
+- The coloured strips at the left of every HUD box and of every table row are gone.
+- Every story card (Your First Day, the fossil, the egg, discoveries) is a sheet of paper like Grandpa's letter; the old beige box is no longer shown. Table rows in the shops and storage use the bevelled panel art with material icons.
+- Windows are real: the walls of the office, home and tool shed are cut around each opening, each window has a reveal, frame, two sashes of clear glass, casing, sill and curtains, and you can see into the room. Glass on all machines is clear, so their cabs show.
+- The highlight outline no longer draws round glass or cab interiors (it produced stray yellow slivers).
+- The yard's east gap, which led out to empty woodland, is closed with a locked service gate.

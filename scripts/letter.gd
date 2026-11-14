@@ -82,14 +82,14 @@ func _ready() -> void:
 	foot.add_child(hint_l)
 
 ## Splits the text into pages that fit the sheet (about LINES_PER_PAGE lines each) at paragraph boundaries; the closing "- Grandpa Walt" line becomes the drawn signature.
-static func paginate(text: String) -> Dictionary:
+static func paginate(text: String, allow_signature := true) -> Dictionary:
 	var paras: Array = []
 	for p in text.split("\n\n"):
 		var t := String(p).strip_edges()
 		if t != "":
 			paras.append(t)
 	var signed_by := false
-	if not paras.is_empty() and String(paras[paras.size() - 1]).begins_with("-") and String(paras[paras.size() - 1]).to_lower().contains("walt"):
+	if allow_signature and not paras.is_empty() and String(paras[paras.size() - 1]).begins_with("-") and String(paras[paras.size() - 1]).to_lower().contains("walt"):
 		paras.pop_back()
 		signed_by = true
 	var chars_per_line := int((W - MARGIN_X * 2.0) / (float(FONT) * 0.55))
@@ -114,8 +114,8 @@ static func paginate(text: String) -> Dictionary:
 		out.append("")
 	return {"pages": out, "signed": signed_by}
 
-func open_letter(title: String, text: String) -> void:
-	var r := paginate(text)
+func open_letter(title: String, text: String, allow_signature := true) -> void:
+	var r := paginate(text, allow_signature)
 	pages = r["pages"]
 	signed = bool(r["signed"])
 	header_text = title
@@ -281,11 +281,16 @@ func advance() -> bool:
 	return true
 
 ## Folds the letter away (0.3 s) and tells whoever opened it.
-func close() -> void:
+func close(instant := false) -> void:
 	if not visible:
 		return
 	if _tween and _tween.is_valid():
 		_tween.kill()
+	if instant:
+		visible = false
+		_opening = false
+		closed.emit()
+		return
 	_opening = true
 	_tween = create_tween()
 	_tween.set_parallel(true)

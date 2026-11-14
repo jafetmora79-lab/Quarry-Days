@@ -1543,6 +1543,13 @@ func _update_highlight() -> void:
 	for mi in meshes:
 		var m := mi as MeshInstance3D
 		if m.visible and m.mesh != null and not (m.get_parent() is Label3D) and m.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY:
+			# only solid outer surfaces are outlined: not glass (it would grow a yellow ghost around every pane), and not a cab's interior or its tiny parts, whose
+			# inverted-hull edges show through the windows as stray yellow slivers
+			var mat0 := m.get_active_material(0)
+			if mat0 is BaseMaterial3D and (mat0 as BaseMaterial3D).transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
+				continue
+			if m.get_parent() != null and (m.get_parent().name == "Interior" or m.get_parent().name == "OpeningParts"):
+				continue
 			m.material_overlay = _highlight_material()
 			highlight_meshes.append(m)
 
@@ -1768,7 +1775,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			if turn:
 				hud.card_advance()                       # a letter turns its page (and closes after the last); a plain card closes
 			else:
-				hud.close_card()                         # Esc puts a letter away at once
+				hud.card_dismiss()                       # Esc folds a letter away
 			if not is_letter and menu == "":
 				player.locked = false
 				Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -2167,7 +2174,7 @@ func _draw_sell(p: QuarryStationUI) -> void:
 	if not any:
 		p.text("Nothing to sell yet. Mine some rock, or collect it from storage: whatever you own shows up here.", QuarryTheme.DIM)
 	else:
-		p.row([["MATERIAL", QuarryTheme.DIM, 110], ["IN BAG", QuarryTheme.DIM, 54, R], ["IN STORAGE", QuarryTheme.DIM, 76, R], ["PRICE EACH", QuarryTheme.DIM, 80, R], ["VALUE", QuarryTheme.DIM, 90, R]], [], Color(0, 0, 0, 0), true)
+		p.row([["MATERIAL", QuarryTheme.DIM, 110], ["IN BAG", QuarryTheme.DIM, 54, R], ["IN STORAGE", QuarryTheme.DIM, 76, R], ["PRICE EACH", QuarryTheme.DIM, 80, R], ["VALUE", QuarryTheme.DIM, 90, R]], [], Color(0, 0, 0, 0), true, "_")
 	for i in range(RESOURCE_ORDER.size()):
 		var key: String = RESOURCE_ORDER[i]
 		var nb := int(state.inventory[key])
@@ -2177,7 +2184,7 @@ func _draw_sell(p: QuarryStationUI) -> void:
 			continue                              # only what you actually own: no empty rows for materials you have not found
 		var ok: bool = business.authorized[key]
 		p.row([[prog.display(key), QuarryTheme.INK, 110, HORIZONTAL_ALIGNMENT_LEFT, true], [str(nb), QuarryTheme.INK if nb > 0 else QuarryTheme.DIM, 54, R], [str(ns), QuarryTheme.INK if ns > 0 else QuarryTheme.DIM, 76, R], ["$%s" % _price_text(state.unit_price(key)), QuarryTheme.DIM, 80, R], [QuarryTheme.money_text(state.payout(key, n)), QuarryTheme.MONEY, 90, R, true]],
-			[["clerk_" + key, "Clerk: " + ("on" if ok else "off"), true, func(): menu_act("sell", i, true), 84, "toggle"], ["sell_" + key, "SELL", true, func(): menu_act("sell", i, false), 80, "primary"]], QuarryTheme.RES_COLORS.get(key, Color.WHITE))
+			[["clerk_" + key, "Clerk: " + ("on" if ok else "off"), true, func(): menu_act("sell", i, true), 84, "toggle"], ["sell_" + key, "SELL", true, func(): menu_act("sell", i, false), 80, "primary"]], QuarryTheme.RES_COLORS.get(key, Color.WHITE), false, key)
 	p.button_bar([["sell_all", "SELL ALL   %s" % QuarryTheme.money_text(total_value), total_value > 0, func(): menu_act("sell", RESOURCE_ORDER.size(), false), 260, "primary"], ["office", "OFFICE COMPUTER", true, func(): _open_menu("manage"), 200]])
 	p.text("Prices are the same at every stage. A sale never pays less than $1. 'Clerk' chooses what the sales clerk may sell for you.", QuarryTheme.DIM)
 

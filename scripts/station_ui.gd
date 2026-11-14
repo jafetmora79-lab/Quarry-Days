@@ -159,7 +159,11 @@ func _box(bg: Color, border: Color, margin := 8) -> PanelContainer:
 	var p := PanelContainer.new()
 	var s := QuarryTheme.panel_box(bg, border, margin, 2)
 	s.shadow_size = 0
-	p.add_theme_stylebox_override("panel", s)
+	s.content_margin_left = margin + 4                  # the same side margins with or without the art, so header captions line up with the rows
+	s.content_margin_right = margin + 4
+	# the generated inset-panel art (a bevelled, riveted plate) instead of a flat rectangle; the row colour only tints it
+	var tint := Color(bg.r / 0.19 * 0.6 + 0.4, bg.g / 0.145 * 0.6 + 0.4, bg.b / 0.1 * 0.6 + 0.4, 1.0) if bg.a > 0.0 else Color.WHITE
+	p.add_theme_stylebox_override("panel", UiSkin.box("panel_inset", s, [margin + 4, margin, margin + 4, margin], tint.clamp(Color(0.7, 0.7, 0.7), Color(1.2, 1.2, 1.2))) if bg.a > 0.0 else s)
 	list.add_child(p)
 	return p
 
@@ -454,12 +458,11 @@ func row(cells: Array, btns: Array, swatch := Color(0, 0, 0, 0), header := false
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 10)
 	card.add_child(h)
-	var sw := ColorRect.new()
-	sw.color = swatch
-	sw.custom_minimum_size = Vector2(8, 20)
-	sw.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	h.add_child(sw)
-	if material != "":
+	if material == "_":
+		var gap := Control.new()                                     # the header keeps the icon column so its captions line up
+		gap.custom_minimum_size = Vector2(28, 0)
+		h.add_child(gap)
+	elif material != "":
 		h.add_child(UiArt.material_icon(material, 28.0))             # a picture of the material in front of its name
 	for c in cells:
 		var cell := _cell(str(c[0]), c[1], float(c[2]), c[3] if c.size() > 3 else HORIZONTAL_ALIGNMENT_LEFT)

@@ -61,6 +61,7 @@ const M_BRUSHED := "res://assets/materials/M_QD_MetalBrushed.tres"      # Quarry
 const M_RUSTED := VEIL + "Materials_Godot/Furniture/M_Furn_MetalRusted.tres"
 const M_RUBBER := VEIL + "Materials_Godot/Furniture/M_Furn_Rubber.tres"
 const M_WOOD := VEIL + "Materials_Godot/Furniture/M_Furn_WoodLight.tres"
+const M_FABRIC := VEIL + "Materials_Godot/Furniture/M_Furn_FabricUpholstery.tres"
 const M_GLASS := "res://assets/materials/M_QD_Glass.tres"      # clean smoked glass: the Veil dirty-glass texture read as speckle noise on cabs
 const ROCK_MAT := {"limestone": "RockLimestone", "coal": "RockCoal", "iron_ore": "RockIron", "crushed_stone": "RockGravel", "copper_ore": "RockCopper", "gold_ore": "RockGold", "soil": "ExcavatedDirt", "topsoil": "ExcavatedDirt", "gravel": "RockGravel"}
 
@@ -325,16 +326,20 @@ func _cliffs() -> void:
 
 # ------------------------------------------------------------------ buildings
 
-## Walled building on an existing collision footprint: textured walls, inner lining, plinth, roof.
-func _walls(center: Vector3, ext_key: String, int_key: String, h := 2.8) -> void:
+## Walled building on an existing collision footprint: textured walls, inner lining, plinth, roof. `windows`: [[wall "L"|"R"|"B", position along the wall, width, height], ...]
+## are REAL openings: the wall (and its lining) is cut around each one and a window with a frame, a reveal, a sill, curtains and clear glass fills it, so you see into the room.
+func _walls(center: Vector3, ext_key: String, int_key: String, h := 2.8, windows := []) -> void:
 	var c := center
-	var specs := [[Vector3(-2.4, 0, 0), Vector3(0.22, h, 4.8)], [Vector3(2.4, 0, 0), Vector3(0.22, h, 4.8)], [Vector3(0, 0, 2.35), Vector3(5.0, h, 0.22)],
-		[Vector3(-1.6, 0, -2.35), Vector3(1.8, h, 0.22)], [Vector3(1.6, 0, -2.35), Vector3(1.8, h, 0.22)]]
+	var ops := {"L": [], "R": [], "B": []}
+	for w in windows:
+		ops[str(w[0])].append(w)
+	var specs := [["L", Vector3(-2.4, 0, 0), Vector3(0.22, h, 4.8)], ["R", Vector3(2.4, 0, 0), Vector3(0.22, h, 4.8)], ["B", Vector3(0, 0, 2.35), Vector3(5.0, h, 0.22)],
+		["", Vector3(-1.6, 0, -2.35), Vector3(1.8, h, 0.22)], ["", Vector3(1.6, 0, -2.35), Vector3(1.8, h, 0.22)]]
 	for sp in specs:
-		bx(ext_key, c + sp[0] + Vector3(0, h * 0.5, 0), sp[1] + Vector3(0.02, 0, 0.02))
-	bx(int_key, c + Vector3(-2.27, h * 0.5, 0), Vector3(0.02, h - 0.1, 4.5))
-	bx(int_key, c + Vector3(2.27, h * 0.5, 0), Vector3(0.02, h - 0.1, 4.5))
-	bx(int_key, c + Vector3(0, h * 0.5, 2.22), Vector3(4.5, h - 0.1, 0.02))
+		_wall_cut(ext_key, c + sp[1] + Vector3(0, h * 0.5, 0), sp[2] + Vector3(0.02, 0, 0.02), "x" if sp[0] == "B" else "z", ops.get(sp[0], []))
+	_wall_cut(int_key, c + Vector3(-2.27, h * 0.5, 0), Vector3(0.02, h - 0.1, 4.5), "z", ops["L"])
+	_wall_cut(int_key, c + Vector3(2.27, h * 0.5, 0), Vector3(0.02, h - 0.1, 4.5), "z", ops["R"])
+	_wall_cut(int_key, c + Vector3(0, h * 0.5, 2.22), Vector3(4.5, h - 0.1, 0.02), "x", ops["B"])
 	bx(M_FOUNDATION, c + Vector3(0, 0.05, 0), Vector3(5.24, 0.10, 5.04))
 	# Match the collision ramp from the yard to the raised office/shed floor.
 	MeshKit.box_into(soup(M_FOUNDATION), Vector3.ZERO, Vector3(1.42, 0.08, 1.0), Vector2.ONE,
@@ -342,6 +347,91 @@ func _walls(center: Vector3, ext_key: String, int_key: String, h := 2.8) -> void
 	bx(M_TRIM, c + Vector3(0, 2.5, -2.38), Vector3(1.5, 0.3, 0.24))                       # door header
 	for x in [-0.76, 0.76]:
 		bx(M_TRIM, c + Vector3(x, 1.25, -2.4), Vector3(0.1, 2.5, 0.08))                    # door jambs
+	for w in windows:
+		_window_real(c, str(w[0]), float(w[1]), float(w[2]), float(w[3]))
+
+## A wall slab (centre `mid`, size) cut around window openings: full-height pieces between them, and a piece below and above each. `along` is the axis the wall runs
+## along ("z" for the side walls, "x" for the back wall). Each opening: [wall, pos, width, height]; its sill is at WINDOW_SILL.
+const WINDOW_SILL := 1.05
+func _wall_cut(key: String, mid: Vector3, size: Vector3, along: String, openings: Array) -> void:
+	if openings.is_empty():
+		bx(key, mid, size)
+		return
+	var length: float = size.z if along == "z" else size.x
+	var ops := openings.duplicate()
+	ops.sort_custom(func(a, b): return float(a[1]) < float(b[1]))
+	var y0 := mid.y - size.y * 0.5
+	var y1 := mid.y + size.y * 0.5
+	var cursor := -length * 0.5
+	var piece := func(a: float, b: float, ya: float, yb: float):
+		ya = maxf(ya, y0)
+		yb = minf(yb, y1)
+		if b - a < 0.005 or yb - ya < 0.005:
+			return
+		var cs := Vector3(mid.x, (ya + yb) * 0.5, mid.z + (a + b) * 0.5) if along == "z" else Vector3(mid.x + (a + b) * 0.5, (ya + yb) * 0.5, mid.z)
+		var sz := Vector3(size.x, yb - ya, b - a) if along == "z" else Vector3(b - a, yb - ya, size.z)
+		bx(key, cs, sz)
+	for o in ops:
+		var lo: float = float(o[1]) - float(o[2]) * 0.5
+		var hi: float = float(o[1]) + float(o[2]) * 0.5
+		var top: float = WINDOW_SILL + float(o[3])
+		piece.call(cursor, lo, y0, y1)                       # the wall up to the opening
+		piece.call(lo, hi, y0, WINDOW_SILL)                  # below the sill
+		piece.call(lo, hi, top, y1)                          # above the head
+		cursor = hi
+	piece.call(cursor, length * 0.5, y0, y1)
+
+## One window set into its opening: reveal lining, frame, two sashes of clear glass with muntins, outside casing, projecting sill and drip, a stool inside, and curtains.
+## `wall` L/R/B picks the outward direction; `pos` runs along the wall (z for L and R, x for B).
+func _window_real(c: Vector3, wall: String, pos: float, w: float, wh: float) -> void:
+	var yaw := 0.0
+	var at := Vector3.ZERO
+	match wall:
+		"L":
+			yaw = -PI * 0.5
+			at = c + Vector3(-2.4, 0, pos)
+		"R":
+			yaw = PI * 0.5
+			at = c + Vector3(2.4, 0, pos)
+		_:
+			yaw = 0.0
+			at = c + Vector3(pos, 0, 2.35)
+	var cy := WINDOW_SILL + wh * 0.5
+	var B := Basis(Vector3.UP, yaw)
+	var put := func(key: String, local: Vector3, size: Vector3):
+		bx(key, at + B * Vector3(local.x, cy + local.y, local.z), size, yaw)
+	var t := 0.06
+	# reveal: the thickness of the wall lined all round the opening
+	put.call(M_TRIM, Vector3(-w * 0.5 + 0.015, 0, 0), Vector3(0.03, wh, 0.23))
+	put.call(M_TRIM, Vector3(w * 0.5 - 0.015, 0, 0), Vector3(0.03, wh, 0.23))
+	put.call(M_TRIM, Vector3(0, wh * 0.5 - 0.015, 0), Vector3(w, 0.03, 0.23))
+	put.call(M_TRIM, Vector3(0, -wh * 0.5 + 0.015, 0), Vector3(w, 0.03, 0.23))
+	# the frame, set in the middle of the wall
+	put.call(M_TRIM, Vector3(0, wh * 0.5 - t * 0.5 - 0.03, 0), Vector3(w - 0.06, t, 0.07))
+	put.call(M_TRIM, Vector3(0, -wh * 0.5 + t * 0.5 + 0.03, 0), Vector3(w - 0.06, t, 0.07))
+	put.call(M_TRIM, Vector3(-w * 0.5 + t * 0.5 + 0.03, 0, 0), Vector3(t, wh - 0.06, 0.07))
+	put.call(M_TRIM, Vector3(w * 0.5 - t * 0.5 - 0.03, 0, 0), Vector3(t, wh - 0.06, 0.07))
+	# glass: one clear pane per sash (upper and lower), with the meeting rail and muntins between and across
+	var gw := w - 2.0 * t - 0.06
+	var gh := wh - 2.0 * t - 0.06
+	put.call(M_GLASS, Vector3(0, gh * 0.25 + 0.01, 0), Vector3(gw, gh * 0.5 - 0.02, 0.012))
+	put.call(M_GLASS, Vector3(0, -gh * 0.25 - 0.01, 0), Vector3(gw, gh * 0.5 - 0.02, 0.012))
+	put.call(M_TRIM, Vector3(0, 0, 0.005), Vector3(gw, 0.045, 0.055))                    # meeting rail
+	put.call(M_TRIM, Vector3(0, 0, 0.005), Vector3(0.035, gh, 0.05))                     # centre muntin
+	if w > 1.3:
+		for fx in [-0.25, 0.25]:
+			put.call(M_TRIM, Vector3(w * fx, 0, 0.005), Vector3(0.03, gh, 0.045))
+	# outside: casing round the opening, a drip cap over it, and a sill that projects with an apron under it
+	put.call(M_TRIM, Vector3(-w * 0.5 - 0.05, 0, 0.125), Vector3(0.1, wh + 0.14, 0.04))
+	put.call(M_TRIM, Vector3(w * 0.5 + 0.05, 0, 0.125), Vector3(0.1, wh + 0.14, 0.04))
+	put.call(M_TRIM, Vector3(0, wh * 0.5 + 0.07, 0.14), Vector3(w + 0.26, 0.09, 0.07))
+	put.call(M_TRIM, Vector3(0, -wh * 0.5 - 0.03, 0.17), Vector3(w + 0.2, 0.05, 0.16))
+	put.call(M_TRIM, Vector3(0, -wh * 0.5 - 0.1, 0.12), Vector3(w + 0.1, 0.1, 0.03))
+	# inside: a stool (the inner sill), casing, a curtain rod and two curtains that leave the middle open
+	put.call(M_TRIM, Vector3(0, -wh * 0.5 - 0.01, -0.17), Vector3(w + 0.14, 0.04, 0.12))
+	put.call(M_TRIM, Vector3(0, wh * 0.5 + 0.1, -0.15), Vector3(w + 0.3, 0.025, 0.025))
+	for sx in [-1.0, 1.0]:
+		put.call(M_FABRIC, Vector3(sx * (w * 0.5 - 0.1), -0.02, -0.16), Vector3(0.22, wh + 0.1, 0.03))
 
 ## A wall window built for the wall it sits in: a shallow painted frame, mullions and a glass pane set a hair proud of the wall face
 ## (never coplanar with it), and a sill. `at` is the middle of the window on the wall's outer face; `yaw` turns +Z to the outward normal.
@@ -378,15 +468,10 @@ func _sign(parent: Node3D, tex_key: String, pos: Vector3, size: Vector2, yaw := 
 
 func _office() -> void:
 	var c: Vector3 = game.OFFICE_POS
-	_walls(c, M_SIDING, M_DRYWALL)
+	_walls(c, M_SIDING, M_DRYWALL, 2.8, [["L", -0.35, 1.1, 1.3], ["L", 1.55, 1.1, 1.3], ["R", -1.45, 1.1, 1.3], ["R", 0.45, 1.1, 1.3], ["B", 1.8, 1.6, 1.4]])
 	_gable_roof(c, "CorrugatedRed", 5.6, 5.6, 2.8, 1.1)
 	quad_flat(M_LINO, c, Vector2(4.6, 4.5), 0.0, 0.165)
 	_sign(root, "Sign_Office", c + Vector3(0, 2.5, -2.51), Vector2(2.2, 0.55), PI)
-	for z in [-0.35, 1.55]:
-		_window(c + Vector3(-2.52, 1.7, z), -PI * 0.5, 1.1, 1.3)
-	for z in [-1.45, 0.45]:
-		_window(c + Vector3(2.52, 1.7, z), PI * 0.5, 1.1, 1.3)
-	_window(c + Vector3(1.8, 1.7, 2.47), 0.0, 1.6, 1.4, false)
 	prop(P_WALL_LAMP, c + Vector3(1.0, 2.3, -2.5), PI)
 	light(c + Vector3(0, 2.4, 0.3), Color(1.0, 0.86, 0.62), 1.1, 6.0)
 	# interior: the management desk keeps its collision; the THE VEIL desk + computer sits on it
@@ -403,13 +488,10 @@ func _office() -> void:
 ## The player's small house by the garage: a bed to sleep in once the day is done (see main.try_sleep).
 func _home() -> void:
 	var c: Vector3 = game.HOME_POS
-	_walls(c, M_SIDING, M_DRYWALL)
+	_walls(c, M_SIDING, M_DRYWALL, 2.8, [["R", -1.45, 1.1, 1.3], ["R", 0.45, 1.1, 1.3], ["L", 0.55, 1.1, 1.3]])
 	_gable_roof(c, "Corrugated", 5.6, 5.6, 2.8, 1.0)
 	quad_flat(M_LINO, c, Vector2(4.6, 4.5), 0.0, 0.165)
 	_sign(root, "Sign_Home", c + Vector3(0, 2.5, -2.51), Vector2(1.4, 0.35), PI)
-	for z in [-1.45, 0.45]:
-		_window(c + Vector3(2.52, 1.7, z), PI * 0.5, 1.1, 1.3)
-	_window(c + Vector3(-2.52, 1.7, 0.55), -PI * 0.5, 1.1, 1.3)
 	prop(P_WALL_LAMP, c + Vector3(-1.0, 2.3, -2.5), PI)
 	light(c + Vector3(0, 2.4, 0.3), Color(1.0, 0.84, 0.58), 1.0, 6.0)
 	# bed in the back-left corner (collision body "Bed" is built by main), bedside table with a lamp
@@ -429,13 +511,10 @@ func _home() -> void:
 ## (built by main), shelves and a toolchest sit against the side walls, and the doorway and the floor in front of it stay clear.
 func _toolshed() -> void:
 	var c: Vector3 = game.TOOLSHED_POS
-	_walls(c, M_SIDING, M_DRYWALL)
+	_walls(c, M_SIDING, M_DRYWALL, 2.8, [["L", -0.6, 1.0, 1.2], ["L", 0.9, 1.0, 1.2], ["R", -0.6, 1.0, 1.2], ["R", 0.9, 1.0, 1.2]])
 	_gable_roof(c, "Corrugated", 5.6, 5.6, 2.8, 0.9)
 	quad_flat(M_LINO, c, Vector2(4.6, 4.5), 0.0, 0.165)
 	_sign(root, "Sign_Upgrades", c + Vector3(0, 2.5, -2.51), Vector2(1.6, 0.4), PI)
-	for z in [-0.6, 0.9]:
-		_window(c + Vector3(-2.52, 1.7, z), -PI * 0.5, 1.0, 1.2)
-		_window(c + Vector3(2.52, 1.7, z), PI * 0.5, 1.0, 1.2)
 	prop(P_WALL_LAMP, c + Vector3(1.0, 2.3, -2.5), PI)
 	light(c + Vector3(0, 2.4, 0.2), Color(1.0, 0.88, 0.66), 1.1, 6.0)
 	prop(P_SHELF, c + Vector3(-2.0, 0.16, 0.3), PI * 0.5)
@@ -729,8 +808,14 @@ func _yard_boundary_blueprint() -> void:
 	var z1 := hub.end.y
 	_fence_line(Vector2(x0, fz), Vector2(x0, 21.3), true, 1.6)               # west, down to the tunnel gate
 	_fence_line(Vector2(x0, z1), Vector2(x1, z1), true, 1.6)                 # south
-	_fence_line(Vector2(x1, fz), Vector2(x1, 9.0), true, 1.6)                # east, with the gate to the east extension at z 9..15
-	_fence_line(Vector2(x1, 15.0), Vector2(x1, z1), true, 1.6)
+	_fence_line(Vector2(x1, fz), Vector2(x1, z1), true, 1.6)                 # east: ONE closed fence. The old gate at z 9..15 led out to open woodland with nothing in it
+	# the old gap is a locked service gate now: two posts, a hazard-striped panel and a sign, with the fence's collider behind it
+	for gz in [9.0, 15.0]:
+		bx("SteelGreen", Vector3(x1, 1.5, gz), Vector3(0.3, 3.0, 0.3))
+	bx("Hazard", Vector3(x1, 1.2, 12.0), Vector3(0.08, 1.2, 5.6))
+	bx("SteelGreen", Vector3(x1, 2.4, 12.0), Vector3(0.12, 0.12, 5.8))
+	_sign(root, "Sign_Safety", Vector3(x1 + 0.1, 1.7, 12.0), Vector2(2.0, 0.65), PI * 0.5)
+	_sign(root, "Sign_Safety", Vector3(x1 - 0.1, 1.7, 12.0), Vector2(2.0, 0.65), -PI * 0.5)
 	for side in [-1.0, 1.0]:
 		bx("SteelGreen", Vector3(side * GATE_HALF, 1.7, fz), Vector3(0.4, 3.4, 0.4))
 		bx("Hazard", Vector3(side * GATE_HALF, 0.55, fz - 0.21), Vector3(0.4, 0.8, 0.02), PI)

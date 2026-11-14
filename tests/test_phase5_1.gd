@@ -277,7 +277,7 @@ func scene_tests() -> void:
 	game.hud.show_card("A LETTER FROM GRANDPA", "x".repeat(0) + "Dear kid, the quarry is yours now. ".repeat(9), Callable())
 	await process_frame
 	await process_frame
-	check(game.hud.card_body.get_combined_minimum_size().y + 90.0 <= game.hud.card.size.y, "1 a long story letter wraps and fits inside its card (%d of %d px)" % [game.hud.card_body.get_combined_minimum_size().y, game.hud.card.size.y])
+	check(game.hud.letter.visible and game.hud.letter.paper.size.y <= 500.0 and game.hud.letter.pages.size() >= 1, "1 a long story text is paginated on a compact sheet (%d x %d)" % [int(game.hud.letter.paper.size.x), int(game.hud.letter.paper.size.y)])
 	game.hud.close_card()
 	game.hud.toast("Lower level open!", "Copper needs the Power Drill; gold needs the Heavy Jackhammer (or a rock breaker).", "unlock")
 	game.hud._update_toasts(0.01)
