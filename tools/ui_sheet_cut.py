@@ -100,7 +100,8 @@ NAMES = {
         'gravel_fine', 'gravel_coarse', 'stone_blocks', 'slab', 'ingots_steel', 'ingot_copper', 'ingot_gold', 'crate_ore', 'sack', 'bulk_bag',
         'excavator', 'loader', 'truck', 'crusher', 'conveyor', 'hopper', 'sorting_table', 'drill_rig', 'breaker', 'compressor',
         'office', 'workshop', 'shed', 'warehouse', 'fuel_tank', 'silo', 'conveyor_long', 'tower', 'gate_barrier', 'tunnel',
-        'portrait_grandpa', 'portrait_worker_a', 'portrait_worker_b', 'portrait_worker_c', 'portrait_worker_d', 'portrait_worker_e', 'clipboard', 'blueprint', 'calendar', 'coins_stack',
+        None, None, None, None, None, None,  # generated faces are never used: portraits are snips of the 3D models
+        'clipboard', 'blueprint', 'calendar', 'coins_stack',
         'money_bag', 'card', 'arrow_up', 'gear_gold', 'hardhat', 'vest', 'gloves', 'boots', 'radio', 'lunchbox', 'mug'],
     'sheet_c2_machinery': ['engine', 'radiator', 'oil_filter', 'hose_curved', 'battery_big', 'jerrycan_oil', 'spark_plug', 'belt_pulley',
         'tools_cross', 'gear_wrench', 'power_on', 'power_off', 'play', 'pause', 'stop', 'refresh', 'fuel_pump', 'oil_drop',

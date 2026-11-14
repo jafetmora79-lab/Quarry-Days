@@ -33,11 +33,11 @@ func run() -> void:
 	for i in range(12):
 		var t := UiArt.portrait(i)
 		pok = pok and t != null and t.get_width() == 64
-	check(pok, "all 12 portraits load at 64 x 64")
+	check(pok, "every portrait is a 64 x 64 snip of a 3D model")
 	var img := UiArt.icon("money").get_image()
 	check(img.get_pixel(0, 0).a == 0.0 and img.get_pixel(16, 16).a > 0.9, "icons have a transparent background and solid art")
 	check(UiArt.portrait_index("Rosa Quintero", "f") == UiArt.portrait_index("Rosa Quintero", "f") and UiArt.portrait_index("Rosa Quintero", "f") in UiArt.FEMALE, "a worker always gets the same, gender-matched face")
-	check(UiArt.portrait_index("Anyone", "m", "clerk") == UiArt.CLERK, "clerks use the clerk portrait")
+	check(UiArt.portrait_index("Anyone", "m", "clerk") in [UiArt.CLERK, UiArt.CLERK + 1], "clerks use a clerk model portrait")
 	var ic := HudIcon.new("coin", 16)
 	check(HudIcon.ART.has("coin") and UiArt.has_icon(HudIcon.ART["coin"]), "the HUD coin uses the pixel art")
 	var game = load("res://Main.tscn").instantiate()

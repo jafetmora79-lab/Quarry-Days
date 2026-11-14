@@ -4,15 +4,14 @@ class_name UiArt
 ## Everything is drawn with nearest-neighbour filtering so the pixels stay crisp at any size.
 
 const ICON_DIR := "res://assets/ui/icons/"
-const PORTRAIT_DIR := "res://assets/ui/portraits/"
 static var _cache := {}
 
-## Portrait sheet order: 0 miner with lamp, 1 woman in bandana, 2 moustached miner, 3 bearded man in cap, 4 earmuffs and goggles, 5 woman in cap,
-## 6 goggles and beard, 7 man in cap with gloves, 8 clerk with clipboard, 9 grandfather, 10 freckled young man, 11 freckled woman in hard hat.
-const FEMALE := [1, 5, 11]
-const MALE := [0, 2, 3, 4, 6, 7, 10]
-const GRANDFATHER := 9
-const CLERK := 8
+## Faces always come from the real 3D models (assets/ui/portraits/named/), never from generated art. Workers without a named
+## candidate borrow a portrait of the cast by gender; clerks use the two clerk models; Grandpa Walter is "walter".
+const FEMALE := [102, 105, 107, 108, 110]       ## rosa, nia, hana, sofia, lucia
+const MALE := [103, 106, 109, 111]              ## dmitri, tomas, bram, felix
+const GRANDFATHER := 100                        ## walter
+const CLERK := 112                              ## petra (omar, 113, is the other clerk)
 
 ## The icon art is drawn at 64 px (tools/draw_ui_icons.py) with a 32 px copy ("_s") for small lists and the HUD, so neither size is ever scaled by a fraction.
 static func icon(name: String, small := false) -> Texture2D:
@@ -32,9 +31,9 @@ static func named_index(id: String) -> int:
 	return NAMED_BASE + i if i >= 0 and ResourceLoader.exists(NAMED_DIR + id + ".png") else -1
 
 static func portrait(index: int) -> Texture2D:
-	if index >= NAMED_BASE:
-		return _tex(NAMED_DIR + str(NAMED_IDS[index - NAMED_BASE]) + ".png")
-	return _tex(PORTRAIT_DIR + "p%d.png" % index)
+	if index < NAMED_BASE:                      # an old sheet index: show the matching cast member instead
+		index = NAMED_BASE + posmod(index, NAMED_IDS.size())
+	return _tex(NAMED_DIR + str(NAMED_IDS[clampi(index - NAMED_BASE, 0, NAMED_IDS.size() - 1)]) + ".png")
 
 ## The same worker always gets the same face: it depends only on the name and gender. Clerks use the clerk portrait.
 static func portrait_for(name: String, gender: String, profession := "") -> Texture2D:
@@ -45,7 +44,7 @@ static func portrait_index(name: String, gender: String, profession := "", candi
 	if named >= 0:
 		return named
 	if profession == "clerk":
-		return CLERK
+		return CLERK + (absi(name.hash()) % 2)
 	var pool: Array = FEMALE if gender == "f" else MALE
 	return int(pool[absi(name.hash()) % pool.size()])
 
