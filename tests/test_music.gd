@@ -36,17 +36,16 @@ func run() -> void:
 	await process_frame
 	for i in range(8):
 		await physics_frame
+	if g.walter_dialog:
+		g.walter_dialog.skip()
 	g.hud.close_card()
+	g._cine_tween().kill()
+	g._remove_walter()
+	for i in range(30):
+		await physics_frame
 	var m: QuarryMusic = g.music
 	check(m != null and AudioServer.get_bus_index("Music") >= 0, "a Music bus and the music manager exist")
-	check(m.players.is_empty(), "with no music files in the project it stays silent (no players, no errors)")
-	for key in ["menu", "play"]:
-		var p := AudioStreamPlayer.new()
-		p.stream = tone()
-		p.bus = "Music"
-		p.volume_db = -80.0
-		m.add_child(p)
-		m.players[key] = p
+	check(m.players.size() == 2 and m.players.has("menu") and m.players.has("play"), "the real music files are connected: a player for each track")
 	check(m.wanted() == "play", "in the quarry the gameplay loop is wanted")
 	g._open_menu("manage")
 	check(m.wanted() == "menu", "the office computer wants the menu theme")
@@ -90,5 +89,29 @@ func run() -> void:
 	await frames(1)
 	(g.panel.buttons["music_vol"] as HSlider).value = 0.4
 	check(absf(m.volume - 0.4) < 0.001, "dragging the slider sets the volume")
+	# ---- the real tracks are in the project and connected
+	check(ResourceLoader.exists("res://audio/music/walts_hammer.wav") and ResourceLoader.exists("res://audio/music/quarry_shift.wav"), "both music files are in audio/music (walts_hammer, quarry_shift)")
+	check(m.players.has("menu") and m.players.has("play") and m.players.size() == 2, "both tracks have a player, no duplicates (%d players)" % m.players.size())
+	check((m.players["menu"].stream as AudioStreamWAV).loop_mode == AudioStreamWAV.LOOP_FORWARD and (m.players["play"].stream as AudioStreamWAV).loop_mode == AudioStreamWAV.LOOP_FORWARD, "both loop")
+	# ---- the opening scene plays the menu theme, dialogue lowers the music, driving lowers it a little, and nothing restarts
+	g._close_menu()
+	m.set_muted(false)
+	m.set_volume(0.7)
+	g.est_running = true
+	await frames(5)
+	check(m.wanted() == "menu", "the opening shots play the menu theme")
+	g.est_running = false
+	await frames(5)
+	check(m.wanted() == "play", "and the gameplay loop follows when control returns")
+	await frames(60)
+	var pos_before: float = m.players["play"].get_playback_position()
+	g._open_walter_dialog([{"speaker": "GRANDPA WALTER", "text": "Hello.", "dur": 9.0}], func(_s): pass)
+	await frames(90)
+	check(m.context_gain < 0.6 and m.context_gain > 0.5, "the music eases down while Grandpa speaks (%.2f)" % m.context_gain)
+	g.walter_dialog.skip()
+	await frames(150)
+	check(m.context_gain > 0.99, "and eases back up afterwards (%.2f)" % m.context_gain)
+	var pos_after: float = m.players["play"].get_playback_position()
+	check(m.players.size() == 2 and (pos_after >= pos_before - 0.01 or pos_before > 70.0), "the gameplay track kept playing through the dialogue (%.1f s -> %.1f s), nothing restarted or doubled" % [pos_before, pos_after])
 	print("RESULT: %d checks, %d failures" % [checks, failures.size()])
 	quit(1 if failures.size() > 0 else 0)

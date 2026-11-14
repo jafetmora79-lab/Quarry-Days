@@ -2,7 +2,9 @@ extends Node
 class_name QuarryMusic
 ## Background music: the menu theme (walts_hammer) over the main menu, the pause menu, the office computer, the station panels and story cards;
 ## the gameplay loop (quarry_shift) otherwise. Two players on a "Music" bus, crossfaded over 1.5 s, paused (not restarted) when faded out, ducked
-## 4 dB for a moment when an unlock jingle plays. Volume and mute are saved in user://settings.cfg. A missing file just means silence.
+## 4 dB for a moment when an unlock jingle plays. Volume and mute are saved in user://settings.cfg. A missing file just means silence
+## (the two tracks live in audio/music/: walts_hammer.wav and quarry_shift.wav). The opening cinematic plays the menu theme (the warm folk piece) and the
+## gameplay loop follows when the player takes control; the music eases down a little while someone talks and while a machine is driven.
 
 const TRACKS := {"menu": "res://audio/music/walts_hammer", "play": "res://audio/music/quarry_shift"}   # .wav or .ogg
 const BASE_DB := -19.0
@@ -17,6 +19,7 @@ var volume := 0.7                              ## 0..1 (music volume setting)
 var muted := false
 var duck_t := 0.0
 var bus_index := -1
+var context_gain := 1.0                        ## eases to ~0.55 while Grandpa / a new hire talks and ~0.75 while a machine is driven
 
 func setup(main_node) -> void:
 	game = main_node
@@ -61,7 +64,19 @@ func wanted() -> String:
 		return "menu"
 	if game.menu != "" or (game.hud != null and game.hud.card_open()):
 		return "menu"
+	if game.est_running or game.walter_intro_running:
+		return "menu"                          # the opening scene: the warm menu theme, then the gameplay loop when control returns
 	return "play"
+
+## How much the music gives way to what is happening right now.
+func _context_target() -> float:
+	if game == null:
+		return 1.0
+	if game.walter_dialog != null or game.dialog != null or game.fossil_dialog != null:
+		return 0.55                            # lowered (not stopped) while someone speaks
+	if game.driving != null:
+		return 0.75                            # room for the engine
+	return 1.0
 
 func duck() -> void:
 	duck_t = 1.2
@@ -77,6 +92,7 @@ func set_muted(m: bool) -> void:
 func _process(delta: float) -> void:
 	current = wanted()
 	duck_t = maxf(0.0, duck_t - delta)
+	context_gain = move_toward(context_gain, _context_target(), delta * 0.9)
 	var step := delta / FADE_SECONDS
 	for key in players:
 		var p: AudioStreamPlayer = players[key]
@@ -90,7 +106,7 @@ func _process(delta: float) -> void:
 			p.play()
 		p.stream_paused = false
 		var gain := 0.0 if muted else volume
-		p.volume_db = linear_to_db(maxf(0.0001, lv * gain)) + BASE_DB + (-4.0 if duck_t > 0.0 else 0.0)
+		p.volume_db = linear_to_db(maxf(0.0001, lv * gain * context_gain)) + BASE_DB + (-4.0 if duck_t > 0.0 else 0.0)
 
 func _load_settings() -> void:
 	var cf := ConfigFile.new()
