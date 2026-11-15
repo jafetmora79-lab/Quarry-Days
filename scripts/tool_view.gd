@@ -28,6 +28,8 @@ var _t := 0.0
 var kick_scale := 1.0        ## how hard this tool's blows shake the camera (the hammer barely, the heavy pick most): see Player.impact_feedback
 var obstruct := 0.0         ## 0..1 set by the game: something solid (a wall, a desk) is right in front, so the tool is tucked down and back instead of poking through it
 var _obs := 0.0
+var shock := 0.0            ## 1 at the moment of a blow, decays: the tool shudders in the hands
+var _slide := 0.0           ## how far the off hand has slid along the shaft (m, model space)
 var suppressed := false     ## the game keeps the tool out of sight (at the computer): other code that shows or hides it respects this
 
 ## Per-tool first-person pose. Camera space: -Z is forward, +X right, +Y up. Swing tools hold their handle along +Y
@@ -180,6 +182,7 @@ func _process(delta: float) -> void:
 				weight = 1.0 - clampf(a * 2.0, 0.0, 1.0)
 			if p >= float(def.get("impact_p", 0.58)) and not impact_done:
 				impact_done = true
+				shock = 1.0
 				if on_impact.is_valid():
 					on_impact.call()
 			rot.x = ang
@@ -190,6 +193,16 @@ func _process(delta: float) -> void:
 	else:
 		var rr: Vector3 = def["rest_rot"]
 		rot = rr
+	# equip / unequip: the tool tips toward the player as it drops out of view and comes back up level; a slow breath of sway while it is held;
+	# a short shudder through the handle after every blow
+	rot.x += lower * 1.0
+	rot.z += lower * 0.35
+	shock = maxf(0.0, shock - delta * 5.0)
+	if not is_power:
+		rot.z += sin(_t * 1.3) * 0.012 * (1.0 - moving) * (1.0 if phase < 0.0 else 0.0)
+		off.y += sin(_t * 1.7) * 0.003 * (1.0 - moving)
+		rot.x += sin(_t * 75.0) * 0.03 * shock * shock
+	_pose_hands(def, strike_p, delta)
 	_obs = move_toward(_obs, obstruct, delta * 5.0)          # eased both ways: no pop when a wall comes or goes
 	if _obs > 0.0:
 		rot.x += 0.45 * _obs
@@ -217,6 +230,7 @@ func _process(delta: float) -> void:
 			weight = maxf(weight, kick)
 			if phase >= 0.5 and not impact_done:
 				impact_done = true
+				shock = 1.0
 				if on_impact.is_valid():
 					on_impact.call()
 			if phase >= 1.0:
@@ -252,6 +266,15 @@ func _box(s: MeshKit.Soup, c: Vector3, size: Vector3, taper := Vector2.ONE) -> v
 	MeshKit.box_into(s, c, size, taper)
 
 func _build(t: int, with_hands := true) -> Node3D:
+	var bm := ToolModels.load_tool(ToolModels.key_of(t))
+	if bm != null:                                 # the Blender-built model of this tool (tools/tool_models/build_tools.py)
+		if t == 4 or GearModels.id_of(t) == "pneumatic_chisel":
+			bm.rotation.x = float(_def(t).get("model_pitch", 0.0))      # the jackhammers lean forward so the chisel points down-range at the rock
+		if with_hands:
+			_add_hands(bm, t)
+		if GearModels.id_of(t) in ["pointed_chisel", "flat_chisel"]:
+			_add_striker(bm, t)
+		return bm
 	if t >= GearModels.TIER_BASE:                  # Phase 9 tools: their own models
 		var gn := GearModels.build_tool(GearModels.id_of(t))
 		gn.rotation.x = float(_def(t).get("model_pitch", 0.0))      # the pneumatic chisel leans forward like the jackhammer
@@ -345,8 +368,8 @@ const HANDS := {
 	0: [["R", Vector3(0, 0.15, 0)]],
 	1: [["R", Vector3(0, 0.17, 0)], ["L", Vector3(0, 0.37, 0)]],
 	2: [["R", Vector3(0, 0.20, 0)], ["L", Vector3(0, 0.41, 0)]],
-	3: [["R", Vector3(0, 0.0, 0.05)], ["L", Vector3(-0.065, 0.12, -0.1)]],
-	4: [["R", Vector3(0.15, 0.0, 0)], ["L", Vector3(-0.15, 0.0, 0)]],
+	3: [["R", Vector3(0, 0.0, 0.05)], ["L", Vector3(-0.12, 0.07, -0.12), Vector3.RIGHT]],      # pistol grip; the side handle runs along X
+	4: [["R", Vector3(0.15, 0.0, 0), Vector3.RIGHT], ["L", Vector3(-0.15, 0.0, 0), Vector3.RIGHT]],   # the T-handle grips run along X
 }
 const SKIN := Color(0.80, 0.62, 0.48)
 const GLOVE := Color(0.17, 0.18, 0.21)
@@ -362,12 +385,53 @@ func _hand_frame(t: int) -> Array:
 func _add_hands(n: Node3D, t: int) -> void:
 	var def: Dictionary = _def(t)
 	var fr := _hand_frame(t)
+	var list := []
 	for h in (def["hands"] if def.has("hands") else HANDS[t]):
-		_hand(n, h[0] == "R", h[1], fr[0], fr[1])
+		var axis: Vector3 = h[2] if h.size() > 2 else Vector3.UP
+		var hn := _hand(n, h[0] == "R", h[1], fr[0], fr[1], Vector3.ZERO, axis)
+		if hn != null:
+			list.append({"node": hn, "base": hn.position, "axis": axis, "right": h[0] == "R"})
+	n.set_meta("hand_nodes", list)
+
+## The off hand works along the shaft while swinging: it slides down toward the other hand as the head goes back, then rides out again through the blow.
+func _pose_hands(def: Dictionary, p: float, delta: float) -> void:
+	if model == null or not model.has_meta("hand_nodes") or bool(def.get("power", false)):
+		return
+	var list: Array = model.get_meta("hand_nodes")
+	if list.size() < 2:
+		return
+	var reach := float(def.get("slide", 0.06))
+	var want := 0.0
+	if p >= 0.0:
+		if str(def.get("style", "")) == "scoop":
+			want = -reach * (1.0 if p < 0.8 else (1.0 - (p - 0.8) / 0.2))
+		elif p < 0.42:
+			want = -reach * (1.0 - pow(1.0 - p / 0.42, 2.0))
+		elif p < 0.58:
+			want = lerpf(-reach, reach * 0.35, (p - 0.42) / 0.16)
+		else:
+			want = lerpf(reach * 0.35, 0.0, clampf((p - 0.58) / 0.3, 0.0, 1.0))
+	_slide = lerpf(_slide, want, clampf(delta * 18.0, 0.0, 1.0))
+	for h in list:
+		if not bool(h["right"]) and Vector3(h["axis"]) == Vector3.UP:
+			var nd: Node3D = h["node"]
+			nd.position = Vector3(h["base"]) + Vector3.UP * _slide
 
 ## One gloved fist with its cuff band and jacket sleeve, closed at `at` (model space) of `parent`; the sleeve runs toward the screen edge.
-func _hand(n: Node3D, right: bool, at: Vector3, inv: Basis, inv_s: float, cam_dir := Vector3.ZERO) -> void:
+func _hand(n: Node3D, right: bool, at: Vector3, inv: Basis, inv_s: float, cam_dir := Vector3.ZERO, axis := Vector3.UP, procedural := false) -> Node3D:
 	var dir_m: Vector3 = (inv * (cam_dir if cam_dir != Vector3.ZERO else (HAND_R_DIR if right else HAND_L_DIR))).normalized()
+	var gh: Node3D = null if procedural else ToolModels.load_hand(right)
+	if gh != null and not procedural:
+		# a Blender glove: fingers wrapped round the grip (its axis is `axis`), the forearm running toward the screen edge (perpendicular to the grip)
+		var ya := axis.normalized()
+		var za := dir_m - ya * dir_m.dot(ya)
+		if za.length() < 0.05:
+			za = ya.cross(Vector3.RIGHT)
+		za = za.normalized()
+		gh.basis = Basis(ya.cross(za).normalized(), ya, za).scaled(Vector3.ONE * inv_s)
+		gh.position = at
+		n.add_child(gh)
+		return gh
 	var basis := VeilRig.basis_zy(dir_m, Vector3.UP)
 	# a real forearm: a tapered sleeve with a rolled cuff, a gloved fist with knuckles and a thumb, all rounded (cylinders, not boxes)
 	var along := Basis(Quaternion(Vector3.UP, dir_m))      # +Y of this basis runs down the forearm, away from the grip
@@ -384,6 +448,7 @@ func _hand(n: Node3D, right: bool, at: Vector3, inv: Basis, inv_s: float, cam_di
 	cuff.basis = along
 	var sleeve := MeshKit.inst(n, MeshKit.frustum(0.048 * inv_s, 0.064 * inv_s, 0.30 * inv_s, 10), MeshKit.flat(SLEEVE), at + dir_m * 0.085 * inv_s)
 	sleeve.basis = along
+	return null
 
 ## Chisels are held in one hand and struck with a small hammer in the other. The striker (hammer head, handle, fist and sleeve) is its own node:
 ## it draws back, drives onto the chisel's strike end exactly at the impact moment, and recovers (see _pose_striker).
@@ -402,7 +467,7 @@ func _add_striker(n: Node3D, t: int) -> void:
 	MeshKit.inst(striker, MeshKit.box(Vector3(0.05, 0.012, 0.05)), MeshKit.mat("SteelPlate"), Vector3(0, 0.032, 0))
 	var handle := MeshKit.inst(striker, MeshKit.box(Vector3(0.028, 0.028, 0.2)), MeshKit.mat(QuarryArt.M_WOOD), dir_m * 0.1)
 	handle.basis = basis
-	_hand(striker, true, dir_m * 0.17, inv, inv_s, STRIKER_DIR)
+	_hand(striker, true, dir_m * 0.17, inv, inv_s, STRIKER_DIR, Vector3.UP, true)
 	n.set_meta("striker", striker)
 
 ## Striker position along the chisel's axis behind the strike end: drawn back during the wind-up, driving in over the strike stretch so the face meets the

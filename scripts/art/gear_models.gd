@@ -28,14 +28,14 @@ const POSE := {
 	"hardened_pickaxe": {"grip": Vector3(0.30, -0.42, -0.55), "scale": 0.76, "rest": -0.75, "yaw": 0.2, "wind": 0.12, "strike": -1.38, "tip": Vector3(0, 0.57, -0.33),
 		"hands": [["R", Vector3(0, 0.15, 0)], ["L", Vector3(0, 0.42, 0)]]},
 	"hand_splitter": {"grip": Vector3(0.28, -0.40, -0.5), "scale": 0.85, "rest": -0.95, "yaw": 0.1, "wind": -0.55, "strike": -1.2, "tip": Vector3(0, 0.46, -0.02), "lever": true,
-		"hands": [["R", Vector3(0, 0.05, 0)], ["L", Vector3(0, 0.3, 0.26)]]},
+		"hands": [["R", Vector3(0, 0.05, 0)], ["L", Vector3(0, 0.3, 0.26), Vector3(0, 0, 1)]]},          # the off hand rides the lever arm (its axis is Z)
 	"powered_hammer": {"grip": Vector3(0.28, -0.32, -0.5), "scale": 0.75, "power": true, "rest_rot": Vector3(0.1, 0.2, 0.0), "tip": Vector3(0, 0.12, -0.5), "spin": "pump_z", "amp": 0.012,
-		"hands": [["R", Vector3(0, 0.0, 0.08)], ["L", Vector3(-0.07, 0.14, -0.1)]]},
+		"hands": [["R", Vector3(0, 0.0, 0.08)], ["L", Vector3(-0.12, 0.12, -0.17), Vector3.RIGHT]]},   # pistol grip, and the side grip on the clamp (axis X)
 	"shovel": {"grip": Vector3(0.30, -0.46, -0.55), "scale": 0.82, "rest": -0.9, "yaw": 0.18, "wind": -0.35, "strike": -1.6, "tip": Vector3(0, 0.84, -0.04), "style": "scoop", "impact_p": 0.5,
 		"hands": [["R", Vector3(0, 0.1, 0)], ["L", Vector3(0, 0.38, 0)]]},
 	"ramp_plan": {"grip": Vector3(0.28, -0.40, -0.52), "scale": 0.9, "rest": -0.45, "yaw": 0.15, "wind": -0.45, "strike": -0.5, "tip": Vector3(0, 0.5, -0.05), "hands": [["R", Vector3(0, 0.1, 0)]]},
 	"pneumatic_chisel": {"grip": Vector3(0.3, -0.14, -0.5), "scale": 0.75, "power": true, "rest_rot": Vector3(0.0, 0.3, 0.0), "model_pitch": 0.8, "tip": Vector3(0, -0.62, 0), "spin": "pump_y", "amp": 0.012,
-		"hands": [["R", Vector3(0.14, 0.0, 0)], ["L", Vector3(-0.14, 0.0, 0)]]},
+		"hands": [["R", Vector3(0.15, 0.04, 0), Vector3.RIGHT], ["L", Vector3(-0.15, 0.04, 0), Vector3.RIGHT]]},   # the T-handle grips (axis X)
 }
 
 static func tier_of(id: String) -> int:
@@ -80,6 +80,9 @@ class Builder:
 # ------------------------------------------------------------------ handheld tools
 
 static func build_tool(id: String) -> Node3D:
+	var bm := ToolModels.load_tool(id)          # the Blender-built model (tools/tool_models); the procedural one below is the fallback
+	if bm != null:
+		return bm
 	var n := Node3D.new()
 	n.name = "Gear_" + id
 	var b := Builder.new()
@@ -218,6 +221,9 @@ static func build_tool(id: String) -> Node3D:
 
 ## The three ladder tools whose models were upgraded in Phase 9 (worn pickaxe, reinforced pickaxe, corded drill).
 static func build_ladder(t: int) -> Node3D:
+	var bm := ToolModels.load_tool(ToolModels.key_of(t))
+	if bm != null:
+		return bm
 	var n := Node3D.new()
 	n.name = "Tool%d" % t
 	var b := Builder.new()
