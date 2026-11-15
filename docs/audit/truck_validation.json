@@ -1,0 +1,58 @@
+{
+  "bounds": {
+    "min": [
+      -1.20000004768372,
+      0.0230034291744232,
+      -2.41499996185303
+    ],
+    "size": [
+      2.40000009536743,
+      2.50699663162231,
+      4.77500009536743
+    ]
+  },
+  "budget": {
+    "surfaces": 61,
+    "triangles": 4564
+  },
+  "clips": {
+    "Drive": {
+      "length_s": 0.8,
+      "worst_ram_pin_error_m": 0
+    },
+    "DumpCycle": {
+      "length_s": 8.033,
+      "worst_ram_pin_error_m": 0.0016
+    },
+    "DumpDown": {
+      "length_s": 3.033,
+      "worst_ram_pin_error_m": 0.00089
+    },
+    "DumpUp": {
+      "length_s": 3.033,
+      "worst_ram_pin_error_m": 0.00127
+    },
+    "EngineStart": {
+      "length_s": 1.833,
+      "worst_ram_pin_error_m": 0
+    },
+    "EngineStop": {
+      "length_s": 1.533,
+      "worst_ram_pin_error_m": 0
+    },
+    "Idle": {
+      "length_s": 0.8,
+      "worst_ram_pin_error_m": 0
+    },
+    "Steer": {
+      "length_s": 3.033,
+      "worst_ram_pin_error_m": 0
+    }
+  },
+  "failures": [],
+  "passed": true,
+  "solver": {
+    "gate_ok": true,
+    "worst_ram_pin_error_m": 0
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "budget": {
+    "surfaces": 61,
+    "triangles": 4424
+  },
+  "clips": {
+    "BucketTilt": {
+      "length_s": 4.033,
+      "worst_pin_error_m": 0.00534
+    },
+    "Drive": {
+      "length_s": 0.8,
+      "worst_pin_error_m": 0
+    },
+    "DumpCycle": {
+      "length_s": 6.033,
+      "worst_pin_error_m": 0.00239
+    },
+    "EngineStart": {
+      "length_s": 1.833,
+      "worst_pin_error_m": 0
+    },
+    "EngineStop": {
+      "length_s": 1.533,
+      "worst_pin_error_m": 0
+    },
+    "Idle": {
+      "length_s": 0.8,
+      "worst_pin_error_m": 0
+    },
+    "LiftUpDown": {
+      "length_s": 4.033,
+      "worst_pin_error_m": 0.00537
+    },
+    "ScoopCycle": {
+      "length_s": 8.033,
+      "worst_pin_error_m": 0.00414
+    },
+    "Steer": {
+      "length_s": 3.033,
+      "worst_pin_error_m": 0
+    }
+  },
+  "failures": [],
+  "passed": true,
+  "solver": {
+    "poses": 121,
+    "worst_pin_error_m": 0
+  }
+}

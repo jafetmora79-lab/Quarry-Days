@@ -234,6 +234,28 @@
       "cab_paint": "PaintYellow",
       "bed_paint": "PaintYellow",
       "starter": true
+    },
+    "bulldozer": {
+      "title": "Crawler Bulldozer",
+      "kind": "bulldozer",
+      "price": 9500,
+      "gate": "large",
+      "proposed": true,
+      "capacity": 10,
+      "accel": 1.4,
+      "max_speed": 3.4,
+      "reverse_speed": 2.4,
+      "turn": 1.1,
+      "brake": 8.0,
+      "size": [
+        2.6,
+        2.45,
+        4.7
+      ],
+      "speed_label": "Slow",
+      "accel_label": "Heavy",
+      "best_use": "Pushing loose soil and rubble into heaps and to the spoil area",
+      "paint": "PaintYellow"
     }
   },
   "upgrades": {

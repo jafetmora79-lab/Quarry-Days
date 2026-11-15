@@ -226,7 +226,7 @@
     },
     {
       "check": "flat_chisel L hand",
-      "gap_m": 0.005,
+      "gap_m": 0.003,
       "note": "",
       "ok": true
     },
@@ -238,31 +238,31 @@
     },
     {
       "check": "repaired_pickaxe L hand",
-      "gap_m": 0.004,
+      "gap_m": 0.005,
       "note": "",
       "ok": true
     },
     {
       "check": "sledgehammer R hand",
-      "gap_m": 0.022,
+      "gap_m": 0.014,
       "note": "",
       "ok": true
     },
     {
       "check": "sledgehammer L hand",
-      "gap_m": 0.022,
+      "gap_m": 0.026,
       "note": "",
       "ok": true
     },
     {
       "check": "steel_pickaxe R hand",
-      "gap_m": 0.017,
+      "gap_m": 0.002,
       "note": "",
       "ok": true
     },
     {
       "check": "steel_pickaxe L hand",
-      "gap_m": 0.017,
+      "gap_m": 0.019,
       "note": "",
       "ok": true
     },
@@ -274,13 +274,13 @@
     },
     {
       "check": "hardened_pickaxe L hand",
-      "gap_m": 0.018,
+      "gap_m": 0.02,
       "note": "",
       "ok": true
     },
     {
       "check": "hand_splitter R hand",
-      "gap_m": 0.03,
+      "gap_m": 0,
       "note": "",
       "ok": true
     },
@@ -298,37 +298,37 @@
     },
     {
       "check": "powered_hammer L hand",
-      "gap_m": 0.008,
+      "gap_m": 0,
       "note": "",
       "ok": true
     },
     {
       "check": "pneumatic_chisel R hand",
-      "gap_m": 0.01,
+      "gap_m": 0.018,
       "note": "",
       "ok": true
     },
     {
       "check": "pneumatic_chisel L hand",
-      "gap_m": 0.01,
+      "gap_m": 0.018,
       "note": "",
       "ok": true
     },
     {
       "check": "shovel R hand",
-      "gap_m": 0.018,
+      "gap_m": 0.017,
       "note": "",
       "ok": true
     },
     {
       "check": "shovel L hand",
-      "gap_m": 0.018,
+      "gap_m": 0.017,
       "note": "",
       "ok": true
     },
     {
       "check": "ramp_plan R hand",
-      "gap_m": 0.015,
+      "gap_m": 0.014,
       "note": "",
       "ok": true
     }
@@ -336,19 +336,19 @@
   "tool tip": [
     {
       "check": "pointed_chisel working tip on the model",
-      "gap_m": 0.008,
+      "gap_m": 0.003,
       "note": "",
       "ok": true
     },
     {
       "check": "flat_chisel working tip on the model",
-      "gap_m": 0.004,
+      "gap_m": 0.002,
       "note": "",
       "ok": true
     },
     {
       "check": "repaired_pickaxe working tip on the model",
-      "gap_m": 0.02,
+      "gap_m": 0.021,
       "note": "",
       "ok": true
     },
@@ -360,25 +360,25 @@
     },
     {
       "check": "steel_pickaxe working tip on the model",
-      "gap_m": 0.007,
+      "gap_m": 0.023,
       "note": "",
       "ok": true
     },
     {
       "check": "hardened_pickaxe working tip on the model",
-      "gap_m": 0.034,
+      "gap_m": 0.033,
       "note": "",
       "ok": true
     },
     {
       "check": "hand_splitter working tip on the model",
-      "gap_m": 0.004,
+      "gap_m": 0.02,
       "note": "",
       "ok": true
     },
     {
       "check": "powered_hammer working tip on the model",
-      "gap_m": 0.012,
+      "gap_m": 0.01,
       "note": "",
       "ok": true
     },
@@ -390,7 +390,7 @@
     },
     {
       "check": "shovel working tip on the model",
-      "gap_m": 0.008,
+      "gap_m": 0.011,
       "note": "",
       "ok": true
     },

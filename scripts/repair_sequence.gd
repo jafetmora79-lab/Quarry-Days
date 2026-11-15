@@ -33,6 +33,8 @@ func start(game_node, vehicle: QuarryVehicle, part_id: String) -> void:
 	v = vehicle
 	part = part_id
 	cab = v.turret if v.turret != null else v.model_root
+	if v.turret != null and v.turret.has_node("OpeningFrame"):
+		cab = v.turret.get_node("OpeningFrame")         # the Blender excavator: the procedural turret space, moved onto its hood
 	props = Node3D.new()
 	props.name = "RepairProps"
 	cab.add_child(props)

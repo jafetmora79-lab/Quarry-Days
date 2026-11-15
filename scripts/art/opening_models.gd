@@ -123,6 +123,7 @@ static func fitted(parent: Node3D, battery: bool, hose: bool, fuel: bool, ground
 			hn.position = Vector3(0.55, 1.05, -0.5)
 		_inst(hn, hose_s, MeshKit.flat(Color(0.2, 0.24, 0.3)))
 		_inst(hn, fit_s, MeshKit.flat(Color(0.75, 0.55, 0.2)))
+	n.position = parent.get_meta("opening_offset", Vector3.ZERO)           # the Blender excavator's turret sits lower: the same drawing, moved onto its hood
 	parent.add_child(n)                          # `parent` is the excavator's turret: the tray, filler and hose swing with the cab
 	if ground != null:
 		var g := Node3D.new()                    # the oil on the ground stays where it dripped while the cab turns above it

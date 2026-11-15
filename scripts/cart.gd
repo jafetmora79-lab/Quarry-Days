@@ -7,7 +7,14 @@ class_name QuarryCart
 
 const SIZE := {"hand_cart": Vector3(0.95, 0.9, 1.5), "wheelbarrow": Vector3(0.7, 0.9, 1.6), "reinforced_wheelbarrow": Vector3(0.8, 0.95, 1.7)}
 
+const WHEELBARROW_GLB := "res://assets/vehicles/VEH_QD_Wheelbarrow.glb"     ## Blender wheelbarrow; hand carts keep the procedural prop
+const WHEEL_R := 0.26
+
 var cart_id := ""
+var wheel: Node3D                ## the Blender barrow's wheel (also in `wheels`)
+var body: Node3D                 ## the Blender barrow's tray / frame
+var _load: Node3D
+const LOAD_LOCAL := Vector3(0, 0.42, 0.75)            ## the pile's place in the tray, in the body frame
 var model: Node3D
 var held := false
 var tilt: Node3D                 ## carries the model; hinged at the front axle so the barrow can tip its load out over the wheel
@@ -40,17 +47,23 @@ func setup(id: String) -> void:
 	floor_snap_length = 0.4
 	set_meta("kind", "cart")
 	set_meta("cart", id)
-	model = GearModels.build_prop(id)
+	model = _blender_wheelbarrow(id) if (id == "wheelbarrow" or id == "reinforced_wheelbarrow") and ResourceLoader.exists(WHEELBARROW_GLB) else null
+	var axle: Vector3 = AXLE.get(id, Vector3(0, 0.25, 0))
+	if model == null:
+		model = GearModels.build_prop(id)
+		for w in model.get_children():
+			if str(w.name).begins_with("Wheel"):
+				wheels.append(w)
+	else:
+		axle = _node_pos_in(wheel, model)
+		wheel.set_meta("radius", WHEEL_R)
+		wheels.append(wheel)
 	tilt = Node3D.new()
 	tilt.name = "Tilt"
-	var axle: Vector3 = AXLE.get(id, Vector3(0, 0.25, 0))
 	tilt.position = axle
 	model.position = -axle
 	add_child(tilt)
 	tilt.add_child(model)
-	for w in model.get_children():
-		if str(w.name).begins_with("Wheel"):
-			wheels.append(w)
 	if mode_of(id) == "push":
 		_add_grip_hands()
 	var cs := CollisionShape3D.new()
@@ -60,6 +73,45 @@ func setup(id: String) -> void:
 	cs.shape = box
 	cs.position = Vector3(0, sz.y * 0.5, 0.15)
 	add_child(cs)
+
+## The Blender wheelbarrow: spinning wheel, tray / frame / handles on a body node that tips about the axle, the usual "Load" pile inside the tray.
+## Returns null (the procedural prop is used) if the file cannot be loaded.
+func _blender_wheelbarrow(id: String) -> Node3D:
+	var scene: PackedScene = load(WHEELBARROW_GLB)
+	if scene == null:
+		return null
+	var n: Node3D = scene.instantiate()
+	n.name = "Gear_" + id
+	body = n.find_child("Body", true, false)
+	wheel = n.find_child("Wheel", true, false)
+	if body == null or wheel == null:
+		return null
+	var paint: Material = load("res://assets/vehicles/materials/M_QD_WornRed.tres") if id == "wheelbarrow" else load("res://assets/materials/M_QD_SteelPlate.tres")
+	for node in n.find_children("*", "MeshInstance3D", true, false):
+		var mi := node as MeshInstance3D
+		for s in mi.mesh.get_surface_count():
+			var imp := mi.mesh.surface_get_material(s)
+			var nm := imp.resource_name if imp != null else ""
+			var path := "res://assets/vehicles/materials/M_QD_%s.tres" % nm
+			if not ResourceLoader.exists(path):
+				path = "res://assets/materials/M_QD_%s.tres" % nm
+			var mat: Material = paint if nm == "CabPaint" else (load(path) if ResourceLoader.exists(path) else null)
+			if mat != null:
+				mi.set_surface_override_material(s, mat)
+	for hull in n.find_children("ColHull_*", "MeshInstance3D", true, false):
+		hull.queue_free()
+	var pile := GearModels._load_pile(n, body.transform * LOAD_LOCAL, Vector3(0.6, 0.34, 0.7))       # a direct child of the prop, like the procedural ones
+	_load = pile
+	return n
+
+## Where `n` sits in `root`'s space (before either is in the tree).
+static func _node_pos_in(n: Node3D, root: Node3D) -> Vector3:
+	var p := Vector3.ZERO
+	var cur := n
+	while cur != null and cur != root:
+		p = cur.transform * p
+		cur = cur.get_parent() as Node3D
+	return p
 
 ## Eases toward `target` (world position) and turns to `yaw`. Returns how far the cart still is from the target (metres).
 func follow(target: Vector3, yaw: float, delta: float) -> float:
@@ -146,7 +198,7 @@ func tip() -> void:
 
 ## Shows what the cart carries: the pile grows with the load and takes the colour of the main material.
 func show_load(contents: Dictionary, capacity: int) -> void:
-	var load: Node3D = model.get_node_or_null("Load") if model else null
+	var load: Node3D = model.find_child("Load", true, false) if model else null
 	if load == null:
 		return
 	var total := 0

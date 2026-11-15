@@ -21,7 +21,12 @@ var dig_phase := 0.0
 var data: Dictionary
 var size := Vector3(2, 1.5, 3)
 
-var driven := false
+var driven := false:
+	set(v):
+		if v == driven:
+			return
+		driven = v
+		_engine_toggle(v)
 var cab_view := false           ## Tab: the camera sits in the driver's seat (see CabInterior / QuarryBoarding) instead of behind the machine
 var auto_drive := false         ## the auto crew (scripts/auto_crew.gd) is steering it: `input` is obeyed like a driver's, but with no camera
 var speed := 0.0
@@ -33,6 +38,42 @@ var camera: Camera3D
 var cam_yaw := 0.0
 var cam_pitch := -0.32
 
+# Blender-built excavator (scripts/art/excavator_rig.gd). Null = the procedural fallback model (VehicleModels.excavator).
+const OPENING_OFFSET := Vector3(0.0, -0.99, 0.0)   ## procedural turret space -> the Blender turret (the hood at y 1.55 there is 0.56 here)
+const USE_RIG_EXCAVATOR := true
+const USE_RIG_TRUCK := true       ## Blender dump truck (scripts/art/truck_rig.gd); false = the old procedural truck
+var rig: ExcavatorRig
+var trig: TruckRig
+const USE_RIG_LOADER := true       ## Blender wheel loader (scripts/art/loader_rig.gd); false = the old procedural loader
+var lrig: LoaderRig
+var _prev_arm := 0.0
+var _loader_dump_armed := true
+var drig: DozerRig                ## Blender bulldozer (scripts/art/dozer_rig.gd)
+var blade_goal := 0.32            ## wanted arm angle: 0.32 = blade carried clear of the ground, -0.08 = cutting edge digging in
+var blade_tilt_goal := 0.0
+var pushing_t := 0.0              ## > 0 while the blade is moving material (dust, sound)
+var push_acc := 0.0
+var _dozer_alpha := 0.32
+var _dozer_tilt := 0.0
+var _prev_blade := 0.0
+var _steer_vis := 0.0
+var _steer_show := 0.0
+var _prev_speed := 0.0
+var _susp_pitch := 0.0
+var _susp_roll := 0.0
+var _bounce := 0.0
+var _bounce_v := 0.0
+var _prev_bed := 0.0
+var _tip_armed := true
+var vaudio: VehicleAudio
+var dig_aim := Vector3.INF     ## world point of the rock / soil being dug (set by main.gd while digging): the bucket reaches for it
+var _kick := 0.0               ## tiny camera pitch kick when the bucket bites
+var _bite_armed := true
+var _prev_dump := 0.0
+var _prev_joints := Vector4.ZERO
+var _throttle_s := 0.0
+var _steer_s := 0.0
+var _dust: CPUParticles3D
 # loader
 var arm: Node3D
 var turret: Node3D            ## excavator: the upper body, swings on the slewing ring
@@ -62,6 +103,8 @@ var unload_target := {}
 var wheels: Array = []
 var track_mats: Array = []     ## excavator tread materials: the texture scrolls as the machine moves
 var _prev_pos := Vector3.INF
+var _travel_speed := 0.0         ## m/s the machine really moves along its heading (driven, delivered by script or carried): what the rigs' wheels and belts follow
+var rig_drives_wheels := false   ## the Blender rigs turn their own wheels and belts (`wheels` / `track_mats` list them for tests and tools)
 # Phase 5: smoothed visuals
 var shown_load := 0.0       ## visual cargo that eases toward the real cargo (spills out / fills in)
 var curl_timer := 0.0       ## loader bucket curl when it scoops
@@ -121,12 +164,23 @@ func setup(main_node, f: QuarryFleet, record: Dictionary) -> void:
 	model_root = Node3D.new()
 	model_root.name = "Model"
 	add_child(model_root)
-	var base := Vector3(2.0, 1.5, 3.0) if vkind == "loader" else (Vector3(2.2, 1.8, 4.6) if vkind == "truck" else Vector3(2.0, 2.2, 3.4))
+	var base := Vector3(2.0, 1.5, 3.0) if vkind == "loader" else (Vector3(2.2, 1.8, 4.6) if vkind == "truck" else (Vector3(2.6, 2.45, 4.7) if vkind == "bulldozer" else Vector3(2.0, 2.2, 3.4)))
 	model_root.scale = Vector3(size.x / base.x, size.y / base.y, size.z / base.z)    # bigger machines are the same build, larger
 	match vkind:
 		"loader": _build_loader()
-		"excavator": VehicleModels.excavator(self)
+		"excavator": _build_excavator()
+		"bulldozer": _build_bulldozer()
 		_: _build_truck()
+	vaudio = VehicleAudio.new()
+	vaudio.name = "Audio"
+	add_child(vaudio)
+	if driven:
+		_engine_toggle(true)
+	if rig != null or trig != null:
+		# the Blender machines scale uniformly (the heavy excavator and the industrial truck are the same machine, bigger, not stretched):
+		# the mean of the three size ratios; the collision hull and the game's footprint still come from the spec
+		var u := (model_root.scale.x + model_root.scale.y + model_root.scale.z) / 3.0
+		model_root.scale = Vector3(u, u, u)
 	cam_pivot = Node3D.new()
 	cam_pivot.position = Vector3(0, 2.0, 0)
 	add_child(cam_pivot)
@@ -139,6 +193,100 @@ func setup(main_node, f: QuarryFleet, record: Dictionary) -> void:
 	rotation.y = float(record.get("yaw", 0.0))
 	safe_position = position
 	safe_yaw = rotation.y
+
+## The Blender excavator when its GLB loads; otherwise the old procedural model (kept as the fallback).
+func _build_excavator() -> void:
+	if USE_RIG_EXCAVATOR and ResourceLoader.exists(ExcavatorRig.GLB):
+		var r := ExcavatorRig.new()
+		r.name = "Rig"
+		model_root.add_child(r)
+		r.build()
+		if r.model != null and r.turret != null and r.boom != null and r.stick != null and r.bucket != null:
+			rig = r
+			turret = r.turret
+			arm = r.boom
+			stick = r.stick
+			bucket = r.bucket
+			if paint_main != "PaintYellow":
+				r.set_paint(paint_main)
+			bucket_load = MeshKit.inst(r.bucket, MeshKit.rock(Vector3(0.62, 0.30, 0.45), 43, 3, 6), MeshKit.mat("RockLimestone"), Vector3(0.0, -0.36, 0.10))
+			bucket_load.visible = false
+			_use_rig_wheels(r.wheel_nodes(), r.belt_mats())
+			RigCab.attach(self, "excavator", r.turret, r.model, paint_main)
+			# the repair story (battery pocket, filler, hose) is drawn in the procedural excavator's turret space: this offset maps that onto the Blender hood
+			r.turret.set_meta("opening_offset", OPENING_OFFSET)
+			var frame := Node3D.new()
+			frame.name = "OpeningFrame"
+			frame.position = OPENING_OFFSET
+			r.turret.add_child(frame)
+			if vtype != "starter_excavator":
+				OpeningModels.fitted(r.turret, true, false, true, null, null, true)       # a bought machine has its battery in the pocket from the start
+			_make_dust()
+			return
+		r.queue_free()
+	VehicleModels.excavator(self)
+
+func _make_dust() -> void:
+	var tip := rig.model.find_child("Marker_BucketTip", true, false) as Node3D
+	if tip == null:
+		return
+	_dust = CPUParticles3D.new()
+	_dust.name = "Dust"
+	_dust.one_shot = true
+	_dust.emitting = false
+	_dust.amount = 9
+	_dust.lifetime = 0.75
+	_dust.explosiveness = 1.0
+	_dust.direction = Vector3.UP
+	_dust.spread = 55.0
+	_dust.initial_velocity_min = 0.6
+	_dust.initial_velocity_max = 1.4
+	_dust.gravity = Vector3(0, -0.6, 0)
+	_dust.scale_amount_min = 0.8
+	_dust.scale_amount_max = 1.4
+	var sm := SphereMesh.new()
+	sm.radius = 0.1
+	sm.height = 0.2
+	sm.radial_segments = 6
+	sm.rings = 3
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.62, 0.55, 0.42, 0.7)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	sm.material = mat
+	_dust.mesh = sm
+	var ramp := Curve.new()
+	ramp.add_point(Vector2(0, 0.6))
+	ramp.add_point(Vector2(1, 0.1))
+	_dust.scale_amount_curve = ramp
+	tip.add_child(_dust)
+
+func _engine_toggle(on: bool) -> void:
+	if lrig != null:
+		if on:
+			lrig.start_engine()
+		else:
+			lrig.stop_engine()
+	if drig != null:
+		if on:
+			drig.start_engine()
+		else:
+			drig.stop_engine()
+	if trig != null:
+		if on:
+			trig.start_engine()
+		else:
+			trig.stop_engine()
+	if rig != null:
+		if on:
+			rig.start_engine()
+		else:
+			rig.stop_engine()
+	if vaudio != null:
+		if on:
+			vaudio.start_engine()
+		else:
+			vaudio.stop_engine()
 
 func _box(parent: Node3D, pos: Vector3, s: Vector3, color: Color) -> MeshInstance3D:
 	return game._visual_box(parent, pos, s, color)
@@ -158,10 +306,64 @@ func _wheel(x: float, z: float, r: float) -> void:
 	wheels.append(w)
 
 ## Phase 4: modelled vehicles (scripts/art/vehicle_models.gd) in THE VEIL pixel style.
+## The Blender rigs roll their own wheels and scroll their own belts (from `_travel_speed`); the lists are kept here so everything that looks for a machine's
+## turning parts (tests, tools) finds them in the same place as on the procedural machines.
+func _use_rig_wheels(nodes: Array, belts: Array) -> void:
+	wheels = nodes
+	track_mats = belts
+	rig_drives_wheels = true
+
 func _build_loader() -> void:
+	if USE_RIG_LOADER and ResourceLoader.exists(LoaderRig.GLB):
+		var r := LoaderRig.new()
+		r.name = "Rig"
+		model_root.add_child(r)
+		r.build()
+		if r.model != null and r.lift != null and r.bucket != null and r.front != null:
+			lrig = r
+			r.set_paint(paint_main)
+			arm = r.lift
+			bucket = r.bucket
+			bucket_load = MeshKit.inst(r.bucket, MeshKit.rock(Vector3(1.7, 0.45, 0.6), 41, 3, 7), MeshKit.mat("RockLimestone"), Vector3(0, -0.10, -0.18))
+			bucket_load.visible = false
+			_use_rig_wheels(r.wheel_nodes(), [])
+			RigCab.attach(self, "loader", r, r.model, paint_main)
+			return
+		r.queue_free()
 	VehicleModels.loader(self)
 
+## The bulldozer is Blender-only (there is no procedural fallback model): a plain box stands in if its GLB cannot load.
+func _build_bulldozer() -> void:
+	var r := DozerRig.new()
+	r.name = "Rig"
+	model_root.add_child(r)
+	r.build()
+	if r.model != null and r.lift != null and r.blade != null:
+		drig = r
+		r.position = Vector3(0, 0, 0.47)              # the model's centre is 0.47 m behind its footprint centre: recentre it
+		r.set_paint(paint_main)
+		_use_rig_wheels(r.wheel_nodes(), r.belt_mats())
+		RigCab.attach(self, "dozer", r, r.model, paint_main)
+		return
+	r.queue_free()
+	_box(model_root, Vector3(0, 1.0, 0), Vector3(size.x * 0.6, 1.4, size.z * 0.8), Color(0.75, 0.6, 0.2))
+
 func _build_truck() -> void:
+	if USE_RIG_TRUCK and ResourceLoader.exists(TruckRig.GLB):
+		var r := TruckRig.new()
+		r.name = "Rig"
+		model_root.add_child(r)
+		r.build()
+		if r.model != null and r.bed != null and r.sprung != null and r.tailgate != null:
+			trig = r
+			r.set_paint(paint_cab, paint_bed)
+			bed = r.bed
+			bed_load = MeshKit.inst(r.bed, MeshKit.rock(Vector3(1.8, 0.55, 2.4), 42, 3, 8), MeshKit.mat("RockLimestone"), Vector3(0, 0.16, -1.45))
+			bed_load.visible = false
+			_use_rig_wheels(r.wheel_nodes(), [])
+			RigCab.attach(self, "truck", r, r.model, paint_cab)
+			return
+		r.queue_free()
 	VehicleModels.truck(self)
 
 # ------------------------------------------------------------------ geometry helpers
@@ -177,6 +379,8 @@ func cam_distance() -> float:
 
 ## Point in front of the loader bucket / behind the truck bed where material is handled.
 func work_point() -> Vector3:
+	if vkind == "bulldozer":
+		return global_transform * Vector3(0, 0, -size.z * 0.5 - 0.5)       # just ahead of the blade
 	if vkind == "loader":
 		return global_transform * Vector3(0, 0, -size.z * 0.5 - 1.1)
 	if vkind == "excavator":
@@ -207,6 +411,17 @@ func control(delta: float) -> void:
 	var busy := unload_timer > 0.0 or dump_timer > 0.0
 	if busy:
 		throttle = 0.0
+	if rig != null or trig != null or drig != null or lrig != null:
+		# weighty but comfortable: the stick eases in and out instead of snapping
+		# the throttle eases only on the tracked machines (excavator, bulldozer); trucks and the loader keep their original pedal response,
+		# which the acceleration / engine-upgrade / transport tests and the economy pacing are tuned against
+		_throttle_s = move_toward(_throttle_s, throttle, 3.2 * delta if rig != null else 2.0 * delta)
+		_steer_s = move_toward(_steer_s, steer, 4.5 * delta if rig != null else 3.0 * delta)
+		if rig != null or drig != null:
+			throttle = _throttle_s
+			steer = _steer_s
+	_steer_vis = steer
+	_steer_show = move_toward(_steer_show, steer, 3.5 * delta)       # what the wheels / steering wheel / articulation show: eased, the driving itself is not
 	var s := fleet.spec(vtype)
 	var top := fleet.max_speed(data)
 	var a := fleet.accel(data)
@@ -312,7 +527,8 @@ func _animate(delta: float) -> void:
 		cam_pivot.rotation = Vector3(clampf(cam_pitch, -0.9, 0.45), swing if (vkind == "excavator" and turret != null) else cam_yaw, 0)
 		camera.global_position = (c["ref"] as Node3D).to_global(c["eye"])          # the head of the person in the seat; the mouse looks around
 	elif driven:
-		cam_pivot.rotation = Vector3(cam_pitch, swing if (vkind == "excavator" and turret != null) else cam_yaw, 0)
+		_kick = move_toward(_kick, 0.0, delta * 0.06)
+		cam_pivot.rotation = Vector3(cam_pitch + _kick, swing if (vkind == "excavator" and turret != null) else cam_yaw, 0)
 		_pull_camera_in(delta)
 		if absf(speed) > 1.0:
 			cam_yaw = lerp_angle(cam_yaw, 0.0, 1.0 - exp(-0.6 * delta))      # the view swings back behind the machine at the same pace at any frame rate
@@ -326,20 +542,40 @@ func _animate(delta: float) -> void:
 	_prev_pos = global_position
 	if absf(travelled) < 0.0005 and absf(speed) > 0.05 and not has_meta("delivering"):
 		travelled = speed * delta
+	_travel_speed = travelled / maxf(delta, 0.0001)
 	for w in wheels:
+		if rig_drives_wheels:
+			break
 		w.rotate_x(-travelled / float(w.get_meta("radius", 0.5)) if w.has_meta("radius") else -travelled / 0.5)
 	# crawler tracks run at different speeds when the machine turns (a skid-steer: the inside track slows, the outside one speeds up)
 	var yaw_d := angle_difference(_prev_yaw, rotation.y) if delta > 0.0 else 0.0
 	_prev_yaw = rotation.y
 	if absf(yaw_d) > 1.0:
 		yaw_d = 0.0
-	for ti in range(track_mats.size()):
+	if rig != null and track_mats.size() == 2:
+		# the Blender excavator scrolls its belts with the distance itself; turning on the spot runs the two sides against each other here (0.85 m = half the track gauge)
+		for ti in range(2):
+			var bm := track_mats[ti] as StandardMaterial3D
+			bm.uv1_offset.x = fposmod(bm.uv1_offset.x + (-1.0 if ti == 0 else 1.0) * yaw_d * 0.85 / ExcavatorRig.BELT_PITCH, 1000.0)
+	for ti in range(0 if rig_drives_wheels else track_mats.size()):
 		var sm := track_mats[ti] as StandardMaterial3D
 		var side := -1.0 if ti == 0 else 1.0                  # track_mats are built left (x -0.8) then right (x +0.8)
 		sm.uv1_offset.x = fposmod(sm.uv1_offset.x + float(sm.get_meta("scroll_sign", 1.0)) * (travelled + side * yaw_d * 0.8), 1.0)
 	var n := fleet.cargo_total(data)
 	# cargo visuals ease: material pours out over the dump instead of vanishing in one frame
 	shown_load = move_toward(shown_load, float(n), delta * maxf(4.0, absf(float(n) - shown_load) * 2.2))
+	if rig != null:
+		_animate_rig(delta)
+		return
+	if trig != null:
+		_animate_truck(delta)
+		return
+	if drig != null:
+		_animate_dozer(delta)
+		return
+	if lrig != null:
+		_animate_loader(delta)
+		return
 	if has_bucket():
 		bucket_lift = move_toward(bucket_lift, bucket_target, delta * 0.9)
 		dump_timer = maxf(0.0, dump_timer - delta)
@@ -394,6 +630,159 @@ func _animate(delta: float) -> void:
 			bed_load.position.z = float(bed_load.get_meta("base_z")) + 0.6 * smoothstep(0.4, 0.95, bed_tilt)
 			if not data["cargo"].is_empty():
 				bed_load.material_override = MeshKit.mat(QuarryArt.ROCK_MAT.get(data["cargo"].keys()[0], "RockLimestone"))
+
+## Wheel loader on its Blender rig: same game state as the procedural loader (bucket_target / curl_timer / dump_timer), the arms lift on
+## their pivot with the bucket held level, the scoop curls it back, the dump rolls it forward; the frame articulates into turns.
+func _animate_loader(delta: float) -> void:
+	bucket_lift = move_toward(bucket_lift, bucket_target, delta * 0.9)
+	dump_timer = maxf(0.0, dump_timer - delta)
+	curl_timer = maxf(0.0, curl_timer - delta)
+	var lift := smoothstep(0.0, 1.0, bucket_lift)
+	var alpha := lift * LoaderKin.LIFT_MAX * 0.92
+	var tilt := sin(clampf(dump_timer / 1.0, 0.0, 1.0) * PI) * 1.15
+	var curl := sin(clampf(curl_timer / 0.6, 0.0, 1.0) * PI) * 0.5
+	lrig.set_arm(alpha, -alpha - 0.06 - curl + tilt)
+	lrig.drive(_travel_speed, delta)
+	lrig.set_steer(_steer_show)
+	bucket_load.visible = shown_load > 0.2
+	if bucket_load.visible:
+		bucket_load.scale.y = clampf(shown_load / float(fleet.capacity(data)), 0.2, 1.0)
+		if not data["cargo"].is_empty():
+			bucket_load.material_override = MeshKit.mat(QuarryArt.ROCK_MAT.get(data["cargo"].keys()[0], "RockLimestone"))
+	if dump_timer > 0.0 and _loader_dump_armed:
+		_loader_dump_armed = false
+		lrig.dust_burst()
+		vaudio.dump()
+	elif dump_timer <= 0.0:
+		_loader_dump_armed = true
+	if curl_timer > 0.55:
+		lrig.dust_burst()
+		vaudio.dig()
+	var hyd := absf(lrig.arm_angle - _prev_arm) / maxf(delta, 0.001) / 0.8
+	_prev_arm = lrig.arm_angle
+	vaudio.update(delta, clampf(absf(speed) / maxf(fleet.max_speed(data), 0.1), 0.0, 1.0) * 0.7 + (0.3 if curl_timer > 0.0 else 0.0), hyd)
+
+## Bulldozer: the blade follows its goal (set by the left click toggle and the arrow keys), tilts a little into turns, the two tracks run at
+## their own speeds, the pile of pushed material grows in front of the blade and dust rises while it pushes.
+func _animate_dozer(delta: float) -> void:
+	if driven:
+		blade_goal = clampf(blade_goal + (float(Input.is_physical_key_pressed(KEY_UP)) - float(Input.is_physical_key_pressed(KEY_DOWN))) * 0.7 * delta, DozerKin.LIFT_MIN, DozerKin.LIFT_MAX)
+		blade_tilt_goal = clampf(blade_tilt_goal + (float(Input.is_physical_key_pressed(KEY_X)) - float(Input.is_physical_key_pressed(KEY_Z))) * 0.35 * delta, -DozerKin.TILT_MAX, DozerKin.TILT_MAX)
+	_dozer_alpha = move_toward(_dozer_alpha, blade_goal, delta * 0.8)
+	_dozer_tilt = move_toward(_dozer_tilt, clampf(blade_tilt_goal - _steer_vis * 0.04 * minf(absf(speed), 3.0), -DozerKin.TILT_MAX, DozerKin.TILT_MAX), delta * 0.6)
+	drig.set_blade(_dozer_alpha, _dozer_tilt)
+	drig.drive_steered(_travel_speed, _steer_vis, delta)
+	drig.set_steer_lever(_steer_vis)
+	pushing_t = maxf(0.0, pushing_t - delta)
+	drig.set_dust(pushing_t > 0.0)
+	var frac := clampf(shown_load / maxf(float(fleet.capacity(data)), 1.0), 0.0, 1.0)
+	var pile_mat: Material = MeshKit.mat("ExcavatedDirt")
+	if not data["cargo"].is_empty() and not data["cargo"].has("soil"):
+		pile_mat = MeshKit.mat(QuarryArt.ROCK_MAT.get(data["cargo"].keys()[0], "RockLimestone"))
+	drig.set_pile(frac, pile_mat)
+	var hyd := absf(drig.blade_alpha - _prev_blade) / maxf(delta, 0.001) / 0.8
+	_prev_blade = drig.blade_alpha
+	vaudio.update(delta, clampf(absf(speed) / maxf(fleet.max_speed(data), 0.1), 0.0, 1.0) * 0.7 + (0.35 if pushing_t > 0.0 else 0.0), hyd)
+
+## Rig version of the truck animation: same game state as the procedural truck (unload_timer / bed_tilt / shown_load), but the bed
+## tips on its real hinge with the ram pinned, the tailgate swings, wheels roll and steer and the body rides on its suspension.
+func _animate_truck(delta: float) -> void:
+	if unload_timer > 0.0:
+		unload_timer -= delta
+		if unload_timer <= 0.8 and not unload_target.is_empty():
+			game.truck_finish_unload(self, unload_target)
+			unload_target = {}
+	var want := 0.95 if unload_timer > 0.0 else 0.0
+	bed_tilt = move_toward(bed_tilt, want, delta * 1.1)
+	trig.set_bed_angle(TruckKin.BED_MAX * smoothstep(0.0, 0.95, bed_tilt))
+	trig.drive(_travel_speed, delta)
+	trig.set_steer(_steer_show)
+	# suspension: nose lifts when accelerating and dives when braking, the body leans out of a turn, a spring-damper takes the bumps
+	var acc := (speed - _prev_speed) / maxf(delta, 0.001)
+	_prev_speed = speed
+	var k := 1.0 - exp(-6.0 * delta)
+	_susp_pitch = lerpf(_susp_pitch, clampf(acc * 0.006, -0.05, 0.05), k)
+	_susp_roll = lerpf(_susp_roll, clampf(_steer_show * speed * 0.004, -0.05, 0.05), k)
+	_bounce_v += (-70.0 * _bounce - 7.0 * _bounce_v + (randf() - 0.5) * 0.9 * minf(absf(speed), 6.0) / 6.0) * delta
+	_bounce += _bounce_v * delta
+	var load_frac := clampf(shown_load / maxf(float(fleet.capacity(data)), 1.0), 0.0, 1.0)
+	trig.set_suspension(_bounce - 0.015 * load_frac, _susp_pitch, _susp_roll)
+	# cargo in the bed: fills with the real load and slides to the tailgate as the bed tips
+	bed_load.visible = shown_load > 0.2
+	if bed_load.visible:
+		bed_load.scale.y = clampf(shown_load / float(fleet.capacity(data)), 0.15, 1.0)
+		if not bed_load.has_meta("base_z"):
+			bed_load.set_meta("base_z", bed_load.position.z)
+		bed_load.position.z = float(bed_load.get_meta("base_z")) + 0.7 * smoothstep(0.4, 0.95, bed_tilt)
+		if not data["cargo"].is_empty():
+			bed_load.material_override = MeshKit.mat(QuarryArt.ROCK_MAT.get(data["cargo"].keys()[0], "RockLimestone"))
+	# the load lets go: dust at the tailgate and the clatter
+	if bed_tilt > 0.55 and _tip_armed and shown_load > 0.2:
+		_tip_armed = false
+		trig.dust_burst()
+		vaudio.dump()
+	elif bed_tilt < 0.1:
+		_tip_armed = true
+	var hyd := absf(trig.bed_angle - _prev_bed) / maxf(delta, 0.001) / 0.9
+	_prev_bed = trig.bed_angle
+	vaudio.update(delta, clampf(absf(speed) / maxf(fleet.max_speed(data), 0.1), 0.0, 1.0) * 0.8 + (0.3 if unload_timer > 0.0 else 0.0), hyd)
+
+## Rig version of the arm animation. Same game state as the procedural model (bucket_lift / digging / dump_timer / manual joints), but
+## the arm is placed with IK so the bucket lip really goes to the dig point and the hydraulics follow the actual joint angles.
+func _animate_rig(delta: float) -> void:
+	bucket_lift = move_toward(bucket_lift, bucket_target, delta * 0.9)
+	dump_timer = maxf(0.0, dump_timer - delta)
+	curl_timer = maxf(0.0, curl_timer - delta)
+	var lift := smoothstep(0.0, 1.0, bucket_lift)
+	var dig_curl := 0.0
+	if digging:
+		dig_phase += delta * 2.4
+		lift = 0.5 + 0.5 * sin(dig_phase)
+		dig_curl = maxf(0.0, -cos(dig_phase))
+	elif shown_load > 0.2 and dump_timer <= 0.0:
+		lift = maxf(lift, 0.6)                              # carrying a load: the arm lifts it clear of the ground
+	_joints(delta)
+	var k := maxf(model_root.scale.z, 0.01)
+	var reach := (size.z * 0.5 + float(fleet.spec(vtype).get("dig_reach", 4.0)) * 0.55 * clampf(1.0 + 0.5 * stick_m - 0.35 * boom_m, 0.45, 1.6)) / k
+	if digging and dig_aim != Vector3.INF:
+		var d := global_position.distance_to(Vector3(dig_aim.x, global_position.y, dig_aim.z))
+		reach = lerpf(reach, d / k, 0.85)                   # reach for the rock / soil actually being dug
+	reach = clampf(reach, 2.0, 3.5)
+	var tip := Vector2(reach, 0.0).lerp(Vector2(2.4, 1.9), lift) + Vector2(stick_m * 0.5, boom_m * 0.6)
+	var att := lerpf(0.2, -1.1, lift) - dig_curl * 0.55 + curl_m * 0.6
+	var dump := sin(clampf(dump_timer / 1.0, 0.0, 1.0) * PI)
+	tip += Vector2(0.6, 0.3) * dump
+	att += 1.8 * dump
+	tip.y = maxf(tip.y, 0.0)
+	rig.pose_for_tip(turret_yaw, tip, att)      # the cab eases toward `swing` (slewing inertia), as on the procedural excavator
+	rig.drive(_travel_speed, delta)
+	# bucket contents
+	bucket_load.visible = shown_load > 0.2
+	if bucket_load.visible:
+		bucket_load.scale.y = clampf(shown_load / float(fleet.capacity(data)), 0.2, 1.0)
+		if not data["cargo"].is_empty():
+			bucket_load.material_override = MeshKit.mat(QuarryArt.ROCK_MAT.get(data["cargo"].keys()[0], "RockLimestone"))
+	# feedback: the bite at the bottom of each dig stroke, the dump
+	if digging and lift < 0.12 and _bite_armed:
+		_bite_armed = false
+		_kick = -0.012
+		if _dust != null:
+			_dust.restart()
+			_dust.emitting = true
+		vaudio.dig()
+	elif lift > 0.5:
+		_bite_armed = true
+	if dump_timer > 0.0 and _prev_dump <= 0.0:
+		vaudio.dump()
+		if _dust != null:
+			_dust.restart()
+			_dust.emitting = true
+	_prev_dump = dump_timer
+	# engine note follows speed and effort; hydraulic whine follows how fast the joints move
+	var jt := Vector4(turret.rotation.y, arm.rotation.x, stick.rotation.x, bucket.rotation.x)
+	var hyd := (absf(jt.x - _prev_joints.x) * 0.6 + absf(jt.y - _prev_joints.y) + absf(jt.z - _prev_joints.z) + absf(jt.w - _prev_joints.w)) / maxf(delta, 0.001) / 2.0
+	_prev_joints = jt
+	vaudio.update(delta, clampf(absf(speed) / maxf(fleet.max_speed(data), 0.1), 0.0, 1.0) * 0.7 + (0.35 if digging else 0.0), hyd)
 
 ## Height of the bucket's lowest point above the machine's ground for a boom angle `th` and stick angle `sg` (rad, positive = up / out).
 func _tip_y(th: float, sg: float) -> float:

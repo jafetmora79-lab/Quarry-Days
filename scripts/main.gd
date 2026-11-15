@@ -1174,7 +1174,7 @@ func _strike(kind: String, hits_needed := -1, extra_pieces := 0, by_player := tr
 	d["hits"] = int(d["hits"]) + 1
 	var need: int = state.required_hits() if hits_needed < 0 else maxi(1, hits_needed)
 	if by_player:
-		_play_tool_hit()
+		_play_tool_hit(str(d["resource"]))
 		player.impact_feedback(0.6)
 	elif player and player.global_position.distance_to(deposit_nodes[kind].global_position) < 16.0:
 		hit_audio.play()
@@ -1207,7 +1207,7 @@ func _strike(kind: String, hits_needed := -1, extra_pieces := 0, by_player := tr
 
 # ------------------------------------------------------------------ Phase 5: player mining
 
-func _play_tool_hit() -> void:
+func _play_tool_hit(res := "") -> void:
 	var t := prog.tool()
 	var key := str(t.get("sound", "hit_pick"))
 	var a: AudioStreamPlayer = sfx.get(key, hit_audio)
@@ -1710,6 +1710,8 @@ func _physics_process(delta: float) -> void:
 				driving.digging = false
 			else:
 				_excavator_dig(driving, delta)
+	if driving and driving.vkind == "bulldozer" and not scripted_input:
+		_dozer_push(driving, delta)
 	for v in vehicle_nodes.values():
 		if v.vkind in ["excavator", "truck"]:
 			crew.step(v, delta)
@@ -3087,6 +3089,12 @@ func _engine_struggle(v: QuarryVehicle) -> void:
 	var cab: Node3D = v.turret if v.turret != null else v.model_root
 	var seat: Vector3 = cab.to_global(Vector3(0.0, 1.95, 0.1))
 	var exhaust: Vector3 = cab.to_global(Vector3(0.45, 1.95, 0.45))
+	if v.rig != null:
+		var tip := v.rig.model.find_child("Marker_ExhaustTip", true, false) as Node3D
+		if tip != null:
+			exhaust = tip.global_position
+		if QuarryBoarding.has_cab(v):
+			seat = (QuarryBoarding.cab(v)["ref"] as Node3D).to_global(QuarryBoarding.cab(v)["eye"])
 	var base: Vector3 = v.model_root.position
 	_engine_audio = AudioStreamPlayer3D.new()
 	_engine_audio.stream = load("res://audio/rig_loop.wav")
@@ -4975,6 +4983,8 @@ func _driving_input(event: InputEvent) -> bool:
 			if driving.vkind == "excavator" and (not excavator_target(driving).is_empty() or soil_target(driving) >= 0):
 				driving.digging = true            # held: dig the rock in reach (see _excavator_dig)
 				driving.bucket_target = 0.0
+			elif driving.vkind == "bulldozer":
+				dozer_toggle_blade(driving)
 			elif driving.has_bucket():
 				loader_primary(driving)
 			return true
@@ -5114,6 +5124,7 @@ func _dig_soil(v: QuarryVehicle, delta: float) -> bool:
 		v.digging = false
 		_notify("The bucket is full. Right click to dump it into a truck or on the spoil heap.")
 		return true
+	v.dig_aim = soil.cell_center(i)
 	var acc := float(_soil_progress.get(v.vehicle_id, 0.0)) + float(s.get("dig_dps", 10.0)) * delta / float(prog.cfg["soil"].get("hp", 3.0))
 	var n := mini(int(floor(acc)), fleet.space(rec))
 	acc -= float(n)
@@ -5146,6 +5157,7 @@ func _excavator_dig(v: QuarryVehicle, delta: float) -> void:
 	var kind: String = t["kind"]
 	var col: int = t["col"]
 	var room := maxi(0, fleet.space(rec)) + maxi(0, int(prog.cfg.get("loose_piece_cap", 36)) - loose_count(kind))
+	v.dig_aim = (t["node"] as QuarryFormation).column_top(col)
 	var block := prog.extraction_block(kind, col, "excavator", int(s.get("dig_hardness", 1)))
 	if block != "":
 		v.digging = false
@@ -5278,6 +5290,8 @@ func vehicle_dump(v: QuarryVehicle, quiet := false) -> int:
 		if not quiet: _notify("Nothing to unload.")
 		return 0
 	var t := dump_target(v.work_point(), 3.0, v)
+	if t.is_empty() and v.vkind == "bulldozer":
+		return dozer_spread(v)
 	if t.is_empty():
 		if not quiet: _notify("Nothing to unload into here. Get close to a storage crate, crusher, output storage%s." % (" or truck" if v.has_bucket() else ""))
 		return 0
@@ -5300,6 +5314,99 @@ func vehicle_dump(v: QuarryVehicle, quiet := false) -> int:
 		fx.chunk_break(v.work_point() + Vector3(0, 1.0, 0), "limestone")
 	if not quiet: _notify("Dumped %d into %s.%s%s" % [moved, _target_name(t), (" %d left in the bucket (target full or wrong material)." % fleet.cargo_total(rec)) if fleet.cargo_total(rec) > 0 else "", (" Loose soil cannot be stored: use the spoil heap.") if int(rec["cargo"].get("soil", 0)) > 0 and not t.has("spoil") else ""])
 	return moved
+
+## ---------------------------------------------------------------- bulldozer
+## Left click lowers / raises the blade (arrow keys fine-tune it, Z / X tilt it). With the blade down, driving forward pushes the soil and
+## loose rock in front of it into the blade pile, which is the machine's cargo (so it is saved, counted and conserved like any other):
+## soil is taken out of the ground cells ahead, loose pieces are swept up. Right click empties the pile: onto the spoil heap or into storage
+## when one is in reach (the usual dump targets), otherwise it is spread back onto the ground ahead (never more than a cell holds).
+func dozer_toggle_blade(v: QuarryVehicle) -> void:
+	if v.blade_goal > 0.1:
+		v.blade_goal = -0.08
+		_notify("Blade down - drive forward to push soil and loose rock.")
+	else:
+		v.blade_goal = 0.32
+		_notify("Blade up.")
+
+func dozer_blade_low(v: QuarryVehicle) -> bool:
+	return DozerRig.edge_height(v.blade_goal) < 0.15 and DozerRig.edge_height(v._dozer_alpha) < 0.18
+
+func _dozer_push(v: QuarryVehicle, delta: float) -> int:
+	# pushing speed: the real speed, or the throttle when the soil ahead is holding the machine back (a full-height cell is a wall until it is cut down)
+	var drive := maxf(v.speed, float(v.input.get("throttle", 0.0)) * 0.9 if v.driven else 0.0)
+	if not dozer_blade_low(v) or drive < 0.25:
+		return 0
+	var rec := fleet.vehicle(v.vehicle_id)
+	if rec.is_empty() or fleet.space(rec) <= 0:
+		if fleet.space(rec) <= 0 and v.push_acc < 100.0:
+			v.push_acc = 100.0
+			_notify("The blade is full - dump it at the spoil heap (right click) or spread it.")
+		return 0
+	v.push_acc += drive * delta / 0.45          # one unit of material per 45 cm pushed
+	var got := 0
+	var p := v.work_point()
+	while v.push_acc >= 1.0 and fleet.space(rec) > 0:
+		var took := 0
+		var i := -1
+		if soil != null and is_instance_valid(soil):
+			i = soil.nearest_cell(p, 2.6)
+		if i >= 0:
+			took = soil.remove(i, 1)
+			if took > 0:
+				fleet.add_cargo(rec, "soil", took)
+				soil.refresh()
+				soil_sync_state()
+		if took == 0:
+			var near := ""
+			for id in ground_pieces:
+				var body: Node3D = ground_pieces[id]
+				if not body.is_queued_for_deletion() and Vector2(p.x, p.z).distance_to(Vector2(body.global_position.x, body.global_position.z)) < 2.4:
+					near = id
+					break
+			if near != "":
+				var body: Node3D = ground_pieces[near]
+				if fleet.add_cargo(rec, str(body.get_meta("resource")), 1) == 1:
+					ground_pieces.erase(near)
+					body.queue_free()
+					took = 1
+		if took == 0:
+			v.push_acc = minf(v.push_acc, 1.0)          # nothing in reach: do not bank distance
+			break
+		v.push_acc -= 1.0
+		got += took
+		v.pushing_t = 0.5
+	if got > 0:
+		fx.impact(p + Vector3(0, 0.3, 0), "limestone", 0.5)
+	return got
+
+func dozer_spread(v: QuarryVehicle) -> int:
+	var rec := fleet.vehicle(v.vehicle_id)
+	var have := int(rec["cargo"].get("soil", 0))
+	if have <= 0:
+		_notify("The blade holds no soil to spread. Rubble goes into a storage crate, the crusher or a truck-side pile.")
+		return 0
+	var p := v.work_point()
+	var placed := 0
+	if soil != null and is_instance_valid(soil):
+		var order := []
+		for i in range(soil.units.size()):
+			if int(soil.active[i]) == 1 and int(soil.units[i]) < soil.max_units():
+				var d := Vector2(soil.cell_center(i).x - p.x, soil.cell_center(i).z - p.z).length()
+				if d < 3.4:
+					order.append([d, i])
+		order.sort_custom(func(a, b): return a[0] < b[0])
+		for o in order:
+			if placed >= have:
+				break
+			placed += soil.add(int(o[1]), have - placed)
+		if placed > 0:
+			fleet.take_cargo(rec, "soil", placed)
+			soil.refresh()
+			soil_sync_state()
+	v.dump_timer = 1.0
+	v.pushing_t = 0.6
+	_notify("Spread %d soil on the ground.%s" % [placed, "" if placed >= have else " No room for the rest here: back it up to the spoil heap."])
+	return placed
 
 ## A delivery to a destination (storage crate, crusher, output storage) is the only thing that counts as a shipment, and only for the units
 ## the destination accepted, each for the excavation area it was cut in (fleet.dump_to records them in rec["delivered"]).
@@ -5389,6 +5496,12 @@ func _driving_hud() -> String:
 	var lmb := ""
 	if driving.vkind == "loader":
 		lmb = "Left click bucket %s  " % ("down" if driving.bucket_target > 0.5 else "up/scoop")
+	elif driving.vkind == "bulldozer":
+		lmb = "Left click blade %s  " % ("up" if dozer_blade_low(driving) else "down")
+		hint = "  ARROWS blade height  Z X tilt  >> drive forward with the blade down to push" if not dozer_blade_low(driving) else "  >> pushing: drive forward"
+		if fleet.cargo_total(rec) > 0:
+			var tt := dump_target(point, 3.0, driving)
+			hint = "  >> right click unload into " + _target_name(tt) if not tt.is_empty() else "  >> right click spread the soil here"
 	elif driving.vkind == "excavator":
 		lmb = "HOLD LEFT CLICK dig  "
 		if not excavator_target(driving).is_empty():

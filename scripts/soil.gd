@@ -114,6 +114,19 @@ func nearest_cell(p: Vector3, reach: float) -> int:
 				best = i
 	return best
 
+## Puts up to n units into an active cell (spreading what a bulldozer carries); returns what fitted. Never beyond the full depth.
+func add(i: int, n: int) -> int:
+	if i < 0 or i >= units.size() or n <= 0 or int(active[i]) != 1:
+		return 0
+	var put := mini(n, max_units() - int(units[i]))
+	if put <= 0:
+		return 0
+	units[i] = int(units[i]) + put
+	removed_total = maxi(0, removed_total - put)
+	_dirty_cells[i] = true
+	_dirty = true
+	return put
+
 ## Takes up to n units out of a cell; returns what was taken.
 func remove(i: int, n: int) -> int:
 	if i < 0 or i >= units.size() or n <= 0:
@@ -147,7 +160,7 @@ func _noise(gx: int, gz: int, salt: int) -> float:
 
 func _corner(gx: int, gz: int, y: float) -> Vector3:
 	var inner := gx > 0 and gx < cols and gz > 0 and gz < rows
-	var j := cell * 0.12 if inner else 0.0
+	var j := cell * 0.15 if inner else 0.0
 	return Vector3(origin.x + float(gx) * cell + (_noise(gx, gz, 1) - 0.5) * 2.0 * j, y, origin.y + float(gz) * cell + (_noise(gx, gz, 2) - 0.5) * 2.0 * j)
 
 func _out(s: MeshKit.Soup, a: Vector3, b: Vector3, c: Vector3, hint: Vector3) -> void:
@@ -186,8 +199,18 @@ func _rebuild_meshes() -> void:
 					continue
 				var p0: Vector3 = sd[1]
 				var p1: Vector3 = sd[2]
-				var q0 := Vector3(p0.x, nh, p0.z)
-				var q1 := Vector3(p1.x, nh, p1.z)
-				_out(s, q0, q1, p1, Vector3(o.x, 0, o.y))
-				_out(s, q0, p1, p0, Vector3(o.x, 0, o.y))
+				# Visual only (the collision boxes are untouched): a cut face is not a vertical plane. Its foot spreads out a little (the angle of
+				# repose, more for a deeper cut) and each face gets a bulge at its middle, so excavated edges read as dug earth, not stacked blocks.
+				var outv := Vector3(o.x, 0, o.y)
+				var slope := clampf((h - nh) * 0.35, 0.0, 0.28)
+				var bulge := (_noise(cx * 3 + o.x, cz * 3 + o.y, 5) - 0.3) * 0.10
+				var q0 := Vector3(p0.x, nh, p0.z) + outv * slope
+				var q1 := Vector3(p1.x, nh, p1.z) + outv * slope
+				var mt := (p0 + p1) * 0.5
+				var pm := mt + outv * bulge * 0.4
+				var qm := Vector3(mt.x, nh, mt.z) + outv * (slope + bulge)
+				_out(s, q0, qm, pm, outv)
+				_out(s, q0, pm, p0, outv)
+				_out(s, qm, q1, p1, outv)
+				_out(s, qm, p1, pm, outv)
 	surface.mesh = s.mesh()

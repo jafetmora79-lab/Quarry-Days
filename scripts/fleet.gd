@@ -30,7 +30,7 @@ func spec(type: String) -> Dictionary:
 func types() -> Array:
 	var out := []
 	for k in cfg["vehicles"].keys():
-		if not bool(cfg["vehicles"][k].get("starter", false)):      # Grandpa's machine is not for sale
+		if not bool(cfg["vehicles"][k].get("starter", false)) and not bool(cfg["vehicles"][k].get("proposed", false)):      # Grandpa's machine is not for sale; proposed machines are not in the economy yet
 			out.append(k)
 	return out
 
@@ -64,6 +64,8 @@ func buy_block_reason(type: String) -> String:
 		return "Unknown vehicle"
 	if bool(s.get("starter", false)):
 		return "Not for sale"
+	if bool(s.get("proposed", false)):
+		return "Not available yet"
 	var req := str(s.get("requires", ""))
 	if req != "" and not business.milestones.get(req, false):
 		return "Requires the %s milestone" % {"mechanized": "Mechanized Quarry", "automated": "Automated Business"}.get(req, req)

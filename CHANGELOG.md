@@ -381,3 +381,8 @@ Priority: one continuous rock surface, then the simple background. No visual che
 - Temporary haul ramps (ramp plan tool): validated preview, solid graded wedge, staging, removal rules, saved. A loaded truck drives up and down in the test.
 - The quarry plan (Q): rings, contract vs overall progress, outlines switch, roads and ramps; survey stakes stand on real ground and completed levels lose theirs.
 - Tests: `test_movement`, `test_ramps`, `test_excavation_gameplay`; the old "column under the player is protected" assertions now assert the new rule.
+
+## Blender vehicles on the latest game
+- The Blender excavator, dump truck, wheel loader, bulldozer (proposed machine) and wheelbarrow are used in game again, with their rigs, kinematics, audio, validators and rig tests.
+- `RigCab` builds the boarding / cab-view data ("cab" meta) for each Blender machine from its own `Marker_Eye` and measured cab: hinged door, ignition key, dash lamps and steps.
+- Rigs roll their own wheels and belts from the machine's real travelled speed (scripted moves too); the excavator's battery pocket / repair frame is mapped onto the Blender hood.

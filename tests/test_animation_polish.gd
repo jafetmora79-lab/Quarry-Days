@@ -64,19 +64,20 @@ func run() -> void:
 	var r1 := Vector2(a1.x - ax.x, a1.z - ax.z)
 	check(a1.distance_to(a0) > 0.3 and absf(r0.length() - r1.length()) < 0.05, "the fitted parts swung round with the cab on the slewing ring (moved %.2f m, radius kept)" % a1.distance_to(a0))
 	check(mesh_center(ground.get_child(0)).distance_to(g0) < 0.001, "while the oil stain on the ground did not move")
-	# ---- the boom cylinder telescopes and stays joined to base and boom
-	var ram: Node3D = ex.get_meta("boom_ram")
-	var rod: Node3D = ram.get_node("Rod")
-	ex.arm.rotation.x = 0.0
-	VehicleModels.update_boom_ram(ex)
-	var rod_short: float = rod.scale.y
-	ex.arm.rotation.x = 0.7
-	VehicleModels.update_boom_ram(ex)
-	var rod_long: float = rod.scale.y
-	check(absf(rod_long - rod_short) > 0.05, "the boom cylinder's rod slides in and out with the boom (%.2f -> %.2f)" % [rod_short, rod_long])
-	var tip: Vector3 = ex.turret.to_local(ram.to_global(Vector3(0, 0.45 + rod.scale.y, 0)))
-	var want: Vector3 = ex.arm.transform * Vector3(0, 0.12, -0.9)
-	check(tip.distance_to(want) < 0.05, "and its rod end stays pinned to the boom (%.3f m off)" % tip.distance_to(want))
+	# ---- the boom cylinder telescopes and stays joined to base and boom (the procedural excavator; the Blender one pins its cylinders, see test_excavator_rig)
+	if ex.has_meta("boom_ram"):
+		var ram: Node3D = ex.get_meta("boom_ram")
+		var rod: Node3D = ram.get_node("Rod")
+		ex.arm.rotation.x = 0.0
+		VehicleModels.update_boom_ram(ex)
+		var rod_short: float = rod.scale.y
+		ex.arm.rotation.x = 0.7
+		VehicleModels.update_boom_ram(ex)
+		var rod_long: float = rod.scale.y
+		check(absf(rod_long - rod_short) > 0.05, "the boom cylinder's rod slides in and out with the boom (%.2f -> %.2f)" % [rod_short, rod_long])
+		var tip: Vector3 = ex.turret.to_local(ram.to_global(Vector3(0, 0.45 + rod.scale.y, 0)))
+		var want: Vector3 = ex.arm.transform * Vector3(0, 0.12, -0.9)
+		check(tip.distance_to(want) < 0.05, "and its rod end stays pinned to the boom (%.3f m off)" % tip.distance_to(want))
 	# ---- tracks differ when the machine turns
 	var tm0 := ex.track_mats[0] as StandardMaterial3D
 	var tm1 := ex.track_mats[1] as StandardMaterial3D

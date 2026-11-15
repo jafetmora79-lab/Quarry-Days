@@ -1,0 +1,82 @@
+{
+  "bounds": {
+    "min": [
+      -1.06500005722046,
+      -0.12788365781307,
+      -3.47684025764465
+    ],
+    "size": [
+      2.13000011444092,
+      2.8538191318512,
+      5.13197898864746
+    ]
+  },
+  "budget": {
+    "mesh_instances": 44,
+    "surfaces": 105,
+    "triangles": 5668
+  },
+  "clips": {
+    "BoomUpDown": {
+      "length_s": 3.033,
+      "stroke_violations": 0,
+      "worst_pin_error_m": 0.0002
+    },
+    "BucketCurlDump": {
+      "length_s": 3.033,
+      "stroke_violations": 0,
+      "worst_pin_error_m": 0.00427
+    },
+    "DigCycle": {
+      "length_s": 7.033,
+      "stroke_violations": 0,
+      "worst_pin_error_m": 0.00543
+    },
+    "EngineStart": {
+      "length_s": 2.033,
+      "stroke_violations": 0,
+      "worst_pin_error_m": 0
+    },
+    "EngineStop": {
+      "length_s": 1.633,
+      "stroke_violations": 0,
+      "worst_pin_error_m": 0
+    },
+    "Idle": {
+      "length_s": 0.8,
+      "stroke_violations": 0,
+      "worst_pin_error_m": 0
+    },
+    "StickInOut": {
+      "length_s": 3.033,
+      "stroke_violations": 0,
+      "worst_pin_error_m": 0.00268
+    },
+    "Swing": {
+      "length_s": 4.033,
+      "stroke_violations": 0,
+      "worst_pin_error_m": 0
+    },
+    "TrackDrive": {
+      "length_s": 0.8,
+      "stroke_violations": 0,
+      "worst_pin_error_m": 0
+    },
+    "TruckLoad": {
+      "length_s": 9.033,
+      "stroke_violations": 0,
+      "worst_pin_error_m": 0.00571
+    }
+  },
+  "failures": [],
+  "footprint": {
+    "track_length": 3.31027698516846,
+    "width_over_tracks": 2.04000002145767
+  },
+  "passed": true,
+  "solver_grid": {
+    "poses": 343,
+    "stroke_violations": 0,
+    "worst_pin_error_m": 0
+  }
+}

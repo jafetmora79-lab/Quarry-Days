@@ -114,13 +114,14 @@ func run() -> void:
 		if n.vkind == "truck":
 			model_ok = model_ok and n.bed != null and n.wheels.size() >= 4
 		else:
-			model_ok = model_ok and n.arm != null and n.bucket != null
+			model_ok = model_ok and ((n.arm != null and n.bucket != null) or n.drig != null)      # the Blender bulldozer works through its lift frame and blade
 	check(model_ok, "5e every machine has a model with its working parts (bed and wheels, or arm and bucket)")
 	var ex: QuarryVehicle = null
 	for n in nodes:
 		if n.vtype == "heavy_excavator":
 			ex = n
-	check(ex != null and absf(ex.model_root.scale.x - 3.0 / 2.0) < 0.01 and absf(ex.model_root.scale.z - 4.4 / 3.4) < 0.01, "5f the heavy excavator is the same build scaled to its size")
+	var u := (3.0 / 2.0 + 3.2 / 2.2 + 4.4 / 3.4) / 3.0                    # the Blender excavator is scaled uniformly (the mean of the three ratios), the procedural one per axis
+	check(ex != null and ((absf(ex.model_root.scale.x - 3.0 / 2.0) < 0.01 and absf(ex.model_root.scale.z - 4.4 / 3.4) < 0.01) or (ex.rig != null and absf(ex.model_root.scale.x - u) < 0.01 and absf(ex.model_root.scale.z - u) < 0.01)), "5f the heavy excavator is the same build scaled to its size")
 	# ---- 6: saves
 	var snap := fleet.snapshot()
 	var before := fleet.vehicles.duplicate(true)

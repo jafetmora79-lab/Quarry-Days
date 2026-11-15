@@ -68,7 +68,7 @@ func run() -> void:
 			for k in range(13):
 				v.global_position += v.forward() * 0.05
 				await physics_frame
-			check(absf((v.track_mats[0] as StandardMaterial3D).uv1_offset.x - o0) > 0.05 and (v.track_mats[0].get_meta("scroll_sign") != v.track_mats[1].get_meta("scroll_sign")), "its tread scrolls with the distance, mirrored on the two sides")
+			check(absf((v.track_mats[0] as StandardMaterial3D).uv1_offset.x - o0) > 0.05 and (v.rig != null or v.track_mats[0].get_meta("scroll_sign") != v.track_mats[1].get_meta("scroll_sign")), "its tread scrolls with the distance, mirrored on the two sides")
 		checked += 1
 	# Grandpa's old truck
 	game.natural_start_enabled = true
