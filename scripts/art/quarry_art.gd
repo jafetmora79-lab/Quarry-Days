@@ -508,8 +508,13 @@ func _sign(parent: Node3D, tex_key: String, pos: Vector3, size: Vector2, yaw := 
 
 func _office() -> void:
 	var c: Vector3 = game.OFFICE_POS
-	_walls(c, M_SIDING, M_DRYWALL, 2.8, [["L", -0.35, 1.1, 1.3], ["L", 1.55, 1.1, 1.3], ["R", -1.45, 1.1, 1.3], ["R", 0.45, 1.1, 1.3]])
-	_gable_roof(c, "CorrugatedRed", 5.6, 5.6, 2.8, 1.1, M_SIDING, M_DRYWALL)
+	var shell := BuildingModels.load_model("Office", "CorrugatedRed")          # the Blender shell: walls with real window openings, roof with eaves and porch, trim
+	if shell != null:
+		shell.position = c
+		root.add_child(shell)
+	else:
+		_walls(c, M_SIDING, M_DRYWALL, 2.8, [["L", -0.35, 1.1, 1.3], ["L", 1.55, 1.1, 1.3], ["R", -1.45, 1.1, 1.3], ["R", 0.45, 1.1, 1.3]])
+		_gable_roof(c, "CorrugatedRed", 5.6, 5.6, 2.8, 1.1, M_SIDING, M_DRYWALL)
 	quad_flat(M_LINO, c, Vector2(4.6, 4.5), 0.0, 0.165)
 	_sign(root, "Sign_Office", c + Vector3(0, 2.5, -2.51), Vector2(2.2, 0.55), PI)
 	prop(P_WALL_LAMP, c + Vector3(1.0, 2.3, -2.5), PI)
