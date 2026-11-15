@@ -136,6 +136,9 @@ static func build_model(game, spec: Dictionary) -> Node3D:
 			pv.model_root = Node3D.new()
 			pv.add_child(pv.model_root)
 			var s: Array = sp["size"]
+			var br := blender_machine(k, pv, sp)           # the Blender machine the game actually spawns for this type (nil if its model cannot load)
+			if br != null:
+				return br
 			var base := Vector3(2.0, 1.5, 3.0) if k == "loader" else (Vector3(2.2, 1.8, 4.6) if k == "truck" else Vector3(2.0, 2.2, 3.4))
 			pv.model_root.scale = Vector3(float(s[0]) / base.x, float(s[1]) / base.y, float(s[2]) / base.z)
 			match k:
@@ -217,3 +220,32 @@ static func build_model(game, spec: Dictionary) -> Node3D:
 				game._visual_box(body, Vector3(0, 0.13, z), Vector3(1.05, 0.24, 0.1), Color(0.85, 0.70, 0.15))
 			return body
 	return Node3D.new()
+
+## The same Blender machine QuarryVehicle builds for this kind (same rig class, paint and uniform size factor), so what the shop shows is what spawns.
+## Returns null when the GLB is missing so the caller falls back to the old procedural model. The result carries meta "blender" = the kind.
+static func blender_machine(k: String, pv: PreviewVehicle, sp: Dictionary) -> Node3D:
+	var s: Array = sp["size"]
+	var base := Vector3(2.0, 1.5, 3.0) if k == "loader" else (Vector3(2.2, 1.8, 4.6) if k == "truck" else (Vector3(2.6, 2.45, 4.7) if k == "bulldozer" else Vector3(2.0, 2.2, 3.4)))
+	var r: Node3D = null
+	match k:
+		"excavator": r = ExcavatorRig.new() if ResourceLoader.exists(ExcavatorRig.GLB) and QuarryVehicle.USE_RIG_EXCAVATOR else null
+		"truck": r = TruckRig.new() if ResourceLoader.exists(TruckRig.GLB) and QuarryVehicle.USE_RIG_TRUCK else null
+		"loader": r = LoaderRig.new() if ResourceLoader.exists(LoaderRig.GLB) and QuarryVehicle.USE_RIG_LOADER else null
+		"bulldozer": r = DozerRig.new() if ResourceLoader.exists(DozerRig.GLB) else null
+	if r == null:
+		return null
+	var holder := Node3D.new()
+	holder.add_child(r)
+	r.call("build")
+	if r.get("model") == null:
+		holder.free()
+		return null
+	match k:
+		"truck": r.call("set_paint", pv.paint_cab, pv.paint_bed)
+		_: r.call("set_paint", pv.paint_main)
+	var u := (float(s[0]) / base.x + float(s[1]) / base.y + float(s[2]) / base.z) / 3.0       # the Blender machines scale uniformly
+	holder.scale = Vector3.ONE * u
+	if k == "bulldozer":
+		r.position = Vector3(0, 0, 0.47)
+	holder.set_meta("blender", k)
+	return holder
