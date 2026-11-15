@@ -134,7 +134,7 @@ func run() -> void:
 	for i in range(20):
 		await physics_frame
 		game.hud._process(0.05)
-	var tl := game.hud.get_node("TopLeftPlate") as CanvasItem
+	var tl := game.hud.get_node("TimeMoneyPlate") as CanvasItem
 	check(tl.modulate.a < 0.05 and game.hud.map_plate.modulate.a < 0.05, "the HUD plates fade away behind the open menu")
 	game._close_menu()
 	for i in range(20):

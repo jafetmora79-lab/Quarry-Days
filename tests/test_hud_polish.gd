@@ -41,7 +41,7 @@ func run() -> void:
 	var prog: QuarryProgression = game.prog
 	# ---- the map
 	var mm: QuarryMinimap = hud.minimap
-	check(mm != null and mm.is_inside_tree() and mm.size.x >= 150.0 and mm.size.y >= 70.0, "the corner map exists (%s)" % str(mm.size))
+	check(mm != null and mm.is_inside_tree() and mm.size.x >= 100.0 and absf(mm.size.x - mm.size.y) < 1.0, "the round corner map exists (%s)" % str(mm.size))
 	var snap: Dictionary = mm.snapshot()
 	check(int(snap["levels_total"]) == 4 and int(snap["levels_open"]) == 0 and int(snap["roads_built"]) == 0, "it knows the four dug levels, none open, no road built (%s)" % str({"t": snap["levels_total"], "o": snap["levels_open"], "r": snap["roads_built"]}))
 	check(int(snap["debris"]) > 0 and int(snap["vehicles"]) >= 1, "it shows the tutorial debris and the machines (%d / %d)" % [int(snap["debris"]), int(snap["vehicles"])])
@@ -119,7 +119,7 @@ func run() -> void:
 	hud.size = Vector2(960, 540)
 	await frames(4)
 	var named := {}
-	for nm in ["TopLeftPlate", "MapPlate", "ObjectivePlate", "LocationBanner", "DrivePlate", "BagPlate", "KeyHints"]:
+	for nm in ["TimeMoneyPlate", "MapPlate", "ObjectivePlate", "LocationBanner", "DrivePlate", "BagPlate", "KeyHints"]:
 		var n := hud.find_child(nm, true, false) as Control
 		if n != null and n.is_visible_in_tree():
 			named[nm] = n.get_global_rect()

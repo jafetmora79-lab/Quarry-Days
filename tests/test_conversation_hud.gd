@@ -17,7 +17,7 @@ func frames(n: int) -> void:
 		await physics_frame
 func plates(game) -> float:
 	var a := 0.0
-	for nm in ["TopLeftPlate", "MapPlate", "ObjectivePlate"]:
+	for nm in ["TimeMoneyPlate", "MapPlate", "ObjectivePlate"]:
 		var pn := game.hud.get_node_or_null(nm) as CanvasItem
 		if pn != null:
 			a = maxf(a, pn.modulate.a)

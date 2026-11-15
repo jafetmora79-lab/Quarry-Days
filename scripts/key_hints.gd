@@ -4,6 +4,20 @@ class_name QuarryKeyHints
 ## abbreviation. set_hints() only rebuilds when the list changes, and the strip eases in when it does.
 
 var current: Array = []
+var _life := 0.0                 ## seconds the strip stays on screen (contextual: it shows when something changes, then fades out)
+var _alpha := 0.0
+const SHOW_SECONDS := 8.0
+
+## Keep the strip up for at least `seconds` more.
+func show_for(seconds := SHOW_SECONDS) -> void:
+	_life = maxf(_life, seconds)
+
+func alpha() -> float:
+	return _alpha
+
+func _process(delta: float) -> void:
+	_life = maxf(0.0, _life - delta)
+	_alpha = move_toward(_alpha, 1.0 if _life > 0.0 else 0.0, delta * 3.0)
 
 func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -43,6 +57,4 @@ func set_hints(items: Array) -> void:
 		h.add_child(cap)
 		h.add_child(QuarryTheme.fixed_label(str(it[1]), QuarryTheme.SMALL, Color(0.9, 0.84, 0.7)))
 		add_child(h)
-	modulate.a = 0.0
-	var tw := create_tween()
-	tw.tween_property(self, "modulate:a", 1.0, 0.2)
+	show_for()                   # the controls changed (a machine, build mode, a new tool): show them

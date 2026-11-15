@@ -47,6 +47,12 @@ var objective_bar: ProgressBar
 var objective_detail: Label
 var objective_rows: VBoxContainer     ## the same lines as objective_detail, drawn with the checkbox art (the label keeps the text)
 var objective_pct: Label
+var objective_hint: Label              ## "O  all objectives" under the compact tracker
+var _hint_tool_seen := ""
+var _prompt_was := false
+var objectives_expanded := false      ## the full checklist is open (toggled with O)
+var _obj_primary := ""
+var _obj_next := ""
 var progress_box: VBoxContainer
 var progress_blocks: Array = []   ## up to three {root, title, value, bar, note, target}: the site cleanup and open area contracts, each with its own bar
 var status_label: Label
@@ -93,6 +99,9 @@ func setup(main_node) -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	theme = QuarryTheme.theme()
+	thumbs = ItemThumbs.new()
+	add_child(thumbs)
+	thumbs.ready_key.connect(func(_k): if hotbar_view != null: hotbar_view.refresh())
 	_build()
 	shown_money = float(game.state.money)
 	if OS.has_feature("mobile") or game.touch_mode:
@@ -202,11 +211,16 @@ func _progress_block(parent: Control) -> Dictionary:
 
 func _build() -> void:
 	# ---- top-left: time + money
-	var tl := _panel(Control.PRESET_TOP_LEFT, QuarryTheme.MONEY)
-	tl.name = "TopLeftPlate"
-	tl.position = Vector2(10, 10)
-	tl.custom_minimum_size = Vector2(200, 0)
-	tl.pivot_offset = Vector2(100, 20)
+	var tl := _panel(Control.PRESET_TOP_RIGHT, QuarryTheme.MONEY)
+	tl.name = "TimeMoneyPlate"
+	tl.set_anchor(SIDE_LEFT, 1.0)
+	tl.set_anchor(SIDE_RIGHT, 1.0)
+	tl.offset_left = -214
+	tl.offset_right = -10
+	tl.offset_top = 10
+	tl.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	tl.custom_minimum_size = Vector2(204, 0)
+	tl.pivot_offset = Vector2(102, 20)
 	var v := _vbox(tl, 1)
 	var trow := HBoxContainer.new()
 	trow.add_theme_constant_override("separation", 5)
@@ -232,8 +246,16 @@ func _build() -> void:
 	map_plate = QuarryPlate.new(5, QuarryTheme.ACCENT)
 	map_plate.name = "MapPlate"
 	add_child(map_plate)
-	map_plate.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	map_plate.position = Vector2(10, 92)
+	map_plate.add_theme_stylebox_override("panel", StyleBoxEmpty.new())          # the round map is its own shape: no frame around it
+	map_plate.set_anchor(SIDE_LEFT, 0.0)
+	map_plate.set_anchor(SIDE_RIGHT, 0.0)
+	map_plate.set_anchor(SIDE_TOP, 1.0)
+	map_plate.set_anchor(SIDE_BOTTOM, 1.0)
+	map_plate.offset_left = 10
+	map_plate.offset_right = 10 + QuarryMinimap.DIAMETER
+	map_plate.offset_bottom = -12
+	map_plate.offset_top = -12 - QuarryMinimap.DIAMETER
+	map_plate.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	var mv := _vbox(map_plate, 2)
 	minimap = QuarryMinimap.new()
 	minimap.name = "Minimap"
@@ -261,14 +283,14 @@ func _build() -> void:
 	drive_plate.name = "DrivePlate"
 	drive_plate.visible = false
 	add_child(drive_plate)
-	drive_plate.set_anchor(SIDE_LEFT, 0.0)
-	drive_plate.set_anchor(SIDE_RIGHT, 0.0)
+	drive_plate.set_anchor(SIDE_LEFT, 1.0)
+	drive_plate.set_anchor(SIDE_RIGHT, 1.0)
 	drive_plate.set_anchor(SIDE_TOP, 1.0)
 	drive_plate.set_anchor(SIDE_BOTTOM, 1.0)
-	drive_plate.offset_left = 10
-	drive_plate.offset_right = 226
-	drive_plate.offset_bottom = -30
-	drive_plate.offset_top = -128
+	drive_plate.offset_left = -236
+	drive_plate.offset_right = -10
+	drive_plate.offset_bottom = -72
+	drive_plate.offset_top = -172
 	drive_plate.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	var dv := _vbox(drive_plate, 2)
 	drive_name = QuarryTheme.fixed_label("", 12, QuarryTheme.ACCENT, true)
@@ -287,9 +309,10 @@ func _build() -> void:
 	var tr := _panel(Control.PRESET_TOP_RIGHT, QuarryTheme.GOOD)
 	tr.name = "ObjectivePlate"
 	tr.custom_minimum_size = Vector2(250, 0)
-	tr.set_anchor(SIDE_LEFT, 1.0)
-	tr.offset_left = -260
-	tr.offset_right = -10
+	tr.set_anchor(SIDE_LEFT, 0.0)
+	tr.set_anchor(SIDE_RIGHT, 0.0)
+	tr.offset_left = 10
+	tr.offset_right = 262
 	tr.offset_top = 10
 	var v2 := _vbox(tr, 3)
 	var srow := HBoxContainer.new()
@@ -310,7 +333,9 @@ func _build() -> void:
 	objective_pct = QuarryTheme.fixed_label("", QuarryTheme.BODY, QuarryTheme.ACCENT, false, true)
 	objective_pct.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	nrow.add_child(objective_pct)
-	objective_bar = _bar(v2, 8, QuarryTheme.ACCENT)
+	objective_bar = _bar(v2, 5, QuarryTheme.ACCENT)
+	objective_hint = QuarryTheme.fixed_label("O  all objectives", QuarryTheme.SMALL, Color(0.8, 0.72, 0.55, 0.75))
+	v2.add_child(objective_hint)
 	objective_detail = QuarryTheme.fixed_label("", QuarryTheme.SMALL, QuarryTheme.DIM)
 	objective_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	objective_detail.custom_minimum_size = Vector2(226, 0)
@@ -333,20 +358,20 @@ func _build() -> void:
 	bottom.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bottom.add_theme_constant_override("separation", 8)
 	add_child(bottom)
-	bottom.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	bottom.custom_minimum_size = Vector2(500, 48)
-	bottom.set_anchor(SIDE_LEFT, 0.5)
-	bottom.set_anchor(SIDE_RIGHT, 0.5)
+	bottom.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	bottom.custom_minimum_size = Vector2(298, 48)
+	bottom.set_anchor(SIDE_LEFT, 1.0)
+	bottom.set_anchor(SIDE_RIGHT, 1.0)
 	bottom.set_anchor(SIDE_TOP, 1.0)
 	bottom.set_anchor(SIDE_BOTTOM, 1.0)
-	bottom.offset_left = -250
-	bottom.offset_right = 250
-	bottom.offset_top = -76
-	bottom.offset_bottom = -28
+	bottom.offset_left = -308
+	bottom.offset_right = -10
+	bottom.offset_top = -80
+	bottom.offset_bottom = -26
 	bottom.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	var tp := QuarryPlate.new(8, QuarryTheme.ACCENT)
 	tp.name = "ToolPlate"
-	tp.custom_minimum_size = Vector2(230, 0)
+	tp.custom_minimum_size = Vector2(172, 0)
 	bottom.add_child(tp)
 	var tv := _vbox(tp, 1)
 	var tname := HBoxContainer.new()
@@ -366,6 +391,7 @@ func _build() -> void:
 	var bp := QuarryPlate.new(8, QuarryTheme.GOOD)
 	bp.name = "BagPlate"
 	bp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bp.custom_minimum_size = Vector2(118, 0)
 	bottom.add_child(bp)
 	var bv := _vbox(bp, 2)
 	var brow := HBoxContainer.new()
@@ -377,22 +403,20 @@ func _build() -> void:
 	brow.add_child(bag_label)
 	bag_bar = _bar(bv, 6, QuarryTheme.GOOD)
 	bag_items = QuarryTheme.hud_label("", QuarryTheme.SMALL, QuarryTheme.DIM)
-	bag_items.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	bag_items.custom_minimum_size = Vector2(150, 0)
+	bag_items.autowrap_mode = TextServer.AUTOWRAP_OFF           # one line: the bag plate stays a small strip (a long list is clipped)
+	bag_items.clip_text = true
+	bag_items.custom_minimum_size = Vector2(90, 0)
 	bv.add_child(bag_items)
 	# ---- prompt + message above the bottom bar
 	prompt_panel = QuarryPlate.new(7)
 	prompt_panel.name = "PromptPlate"
-	if UiSkin.has("plate_prompt"):
-		prompt_panel.skinned = true
-		prompt_panel.add_theme_stylebox_override("panel", UiSkin.box("plate_prompt", null, [18, 8, 18, 8]))
 	add_child(prompt_panel)
 	prompt_panel.set_anchor(SIDE_LEFT, 0.5)
 	prompt_panel.set_anchor(SIDE_RIGHT, 0.5)
 	prompt_panel.set_anchor(SIDE_TOP, 1.0)
 	prompt_panel.set_anchor(SIDE_BOTTOM, 1.0)
-	prompt_panel.offset_left = -330
-	prompt_panel.offset_right = 330
+	prompt_panel.offset_left = -210
+	prompt_panel.offset_right = 210
 	prompt_panel.offset_top = -112
 	prompt_panel.offset_bottom = -64
 	prompt_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
@@ -521,7 +545,7 @@ func _build() -> void:
 ## A short, restrained celebration when something is bought: the cash counter flashes and the top-left plate pulses once.
 func purchase_flourish() -> void:
 	money_pulse = 1.0
-	var tl := get_node_or_null("TopLeftPlate")
+	var tl := get_node_or_null("TimeMoneyPlate")
 	if tl:
 		var tw := create_tween()
 		tw.tween_property(tl, "scale", Vector2(1.04, 1.04), 0.08)
@@ -689,20 +713,17 @@ func _process(delta: float) -> void:
 	_update_drive_plate()
 	var hide_plates := menu_open or conversation
 	_menu_fade = move_toward(_menu_fade, 0.0 if hide_plates else 1.0, delta * 7.0)
-	for nm in ["TopLeftPlate", "MapPlate", "ObjectivePlate", "DrivePlate"]:
+	for nm in ["TimeMoneyPlate", "MapPlate", "ObjectivePlate", "DrivePlate"]:
 		var pn := get_node_or_null(nm) as CanvasItem
 		if pn != null:
 			pn.modulate.a = _menu_fade
 	if bottom != null:
 		bottom.modulate.a = _menu_fade
-	hints.modulate.a = _menu_fade
+	hints.modulate.a = _menu_fade * hints.alpha()          # the controls strip is contextual: it shows when something changes, then fades away
 	if hotbar_view != null:
 		hotbar_view.modulate.a = _menu_fade
 		hotbar_view.visible = _menu_fade > 0.02
 	loc_root.visible = not hide_plates
-	var tlp := get_node_or_null("TopLeftPlate") as Control
-	if tlp != null and map_plate != null:
-		map_plate.position.y = tlp.position.y + tlp.size.y + 6.0       # the map always sits just under the time / money plate, whatever its height
 	var st: QuarryState = game.state
 	# money count-up
 	var target := float(st.money)
@@ -735,12 +756,16 @@ func _process(delta: float) -> void:
 	message_timer = maxf(0.0, message_timer - delta)
 	message_label.modulate.a = clampf(message_timer / 0.4, 0.0, 1.0)
 	message_label.visible = message_timer > 0.0
+	var prompt_now := prompt_label.text != ""
+	if prompt_now and not _prompt_was:
+		hints.show_for(5.0)                                       # walked up to something to interact with
+	_prompt_was = prompt_now
 	var want_prompt := 1.0 if prompt_label.text != "" or message_label.visible else 0.0
 	prompt_alpha = move_toward(prompt_alpha, want_prompt, delta * 6.0)
 	prompt_panel.modulate.a = prompt_alpha
 	prompt_panel.visible = prompt_alpha > 0.01 and not hide_plates
 	# keep the prompt just above the tool/bag bar whatever their heights
-	var bar_top := bottom.get_global_rect().position.y
+	var bar_top := (hotbar_view.get_global_rect().position.y if hotbar_view != null else bottom.get_global_rect().position.y)
 	prompt_panel.offset_bottom = bar_top - size.y - 6.0
 	prompt_panel.offset_top = prompt_panel.offset_bottom - prompt_panel.get_combined_minimum_size().y
 	hints.visible = tutorial
@@ -782,6 +807,9 @@ func _update_drive_plate() -> void:
 		tp.visible = not driving
 	if not driving:
 		return
+	var floor_y: float = bottom.get_global_rect().position.y            # the drive plate sits just above the bag plate, whatever its height
+	drive_plate.offset_bottom = floor_y - size.y - 6.0
+	drive_plate.offset_top = drive_plate.offset_bottom - 100.0
 	drive_name.text = str(info["name"])
 	var mx := maxf(0.1, float(info["max_speed"]))
 	drive_speed_bar.value = clampf(float(info["speed"]) / mx, 0.0, 1.0)
@@ -794,18 +822,20 @@ func _update_drive_plate() -> void:
 
 ## The hotbar: boxed slots (number, icon, name) centred above the bottom plates; the tool in hand is lit.
 var hotbar_view: QuarryHotbar
+var thumbs: ItemThumbs
 func _set_hotbar(prog: QuarryProgression) -> void:
 	if hotbar_view == null:
 		hotbar_view = QuarryHotbar.new()
 		add_child(hotbar_view)
 		hotbar_view.set_anchor(SIDE_LEFT, 0.5)
 		hotbar_view.set_anchor(SIDE_RIGHT, 0.5)
-		hotbar_view.set_anchor(SIDE_TOP, 0.0)
-		hotbar_view.set_anchor(SIDE_BOTTOM, 0.0)
-		hotbar_view.offset_left = -110
-		hotbar_view.offset_right = 110
-		hotbar_view.offset_top = 6
-		hotbar_view.offset_bottom = 40
+		hotbar_view.set_anchor(SIDE_TOP, 1.0)
+		hotbar_view.set_anchor(SIDE_BOTTOM, 1.0)
+		hotbar_view.offset_left = -130
+		hotbar_view.offset_right = 130
+		hotbar_view.offset_top = -80
+		hotbar_view.offset_bottom = -28
+		hotbar_view.thumbs = thumbs
 		tool_pips.visible = false
 	var bar := prog.hotbar()
 	var slots := []
@@ -814,13 +844,18 @@ func _set_hotbar(prog: QuarryProgression) -> void:
 		var cl := str(t.get("class", ""))
 		var kind := "shovel" if cl == "digging" else "flag" if cl == "survey" else ("hammer" if str(bar[i]) == "" and game.state.tool_tier == 0 else "pick")
 		var title := str(t.get("title", "?"))
-		slots.append({"name": "Plan" if cl == "survey" else title.split(" ")[-1], "kind": kind})
+		var model_key := str(bar[i]) if str(bar[i]) in GearModels.IDS else ToolModels.key_of(game.state.tool_tier)       # which real model is this slot
+		slots.append({"name": "Plan" if cl == "survey" else title.split(" ")[-1], "kind": kind, "key": model_key})
 	hotbar_view.set_slots(slots, prog.hotbar_slot())
 
 func refresh_panels() -> void:
 	var st: QuarryState = game.state
 	var prog: QuarryProgression = game.prog
 	var t := prog.tool()
+	if _hint_tool_seen != str(t["title"]):
+		if _hint_tool_seen != "":
+			hints.show_for(6.0)                                 # equipped another tool: show what the buttons do
+		_hint_tool_seen = str(t["title"])
 	tool_label.text = str(t["title"]).to_upper()
 	var top_dps := 1.0
 	for ti in range(prog.tools().size()):
@@ -869,7 +904,12 @@ func refresh_panels() -> void:
 			detail.append("[x] %d done" % done_n)
 		if more > 0:
 			detail.append("+%d more" % more)
-		objective_label.text = "Next: %s" % str(info["title"])
+		_obj_next = "Next: %s" % str(info["title"])
+		_obj_primary = "Ready - move on to %s" % str(info["title"])
+		for r2 in reqs:
+			if float(r2[1]) < float(r2[2]) - 0.00001:
+				_obj_primary = "%s  (%s)" % [r2[0], _amount(r2)]           # the first thing still to do
+				break
 		var frac := frac_sum / float(maxi(1, frac_n))
 		var all_met: bool = prog.requirements_met(next)
 		_obj_target = 1.0 if all_met else minf(frac, 0.99)
@@ -880,7 +920,8 @@ func refresh_panels() -> void:
 		stage_label.text = "STAGE %d/%d  %s" % [prog.stage + 1, prog.stages().size(), str(prog.stage_info()["title"]).to_upper()]
 		# every business stage is done: the quarry itself is the goal
 		var ql: int = prog.quarry_level
-		objective_label.text = "Quarry level %d: %s" % [ql, str(prog.level_def(ql).get("title", ""))]
+		_obj_next = "Quarry level %d: %s" % [ql, str(prog.level_def(ql).get("title", ""))]
+		_obj_primary = _obj_next
 		_obj_target = prog.level_cleared_fraction(ql) if prog.level_built(ql) else prog.cleared_fraction(prog.formation_ids())
 		var nxt: Dictionary = prog.level_def(ql + 1)
 		var hint := ""
@@ -890,6 +931,7 @@ func refresh_panels() -> void:
 		_objective_rows(Array(objective_detail.text.split("\n")))
 		objective_pct.text = "%d%%" % int(_obj_target * 100.0)
 	status_label.text = game.hud_status_text(false)
+	_apply_objective_mode()
 	var rows: Array = game.hud_progress_rows()
 	for bi in range(progress_blocks.size()):
 		var blk: Dictionary = progress_blocks[bi]
@@ -903,7 +945,7 @@ func refresh_panels() -> void:
 			blk["target"] = clampf(float(rw["frac"]), 0.0, 1.0)
 			set_bar_color(blk["bar"], rw["color"])
 			blk["value"].add_theme_color_override("font_color", rw["color"])
-	status_label.visible = status_label.text != ""
+	status_label.visible = status_label.text != "" and objectives_expanded
 	var badge_lines := []
 	var warn := false
 	for b in game.hud_badges():
@@ -912,6 +954,19 @@ func refresh_panels() -> void:
 	badge_label.text = "\n".join(badge_lines)
 	badge_label.visible = not badge_lines.is_empty()
 	badge_label.add_theme_color_override("font_color", QuarryTheme.WARN if warn else QuarryTheme.DIM)
+
+## Compact tracker by default (stage, the one thing to do next, a thin bar); O opens the whole checklist, the contract bars and the status line.
+func toggle_objectives() -> void:
+	objectives_expanded = not objectives_expanded
+	_apply_objective_mode()
+
+func _apply_objective_mode() -> void:
+	objective_label.text = _obj_next if objectives_expanded else _obj_primary
+	objective_detail.visible = objectives_expanded and not (UiSkin.has("checkbox_empty") and UiSkin.has("checkbox_done"))
+	objective_rows.visible = objectives_expanded
+	progress_box.visible = objectives_expanded
+	status_label.visible = objectives_expanded and status_label.text != ""
+	objective_hint.text = "O  hide the list" if objectives_expanded else "O  all objectives"
 
 func _amount(r: Array) -> String:
 	if str(r[0]).begins_with("Earn"):

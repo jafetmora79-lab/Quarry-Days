@@ -144,7 +144,7 @@ func run() -> void:
 			hud_ok = false
 	check(hud_ok, "5 HUD labels use readable sizes")
 	var rects := []
-	for n in [game.hud.get_node("TopLeftPlate"), game.hud.get_node("ObjectivePlate"), game.hud.bottom.get_node("ToolPlate"), game.hud.prompt_panel]:
+	for n in [game.hud.get_node("TimeMoneyPlate"), game.hud.get_node("ObjectivePlate"), game.hud.bottom.get_node("ToolPlate"), game.hud.prompt_panel]:
 		rects.append(Rect2(n.get_global_rect()))
 	var ok := true
 	for i in range(rects.size()):

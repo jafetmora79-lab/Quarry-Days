@@ -1899,6 +1899,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event is InputEventKey and event.pressed and not event.echo:
 			_menu_key(event)
 		return
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_O and not placement and hud != null:
+		hud.toggle_objectives()                          # the compact objective tracker opens into the full checklist and back
+		return
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_M and not placement:
 		if business.milestones["first_employee"]:
 			_open_menu("manage")

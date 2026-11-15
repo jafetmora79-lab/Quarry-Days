@@ -152,7 +152,7 @@ func run() -> void:
 	texts(game.hud.hints, strip_texts)
 	check(" ".join(strip_texts).contains("Interact") and game.hud.hints.visible, "6c the strip is on the screen")
 	# ---- 7: HUD plates, icons
-	check(game.hud.get_node_or_null("TopLeftPlate") is QuarryPlate and game.hud.get_node_or_null("ObjectivePlate") is QuarryPlate and game.hud.get_node_or_null("ToolPlate", ) == null or true, "7 the HUD sections are warm plates")
+	check(game.hud.get_node_or_null("TimeMoneyPlate") is QuarryPlate and game.hud.get_node_or_null("ObjectivePlate") is QuarryPlate and game.hud.get_node_or_null("ToolPlate", ) == null or true, "7 the HUD sections are warm plates")
 	check(game.hud.time_icon != null and game.hud.tool_icon != null and game.hud.power_bar != null, "7b with a clock icon, a tool icon and a mining-power bar")
 	game.hud.refresh_panels()
 	var texts_hud := []
@@ -188,7 +188,7 @@ func run() -> void:
 		check(vp.encloses(pr.grow(-1.0)) and game.panel.pane.get_global_rect().size.x > 200.0, "9 the shop panel with its pane fits at %dx%d (%s in %s)" % [sz.x, sz.y, str(pr), str(vp)])
 		game._close_menu()
 		var hr: Rect2 = game.hud.hints.get_global_rect()
-		var tl: Rect2 = game.hud.get_node("TopLeftPlate").get_global_rect()
+		var tl: Rect2 = game.hud.get_node("TimeMoneyPlate").get_global_rect()
 		var trr: Rect2 = game.hud.get_node("ObjectivePlate").get_global_rect()
 		check(vp.encloses(hr.grow(-1.0)) and vp.encloses(tl.grow(-1.0)) and vp.encloses(trr.grow(-1.0)) and not tl.intersects(trr), "9b HUD plates stay on screen and apart at %dx%d" % [sz.x, sz.y])
 	print("RESULT: %d checks, %d failures" % [checks, failures.size()])
