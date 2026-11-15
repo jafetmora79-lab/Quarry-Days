@@ -24,6 +24,7 @@ Q.MATERIALS.update({
     "Blue":     (None, (0.24, 0.34, 0.46), 0.8, 0.0, {}),
     "Paper":    (None, (0.86, 0.82, 0.68), 1.0, 0.0, {}),
     "Glove":    (None, (0.17, 0.18, 0.21), 1.0, 0.0, {}),
+    "GloveDark": (None, (0.08, 0.08, 0.10), 1.0, 0.0, {}),
     "Skin":     (None, (0.80, 0.62, 0.48), 1.0, 0.0, {}),
     "Sleeve":   (None, (0.86, 0.46, 0.16), 1.0, 0.0, {}),
     "Band":     (None, (0.86, 0.86, 0.78), 1.0, 0.0, {}),
@@ -209,3 +210,24 @@ def finger_arc(t, y, R, a0, a1, r, mat, n=6, seg=5, sign=1.0):
         pts.append((math.sin(a) * R, y, math.cos(a) * R))
     rad = [r * (1.0 - 0.18 * i / n) for i in range(n + 1)]
     t.tube(pts, rad, mat, seg=seg)
+
+
+def grip_band(t, y, width, R, a0, a1, thick, mat, steps=10, taper=0.35, chamfer=0.35):
+    """A solid band wrapped round a grip (axis Y through the origin): the four fingers of a closed fist as one continuous glove surface.
+    Centre radius R, angle measured from +Z toward +X from a0 to a1, `thick` radial thickness (thinning toward the fingertips by `taper`),
+    `width` along Y, with chamfered corners."""
+    rings = []
+    for i in range(steps + 1):
+        u = i / steps
+        a = math.radians(a0 + (a1 - a0) * u)
+        th = thick * (1.0 - taper * u * u)
+        hw, ht = width / 2, th / 2
+        ch = min(hw, ht) * chamfer
+        sec = [(-hw + ch, -ht), (hw - ch, -ht), (hw, -ht + ch), (hw, ht - ch), (hw - ch, ht), (-hw + ch, ht), (-hw, ht - ch), (-hw, -ht + ch)]
+        sa, ca = math.sin(a), math.cos(a)
+        ring = []
+        for (dy, dr) in sec:
+            rr = R + dr
+            ring.append((sa * rr, y + dy, ca * rr))
+        rings.append(ring)
+    return t._skin(rings, mat)

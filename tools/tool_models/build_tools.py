@@ -13,7 +13,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import qd_blender as Q
 from qd_blender import empty
-from tm import TM, B, arc_head, finger_arc
+from tm import TM, B, arc_head, finger_arc, grip_band
 
 OUT = os.path.join(Q.REPO, "assets", "tools")
 SRC = os.path.join(OUT, "src")
@@ -312,20 +312,26 @@ def ramp_plan(root):
 
 # ------------------------------------------------------------------------------------------------ hands
 def hand(root, mirror):
-    """A gloved hand closed round a grip whose axis is local Y (through the origin), forearm running out along +Z. Right hand; `mirror` makes the left.
-    Dimensions are real size: the game scales it to undo the tool's own scale."""
+    """A gloved fist closed round a grip whose axis is local Y (through the origin), forearm running out along +Z. Right hand; `mirror` makes the left.
+    Real size: the game scales it to undo the tool's own scale. The fingers are one continuous glove band wrapped round the grip with dark
+    seams between them (a closed fist, not separate sticks), a thick thumb over the top, the back of the hand, a gauntlet, a cuff and a slim sleeve."""
     t = TM("Body", root, mirror=mirror)
     r = 0.021                                                                              # the typical handle
-    R = r + 0.0085
-    t.box((0, 0.0, r + 0.026), (0.078, 0.09, 0.034), "Glove", taper=(0.9, 0.95))           # palm pad against the handle
-    t.box((0, 0.0, r + 0.052), (0.082, 0.094, 0.026), "Glove", taper=(0.95, 0.95))          # back of the hand
-    for i, y in enumerate((-0.036, -0.012, 0.012, 0.036)):
-        finger_arc(t, y, R + 0.002 * (i % 2), 14, -205, 0.0092 - (0.0007 if i == 3 else 0), "Glove", n=6, seg=5)   # the four fingers wrap round
-        t.box((0.0, y, r + 0.075), (0.02, 0.019, 0.016), "Glove")        # knuckles
-    finger_arc(t, 0.056, R + 0.004, 40, 175, 0.0105, "Glove", n=5, seg=5)                    # the thumb comes over the top of the grip
-    t.cyl((0, 0.0, r + 0.098), 0.032, 0.034, 0.05, "Glove", seg=8, axis='z', squash=1.1)    # glove gauntlet
-    t.cyl((0, 0.0, r + 0.138), 0.047, 0.047, 0.026, "Band", seg=10, axis='z')                 # reflective cuff band
-    t.cyl((0, 0.0, r + 0.222), 0.05, 0.066, 0.26, "Sleeve", seg=10, axis='z')                   # the miners' orange jacket sleeve
+    R = r + 0.0105
+    # the fingers: one band, wrapped from the palm round the far side of the grip and tucked back toward the heel of the hand
+    grip_band(t, 0.0, 0.088, R, 8, -215, 0.021, "Glove", steps=11, taper=0.3)
+    for y in (-0.022, 0.0, 0.022):                                                          # seams between the fingers
+        grip_band(t, y, 0.0035, R + 0.0019, -25, -190, 0.021, "GloveDark", steps=8, taper=0.3, chamfer=0.0)
+    for y in (-0.033, -0.011, 0.011, 0.033):                                                # knuckles, a row of rounded bumps across the back of the hand
+        t.cyl((0.0, y, r + 0.058), 0.0105, 0.0105, 0.024, "Glove", seg=6, axis='x', squash=1.0)
+    t.box((0, 0.0, r + 0.035), (0.084, 0.092, 0.034), "Glove", taper=(0.94, 0.96))         # palm and heel of the hand
+    t.box((0, 0.0, r + 0.066), (0.086, 0.094, 0.034), "Glove", taper=(0.9, 0.92))           # back of the hand
+    # the thumb: two thick segments over the top of the grip, tip tucked against the first finger
+    pts = [(math.sin(math.radians(a)) * (R + 0.003), 0.054 - 0.006 * i, math.cos(math.radians(a)) * (R + 0.003)) for i, a in enumerate((50, 85, 120, 150, 172))]
+    t.tube(pts, [0.0135, 0.0125, 0.0115, 0.0105, 0.009], "Glove", seg=6)
+    t.cyl((0, 0.0, r + 0.098), 0.034, 0.036, 0.05, "Glove", seg=8, axis='z', squash=1.05)    # glove gauntlet
+    t.cyl((0, 0.0, r + 0.128), 0.044, 0.044, 0.02, "Band", seg=10, axis='z')                  # reflective cuff band
+    t.cyl((0, 0.0, r + 0.205), 0.04, 0.054, 0.20, "Sleeve", seg=10, axis='z', squash=0.92)    # the miners' orange jacket sleeve, slim and slightly oval
     t.finish()
 
 
