@@ -57,7 +57,7 @@ func run() -> void:
 	game.prog.excavator_state().merge({"battery": true, "hose": true, "fuel": true, "started": true}, true)
 	game._ensure_opening()
 	var soil: QuarrySoil = game.soil
-	check(not game.fleet.types().has("bulldozer") and game.fleet.buy_block_reason("bulldozer") == "Not available yet", "the bulldozer is proposed only: not in the shop, cannot be bought")
+	check(game.fleet.types().has("bulldozer") and game.prog.gate_stage("bulldozer") == "moving_mountains" and not game.prog.unlocked("bulldozer"), "the bulldozer is in the shop, gated to Moving Mountains (locked until then)")
 	# find soil to push
 	var target_cell := -1
 	for i in range(soil.units.size()):

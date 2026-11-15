@@ -258,7 +258,8 @@
    "unlocks": [
     "Drilling Rig",
     "Dump Truck",
-    "Excavator"
+    "Excavator",
+    "Bulldozer"
    ],
    "price_mult": 1.0
   },
@@ -7375,7 +7376,8 @@
   "heavy_truck": "moving_mountains",
   "industrial_truck": "deeper_ground",
   "compact_excavator": "moving_mountains",
-  "heavy_excavator": "deeper_ground"
+  "heavy_excavator": "deeper_ground",
+  "bulldozer": "moving_mountains"
  },
  "quarry_milestones": [
   {

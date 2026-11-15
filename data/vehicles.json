@@ -240,7 +240,6 @@
       "kind": "bulldozer",
       "price": 9500,
       "gate": "large",
-      "proposed": true,
       "capacity": 10,
       "accel": 1.4,
       "max_speed": 3.4,

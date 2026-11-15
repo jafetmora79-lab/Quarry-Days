@@ -42,11 +42,17 @@ def B(p):
 class TM:
     """One part of a tool. Geometry is split into one mesh object per material (so the game sees several parts). A part named "Body" lives directly
     under the root; any other name ("Spinner", "Lever") is an empty at `loc` (its hinge) that holds its meshes."""
-    def __init__(self, name, parent=None, loc=(0, 0, 0), mirror=False):
+    def __init__(self, name, parent=None, loc=(0, 0, 0), mirror=False, holder=False):
+        """holder=True: an empty named `name` at `loc` (a hinge: a wheel, a tipping body) that holds the meshes, whose geometry is still given in MODEL
+        space (the shift moves it into the holder's frame). Without it, "Body" is the flat part of a tool and any other name is a part described in its own frame."""
         self.mirror = mirror
         self.name = name
         lb = Vector(self._p(loc))
-        if name == "Body":
+        if holder:
+            self.holder = empty(name, parent, loc=lb, size=0.05)
+            self.shift = (-lb.x, -lb.y, -lb.z)
+            self.parent_loc = Vector((0, 0, 0))
+        elif name == "Body":
             self.holder, self.shift = parent, (-lb.x, -lb.y, -lb.z)
             self.parent_loc = lb
         else:

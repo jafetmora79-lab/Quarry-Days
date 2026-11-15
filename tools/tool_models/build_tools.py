@@ -331,10 +331,16 @@ def hand(root, mirror):
     pts = [(math.sin(math.radians(a)) * (R + 0.003), 0.054 - 0.006 * k, math.cos(math.radians(a)) * (R + 0.003)) for k, a in enumerate((50, 85, 120, 150, 172))]
     t.tube(pts[:3], [0.0135, 0.0125, 0.0115], "Glove", seg=6)                              # the thumb: glove at the root...
     t.tube(pts[2:], [0.0115, 0.0105, 0.009], "Skin", seg=6)                                # ...bare tip
-    t.cyl((0, 0.0, r + 0.1), 0.034, 0.036, 0.05, "GloveDark", seg=8, axis='z', squash=1.05)  # knitted wrist cuff of the glove
-    t.cyl((0, 0.0, r + 0.17), 0.030, 0.034, 0.10, "Skin", seg=8, axis='z', squash=0.95)     # bare forearm
-    t.cyl((0, 0.0, r + 0.255), 0.052, 0.058, 0.17, "Plaid", seg=10, axis='z', squash=0.93)  # the red plaid sleeve, rolled up to the forearm
-    t.cyl((0, 0.0, r + 0.178), 0.054, 0.054, 0.03, "PlaidDark", seg=10, axis='z', squash=0.93)  # its rolled cuff
+    # the forearm leaves the wrist sloping 22 degrees down the handle (a real grip: the wrist is not at a right angle to the handle)
+    tilt = math.radians(18.0)
+    df = (0.0, -math.sin(tilt), math.cos(tilt))
+    w0 = (0.0, 0.0, r + 0.085)
+    def at(d):
+        return (w0[0] + df[0] * d, w0[1] + df[1] * d, w0[2] + df[2] * d)
+    t.tube([at(0.0), at(0.06)], [0.034, 0.037], "GloveDark", seg=8, squash=1.05)           # knitted wrist cuff of the glove
+    t.tube([at(0.06), at(0.17)], [0.030, 0.034], "Skin", seg=8, squash=0.95)               # bare forearm
+    t.tube([at(0.15), at(0.25)], [0.052, 0.058], "Plaid", seg=10, squash=0.93)             # the red plaid sleeve, rolled up to the forearm
+    t.tube([at(0.14), at(0.17)], [0.054, 0.054], "PlaidDark", seg=10, squash=0.93)         # its rolled cuff
     t.finish()
 
 

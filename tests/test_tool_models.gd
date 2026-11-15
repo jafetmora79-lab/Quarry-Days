@@ -69,7 +69,7 @@ func run() -> void:
 		if h:
 			var hb := aabb_of(h)
 			check(hb.position.z < 0.0 and hb.end.z > 0.3, "the hand closes round the grip and the forearm runs out toward +Z (%.2f..%.2f)" % [hb.position.z, hb.end.z])
-			check(hb.size.y < 0.16 and hb.size.x < 0.16, "the glove is hand-sized (%.2f x %.2f)" % [hb.size.x, hb.size.y])
+			check(hb.size.y < 0.30 and hb.size.x < 0.16, "the glove is hand-sized (%.2f x %.2f)" % [hb.size.x, hb.size.y])
 			h.free()
 	var hr := ToolModels.load_hand(true)
 	var hl := ToolModels.load_hand(false)
