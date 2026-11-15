@@ -48,6 +48,7 @@ var objective_detail: Label
 var objective_rows: VBoxContainer     ## the same lines as objective_detail, drawn with the checkbox art (the label keeps the text)
 var objective_pct: Label
 var objective_hint: Label              ## "O  all objectives" under the compact tracker
+var _tool_flash := 4.0
 var _hint_tool_seen := ""
 var _prompt_was := false
 var objectives_expanded := false      ## the full checklist is open (toggled with O)
@@ -402,10 +403,12 @@ func _build() -> void:
 	bag_label = QuarryTheme.hud_label("BAG 0/18", QuarryTheme.HUD + 1, QuarryTheme.ACCENT)
 	brow.add_child(bag_label)
 	bag_bar = _bar(bv, 6, QuarryTheme.GOOD)
+	bag_bar.visible = false                                  # the bag is a number (BAG 4/18), not a bar
 	bag_items = QuarryTheme.hud_label("", QuarryTheme.SMALL, QuarryTheme.DIM)
 	bag_items.autowrap_mode = TextServer.AUTOWRAP_OFF           # one line: the bag plate stays a small strip (a long list is clipped)
 	bag_items.clip_text = true
 	bag_items.custom_minimum_size = Vector2(90, 0)
+	bag_items.visible = false
 	bv.add_child(bag_items)
 	# ---- prompt + message above the bottom bar
 	prompt_panel = QuarryPlate.new(7)
@@ -719,6 +722,10 @@ func _process(delta: float) -> void:
 			pn.modulate.a = _menu_fade
 	if bottom != null:
 		bottom.modulate.a = _menu_fade
+		_tool_flash = maxf(0.0, _tool_flash - delta)
+		var tplate := bottom.get_node_or_null("ToolPlate") as CanvasItem
+		if tplate != null:
+			tplate.modulate.a = clampf(_tool_flash, 0.0, 1.0)         # the tool's name and what it breaks show for a few seconds after you pick it up, then step aside
 	hints.modulate.a = _menu_fade * hints.alpha()          # the controls strip is contextual: it shows when something changes, then fades away
 	if hotbar_view != null:
 		hotbar_view.modulate.a = _menu_fade
@@ -750,7 +757,7 @@ func _process(delta: float) -> void:
 		income_label.text = "Day ends at %02d:00 - head home to sleep" % int(game.prog.cfg.get("home", {}).get("curfew_hour", 22.0))
 		income_label.add_theme_color_override("font_color", QuarryTheme.WARN)
 	else:
-		income_label.text = ("+%s / min" % QuarryTheme.money_text(per_min)) if per_min > 0 else "no sales yet" if st.earned <= 0 else ""
+		income_label.text = ("+%s / min" % QuarryTheme.money_text(per_min)) if per_min > 0 else ""
 		income_label.add_theme_color_override("font_color", QuarryTheme.GOOD)
 	# message fade
 	message_timer = maxf(0.0, message_timer - delta)
@@ -768,7 +775,7 @@ func _process(delta: float) -> void:
 	var bar_top := (hotbar_view.get_global_rect().position.y if hotbar_view != null else bottom.get_global_rect().position.y)
 	prompt_panel.offset_bottom = bar_top - size.y - 6.0
 	prompt_panel.offset_top = prompt_panel.offset_bottom - prompt_panel.get_combined_minimum_size().y
-	hints.visible = tutorial
+	hints.visible = false                                      # no permanent row of keys: the controls live in Settings; a prompt names the key when something is in reach
 	if tutorial:
 		var hint_items: Array = game.hud_hints()
 		if game.gamepad != null and game.gamepad.active:
@@ -853,8 +860,7 @@ func refresh_panels() -> void:
 	var prog: QuarryProgression = game.prog
 	var t := prog.tool()
 	if _hint_tool_seen != str(t["title"]):
-		if _hint_tool_seen != "":
-			hints.show_for(6.0)                                 # equipped another tool: show what the buttons do
+		_tool_flash = 4.0
 		_hint_tool_seen = str(t["title"])
 	tool_label.text = str(t["title"]).to_upper()
 	var top_dps := 1.0

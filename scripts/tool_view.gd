@@ -362,8 +362,8 @@ func _build(t: int, with_hands := true) -> Node3D:
 ## the screen edge (camera space, -Z is forward). Hands and sleeves are children of the model, so they swing, bob and
 ## vibrate with it and the tool is always visibly held. Single grip on the hammer; two hands on the pickaxes, the drill
 ## (pistol grip + body) and the jackhammer (T-handle).
-const HAND_R_DIR := Vector3(0.62, -0.50, 0.60)
-const HAND_L_DIR := Vector3(-0.70, -0.38, 0.60)
+const HAND_R_DIR := Vector3(0.80, -0.55, 0.12)
+const HAND_L_DIR := Vector3(-0.80, -0.55, 0.12)
 const HANDS := {
 	0: [["R", Vector3(0, 0.15, 0)]],
 	1: [["R", Vector3(0, 0.17, 0)], ["L", Vector3(0, 0.37, 0)]],
@@ -373,7 +373,7 @@ const HANDS := {
 }
 const SKIN := Color(0.80, 0.62, 0.48)
 const GLOVE := Color(0.17, 0.18, 0.21)
-const SLEEVE := Color(0.74, 0.16, 0.12)         # the red plaid work shirt (ToolModels.plaid)
+const SLEEVE := Color(0.27, 0.30, 0.33)         # the slate work jacket (the first-person hands)
 const BAND := Color(0.86, 0.86, 0.78)          # reflective cuff band
 
 func _hand_frame(t: int) -> Array:
@@ -419,7 +419,10 @@ func _pose_hands(def: Dictionary, p: float, delta: float) -> void:
 
 ## One gloved fist with its cuff band and jacket sleeve, closed at `at` (model space) of `parent`; the sleeve runs toward the screen edge.
 func _hand(n: Node3D, right: bool, at: Vector3, inv: Basis, inv_s: float, cam_dir := Vector3.ZERO, axis := Vector3.UP, procedural := false) -> Node3D:
-	var dir_m: Vector3 = (inv * (cam_dir if cam_dir != Vector3.ZERO else (HAND_R_DIR if right else HAND_L_DIR))).normalized()
+	var base_dir: Vector3 = cam_dir if cam_dir != Vector3.ZERO else (HAND_R_DIR if right else HAND_L_DIR)
+	if cam_dir == Vector3.ZERO and absf(axis.normalized().dot(Vector3.RIGHT)) > 0.9:
+		base_dir = Vector3(0.3 if right else -0.3, -1.0, -0.35)           # a hand on a T-handle: the arm drops straight down out of the picture, never toward the camera
+	var dir_m: Vector3 = (inv * base_dir).normalized()
 	var gh: Node3D = null if procedural else ToolModels.load_hand(right)
 	if gh != null and not procedural:
 		# a Blender glove: fingers wrapped round the grip (its axis is `axis`), the forearm running toward the screen edge (perpendicular to the grip)

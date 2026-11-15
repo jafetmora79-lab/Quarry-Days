@@ -32,8 +32,7 @@ func _init(margin := 8, strip := Color(0, 0, 0, 0)) -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 func _draw() -> void:
-	if accent.a > 0.0 and size.y > 12.0:
-		draw_rect(Rect2(0, 3, 2, size.y - 6), Color(accent.r, accent.g, accent.b, 0.85))        # a thin coloured strip down the left edge
+	pass                                                       # no coloured strip, no frame art: a flat dark plate with a thin border (see _init)
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED:

@@ -11,7 +11,7 @@ const LADDER := {0: "rock_hammer", 1: "pickaxe_worn", 2: "pickaxe_reinforced", 3
 
 const COLOURS := {
 	"OldWood": Color(0.37, 0.27, 0.18), "Rope": Color(0.62, 0.52, 0.34), "Blue": Color(0.24, 0.34, 0.46), "Paper": Color(0.86, 0.82, 0.68),
-	"Glove": Color(0.17, 0.18, 0.21), "GloveDark": Color(0.08, 0.08, 0.10), "SkinDark": Color(0.62, 0.46, 0.35), "PlaidDark": Color(0.33, 0.06, 0.05), "Skin": Color(0.80, 0.62, 0.48), "Sleeve": Color(0.86, 0.46, 0.16), "Band": Color(0.86, 0.86, 0.78),
+	"Glove": Color(0.17, 0.18, 0.21), "GloveDark": Color(0.08, 0.08, 0.10), "SkinDark": Color(0.62, 0.46, 0.35), "PlaidDark": Color(0.33, 0.06, 0.05), "Skin": Color(0.80, 0.62, 0.48), "Sleeve": Color(0.27, 0.30, 0.33), "SleeveDark": Color(0.17, 0.19, 0.21), "Band": Color(0.86, 0.86, 0.78),
 }
 
 static var _scenes := {}
@@ -75,8 +75,6 @@ static func material_for(name: String) -> Material:
 		"Red": return MeshKit.mat("PaintRed")
 		"Orange": return MeshKit.mat("PaintOrange")
 		"Yellow": return MeshKit.mat("PaintYellow")
-	if name == "Plaid":
-		return plaid()
 	if COLOURS.has(name):
 		return MeshKit.flat(COLOURS[name])
 	return null

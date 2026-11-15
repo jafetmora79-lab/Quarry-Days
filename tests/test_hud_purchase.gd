@@ -150,7 +150,7 @@ func run() -> void:
 	await frames(3)
 	var strip_texts := []
 	texts(game.hud.hints, strip_texts)
-	check(" ".join(strip_texts).contains("Interact") and game.hud.hints.visible, "6c the strip is on the screen")
+	check(" ".join(strip_texts).contains("Interact") and not game.hud.hints.visible, "6c the key list is still known to the game (Settings shows it) but is not a permanent strip on the screen")
 	# ---- 7: HUD plates, icons
 	check(game.hud.get_node_or_null("TimeMoneyPlate") is QuarryPlate and game.hud.get_node_or_null("ObjectivePlate") is QuarryPlate and game.hud.get_node_or_null("ToolPlate", ) == null or true, "7 the HUD sections are warm plates")
 	check(game.hud.time_icon != null and game.hud.tool_icon != null and game.hud.power_bar != null, "7b with a clock icon, a tool icon and a mining-power bar")

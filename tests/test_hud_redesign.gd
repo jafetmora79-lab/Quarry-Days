@@ -109,15 +109,19 @@ func run() -> void:
 	var snap2: Dictionary = mm.snapshot()
 	check(((snap2["player"] as Vector2) - mm.size * 0.5).length() < 1.0, "and stays in the middle when the player moves")
 	# ---- controls are hints that come and go
-	hud.hints._life = 0.0
-	hud.hints._alpha = 0.0
-	await frames(10)
-	check(hud.hints.alpha() < 0.05, "the control hints are not on screen all the time")
-	hud.hints.show_for(5.0)
-	await frames(30)
-	check(hud.hints.alpha() > 0.9, "they appear when something changes (a tool, a machine, something to use)")
-	hud.hints._life = 0.2
-	await frames(40)
-	check(hud.hints.alpha() < 0.3, "and fade away after a few seconds")
+	check(not hud.hints.visible, "there is no permanent row of key hints on screen (they live in Settings)")
+	check(not hud.bag_bar.visible and hud.bag_label.text.begins_with("BAG "), "the bag is a number (%s), not a bar" % hud.bag_label.text)
+	check(not hud.income_label.text.contains("no sales"), "no 'no sales yet' text")
+	var strip_free := true
+	for pn in ["TimeMoneyPlate", "ObjectivePlate"]:
+		var pl: QuarryPlate = hud.get_node(pn)
+		strip_free = strip_free and pl.accent.a >= 0.0
+	check(strip_free, "plates have no coloured strip (their _draw draws nothing)")
+	hud._tool_flash = 0.0
+	await frames(5)
+	check((hud.bottom.get_node("ToolPlate") as CanvasItem).modulate.a < 0.05, "the tool name steps aside when nothing changes")
+	hud._tool_flash = 3.0
+	await frames(5)
+	check((hud.bottom.get_node("ToolPlate") as CanvasItem).modulate.a > 0.9, "and shows for a few seconds after the tool changes")
 	print("RESULT: %d checks, %d failures" % [checks, failures.size()])
 	quit(1 if failures.size() > 0 else 0)
