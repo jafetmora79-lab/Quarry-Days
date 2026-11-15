@@ -61,6 +61,8 @@ func swing_pickaxe() -> void:
 
 ## Subtle camera feedback on impact: a tiny upward kick and a short, damped shake.
 func impact_feedback(strength := 1.0) -> void:
+	if tool_view != null:
+		strength *= tool_view.kick_scale
 	kick = minf(0.022, kick + 0.012 * strength)
 	shake = minf(0.03, shake + 0.012 * strength)
 

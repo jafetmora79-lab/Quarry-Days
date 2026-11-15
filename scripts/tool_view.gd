@@ -25,6 +25,7 @@ var deflect_t := 0.0
 var bob_t := 0.0
 var moving := 0.0
 var _t := 0.0
+var kick_scale := 1.0        ## how hard this tool's blows shake the camera (the hammer barely, the heavy pick most): see Player.impact_feedback
 var obstruct := 0.0         ## 0..1 set by the game: something solid (a wall, a desk) is right in front, so the tool is tucked down and back instead of poking through it
 var _obs := 0.0
 var suppressed := false     ## the game keeps the tool out of sight (at the computer): other code that shows or hides it respects this
@@ -34,9 +35,9 @@ var suppressed := false     ## the game keeps the tool out of sight (at the comp
 ## `tip` is the working point in model space: the pick point, the hammer face, the bit or chisel end.
 ## Power tools use `rest_rot` (euler) to aim their working end at the crosshair, and `model_pitch` leans the whole model.
 const TOOL := {
-	0: {"grip": Vector3(0.30, -0.42, -0.55), "scale": 0.8, "rest": -0.75, "yaw": 0.2, "wind": 0.1, "strike": -1.35, "tip": Vector3(0, 0.36, -0.1)},
-	1: {"grip": Vector3(0.30, -0.42, -0.55), "scale": 0.8, "rest": -0.75, "yaw": 0.2, "wind": 0.1, "strike": -1.35, "tip": Vector3(0, 0.48, -0.27)},
-	2: {"grip": Vector3(0.30, -0.42, -0.55), "scale": 0.75, "rest": -0.75, "yaw": 0.2, "wind": 0.1, "strike": -1.35, "tip": Vector3(0, 0.52, -0.32)},
+	0: {"grip": Vector3(0.30, -0.42, -0.55), "scale": 0.8, "rest": -0.75, "yaw": 0.2, "wind": 0.0, "strike": -1.35, "follow": 0.025, "roll": 0.06, "lunge": 0.55, "kick": 0.5, "tip": Vector3(0, 0.36, -0.1)},        # the hammer: a short, compact, controlled blow
+	1: {"grip": Vector3(0.30, -0.42, -0.55), "scale": 0.8, "rest": -0.75, "yaw": 0.2, "wind": 0.2, "lift": 0.03, "strike": -1.35, "follow": 0.11, "roll": 0.24, "lunge": 1.15, "kick": 1.0, "tip": Vector3(0, 0.48, -0.27)},    # the pickaxe: a higher overhead arc with a follow-through
+	2: {"grip": Vector3(0.30, -0.42, -0.55), "scale": 0.75, "rest": -0.75, "yaw": 0.2, "wind": 0.3, "lift": 0.05, "strike": -1.35, "follow": 0.13, "roll": 0.26, "lunge": 1.2, "kick": 1.15, "tip": Vector3(0, 0.52, -0.32)},    # reinforced: the heaviest wind-up
 	3: {"grip": Vector3(0.28, -0.3, -0.5), "scale": 0.7, "power": true, "spin": "rotate", "amp": 0.006, "rest_rot": Vector3(0.12, 0.2, 0.0), "tip": Vector3(0, 0.12, -0.54)},
 	4: {"grip": Vector3(0.3, -0.12, -0.5), "scale": 0.7, "power": true, "spin": "pump_y", "amp": 0.014, "rest_rot": Vector3(0.0, 0.3, 0.0), "model_pitch": 0.8, "tip": Vector3(0, -0.61, 0)},
 }
@@ -74,6 +75,7 @@ func equip(t: int, instant := false) -> void:
 
 func _show(t: int) -> void:
 	tier = t
+	kick_scale = float(_def(t).get("kick", 1.0))
 	pending_tier = -1
 	for k in models:
 		models[k].visible = false
@@ -137,6 +139,7 @@ func _process(delta: float) -> void:
 			var strike: float = def["strike"]
 			var ang := rest
 			var scoop: bool = str(def.get("style", "")) == "scoop"
+			var lg := float(def.get("lunge", 1.0))            # how far the head lunges forward into the blow
 			if scoop:
 				# a shovel: lower the blade toward the soil, drive it in, lift the load, bring it back to rest
 				var mid := lerpf(rest, strike, 0.45)
@@ -163,17 +166,17 @@ func _process(delta: float) -> void:
 			elif p < 0.42:                                  # wind-up: ease out, working end goes up and back
 				var a := p / 0.42
 				ang = lerpf(rest, wind, 1.0 - pow(1.0 - a, 3.0))
-				off = Vector3(0.0, 0.07 + float(def.get("lift", 0.0)), -0.10) * a
+				off = Vector3(0.0, 0.07 + float(def.get("lift", 0.0)), -0.10 * lg) * a
 			elif p < 0.58:                                # strike: accelerate onto the rock
 				var a := (p - 0.42) / 0.16
 				ang = lerpf(wind, strike, a * a)
-				off = Vector3(0.0, lerpf(0.07 + float(def.get("lift", 0.0)), -0.03, a), lerpf(-0.10, -0.12, a))
+				off = Vector3(0.0, lerpf(0.07 + float(def.get("lift", 0.0)), -0.03, a), lerpf(-0.10 * lg, -0.12 * lg, a))
 				weight = a * a
 			else:                                         # recover: ease back with a small settle
 				var a := clampf((p - 0.58) / 0.42, 0.0, 1.0)
 				var e := 1.0 - pow(1.0 - a, 3.0)
-				ang = lerpf(strike, rest, e) + sin(a * PI) * 0.05
-				off = Vector3(0.0, -0.03, -0.12).lerp(Vector3.ZERO, e)
+				ang = lerpf(strike, rest, e) + sin(a * PI) * float(def.get("follow", 0.05))        # the head carries on past the rock before it comes back
+				off = Vector3(0.0, -0.03, -0.12 * lg).lerp(Vector3.ZERO, e)
 				weight = 1.0 - clampf(a * 2.0, 0.0, 1.0)
 			if p >= float(def.get("impact_p", 0.58)) and not impact_done:
 				impact_done = true
@@ -181,7 +184,7 @@ func _process(delta: float) -> void:
 					on_impact.call()
 			rot.x = ang
 			rot.y = float(def.get("yaw", 0.0)) * (1.0 - 0.7 * weight)
-			rot.z = 0.2 * sin(clampf(p, 0.0, 1.0) * PI)
+			rot.z = float(def.get("roll", 0.2)) * sin(clampf(p, 0.0, 1.0) * PI)
 			if phase >= 1.0:
 				phase = -1.0
 	else:
