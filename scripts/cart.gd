@@ -7,7 +7,11 @@ class_name QuarryCart
 
 const SIZE := {"hand_cart": Vector3(0.95, 0.9, 1.5), "wheelbarrow": Vector3(0.7, 0.9, 1.6), "reinforced_wheelbarrow": Vector3(0.8, 0.95, 1.7)}
 
-const WHEELBARROW_GLB := "res://assets/vehicles/VEH_QD_Wheelbarrow.glb"     ## Blender wheelbarrow; hand carts keep the procedural prop
+const WHEELBARROW_GLB := "res://assets/vehicles/VEH_QD_Wheelbarrow.glb"     ## Blender wheelbarrow
+## One Blender model per piece of hauling equipment (tools/vehicle_models/build_wheelbarrow.py, tools/tool_models/build_carts.py); the procedural props in
+## GearModels.build_prop remain as the fallback if a file cannot load.
+const CART_GLBS := {"wheelbarrow": WHEELBARROW_GLB, "reinforced_wheelbarrow": "res://assets/vehicles/VEH_QD_WheelbarrowHD.glb", "hand_cart": "res://assets/vehicles/VEH_QD_HandCart.glb"}
+const WHEEL_RADII := {"wheelbarrow": 0.26, "reinforced_wheelbarrow": 0.29, "hand_cart": 0.32}
 const WHEEL_R := 0.26
 
 var cart_id := ""
@@ -15,6 +19,8 @@ var wheel: Node3D                ## the Blender barrow's wheel (also in `wheels`
 var body: Node3D                 ## the Blender barrow's tray / frame
 var _load: Node3D
 const LOAD_LOCAL := Vector3(0, 0.42, 0.75)            ## the pile's place in the tray, in the body frame
+const LOAD_LOCALS := {"wheelbarrow": Vector3(0, 0.42, 0.75), "reinforced_wheelbarrow": Vector3(0, 0.45, 0.80), "hand_cart": Vector3(0, 0.24, -0.10)}
+const LOAD_SIZES := {"wheelbarrow": Vector3(0.6, 0.34, 0.7), "reinforced_wheelbarrow": Vector3(0.68, 0.38, 0.8), "hand_cart": Vector3(0.7, 0.34, 1.0)}
 var model: Node3D
 var held := false
 var tilt: Node3D                 ## carries the model; hinged at the front axle so the barrow can tip its load out over the wheel
@@ -47,7 +53,7 @@ func setup(id: String) -> void:
 	floor_snap_length = 0.4
 	set_meta("kind", "cart")
 	set_meta("cart", id)
-	model = _blender_wheelbarrow(id) if (id == "wheelbarrow" or id == "reinforced_wheelbarrow") and ResourceLoader.exists(WHEELBARROW_GLB) else null
+	model = _blender_cart(id) if CART_GLBS.has(id) and ResourceLoader.exists(str(CART_GLBS[id])) else null
 	var axle: Vector3 = AXLE.get(id, Vector3(0, 0.25, 0))
 	if model == null:
 		model = GearModels.build_prop(id)
@@ -55,9 +61,10 @@ func setup(id: String) -> void:
 			if str(w.name).begins_with("Wheel"):
 				wheels.append(w)
 	else:
-		axle = _node_pos_in(wheel, model)
-		wheel.set_meta("radius", WHEEL_R)
-		wheels.append(wheel)
+		axle = Vector3.ZERO
+		for w in wheels:
+			axle += _node_pos_in(w, model) / float(wheels.size())            # the hinge the load tips about: between the wheels
+			w.set_meta("radius", float(WHEEL_RADII.get(id, WHEEL_R)))
 	tilt = Node3D.new()
 	tilt.name = "Tilt"
 	tilt.position = axle
@@ -74,17 +81,28 @@ func setup(id: String) -> void:
 	cs.position = Vector3(0, sz.y * 0.5, 0.15)
 	add_child(cs)
 
-## The Blender wheelbarrow: spinning wheel, tray / frame / handles on a body node that tips about the axle, the usual "Load" pile inside the tray.
-## Returns null (the procedural prop is used) if the file cannot be loaded.
-func _blender_wheelbarrow(id: String) -> Node3D:
-	var scene: PackedScene = load(WHEELBARROW_GLB)
+## A Blender cart: turning wheel(s), the tray / frame / handles on a body node that tips about the axle, the usual "Load" pile inside the tray.
+## Returns null (the procedural prop is used) if the file cannot be loaded or lacks its Body / Wheel nodes.
+func _blender_cart(id: String) -> Node3D:
+	var scene: PackedScene = load(str(CART_GLBS[id]))
 	if scene == null:
 		return null
 	var n: Node3D = scene.instantiate()
 	n.name = "Gear_" + id
 	body = n.find_child("Body", true, false)
-	wheel = n.find_child("Wheel", true, false)
+	wheels.clear()
+	var single := n.find_child("Wheel", true, false) as Node3D
+	if single != null:
+		wheels.append(single)
+		wheel = single
+	else:
+		for wn in ["Wheel_L", "Wheel_R"]:
+			var wd := n.find_child(wn, true, false) as Node3D
+			if wd != null:
+				wheels.append(wd)
+		wheel = wheels[0] if not wheels.is_empty() else null
 	if body == null or wheel == null:
+		wheels.clear()
 		return null
 	var paint: Material = load("res://assets/vehicles/materials/M_QD_WornRed.tres") if id == "wheelbarrow" else load("res://assets/materials/M_QD_SteelPlate.tres")
 	for node in n.find_children("*", "MeshInstance3D", true, false):
@@ -92,15 +110,17 @@ func _blender_wheelbarrow(id: String) -> Node3D:
 		for s in mi.mesh.get_surface_count():
 			var imp := mi.mesh.surface_get_material(s)
 			var nm := imp.resource_name if imp != null else ""
-			var path := "res://assets/vehicles/materials/M_QD_%s.tres" % nm
-			if not ResourceLoader.exists(path):
-				path = "res://assets/materials/M_QD_%s.tres" % nm
-			var mat: Material = paint if nm == "CabPaint" else (load(path) if ResourceLoader.exists(path) else null)
+			var mat: Material = ToolModels.material_for(nm) if id != "wheelbarrow" else null           # the newer models name their materials like the tools do
+			if mat == null:
+				var path := "res://assets/vehicles/materials/M_QD_%s.tres" % nm
+				if not ResourceLoader.exists(path):
+					path = "res://assets/materials/M_QD_%s.tres" % nm
+				mat = paint if nm == "CabPaint" else (load(path) if ResourceLoader.exists(path) else null)
 			if mat != null:
 				mi.set_surface_override_material(s, mat)
 	for hull in n.find_children("ColHull_*", "MeshInstance3D", true, false):
 		hull.queue_free()
-	var pile := GearModels._load_pile(n, body.transform * LOAD_LOCAL, Vector3(0.6, 0.34, 0.7))       # a direct child of the prop, like the procedural ones
+	var pile := GearModels._load_pile(n, body.transform * LOAD_LOCALS.get(id, LOAD_LOCAL), LOAD_SIZES.get(id, Vector3(0.6, 0.34, 0.7)))       # a direct child of the prop, like the procedural ones
 	_load = pile
 	return n
 
@@ -143,15 +163,23 @@ func _add_grip_hands() -> void:
 	model.add_child(grip_hands)
 	for sx in [-1.0, 1.0]:
 		var at := Vector3(sx * g.x, g.y + 0.015, g.z)
-		var dir := Vector3(sx * 0.3, 0.35, 0.89).normalized()                    # back toward the player, slightly up and out
-		var basis := VeilRig.basis_zy(dir, Vector3.UP)
+		var gh := ToolModels.load_hand(sx > 0.0)
+		if gh != null:
+			# the real glove, closed round the handle grip (the handle runs along Z; the grip axis points forward so the forearm slopes back toward the player)
+			var ya := Vector3(0, 0, -1)
+			var dir := Vector3(sx * 0.3, 0.35, 0.89).normalized()
+			var za := (dir - ya * dir.dot(ya)).normalized()
+			gh.basis = Basis(ya.cross(za).normalized(), ya, za)
+			gh.position = at
+			grip_hands.add_child(gh)
+			continue
+		var dir2 := Vector3(sx * 0.3, 0.35, 0.89).normalized()                    # back toward the player, slightly up and out
+		var basis := VeilRig.basis_zy(dir2, Vector3.UP)
 		var fist := MeshKit.inst(grip_hands, MeshKit.box(Vector3(0.09, 0.08, 0.1)), MeshKit.flat(QuarryToolView.GLOVE), at)
 		fist.basis = basis
-		var band := MeshKit.inst(grip_hands, MeshKit.box(Vector3(0.1, 0.1, 0.02)), MeshKit.flat(QuarryToolView.BAND), at + dir * 0.08)
-		band.basis = basis
-		var arm := MeshKit.inst(grip_hands, MeshKit.box(Vector3(0.095, 0.095, 0.5)), MeshKit.flat(QuarryToolView.SLEEVE), at + dir * 0.34)
+		var arm := MeshKit.inst(grip_hands, MeshKit.box(Vector3(0.095, 0.095, 0.5)), MeshKit.flat(QuarryToolView.SLEEVE), at + dir2 * 0.34)
 		arm.basis = basis
-		for gi in [fist, band, arm]:
+		for gi in [fist, arm]:
 			gi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	grip_hands.visible = false
 
