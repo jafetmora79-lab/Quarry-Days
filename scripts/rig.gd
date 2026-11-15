@@ -78,6 +78,7 @@ func setup(main_node, p: QuarryProgression, i: int) -> void:
 	label.visibility_range_end = 18.0
 	add_child(label)
 	audio = AudioStreamPlayer3D.new()
+	audio.bus = "SFX" if AudioServer.get_bus_index("SFX") >= 0 else "Master"
 	audio.stream = load("res://audio/rig_loop.wav")
 	audio.unit_size = 5.0
 	audio.max_distance = 40.0

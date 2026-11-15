@@ -25,6 +25,7 @@ var pane: QuarryOfferPane            # the preview pane (shown when a menu offer
 var offers := {}
 var selected_offer := ""
 var _pane_menu := ""
+var close_btn: Button               ## the CLOSE [Esc] button of the title row (the pause menu has RESUME instead, so it hides this one)
 var tab_box: HBoxContainer          ## category tabs under the title (the Workbench: Tools / Hauling / Equipment / Upgrades)
 var buttons := {}   # key -> Button (the current menu's buttons; also used by tests)
 var _scroll_keep := 0
@@ -55,6 +56,7 @@ func setup(g) -> void:
 	money_label = QuarryTheme.fixed_label("", FS + 2, MONEY, false, true)
 	top.add_child(money_label)
 	var close := Button.new()
+	close_btn = close
 	close.text = "CLOSE [Esc]"
 	close.custom_minimum_size = Vector2(110, 28)
 	close.pressed.connect(func(): game.ui_click("close", func(): game._close_menu(), close))
@@ -131,6 +133,8 @@ func begin(title: String, money := -1, hint := "") -> void:
 	buttons.clear()
 	_row_n = 0
 	title_label.text = title
+	if close_btn != null:
+		close_btn.visible = title != "PAUSED"
 	money_label.text = ("CASH " + QuarryTheme.money_text(money)) if money >= 0 else ""
 	foot.text = hint
 	foot.visible = hint != ""

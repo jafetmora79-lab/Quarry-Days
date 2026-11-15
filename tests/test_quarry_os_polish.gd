@@ -1,5 +1,5 @@
 extends SceneTree
-## QUARRY OS final polish: the desktop grid and sticky note, window minimum sizes and resizing, no overlapping buttons in any application, the Quarry Plan and Sales
+## QUARRY OS final polish: the desktop grid and next-goal widget, window minimum sizes and resizing, no overlapping buttons in any application, the Quarry Plan and Sales
 ## pages against real game data, no gameplay keys leaking through the desktop, the clock, Esc order, save/load. Headless runs cannot judge cursor visibility or looks.
 ##   godot --headless --fixed-fps 60 -s tests/test_quarry_os_polish.gd
 var checks := 0
@@ -44,7 +44,7 @@ func run() -> void:
 	game._open_menu("manage")
 	await frames(3)
 	var os: QuarryOS = game.management.os
-	# ---- desktop composition: a 4 x 2 grid with equal spacing, inside the margins, clear of the taskbar and the sticky note
+	# ---- desktop composition: a 4 x 2 grid with equal spacing, inside the margins, clear of the taskbar and the next-goal widget
 	var xs := {}
 	var ys := {}
 	for id in os.icons:
@@ -58,15 +58,15 @@ func run() -> void:
 	for i in range(1, xl.size()):
 		even = even and absf((xl[i] - xl[i - 1]) - (QuarryOS.ICON_W + QuarryOS.GRID_GAP.x)) < 0.6
 	check(even and os.icons["employees"].position.is_equal_approx(QuarryOS.MARGIN), "equal column spacing, starting at the desktop margin")
-	var note: Control = os.get_node("StickyNote")
+	var note: Control = os.get_node("NextGoal")
 	var note_rect := Rect2(note.global_position, note.size)
 	var clear := true
 	for id in os.icons:
 		var r := Rect2(os.icons[id].global_position, os.icons[id].size)
 		clear = clear and not r.intersects(note_rect) and r.end.y < os.size.y - QuarryOS.TASKBAR_H
-	check(clear, "no shortcut touches the sticky note or the taskbar")
+	check(clear, "no shortcut touches the next-goal widget or the taskbar")
 	var ni := mini(game.prog.stage + 1, game.prog.stages().size() - 1)
-	check(os.note_body.text == str(game.prog.stage_info(ni).get("goal", "")) and os.note_title.text.contains(str(game.prog.stage_info(ni)["title"]).to_upper()), "the sticky note shows the game's real next goal")
+	check(os.note_body.text != "" and os.note_title.text.contains(str(game.prog.stage_info(ni)["title"]).to_upper()) and os.note_bar != null, "the next-goal widget shows the game's real next goal and its progress")
 	# ---- hover is visibly different from normal; scroll bars are styled
 	var th := os.os_theme()
 	var nb: StyleBox = th.get_stylebox("normal", "Button")

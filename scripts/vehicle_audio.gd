@@ -24,6 +24,7 @@ static func _stream(file: String, loop := false) -> AudioStreamWAV:
 
 func _player(file: String, db: float, loop := false) -> AudioStreamPlayer3D:
 	var p := AudioStreamPlayer3D.new()
+	p.bus = "SFX" if AudioServer.get_bus_index("SFX") >= 0 else "Master"
 	p.stream = _stream(file, loop)
 	p.volume_db = db
 	p.unit_size = 7.0

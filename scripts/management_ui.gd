@@ -237,7 +237,7 @@ func _row() -> HBoxContainer:
 
 func _card() -> VBoxContainer:
 	var p := PanelContainer.new()
-	p.add_theme_stylebox_override("panel", _box(Color(0.14, 0.2, 0.24), Color(0.36, 0.46, 0.52), 1, 7) if embedded else _box(Color(0.19, 0.145, 0.1), Color(0.36, 0.28, 0.19), 1, 7))
+	p.add_theme_stylebox_override("panel", _box(Color(0.17, 0.125, 0.09), Color(0.5, 0.37, 0.22), 1, 8))         # espresso panel, warm amber edge: the same in the office and inside Quarry OS
 	content.add_child(p)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 4)
@@ -711,17 +711,72 @@ func _production(b: QuarryBusiness) -> void:
 
 # ------------------------------------------------------------------ milestones
 
+## One stage as a card: its number and name, whether it is done, current or still ahead, and for the stage being worked toward its objectives with progress bars
+## and what it unlocks (all of it the progression's own data).
+func _stage_card(i: int, prog: QuarryProgression) -> void:
+	var st := prog.stage_info(i)
+	var state: String = "done" if i < prog.stage else ("active" if i == prog.stage else ("next" if i == prog.stage + 1 else "locked"))
+	var border: Color = {"done": Color(0.32, 0.5, 0.3), "active": Color(1.0, 0.82, 0.36), "next": Color(0.62, 0.48, 0.26), "locked": Color(0.3, 0.26, 0.2)}[state]
+	var bg := Color(0.2, 0.15, 0.09) if state in ["active", "next"] else Color(0.14, 0.11, 0.085)
+	var pc := PanelContainer.new()
+	pc.add_theme_stylebox_override("panel", _box(bg, border, 2 if state == "active" else 1, 8))
+	content.add_child(pc)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 4)
+	pc.add_child(v)
+	var head := _row()
+	v.add_child(head)
+	var num := _label("STAGE %d" % (i + 1), ACCENT if state != "locked" else DIM, QuarryTheme.SMALL, false)
+	num.custom_minimum_size = Vector2(70, 0)
+	head.add_child(num)
+	var nm := _label(str(st["title"]).to_upper(), INK if state != "locked" else DIM, QuarryTheme.BODY + 1, false)
+	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(nm)
+	var chip: Array = {"done": ["COMPLETED", GOOD], "active": ["CURRENT", ACCENT], "next": ["NEXT", ACCENT], "locked": ["LOCKED", DIM]}[state]
+	head.add_child(_label(str(chip[0]), chip[1], QuarryTheme.SMALL, false))
+	if state == "done":
+		v.add_child(_label(str(st.get("goal", "")), DIM, QuarryTheme.SMALL))
+		return
+	if state == "active" or state == "next":
+		var target := i + 1 if state == "active" else i
+		if target < prog.stages().size():
+			var tinfo := prog.stage_info(target)
+			v.add_child(_label(("Working toward STAGE %d: %s" % [target + 1, str(tinfo["title"])]) if state == "active" else str(st.get("goal", "")), INK, QuarryTheme.SMALL))
+			if state == "active":
+				for r in prog.requirement_progress(target):
+					var frac := clampf(float(r[1]) / maxf(0.0001, float(r[2])), 0.0, 1.0)
+					var rr := _row()
+					v.add_child(rr)
+					var rl := _label(("[x] " if frac >= 0.99999 else "[ ] ") + str(r[0]), GOOD if frac >= 0.99999 else INK, QuarryTheme.SMALL, false)
+					rl.custom_minimum_size = Vector2(250, 0)
+					rr.add_child(rl)
+					var pb := ProgressBar.new()
+					pb.show_percentage = false
+					pb.max_value = 1.0
+					pb.value = frac
+					pb.custom_minimum_size = Vector2(0, 8)
+					pb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+					pb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+					pb.add_theme_stylebox_override("fill", QuarryTheme.bar_box(GOOD if frac >= 0.99999 else ACCENT))
+					rr.add_child(pb)
+					var pt := _label(game.hud._amount(r), DIM, QuarryTheme.SMALL, false)
+					pt.custom_minimum_size = Vector2(120, 0)
+					pt.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+					rr.add_child(pt)
+				var ul: Array = tinfo.get("unlocks", [])
+				if not ul.is_empty():
+					v.add_child(_label("Unlocks: " + ", ".join(ul.map(func(x): return str(x))), GOOD, QuarryTheme.SMALL))
+		return
+	v.add_child(_label(str(st.get("goal", "")), DIM, QuarryTheme.SMALL))
+	var ul2: Array = st.get("unlocks", [])
+	if not ul2.is_empty():
+		v.add_child(_label("Unlocks: " + ", ".join(ul2.map(func(x): return str(x))), DIM, QuarryTheme.SMALL))
+
 func _milestones(b: QuarryBusiness) -> void:
 	var prog: QuarryProgression = game.prog
-	var sc := _card()
-	sc.add_child(_label("QUARRY STAGES", ACCENT))
+	content.add_child(_label("QUARRY STAGES", ACCENT))
 	for i in range(prog.stages().size()):
-		var st := prog.stage_info(i)
-		var done := i <= prog.stage
-		sc.add_child(_label("%s %d. %s  -  %s" % ["[x]" if done else "[ ]", i + 1, str(st["title"]).to_upper(), str(st["goal"])], GOOD if done else (ACCENT if i == prog.stage + 1 else DIM), QuarryTheme.BODY))
-		if i == prog.stage + 1:
-			for r in prog.requirement_progress(i):
-				sc.add_child(_label("      %s: %s" % [r[0], "done" if float(r[1]) >= float(r[2]) else "%d / %d" % [int(r[1] if not str(r[0]).begins_with("Clear") else float(r[1]) * 100.0), int(r[2] if not str(r[0]).begins_with("Clear") else float(r[2]) * 100.0)]], DIM, QuarryTheme.BODY))
+		_stage_card(i, prog)
 	var qc := _card()
 	qc.add_child(_label("QUARRY MILESTONES", ACCENT))
 	for qm in prog.milestone_defs():
@@ -895,17 +950,44 @@ func _upgrades() -> void:
 		row.add_child(_label("Excavation permit: dig a 3.5 m lower level into the pit floor.", INK, QuarryTheme.BODY))
 		row.add_child(_button("Buy $%d" % prog.permit_cost() if why == "" else why, func(): game.buy_permit(); _say("The lower level is open!"), why == ""))
 
+func _tile(grid: GridContainer, title: String, value: String, color := INK) -> void:
+	var pc := PanelContainer.new()
+	pc.add_theme_stylebox_override("panel", _box(Color(0.14, 0.11, 0.085), Color(0.42, 0.32, 0.2), 1, 7))
+	pc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 1)
+	pc.add_child(v)
+	v.add_child(_label(title, DIM, QuarryTheme.SMALL, false))
+	v.add_child(_label(value, color, QuarryTheme.BODY + 2, false))
+	grid.add_child(pc)
+
 func _stats(b: QuarryBusiness) -> void:
 	var prog: QuarryProgression = game.prog
 	var st: QuarryState = game.state
-	var c := _card()
-	c.add_child(_label("BUSINESS", ACCENT))
-	var vehicles: int = game.fleet.vehicles.size()
-	c.add_child(_label("Lifetime sales %s   -   cash %s   -   day %d" % [QuarryTheme.money_text(st.earned), QuarryTheme.money_text(st.money), int(st.clock_minutes) / 1440 + 1], INK, QuarryTheme.BODY))
-	c.add_child(_label("Staff %d   -   crushers %d   -   rigs %d   -   vehicles %d   -   tool: %s" % [b.employees.size(), st.crushers.size(), prog.rigs.size(), vehicles, prog.tool()["title"]], INK, QuarryTheme.BODY))
-	var m := _card()
-	m.add_child(_label("ROCK MINED (units)", ACCENT))
-	m.add_child(_label("By hand %d   -   by staff %d   -   by rigs %d   -   chunks broken off %d" % [int(prog.stats["hand"]), int(prog.stats["crew"]), int(prog.stats["rigs"]), int(prog.stats["chunks"])], INK, QuarryTheme.BODY))
+	content.add_child(_label("BUSINESS", ACCENT))
+	var g1 := GridContainer.new()
+	g1.columns = 4
+	g1.add_theme_constant_override("h_separation", 6)
+	g1.add_theme_constant_override("v_separation", 6)
+	content.add_child(g1)
+	_tile(g1, "LIFETIME SALES", QuarryTheme.money_text(st.earned), MONEY)
+	_tile(g1, "CASH", QuarryTheme.money_text(st.money), MONEY)
+	_tile(g1, "DAY", str(int(st.clock_minutes) / 1440 + 1))
+	_tile(g1, "TOOL", str(prog.tool()["title"]))
+	_tile(g1, "STAFF", str(b.employees.size()))
+	_tile(g1, "CRUSHERS", str(st.crushers.size()))
+	_tile(g1, "RIGS", str(prog.rigs.size()))
+	_tile(g1, "VEHICLES", str(game.fleet.vehicles.size()))
+	content.add_child(_label("ROCK MINED (UNITS)", ACCENT))
+	var g2 := GridContainer.new()
+	g2.columns = 4
+	g2.add_theme_constant_override("h_separation", 6)
+	g2.add_theme_constant_override("v_separation", 6)
+	content.add_child(g2)
+	_tile(g2, "BY HAND", str(int(prog.stats["hand"])))
+	_tile(g2, "BY STAFF", str(int(prog.stats["crew"])))
+	_tile(g2, "BY RIGS", str(int(prog.stats["rigs"])))
+	_tile(g2, "CHUNKS BROKEN OFF", str(int(prog.stats["chunks"])))
 	var f := _card()
 	f.add_child(_label("FORMATIONS", ACCENT))
 	for id in prog.formation_ids():

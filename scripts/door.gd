@@ -103,6 +103,7 @@ func build(main_node, centre: Vector3, hinge: float, label: String) -> void:
 	body.set_meta("nav_skip", true)
 	body.set_meta("art", true)
 	_audio = AudioStreamPlayer3D.new()
+	_audio.bus = "SFX" if AudioServer.get_bus_index("SFX") >= 0 else "Master"
 	_audio.unit_size = 6.0
 	_audio.max_distance = 22.0
 	_audio.volume_db = -16.0

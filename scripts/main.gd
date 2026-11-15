@@ -256,6 +256,7 @@ func _ready() -> void:
 	music = QuarryMusic.new()
 	add_child(music)
 	music.setup(self)
+	GameSettings.apply()                      # effects volume, fullscreen and vsync from the settings file
 	survey = QuarrySurvey.new()
 	survey.setup(self)
 	ramps = QuarryRamps.new()
@@ -307,6 +308,7 @@ func _init_layout() -> void:
 
 func _audio(path: String, volume: float) -> AudioStreamPlayer:
 	var audio := AudioStreamPlayer.new()
+	audio.bus = "SFX" if AudioServer.get_bus_index("SFX") >= 0 else "Master"
 	audio.stream = load(path)
 	audio.volume_db = volume
 	add_child(audio)
@@ -2082,8 +2084,24 @@ func exit_pc() -> void:
 		player.tool_view.equip_t = 0.5                       # raised back into the hand
 		player.locked = false)
 
+var pause_view := "main"                  ## the pause menu shows its buttons ("main") or the Settings panel ("settings")
+var _pause_dim: ColorRect
+
+func _set_pause_dim(on: bool) -> void:
+	if _pause_dim == null:
+		_pause_dim = ColorRect.new()
+		_pause_dim.name = "PauseDim"
+		_pause_dim.color = Color(0.03, 0.02, 0.02, 0.55)
+		_pause_dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_pause_dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		ui.add_child(_pause_dim)
+		ui.move_child(_pause_dim, panel.get_index())              # behind the pause panel, over the game
+	_pause_dim.visible = on
+
 func _open_menu(kind: String, index := -1) -> void:
 	menu = kind
+	if kind == "pause":
+		pause_view = "main"
 	if hud:
 		hud.menu_open = true
 	panel.set_meta("crusher_index",index)
@@ -2106,6 +2124,7 @@ func _close_menu() -> void:
 	if hud:
 		hud.menu_open = false
 	_confirm_new = false
+	_set_pause_dim(false)
 	player.tool_view.equip(prog.model_tier(), true)   # always back in hand with the tool you own
 	panel.visible = false
 	panel.pane.pause()                              # the preview stops rendering while no shop is open
@@ -2153,24 +2172,35 @@ func _draw_menu() -> void:
 	var p: QuarryStationUI = panel
 	var m := state.money
 	var idx := int(panel.get_meta("crusher_index", -1))
-	p.fit(340.0 if menu == "pause" else 700.0, 332.0 if menu == "pause" else 470.0)
+	p.fit(300.0 if menu == "pause" else 700.0, 372.0 if menu == "pause" else 470.0)
 	match menu:
 		"pause":
-			p.begin("PAUSED", -1, "Esc resume   F5 save   F9 load")
-			p.fit(340.0, 332.0)                       # after begin(), which resets the panel to the big size
-			p.text("The game saves itself every minute and when you close it." if not _confirm_new else "Erase your save and start a brand new game? Press ERASE & RESTART again to confirm.", QuarryTheme.DIM if not _confirm_new else QuarryTheme.WARN, true)
-			p.vbutton("resume", "RESUME", true, func(): _confirm_new = false; _close_menu(), "primary", 34.0)
-			p.vbutton_pair(["save", "SAVE GAME", true, func(): _save()], ["load", "LOAD GAME", true, func(): _load()])
-			p.vbutton("main_menu", "MAIN MENU", true, func(): to_main_menu())
-			p.list.add_child(HSeparator.new())
-			p.slider_row("music_vol", "Music", music.volume, music.muted, func(v: float): music.set_volume(v), func(): music.set_muted(not music.muted))
-			p.list.add_child(HSeparator.new())
-			p.vbutton("new", "NEW GAME" if not _confirm_new else "ERASE & RESTART", true, func():
-				if _confirm_new:
-					new_game()
-				else:
-					_confirm_new = true
-					_draw_menu(), "danger")
+			_set_pause_dim(true)
+			if pause_view == "settings":
+				p.begin("PAUSED", -1, "")
+				p.fit(560.0, 410.0)
+				var sv := QuarrySettingsView.new()
+				sv.setup(self)
+				sv.back.connect(func():
+					pause_view = "main"
+					_draw_menu())
+				p.list.add_child(sv)
+				for k in sv.controls:
+					p.buttons[k] = sv.controls[k]
+			else:
+				p.begin("PAUSED", -1, "")
+				p.fit(300.0, 372.0)                       # after begin(), which resets the panel to the big size
+				p.vbutton("resume", "RESUME", true, func(): _close_menu(), "primary", 36.0)
+				p.vbutton_pair(["save", "SAVE GAME", true, func(): _save()], ["load", "LOAD GAME", true, func(): _load()])
+				p.vbutton("settings", "SETTINGS", true, func():
+					pause_view = "settings"
+					_draw_menu())
+				p.vbutton("main_menu", "MAIN MENU", true, func(): to_main_menu())
+				p.vbutton("quit", "QUIT TO DESKTOP", true, func():
+					if autosave_enabled:
+						_save(true)
+					get_tree().quit(), "danger")
+				p.text("The game saves itself every minute and when you close it.", QuarryTheme.DIM, true)
 		"sell": _draw_sell(p)
 		"upgrades": _draw_upgrades(p)
 		"cart": _draw_cart(p, idx)

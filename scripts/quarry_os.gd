@@ -201,45 +201,78 @@ func setup(main_node, shell_ui) -> void:
 var note_title: Label
 var note_body: Label
 
-## The desktop's sticky note: the next stage and what it asks for (the game's own objective text, refreshed with the desktop) and a wordmark.
+## The desktop's identity and the next-goal widget: a "QUARRY OS" wordmark bottom-left, and a small dark card bottom-right (not a big yellow sticky note) with the next
+## stage, what it asks for in a line and a thin progress bar. Clicking the card opens the Milestones window.
+var note_bar: ProgressBar
+
 func _build_note() -> void:
-	var mark := QuarryTheme.hud_label("QUARRY DAYS", QuarryTheme.HUD, Color(0.0, 0.42, 0.42))
+	var mark := PanelContainer.new()
+	mark.name = "Identity"
 	mark.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
-	mark.offset_left = 18
-	mark.offset_bottom = -TASKBAR_H - 8
-	mark.offset_top = -TASKBAR_H - 30
+	mark.offset_left = 14
+	mark.offset_bottom = -TASKBAR_H - 10
+	mark.offset_top = -TASKBAR_H - 52
+	mark.offset_right = 170
 	mark.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mark.add_theme_stylebox_override("panel", _widget_box())
+	var mv := VBoxContainer.new()
+	mv.add_theme_constant_override("separation", 0)
+	mv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mark.add_child(mv)
+	var t1 := QuarryTheme.hud_label("QUARRY OS", QuarryTheme.HUD + 2, Color(1.0, 0.86, 0.45))
+	t1.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mv.add_child(t1)
+	var t2 := QuarryTheme.hud_label("SITE OFFICE TERMINAL", QuarryTheme.SMALL, Color(0.82, 0.76, 0.62))
+	t2.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mv.add_child(t2)
 	add_child(mark)
 	var note := PanelContainer.new()
-	note.name = "StickyNote"
+	note.name = "NextGoal"
 	note.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
-	note.offset_right = -18
-	note.offset_bottom = -TASKBAR_H - 14
-	note.offset_left = -258
-	note.offset_top = -TASKBAR_H - 130
+	note.offset_right = -14
+	note.offset_bottom = -TASKBAR_H - 10
+	note.offset_left = -246
+	note.offset_top = -TASKBAR_H - 96
 	note.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	note.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	var st := StyleBoxFlat.new()
-	st.bg_color = Color(0.97, 0.9, 0.55)
-	st.border_color = Color(0.62, 0.5, 0.2)
-	st.set_border_width_all(1)
-	st.border_width_bottom = 3
-	st.set_content_margin_all(8)
-	st.anti_aliasing = false
-	note.add_theme_stylebox_override("panel", st)
-	note.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	note.add_theme_stylebox_override("panel", _widget_box())
+	note.mouse_filter = Control.MOUSE_FILTER_STOP
+	note.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	note.gui_input.connect(func(e: InputEvent):
+		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+			open_app("milestones"))
 	add_child(note)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 3)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	note.add_child(v)
-	note_title = QuarryTheme.label("NEXT GOAL", QuarryTheme.BODY, Color(0.32, 0.2, 0.05), true)
+	note_title = QuarryTheme.label("NEXT GOAL", QuarryTheme.SMALL, Color(1.0, 0.86, 0.45), true)
+	note_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(note_title)
-	note_body = QuarryTheme.label("", QuarryTheme.BODY, Color(0.25, 0.17, 0.06))
+	note_body = QuarryTheme.label("", QuarryTheme.SMALL, Color(0.9, 0.85, 0.72))
 	note_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	note_body.custom_minimum_size = Vector2(230, 0)
+	note_body.custom_minimum_size = Vector2(212, 0)
+	note_body.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(note_body)
+	note_bar = ProgressBar.new()
+	note_bar.show_percentage = false
+	note_bar.max_value = 1.0
+	note_bar.custom_minimum_size = Vector2(0, 6)
+	note_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	note_bar.add_theme_stylebox_override("background", QuarryTheme.bar_box(Color(0.06, 0.05, 0.04, 0.9)))
+	note_bar.add_theme_stylebox_override("fill", QuarryTheme.bar_box(QuarryTheme.ACCENT))
+	v.add_child(note_bar)
+
+func _widget_box() -> StyleBoxFlat:
+	var st := StyleBoxFlat.new()
+	st.bg_color = Color(0.07, 0.055, 0.04, 0.82)
+	st.border_color = Color(0.95, 0.74, 0.32, 0.6)
+	st.set_border_width_all(1)
+	st.set_corner_radius_all(3)
+	st.set_content_margin_all(7)
+	st.anti_aliasing = false
+	return st
 
 func _refresh_note() -> void:
 	if note_title == null or game == null:
@@ -247,7 +280,17 @@ func _refresh_note() -> void:
 	var next_i := mini(game.prog.stage + 1, game.prog.stages().size() - 1)
 	var info: Dictionary = game.prog.stage_info(next_i)
 	note_title.text = "NEXT GOAL: " + str(info["title"]).to_upper()
-	note_body.text = str(info.get("goal", ""))
+	var first := ""
+	var frac_sum := 0.0
+	var n := 0
+	for r in game.prog.requirement_progress(next_i):
+		frac_sum += clampf(float(r[1]) / maxf(0.0001, float(r[2])), 0.0, 1.0)
+		n += 1
+		if first == "" and float(r[1]) < float(r[2]) - 0.00001:
+			first = str(r[0])
+	note_body.text = first if first != "" else str(info.get("goal", ""))
+	if note_bar != null:
+		note_bar.value = frac_sum / float(maxi(1, n))
 
 func _make_icon(a: Array) -> Control:
 	var id := str(a[0])
