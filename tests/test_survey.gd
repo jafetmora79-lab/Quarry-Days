@@ -36,7 +36,7 @@ func run() -> void:
 	check(sv.rects.has("area_1") and (sv.rects["area_1"] as MeshInstance3D).mesh.get_surface_count() > 0, "the survey line is a real mesh")
 	var mi: MeshInstance3D = sv.rects["area_1"]
 	var aabb: AABB = mi.mesh.get_aabb()
-	check(aabb.size.y < 0.1 and mi.get_child_count() == 1, "the dashes are thin ground markings (%.2f m high) with separate stakes" % aabb.size.y)
+	check(aabb.size.y < 0.1 and mi.get_child_count() == 0, "the dashes are thin ground markings (%.2f m high), no stakes" % aabb.size.y)
 	var bw := 0.0
 	for x in t:
 		if x["id"] == "area_1":

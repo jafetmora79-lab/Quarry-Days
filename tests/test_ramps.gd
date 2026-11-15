@@ -245,5 +245,15 @@ func run() -> void:
 	check(tvw.tier == game.prog.model_tier() and tvw.tier != t0, "changing tool swaps the model in the hands within a second, with no menu (%d -> %d)" % [t0, tvw.tier])
 	var hb: Control = game.hud.hotbar_view
 	check(hb != null and hb.get_child_count() == game.prog.hotbar().size() and hb.is_visible_in_tree(), "the hotbar shows one boxed slot per tool")
+	check(not game._inside_dig_perimeter(str(game.prog.area_def("area_1")["formations"][0]), Vector3(150.0, 0.0, -15.0)) and game._inside_dig_perimeter(str(game.prog.area_def("area_1")["formations"][0]), Vector3(0.0, 0.0, -15.0)), "the starter cut can only be dug inside its survey lines")
+	var rbody: Node = R.bodies[rid] if R.bodies.has(rid) else null
+	var rmat = null
+	if rbody != null:
+		var rmi: MeshInstance3D = rbody.get_child(1)
+		rmat = rmi.mesh.surface_get_material(0)
+	check(rmat is BaseMaterial3D and (rmat as BaseMaterial3D).cull_mode == BaseMaterial3D.CULL_DISABLED, "the ramp surface is drawn from every side (never invisible)")
+	game.player.global_position = D + Vector3(20.0, 0.2, 20.0)
+	await frames(5)
+	check(R.remove(rid) == "" and not R.bodies.has(rid), "a placed ramp can be erased")
 	print("RESULT: %d checks, %d failures" % [checks, failures.size()])
 	quit(1 if failures.size() > 0 else 0)

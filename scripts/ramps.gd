@@ -278,7 +278,13 @@ func wedge_mesh(rp: Dictionary) -> ArrayMesh:
 		var mm := so.mesh()
 		if mm.get_surface_count() > 0:
 			m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, mm.surface_get_arrays(0))
-			m.surface_set_material(m.get_surface_count() - 1, MeshKit.mat(str(pair[1])))
+			var mt = MeshKit.mat(str(pair[1]))
+			if mt is BaseMaterial3D:
+				mt = (mt as BaseMaterial3D).duplicate()
+				(mt as BaseMaterial3D).cull_mode = BaseMaterial3D.CULL_DISABLED     # visible from every side whatever the winding
+				if str(pair[1]) == "RockGravel":
+					(mt as BaseMaterial3D).albedo_color = Color(0.74, 0.62, 0.42)    # a pale packed-gravel surface that stands out from the dark soil
+			m.surface_set_material(m.get_surface_count() - 1, mt)
 	return m
 
 func _build(rp: Dictionary) -> void:

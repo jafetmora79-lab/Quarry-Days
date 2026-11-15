@@ -143,7 +143,7 @@ func run() -> void:
 	var floating := 0
 	var stakes_n := 0
 	for rid in game.survey.rects:
-		var sm: MeshInstance3D = game.survey.rects[rid].get_child(0)
+		var sm: MeshInstance3D = game.survey.rects[rid]
 		var verts: PackedVector3Array = sm.mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX] if sm.mesh != null and sm.mesh.get_surface_count() > 0 else PackedVector3Array()
 		var low := {}                                  # per metre cell: the lowest vertex (the foot of the post; its flag hangs higher up beside it)
 		for v in verts:
@@ -157,7 +157,7 @@ func run() -> void:
 			stakes_n += 1
 			if is_nan(gy) or absf(gy - foot.y) > 0.2:
 				floating += 1
-	check(stakes_n > 10 and floating == 0, "every survey stake stands on the ground (%d stakes, %d floating)" % [stakes_n, floating])
+	check(stakes_n > 10 and floating == 0, "every survey line cell lies on the ground (%d cells, %d floating)" % [stakes_n, floating])
 	prog.quarry_level = 1
 	game.survey.refresh(true)
 	# ---- digging outside the active ring does not advance its contract

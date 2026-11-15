@@ -84,6 +84,20 @@ func set_day(d: float) -> void:
 		cloud_mat.albedo_color = Color(0.2, 0.22, 0.3).lerp(Color(0.97, 0.97, 1.0), d)
 		cloud_mat.emission_energy_multiplier = lerpf(0.25, 0.45, d)
 
+## Golden hour: `g` 0..1 tints the horizon band, the lower sky, the haze, the clouds and the sun disc (sunrise rosier, sunset orange).
+func set_glow(g: float, rising: bool) -> void:
+	var warm := Color(1.0, 0.50, 0.24) if not rising else Color(1.0, 0.62, 0.52)
+	var hor := (SKY_HORIZON[0] as Color).lerp(SKY_HORIZON[1], day).lerp(warm, g * 0.85)
+	var top := (SKY_TOP[0] as Color).lerp(SKY_TOP[1], day).lerp(Color(0.30, 0.26, 0.48) if not rising else Color(0.40, 0.40, 0.62), g * 0.5)
+	sky_mat.sky_top_color = top
+	sky_mat.sky_horizon_color = hor
+	sky_mat.ground_horizon_color = hor
+	env.fog_light_color = hor.lerp(Color(0.86, 0.84, 0.76), 0.25 * day * (1.0 - g))
+	if cloud_mat:
+		cloud_mat.albedo_color = cloud_mat.albedo_color.lerp(warm.lerp(Color(1, 1, 1), 0.35), g * 0.7)
+	if sun and sun.material_override is StandardMaterial3D:
+		(sun.material_override as StandardMaterial3D).albedo_color = Color(1.0, 0.93, 0.62).lerp(Color(1.0, 0.45, 0.18), g)
+
 func _process(delta: float) -> void:
 	if clouds_root:
 		clouds_root.rotation.y += delta * 0.004

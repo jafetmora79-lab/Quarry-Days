@@ -98,9 +98,9 @@ func _build(tg: Dictionary, host: Node3D) -> MeshInstance3D:
 		while s <= len + 0.01:
 			var p := a + dir * s
 			var sy := _ground_y(host, p.x, p.y, y)
-			if not is_nan(sy):                                  # a stake stands on the ground it is driven into
-				MeshKit.box_into(stakes, Vector3(p.x, sy + 0.45, p.y), Vector3(0.07, 0.9, 0.07))
-				MeshKit.box_into(stakes, Vector3(p.x + 0.16, sy + 0.82, p.y), Vector3(0.3, 0.14, 0.02))
+#			if not is_nan(sy):                                  # a stake stands on the ground it is driven into
+#				MeshKit.box_into(stakes, Vector3(p.x, sy + 0.45, p.y), Vector3(0.07, 0.9, 0.07))
+#				MeshKit.box_into(stakes, Vector3(p.x + 0.16, sy + 0.82, p.y), Vector3(0.3, 0.14, 0.02))
 			s += STAKE_EVERY
 	var node := MeshInstance3D.new()
 	node.name = "Survey_" + str(tg["id"])
@@ -110,11 +110,6 @@ func _build(tg: Dictionary, host: Node3D) -> MeshInstance3D:
 	node.mesh = soup.mesh()
 	node.material_override = mat
 	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var stake_node := MeshInstance3D.new()
-	stake_node.mesh = stakes.mesh()
-	stake_node.material_override = MeshKit.flat(Color(0.9, 0.5, 0.2) if active else Color(0.62, 0.58, 0.5), 0.2)
-	stake_node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	node.add_child(stake_node)
 	return node
 
 func _process(delta: float) -> void:

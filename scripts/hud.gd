@@ -139,10 +139,18 @@ func _bar(parent: Control, h: float, color: Color) -> ProgressBar:
 	b.max_value = 1.0
 	b.step = 0.0
 	b.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if UiSkin.has("bar_groove"):
-		# the generated art: an empty groove with brass end caps, and a separate fill that ProgressBar stretches to the REAL value
-		b.add_theme_stylebox_override("background", UiSkin.box("bar_groove", null, [7, 3, 7, 3]))
-		b.custom_minimum_size = Vector2(0, maxf(h, 11.0))
+	var groove := StyleBoxFlat.new()                  # a plain inset groove: the fill always fits it exactly, whatever the panel width
+	groove.bg_color = Color(0.09, 0.07, 0.05, 0.95)
+	groove.border_color = Color(0.38, 0.30, 0.18)
+	groove.set_border_width_all(1)
+	groove.set_corner_radius_all(3)
+	groove.content_margin_left = 1
+	groove.content_margin_right = 1
+	groove.content_margin_top = 1
+	groove.content_margin_bottom = 1
+	b.add_theme_stylebox_override("background", groove)
+	b.custom_minimum_size = Vector2(0, maxf(h, 10.0))
+	b.clip_contents = true
 	set_bar_color(b, color)
 	parent.add_child(b)
 	return b
@@ -158,11 +166,13 @@ static func fill_art_for(c: Color) -> String:
 	return "bar_fill_gold"
 
 func set_bar_color(b: ProgressBar, color: Color) -> void:
-	var art := fill_art_for(color)
-	if UiSkin.has(art) and UiSkin.has("bar_groove"):
-		b.add_theme_stylebox_override("fill", UiSkin.box(art, null, [0, 0, 0, 0]))
-	else:
-		b.add_theme_stylebox_override("fill", QuarryTheme.bar_box(color))
+	var f := StyleBoxFlat.new()
+	f.bg_color = color
+	f.set_corner_radius_all(2)
+	f.border_color = color.lightened(0.35)               # a lit top edge
+	f.border_width_top = 2
+	f.anti_aliasing = false
+	b.add_theme_stylebox_override("fill", f)
 
 ## One titled progress row for the objective plate: TITLE ....... value / bar / small note.
 func _progress_block(parent: Control) -> Dictionary:
@@ -686,6 +696,9 @@ func _process(delta: float) -> void:
 	if bottom != null:
 		bottom.modulate.a = _menu_fade
 	hints.modulate.a = _menu_fade
+	if hotbar_view != null:
+		hotbar_view.modulate.a = _menu_fade
+		hotbar_view.visible = _menu_fade > 0.02
 	loc_root.visible = not hide_plates
 	var tlp := get_node_or_null("TopLeftPlate") as Control
 	if tlp != null and map_plate != null:
@@ -787,13 +800,12 @@ func _set_hotbar(prog: QuarryProgression) -> void:
 		add_child(hotbar_view)
 		hotbar_view.set_anchor(SIDE_LEFT, 0.5)
 		hotbar_view.set_anchor(SIDE_RIGHT, 0.5)
-		hotbar_view.set_anchor(SIDE_TOP, 1.0)
-		hotbar_view.set_anchor(SIDE_BOTTOM, 1.0)
-		hotbar_view.offset_left = -200
-		hotbar_view.offset_right = 200
-		hotbar_view.offset_top = -138
-		hotbar_view.offset_bottom = -82
-		hotbar_view.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		hotbar_view.set_anchor(SIDE_TOP, 0.0)
+		hotbar_view.set_anchor(SIDE_BOTTOM, 0.0)
+		hotbar_view.offset_left = -110
+		hotbar_view.offset_right = 110
+		hotbar_view.offset_top = 6
+		hotbar_view.offset_bottom = 40
 		tool_pips.visible = false
 	var bar := prog.hotbar()
 	var slots := []

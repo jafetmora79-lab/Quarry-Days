@@ -16,6 +16,51 @@ var game
 var bounds := Rect2(-135.0, -112.0, 270.0, 146.0)       ## world rectangle shown (x, z), north up
 var _t := 0.0
 var _pulse := 0.0
+var photo: Texture2D                 ## the real top-down picture of the property (null in headless runs: the schematic drawing is used instead)
+var _shot: SubViewport
+var _shot_cam: Camera3D
+var _shot_t := 0.0
+var _shot_n := 0
+const SHOT_W := 640
+
+## A real picture from above: an orthographic camera over the property renders into a small viewport now and then (every few seconds, so
+## digging and new buildings show up); the map draws that picture and puts the markers on it.
+func _make_shot() -> void:
+	if DisplayServer.get_name() == "headless" or _shot != null:
+		return
+	_shot = SubViewport.new()
+	_shot.name = "MapShot"
+	_shot.size = Vector2i(SHOT_W, int(round(float(SHOT_W) * bounds.size.y / bounds.size.x)))
+	_shot.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	_shot.msaa_3d = Viewport.MSAA_DISABLED
+	_shot.handle_input_locally = false
+	_shot.gui_disable_input = true
+	_shot_cam = Camera3D.new()
+	_shot_cam.projection = Camera3D.PROJECTION_ORTHOGONAL
+	_shot_cam.keep_aspect = Camera3D.KEEP_HEIGHT
+	_shot_cam.size = bounds.size.y
+	_shot_cam.near = 1.0
+	_shot_cam.far = 220.0
+	var env := Environment.new()                      # flat, bright, no sky or haze: a survey photo that reads at any hour
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = Color(0.2, 0.17, 0.12)
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color(1, 1, 1)
+	env.ambient_light_energy = 0.75
+	_shot_cam.environment = env
+	_shot.add_child(_shot_cam)
+	add_child(_shot)
+	_shot_cam.global_position = Vector3(bounds.get_center().x, 95.0, bounds.get_center().y)
+	_shot_cam.rotation_degrees = Vector3(-90.0, 0.0, 0.0)             # straight down, north (-z) at the top of the picture
+	_shot_cam.current = true
+	photo = _shot.get_texture()
+
+func _refresh_shot() -> void:
+	if _shot == null or not game.is_inside_tree():
+		return
+	_shot_cam.global_position = Vector3(bounds.get_center().x, 95.0, bounds.get_center().y)
+	_shot.render_target_update_mode = SubViewport.UPDATE_ONCE
+	_shot_n += 1
 
 func setup(main_node) -> void:
 	game = main_node
@@ -25,6 +70,7 @@ func setup(main_node) -> void:
 	var w := 184.0
 	custom_minimum_size = Vector2(w, roundf(w * bounds.size.y / bounds.size.x))
 	size = custom_minimum_size
+	_make_shot()
 
 ## World (x, z) to a point inside the control.
 func to_map(x: float, z: float) -> Vector2:
@@ -69,6 +115,10 @@ func snapshot() -> Dictionary:
 
 func _process(delta: float) -> void:
 	_t += delta
+	_shot_t += delta
+	if _shot != null and (_shot_n == 0 and _shot_t > 1.0 or _shot_t > 6.0) and is_visible_in_tree():
+		_shot_t = 0.0
+		_refresh_shot()
 	_pulse = fposmod(_pulse + delta * 1.6, 1.0)
 	if _t >= 0.12 and is_visible_in_tree():
 		_t = 0.0
@@ -80,8 +130,11 @@ func _draw() -> void:
 	var prog: QuarryProgression = game.prog
 	draw_rect(Rect2(Vector2.ZERO, size), BG)
 	var clip := Rect2(Vector2.ZERO, size)
+	var has_photo := photo != null and _shot_n > 0
+	if has_photo:
+		draw_texture_rect(photo, clip, false)
 	# the quarry and its levels
-	if game.blueprint and game.pit_zone != null:
+	if game.blueprint and game.pit_zone != null and not has_photo:
 		var fence: Array = prog.pit_cfg().get("fence", [-126.0, -100.0, 126.0, 0.0])
 		var qr := rect_to_map(_local_rect(fence))
 		draw_rect(qr, QUARRY)
@@ -100,11 +153,11 @@ func _draw() -> void:
 		draw_rect(qr, FENCE, false, 1.5)
 	# the yard
 	var hub: Rect2 = game.hub_rect()
-	if hub.size != Vector2.ZERO:
+	if hub.size != Vector2.ZERO and not has_photo:
 		draw_rect(rect_to_map(hub), YARD)
 		draw_rect(rect_to_map(hub), FENCE, false, 1.0)
 	# buildings
-	for bp in [game.OFFICE_POS, game.TOOLSHED_POS, game.SHED_POS, game.HOME_POS, Vector3(5.0 + game.GARAGE_DX, 0.0, 18.7)]:
+	for bp in ([] if has_photo else [game.OFFICE_POS, game.TOOLSHED_POS, game.SHED_POS, game.HOME_POS, Vector3(5.0 + game.GARAGE_DX, 0.0, 18.7)]):
 		var bm := to_map(bp.x, bp.z)
 		var wide := 3.4 if bp.z > 15.0 and abs(bp.x - (5.0 + game.GARAGE_DX)) < 0.1 else 2.2
 		draw_rect(Rect2(bm - Vector2(wide, 1.6), Vector2(wide * 2.0, 3.2)), Color(0.7, 0.62, 0.48))

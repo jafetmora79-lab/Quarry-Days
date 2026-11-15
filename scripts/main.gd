@@ -1285,6 +1285,14 @@ func loose_count(kind: String) -> int:
 			n += 1
 	return n
 
+## Surface areas with a marked rectangle (Area 1) can only be dug inside it; the hillside and soil field beyond the survey lines stay untouched.
+func _inside_dig_perimeter(kind: String, p: Vector3) -> bool:
+	for ad in prog.area_defs():
+		if ad.has("rect") and kind in ad.get("formations", []):
+			var r: Array = ad["rect"]
+			return p.x >= float(r[0]) - 0.3 and p.x <= float(r[2]) + 0.3 and p.z >= float(r[1]) - 0.3 and p.z <= float(r[3]) + 0.3
+	return true
+
 ## Applies player mining damage to a formation column. Units go to the bag, overflow drops as loose
 ## pieces (up to a cap); with no room at all nothing is extracted. Returns units mined.
 func player_mine(kind: String, col: int, damage: float, point := Vector3.INF, continuous := false, in_aoe := false) -> int:
@@ -1294,6 +1302,9 @@ func player_mine(kind: String, col: int, damage: float, point := Vector3.INF, co
 		_notify(prog.formation_locked(kind))
 		return 0
 	var node: QuarryFormation = formation_nodes[kind]
+	if point != Vector3.INF and not _inside_dig_perimeter(kind, point):
+		_notify("Outside the marked excavation. Dig inside the survey lines.")
+		return 0
 	var res := str(state.deposits[kind]["resource"])
 	var mismatch := prog.tool_suits(res)
 	if mismatch != "":
@@ -1798,14 +1809,23 @@ func _update_light() -> void:
 	var phase := fposmod(state.clock_minutes,1440.0)/1440.0
 	var elevation := sin(phase*TAU-PI/2.0)
 	var day := clampf((elevation+0.17)*1.5,0.0,1.0)
-	daylight.rotation_degrees.x = -25.0-65.0*maxf(0.0,elevation)
-	daylight.light_energy = 0.14+day*1.4
-	sky_light.environment.background_color = Color(0.025,0.04,0.09).lerp(Color(0.36,0.49,0.62),day)
+	# golden hour: a warm glow while the sun is within about 20 degrees of the horizon (sunrise a little pinker, sunset a deeper orange)
+	var glow := clampf(1.0 - absf(elevation - 0.04) / 0.30, 0.0, 1.0)
+	glow = glow * glow * (3.0 - 2.0 * glow)
+	var rising := phase < 0.5
+	var low := 1.0 - clampf(elevation / 0.5, 0.0, 1.0)                              # 1 on the horizon, 0 high in the sky
+	daylight.rotation_degrees.x = -(5.0 + 65.0 * pow(maxf(0.0, elevation), 0.85))
+	daylight.light_energy = (0.14 + day * 1.4) * lerpf(1.0, 0.78, glow)
+	daylight.light_color = Color(1, 1, 1).lerp(Color(1.0, 0.58, 0.30) if not rising else Color(1.0, 0.70, 0.48), glow * low)
+	var sky_c := Color(0.025,0.04,0.09).lerp(Color(0.36,0.49,0.62),day)
+	sky_light.environment.background_color = sky_c.lerp(Color(0.85, 0.45, 0.30) if not rising else Color(0.88, 0.58, 0.50), glow * 0.55)
+	sky_light.environment.ambient_light_color = Color(0.62,0.65,0.70).lerp(Color(0.80, 0.56, 0.46), glow * 0.7)
 	sky_light.environment.ambient_light_energy = 0.14+day*0.4
 	if art:
 		art.set_night(1.0 - day)
 	if landscape:
 		landscape.set_day(day)
+		landscape.set_glow(glow, rising)
 		landscape.set_time(state.clock_minutes)
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -7018,6 +7038,15 @@ func _ramp_tool(lmb: bool) -> void:
 	if look_ramp >= 0 and not (lmb and false):
 		# aiming at a ramp: only its top landing is a start for the next stage (evaluate snaps to it); otherwise show removal
 		var near_landing := not ramps.landing_near(hit["position"]).is_empty()
+		if rmb and not _ramp_rmb_prev:
+			var why0 := ramps.remove(look_ramp)                          # right click always takes the ramp under the crosshair away
+			_notify("Ramp removed." if why0 == "" else why0)
+			if why0 == "":
+				_sfx_unlock()
+				ramps.hide_ghost()
+			_ramp_lmb_prev = lmb
+			_ramp_rmb_prev = rmb
+			return
 		if not near_landing:
 			ramps.hide_ghost()
 			ramp_prompt = "RAMP: right click removes it" + ("" if ramps.removal_block(look_ramp) == "" else "  -  " + ramps.removal_block(look_ramp))

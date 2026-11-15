@@ -1,5 +1,12 @@
 # Changelog
 
+### Playtest round 2
+- **Sunrise and sunset:** a golden-hour glow while the sun is near the horizon: the sun gets low, the light turns orange (sunset) or soft rose (sunrise), the horizon, haze, clouds and sun disc warm up, ambient light follows.
+- **Minimap:** a real top-down picture of the property (an orthographic camera renders it every few seconds, so digging shows); markers and the arrow sit on top. Headless runs keep the schematic map.
+- **Hotbar:** small, top centre, never over the plates, fades with them in menus. **Progress bars:** plain inset groove with a lit fill that always fits the panel.
+- **Ramps:** drawn from every side (the top was culled and looked invisible), a pale gravel surface; right click erases the ramp under the crosshair.
+- **Survey stakes removed** (dashed lines remain). **Digging** the starter area is limited to its survey rectangle.
+
 ### Ramp and hotbar fixes (from play-testing)
 - **Ramps:** only offered in a hollow (the ground must rise around the foot - never in the open yard), 3.2 m wide, at most one 4.2 m climb per ramp (taller needs a staging ramp inside a deep hole), and loose rocks, debris and heaps on the floor no longer make the foot "not level".
 - **Held tool:** the swap animation restarted every frame (the game re-asked for the tool each frame), so a new tool only appeared after opening a menu. It now completes in about half a second. The "tuck against a wall" no longer triggers on ramps and ground.
