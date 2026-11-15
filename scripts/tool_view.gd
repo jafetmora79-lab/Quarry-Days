@@ -373,7 +373,7 @@ const HANDS := {
 }
 const SKIN := Color(0.80, 0.62, 0.48)
 const GLOVE := Color(0.17, 0.18, 0.21)
-const SLEEVE := Color(0.86, 0.46, 0.16)        # the miners' orange work jacket
+const SLEEVE := Color(0.74, 0.16, 0.12)         # the red plaid work shirt (ToolModels.plaid)
 const BAND := Color(0.86, 0.86, 0.78)          # reflective cuff band
 
 func _hand_frame(t: int) -> Array:

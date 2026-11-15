@@ -115,8 +115,18 @@ func run() -> void:
 		game._excavator_dig(ex, 1.0 / 60.0)
 	check(int(rec["cargo"].get("soil", 0)) == 3 and soil.total() == units_before - 3, "C a full bucket takes nothing more")
 	# ---- D: loading the truck and the spoil heap
-	truck.global_position = ex.work_point() + Vector3(0, 0.1, 1.6)
-	truck.rotation.y = 0.0
+	# the truck stands where the excavator's arm can reach the middle of its bed (found from the real bed geometry)
+	var tbox: AABB = truck.bed_box()
+	var dd := 2.0
+	ex.swing = 0.0
+	truck.set_physics_process(false)                 # parked: it must not roll or be nudged while the bucket is positioned over it
+	while dd < 9.0:
+		truck.global_position = ex.global_position + Vector3(0, 0.1, -dd + tbox.get_center().z)       # reversed up to the excavator: bed toward it, cab away
+		truck.rotation.y = PI
+		truck.velocity = Vector3.ZERO
+		if ex.truck_dump_aim(truck).has("aim"):
+			break
+		dd += 0.25
 	await frames(8)
 	var t: Dictionary = game.dump_target(ex.work_point(), 3.0, ex)
 	check(t.has("truck"), "D the bucket can be emptied into the truck when it is close")
@@ -130,6 +140,7 @@ func run() -> void:
 	trec["cargo"]["soil"] = 3
 	rec["cargo"]["soil"] = 0
 	var all1: int = soil.total() + game.state.soil_dumped + 3          # (the bucket test above edited cargo by hand: restate the total)
+	truck.set_physics_process(true)
 	var spoil_pos: Vector3 = game.spoil_node.global_position
 	truck.global_position = spoil_pos + Vector3(0, 0.2, -2.5)         # its tailgate is over the heap
 	truck.rotation.y = 0.0

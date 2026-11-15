@@ -96,6 +96,12 @@ var bucket_target := 0.0
 var dump_timer := 0.0
 # truck
 var bed: Node3D
+var truck_aim := Vector3.INF      ## excavator: the point above a truck's bed the bucket goes to while it tips (set by Main.vehicle_dump, derived from the real bed)
+var _bed_box := AABB()           ## truck: its cargo bed in the truck's own frame, measured from the model (see bed_box())
+
+const DUMP_ATT_CARRY := -0.58   ## bucket attitude while it carries a load up (see _animate_rig) and when it is tipped over the bed
+const DUMP_ATT_TIP := 1.22
+const GROUND_LIFT := 0.05       ## the collision hull's bottom sits this far above the body origin, so the visible model is lifted by the same: tracks and tyres touch the ground
 var bed_load: MeshInstance3D
 var bed_tilt := 0.0
 var unload_timer := 0.0
@@ -163,6 +169,7 @@ func setup(main_node, f: QuarryFleet, record: Dictionary) -> void:
 	add_child(hull_shape)
 	model_root = Node3D.new()
 	model_root.name = "Model"
+	model_root.position.y = GROUND_LIFT
 	add_child(model_root)
 	var base := Vector3(2.0, 1.5, 3.0) if vkind == "loader" else (Vector3(2.2, 1.8, 4.6) if vkind == "truck" else (Vector3(2.6, 2.45, 4.7) if vkind == "bulldozer" else Vector3(2.0, 2.2, 3.4)))
 	model_root.scale = Vector3(size.x / base.x, size.y / base.y, size.z / base.z)    # bigger machines are the same build, larger
@@ -389,7 +396,89 @@ func work_point() -> Vector3:
 	return global_transform * Vector3(0, 0, size.z * 0.5 + 1.0)
 
 func bed_center() -> Vector3:
-	return global_transform * Vector3(0, 0, 0.7)
+	var b := bed_box()
+	return global_transform * (b.get_center() if b.size != Vector3.ZERO else Vector3(0, 0, 0.7))
+
+## The truck's cargo bed as a box in the truck's own frame (rim height = top), measured from the bed's visible meshes while the bed lies flat.
+## The loading logic uses this instead of a fixed point, so it follows the real model and its scale.
+func bed_box() -> AABB:
+	if vkind != "truck":
+		return AABB()
+	if _bed_box.size != Vector3.ZERO:
+		return _bed_box
+	if bed == null or not is_inside_tree() or absf(bed.rotation.x) > 0.02:
+		var hx := size.x * 0.5
+		var hz := size.z * 0.5
+		return AABB(Vector3(-hx * 0.85, 0.9, -hz * 0.95), Vector3(hx * 1.7, 1.2, hz * 1.5))      # before the model exists: a rough bed
+	var inv := global_transform.affine_inverse()
+	var box := AABB()
+	var first := true
+	var parts: Array = [bed]
+	parts.append_array(bed.find_children("*", "MeshInstance3D", true, false))        # the Bed node is itself a mesh (floor and walls); the tailgate hangs under it
+	for n in parts:
+		var mi := n as MeshInstance3D
+		if mi == null or mi == bed_load or mi.mesh == null or not mi.is_visible_in_tree():
+			continue
+		var b: AABB = (inv * mi.global_transform) * mi.get_aabb()
+		box = b if first else box.merge(b)
+		first = false
+	if first or box.size.x < 1.0 or box.size.z < 1.2:
+		return AABB(Vector3(-size.x * 0.4, 0.9, -size.z * 0.4), Vector3(size.x * 0.8, 1.2, size.z * 0.8))
+	_bed_box = box
+	return _bed_box
+
+## Is world point `p` over this truck's bed (within `margin` m of its footprint)? {over, outside (m), rim (world y of the bed rim), top (rim point above the bed centre)}
+func bed_check(p: Vector3, margin := 0.2) -> Dictionary:
+	var b := bed_box()
+	var l := to_local(p)
+	var ox := maxf(0.0, maxf(b.position.x - l.x, l.x - b.end.x))
+	var oz := maxf(0.0, maxf(b.position.z - l.z, l.z - b.end.z))
+	var out := Vector2(ox, oz).length()
+	var c := b.get_center()
+	var top := to_global(Vector3(c.x, b.end.y, c.z))
+	return {"over": out <= margin, "outside": out, "rim": top.y, "top": top}
+
+## Can the excavator's arm put the bucket lip at world point `aim` (above or at its own ground level)? Uses the rig's real inverse kinematics.
+func can_reach(aim: Vector3) -> bool:
+	if rig == null:
+		return false
+	var k := maxf(model_root.scale.z, 0.01)
+	var d := Vector2(aim.x - global_position.x, aim.z - global_position.z).length() / k
+	var h := (aim.y - global_position.y - GROUND_LIFT) / k
+	for att in [DUMP_ATT_CARRY, DUMP_ATT_TIP]:           # the arm must get there carrying the load AND with the bucket tipped
+		if ExcavatorKin.ik(Vector2(d, h), att) == Vector3.INF:
+			return false
+	return true
+
+## Where the bucket should tip into `truck` with the cab facing `at_swing` (default: the current swing): a point above the bed on the line the arm
+## sweeps, at the bed rim plus clearance, its height taken from the truck's real position (so it works when the truck is higher or lower or tilted).
+## Returns {"aim": Vector3} or {"why": "swing" | "reach"}: swing = the arm does not point at the bed, reach = the truck is too far / too high / too low.
+func truck_dump_aim(truck: QuarryVehicle, at_swing := NAN) -> Dictionary:
+	var a := swing if is_nan(at_swing) else at_swing
+	var fwd := (global_transform.basis * (Basis(Vector3.UP, a) * Vector3(0, 0, -1)))
+	fwd.y = 0.0
+	fwd = fwd.normalized()
+	var best := Vector3.INF
+	var best_off := 1e9
+	var c := truck.bed_check(truck.global_position)["top"] as Vector3
+	var s := 1.2
+	while s <= 6.5:
+		var p := global_position + fwd * s
+		var chk := truck.bed_check(p, 0.0)
+		if bool(chk["over"]):
+			var off := Vector2(p.x - c.x, p.z - c.z).length()
+			if off < best_off:
+				best_off = off
+				best = Vector3(p.x, float(chk["rim"]), p.z)
+		s += 0.15
+	if best == Vector3.INF:
+		return {"why": "swing"}
+	# the bucket clears the rim by as much as the arm allows (up to 0.65 m, at least 0.2 m); beyond that the truck is out of reach
+	for clear in [0.65, 0.5, 0.35, 0.2]:
+		var aim := best + Vector3(0, clear, 0)
+		if can_reach(aim):
+			return {"aim": aim}
+	return {"why": "reach"}
 
 # ------------------------------------------------------------------ driving
 
@@ -751,8 +840,19 @@ func _animate_rig(delta: float) -> void:
 	var tip := Vector2(reach, 0.0).lerp(Vector2(2.4, 1.9), lift) + Vector2(stick_m * 0.5, boom_m * 0.6)
 	var att := lerpf(0.2, -1.1, lift) - dig_curl * 0.55 + curl_m * 0.6
 	var dump := sin(clampf(dump_timer / 1.0, 0.0, 1.0) * PI)
-	tip += Vector2(0.6, 0.3) * dump
-	att += 1.8 * dump
+	if truck_aim != Vector3.INF and dump_timer > 0.0:
+		# tipping into a truck: the bucket goes to the point above ITS bed (real height and distance), tips there, and comes back
+		var u := 1.0 - dump_timer
+		var env := smoothstep(0.0, 0.38, u) * (1.0 - smoothstep(0.82, 1.0, u))
+		var d := Vector2(truck_aim.x - global_position.x, truck_aim.z - global_position.z).length() / k
+		var h := (truck_aim.y - global_position.y - GROUND_LIFT) / k
+		tip = tip.lerp(Vector2(d, h), env)
+		att += 1.8 * smoothstep(0.5, 0.72, u) * (1.0 - smoothstep(0.86, 1.0, u))
+	else:
+		tip += Vector2(0.6, 0.3) * dump
+		att += 1.8 * dump
+		if dump_timer <= 0.0:
+			truck_aim = Vector3.INF
 	tip.y = maxf(tip.y, 0.0)
 	rig.pose_for_tip(turret_yaw, tip, att)      # the cab eases toward `swing` (slewing inertia), as on the procedural excavator
 	rig.drive(_travel_speed, delta)

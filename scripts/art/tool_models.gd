@@ -11,7 +11,7 @@ const LADDER := {0: "rock_hammer", 1: "pickaxe_worn", 2: "pickaxe_reinforced", 3
 
 const COLOURS := {
 	"OldWood": Color(0.37, 0.27, 0.18), "Rope": Color(0.62, 0.52, 0.34), "Blue": Color(0.24, 0.34, 0.46), "Paper": Color(0.86, 0.82, 0.68),
-	"Glove": Color(0.17, 0.18, 0.21), "GloveDark": Color(0.08, 0.08, 0.10), "Skin": Color(0.80, 0.62, 0.48), "Sleeve": Color(0.86, 0.46, 0.16), "Band": Color(0.86, 0.86, 0.78),
+	"Glove": Color(0.17, 0.18, 0.21), "GloveDark": Color(0.08, 0.08, 0.10), "SkinDark": Color(0.62, 0.46, 0.35), "PlaidDark": Color(0.33, 0.06, 0.05), "Skin": Color(0.80, 0.62, 0.48), "Sleeve": Color(0.86, 0.46, 0.16), "Band": Color(0.86, 0.86, 0.78),
 }
 
 static var _scenes := {}
@@ -75,6 +75,8 @@ static func material_for(name: String) -> Material:
 		"Red": return MeshKit.mat("PaintRed")
 		"Orange": return MeshKit.mat("PaintOrange")
 		"Yellow": return MeshKit.mat("PaintYellow")
+	if name == "Plaid":
+		return plaid()
 	if COLOURS.has(name):
 		return MeshKit.flat(COLOURS[name])
 	return null
@@ -93,3 +95,31 @@ static func _dress(n: Node3D) -> void:
 				else:
 					m.set_surface_override_material(s, mat)
 		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+static var _plaid: StandardMaterial3D
+
+## The red work-shirt plaid of the sleeves: a 16 px grey check multiplied by the shirt red, nearest filtered, repeating every 8 cm.
+static func plaid() -> StandardMaterial3D:
+	if _plaid != null:
+		return _plaid
+	var img := Image.create(16, 16, false, Image.FORMAT_RGB8)
+	for y in 16:
+		for x in 16:
+			var v := 1.0
+			var hy := y >= 4 and y < 8
+			var hx := x >= 4 and x < 8
+			if hy and hx:
+				v = 0.50
+			elif hy or hx:
+				v = 0.72
+			elif y == 12 or x == 12:
+				v = 0.88
+			img.set_pixel(x, y, Color(v, v, v))
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(0.74, 0.16, 0.12)
+	m.albedo_texture = ImageTexture.create_from_image(img)
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
+	m.uv1_scale = Vector3(12, 12, 12)
+	m.roughness = 1.0
+	_plaid = m
+	return m

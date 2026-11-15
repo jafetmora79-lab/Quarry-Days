@@ -5253,12 +5253,37 @@ func dump_target(point: Vector3, radius: float, from: QuarryVehicle) -> Dictiona
 	if from.has_bucket():
 		for other in vehicle_nodes.values():
 			if other != from and other.vkind == "truck":
-				var c: Vector3 = other.bed_center()
-				var d := _flat_dist(point, c)
-				if d < maxf(best_d, 3.2):
-					best_d = d
-					best = {"truck": other}
+				if from.vkind == "excavator" and from.rig != null:
+					# an excavator loads a truck only when its arm really points at the bed and can reach it: the bucket then goes to a point above
+					# the REAL bed (its own height, distance and angle), never a fixed spot
+					var r: Dictionary = from.truck_dump_aim(other)
+					if r.has("aim"):
+						best_d = 0.0
+						best = {"truck": other, "aim": r["aim"]}
+				else:
+					var c: Vector3 = other.bed_center()
+					var d := _flat_dist(point, c)
+					if d < maxf(best_d, 3.2):
+						best_d = d
+						best = {"truck": other}
 	return best
+
+## Why an excavator cannot tip into any truck right now, in plain words ("" if no truck is near enough to mention).
+func truck_hint(v: QuarryVehicle) -> String:
+	var best_gap := 1e9
+	var msg := ""
+	for other in vehicle_nodes.values():
+		if other == v or other.vkind != "truck":
+			continue
+		var gap := _flat_dist(v.global_position, other.bed_center())
+		if gap > 9.0 or gap >= best_gap:
+			continue
+		best_gap = gap
+		var r: Dictionary = v.truck_dump_aim(other)
+		if r.has("aim"):
+			continue
+		msg = "The truck is out of reach - move it closer (or lower)." if str(r.get("why", "")) == "reach" else "Swing the bucket over the truck bed first (the cab is not pointing at it)."
+	return msg
 
 ## What tipping the load at a target means, in plain words: does it pay, does it count toward an objective.
 func _unload_note(rec: Dictionary, t: Dictionary) -> String:
@@ -5292,6 +5317,9 @@ func vehicle_dump(v: QuarryVehicle, quiet := false) -> int:
 	var t := dump_target(v.work_point(), 3.0, v)
 	if t.is_empty() and v.vkind == "bulldozer":
 		return dozer_spread(v)
+	if t.is_empty() and v.vkind == "excavator" and v.rig != null and truck_hint(v) != "":
+		if not quiet: _notify(truck_hint(v))
+		return 0
 	if t.is_empty():
 		if not quiet: _notify("Nothing to unload into here. Get close to a storage crate, crusher, output storage%s." % (" or truck" if v.has_bucket() else ""))
 		return 0
@@ -5310,8 +5338,10 @@ func vehicle_dump(v: QuarryVehicle, quiet := false) -> int:
 		moved = fleet.dump_to(rec, t["ep"])
 		_credit_delivery(rec)
 	v.dump_timer = 1.0
+	if t.has("truck") and t.has("aim"):
+		v.truck_aim = t["aim"]                                  # the bucket goes to the bed and tips there
 	if moved > 0:
-		fx.chunk_break(v.work_point() + Vector3(0, 1.0, 0), "limestone")
+		fx.chunk_break((t["aim"] - Vector3(0, 0.5, 0)) if t.has("aim") else v.work_point() + Vector3(0, 1.0, 0), "limestone")
 	if not quiet: _notify("Dumped %d into %s.%s%s" % [moved, _target_name(t), (" %d left in the bucket (target full or wrong material)." % fleet.cargo_total(rec)) if fleet.cargo_total(rec) > 0 else "", (" Loose soil cannot be stored: use the spoil heap.") if int(rec["cargo"].get("soil", 0)) > 0 and not t.has("spoil") else ""])
 	return moved
 
