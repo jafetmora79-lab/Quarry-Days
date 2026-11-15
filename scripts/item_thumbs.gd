@@ -47,12 +47,12 @@ func _ready() -> void:
 	_cam = Camera3D.new()
 	_cam.projection = Camera3D.PROJECTION_ORTHOGONAL
 	_cam.near = 0.05
-	_cam.far = 20.0
+	_cam.far = 40.0
 	_vp.add_child(_cam)
 	_cam.current = true
 
 ## The cached picture of item `key`, or null (queued, or failed). `build` makes the model (called once, when its turn comes).
-func get_thumb(key: String, build: Callable) -> Texture2D:
+func get_thumb(key: String, build: Callable, mode := "tool", px := PX) -> Texture2D:
 	if cache.has(key):
 		return cache[key]
 	if failed.has(key):
@@ -63,7 +63,7 @@ func get_thumb(key: String, build: Callable) -> Texture2D:
 	for q in _queue:
 		if q[0] == key:
 			return null
-	_queue.append([key, build])
+	_queue.append([key, build, mode, px])
 	return null
 
 func _process(_delta: float) -> void:
@@ -71,23 +71,32 @@ func _process(_delta: float) -> void:
 		return
 	_busy = true
 	var job: Array = _queue.pop_front()
-	await _render(str(job[0]), job[1])
+	await _render(str(job[0]), job[1], str(job[2]), int(job[3]))
 	_busy = false
 
-func _render(key: String, build: Callable) -> void:
+func _render(key: String, build: Callable, mode: String, px: int) -> void:
 	var model: Node3D = build.call()
+	_vp.size = Vector2i(px, px)
 	if model == null:
 		failed[key] = true
 		return
 	_pivot.add_child(model)
-	# the same pose for every item: the handle runs up to the right, the working end shows side-on
-	model.basis = Basis(Vector3.BACK, deg_to_rad(-42)) * Basis(Vector3.UP, deg_to_rad(90))     # turn it side-on first, then lay it diagonal in the picture plane
+	# "tool": the handle runs up to the right, the working end shows side-on; "view": a three-quarter view from above (machines, carts, crushers)
+	if mode == "view":
+		model.basis = Basis(Vector3.UP, deg_to_rad(-38))
+	else:
+		model.basis = Basis(Vector3.BACK, deg_to_rad(-42)) * Basis(Vector3.UP, deg_to_rad(90))     # turn it side-on first, then lay it diagonal in the picture plane
 	await get_tree().process_frame
 	var box := _bounds(model)
 	var c := box.get_center()
-	_cam.size = maxf(0.2, maxf(box.size.x, box.size.y) * 1.18)
-	_cam.position = Vector3(c.x, c.y, c.z + 3.0)
-	_cam.look_at(c, Vector3.UP)
+	if mode == "view":
+		_cam.size = maxf(0.4, box.size.length() * 0.66)
+		_cam.position = c + Vector3(0.0, 0.6, 1.0).normalized() * 6.0
+		_cam.look_at(c, Vector3.UP)
+	else:
+		_cam.size = maxf(0.2, maxf(box.size.x, box.size.y) * 1.18)
+		_cam.position = Vector3(c.x, c.y, c.z + 3.0)
+		_cam.look_at(c, Vector3.UP)
 	_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
 	await RenderingServer.frame_post_draw
 	await get_tree().process_frame

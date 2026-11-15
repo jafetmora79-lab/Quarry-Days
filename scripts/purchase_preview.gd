@@ -154,6 +154,12 @@ static func build_model(game, spec: Dictionary) -> Node3D:
 			r._build()
 			return r
 		"gear":       # hauling aids and the compressor: the same prop model that stands in the yard
+			if QuarryCart.CART_GLBS.has(str(spec["id"])):
+				var cart := QuarryCart.new()         # the Blender barrow / cart the game puts in the yard (wheels, tray, pile and all)
+				cart.setup(str(spec["id"]))
+				var ch := Node3D.new()
+				ch.add_child(cart)
+				return ch
 			var prop := GearModels.build_prop(str(spec["id"]))
 			var gh := Node3D.new()
 			gh.add_child(prop)

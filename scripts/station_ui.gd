@@ -25,6 +25,7 @@ var pane: QuarryOfferPane            # the preview pane (shown when a menu offer
 var offers := {}
 var selected_offer := ""
 var _pane_menu := ""
+var tab_box: HBoxContainer          ## category tabs under the title (the Workbench: Tools / Hauling / Equipment / Upgrades)
 var buttons := {}   # key -> Button (the current menu's buttons; also used by tests)
 var _scroll_keep := 0
 
@@ -58,6 +59,10 @@ func setup(g) -> void:
 	close.custom_minimum_size = Vector2(110, 28)
 	close.pressed.connect(func(): game.ui_click("close", func(): game._close_menu(), close))
 	top.add_child(close)
+	tab_box = HBoxContainer.new()
+	tab_box.add_theme_constant_override("separation", 6)
+	tab_box.visible = false
+	root.add_child(tab_box)
 	root.add_child(HSeparator.new())
 	var body := HBoxContainer.new()
 	body.add_theme_constant_override("separation", 12)
@@ -119,6 +124,10 @@ func begin(title: String, money := -1, hint := "") -> void:
 	for c in bar_box.get_children():
 		bar_box.remove_child(c)
 		c.queue_free()
+	for c in tab_box.get_children():
+		tab_box.remove_child(c)
+		c.queue_free()
+	tab_box.visible = false
 	buttons.clear()
 	_row_n = 0
 	title_label.text = title
@@ -144,6 +153,30 @@ func _ensure_focus() -> void:
 		if not bt.disabled and bt.focus_mode != Control.FOCUS_NONE and bt.is_visible_in_tree() and not bt.is_queued_for_deletion():
 			bt.grab_focus()
 			return
+
+## Category tabs along the top of a menu: the current one lit in gold. `on_pick` gets the tab's name.
+func set_tabs(names: Array, current: String, on_pick: Callable) -> void:
+	tab_box.visible = true
+	for nm in names:
+		var on: bool = str(nm) == current
+		var b := Button.new()
+		b.name = "Tab_" + str(nm)
+		b.text = str(nm)
+		b.custom_minimum_size = Vector2(96, 26)
+		b.focus_mode = Control.FOCUS_ALL
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.30, 0.21, 0.08, 0.95) if on else Color(0.17, 0.13, 0.095, 0.95)
+		sb.border_color = Color(1.0, 0.82, 0.36) if on else Color(0.5, 0.38, 0.22)
+		sb.set_border_width_all(2 if on else 1)
+		sb.set_corner_radius_all(4)
+		sb.set_content_margin_all(4)
+		for st in ["normal", "hover", "pressed", "focus", "disabled"]:
+			b.add_theme_stylebox_override(st, sb)
+		b.add_theme_color_override("font_color", Color(1.0, 0.86, 0.45) if on else Color(0.82, 0.74, 0.58))
+		b.add_theme_font_override("font", QuarryTheme.bold())
+		var nm_copy: String = str(nm)
+		b.pressed.connect(func(): if nm_copy != current: on_pick.call(nm_copy))
+		tab_box.add_child(b)
 
 func text(t: String, color := DIM, centered := false) -> Label:
 	var l := QuarryTheme.fixed_label(t, FS, color)
@@ -399,6 +432,7 @@ func offer_item(key: String, title: String, desc: String, price: int, level_text
 	h.add_theme_constant_override("separation", 8)
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(h)
+	h.add_child(_item_icon(offer.get("model", {})))
 	var left := VBoxContainer.new()
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	left.add_theme_constant_override("separation", 1)
@@ -410,21 +444,26 @@ func offer_item(key: String, title: String, desc: String, price: int, level_text
 	d.custom_minimum_size = Vector2(150, 0)
 	d.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	left.add_child(d)
+	var owned_item := level_text == "OWNED" or level_text == "INSTALLED"
+	if locked_note != "":                                    # what is still missing, in its own column so the price is always readable beside it
+		var req := VBoxContainer.new()
+		req.custom_minimum_size = Vector2(100, 0)
+		req.alignment = BoxContainer.ALIGNMENT_CENTER
+		req.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		h.add_child(req)
+		var n := _cell(locked_note, WARN, 100)
+		n.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		req.add_child(n)
 	var mid := VBoxContainer.new()
-	mid.custom_minimum_size = Vector2(86, 0)
+	mid.custom_minimum_size = Vector2(70, 0)
 	mid.alignment = BoxContainer.ALIGNMENT_CENTER
 	mid.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	h.add_child(mid)
-	if locked_note != "":
-		var n := _cell(locked_note, WARN, 86)
-		n.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		mid.add_child(n)
-	else:
-		var pc := _cell(QuarryTheme.money_text(price) if price > 0 else "FREE", GOOD if affordable else WARN, 86, HORIZONTAL_ALIGNMENT_RIGHT)
-		pc.add_theme_font_override("font", QuarryTheme.bold())
-		mid.add_child(pc)
-	if level_text != "":
-		mid.add_child(_cell(level_text, DIM, 86, HORIZONTAL_ALIGNMENT_RIGHT))
+	var pc := _cell("OWNED" if owned_item else (QuarryTheme.money_text(price) if price > 0 else "FREE"), GOOD if (owned_item or affordable) else WARN, 70, HORIZONTAL_ALIGNMENT_RIGHT)
+	pc.add_theme_font_override("font", QuarryTheme.bold())
+	mid.add_child(pc)
+	if level_text != "" and not owned_item:
+		mid.add_child(_cell(level_text, DIM, 70, HORIZONTAL_ALIGNMENT_RIGHT))
 	var pick := func():
 		if selected_offer != key:
 			selected_offer = key
@@ -441,6 +480,48 @@ func offer_item(key: String, title: String, desc: String, price: int, level_text
 		pane.show_offer(key, offer)
 		pane.resume()
 	return b
+
+## The picture of the item on its card: a small cached thumbnail of the real model (see ItemThumbs); an empty frame while it is being made, never a stand-in drawing.
+var _thumb_hooked := false
+func _item_icon(model: Dictionary) -> Control:
+	var box := PanelContainer.new()
+	box.custom_minimum_size = Vector2(46, 46)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.07, 0.055, 0.04, 0.95)
+	sb.border_color = Color(0.5, 0.38, 0.22)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(3)
+	sb.set_content_margin_all(1)
+	box.add_theme_stylebox_override("panel", sb)
+	var th: ItemThumbs = game.hud.thumbs if game != null and game.hud != null else null
+	if th == null or model.is_empty():
+		return box
+	if not _thumb_hooked:
+		_thumb_hooked = true
+		th.ready_key.connect(func(k: String):
+			if visible and k.begins_with("ofr:") and game != null:
+				game._draw_menu())
+	var kind := str(model.get("kind", ""))
+	var key := "ofr:" + JSON.stringify(model)
+	var tex: Texture2D = null
+	if kind == "tool":
+		var mk := ToolModels.key_of(int(model.get("tier", 0)))
+		tex = th.get_thumb(key, func(): return ToolModels.load_tool(mk), "tool", 44)
+	elif kind in ["vehicle", "gear", "rig", "crusher", "hopper", "sorter", "output", "conveyor"]:
+		var spec := model
+		tex = th.get_thumb(key, func(): return QuarryPreview.build_model(game, spec), "view", 44)
+	if tex != null:
+		var tr := TextureRect.new()
+		tr.texture = tex
+		tr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tr.custom_minimum_size = Vector2(44, 44)
+		box.add_child(tr)
+	return box
 
 var _row_n := 0
 

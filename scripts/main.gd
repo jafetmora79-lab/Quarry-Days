@@ -2350,19 +2350,28 @@ func _draw_sell(p: QuarryStationUI) -> void:
 	if not any:
 		p.text("Nothing to sell yet. Mine some rock, or collect it from storage: whatever you own shows up here.", QuarryTheme.DIM)
 	else:
-		p.row([["MATERIAL", QuarryTheme.DIM, 110], ["IN BAG", QuarryTheme.DIM, 54, R], ["IN STORAGE", QuarryTheme.DIM, 76, R], ["PRICE EACH", QuarryTheme.DIM, 80, R], ["VALUE", QuarryTheme.DIM, 90, R]], [], Color(0, 0, 0, 0), true, "_")
+		p.row([["MATERIAL", QuarryTheme.DIM, 100], ["IN BAG", QuarryTheme.DIM, 48, R], ["IN BIN", QuarryTheme.DIM, 48, R], ["OUTPUT", QuarryTheme.DIM, 54, R], ["EACH", QuarryTheme.DIM, 56, R], ["TOTAL", QuarryTheme.DIM, 76, R]], [], Color(0, 0, 0, 0), true, "_")
 	for i in range(RESOURCE_ORDER.size()):
 		var key: String = RESOURCE_ORDER[i]
 		var nb := int(state.inventory[key])
-		var ns := int(state.storage.get(key, 0)) + business.output_units(key)
+		var nbin := int(state.storage.get(key, 0))
+		var nout := business.output_units(key)
+		var ns := nbin + nout
 		var n := nb + ns
 		if n <= 0:
 			continue                              # only what you actually own: no empty rows for materials you have not found
 		var ok: bool = business.authorized[key]
-		p.row([[prog.display(key), QuarryTheme.INK, 110, HORIZONTAL_ALIGNMENT_LEFT, true], [str(nb), QuarryTheme.INK if nb > 0 else QuarryTheme.DIM, 54, R], [str(ns), QuarryTheme.INK if ns > 0 else QuarryTheme.DIM, 76, R], ["$%s" % _price_text(state.unit_price(key)), QuarryTheme.DIM, 80, R], [QuarryTheme.money_text(state.payout(key, n)), QuarryTheme.MONEY, 90, R, true]],
+		p.row([[prog.display(key), QuarryTheme.INK, 100, HORIZONTAL_ALIGNMENT_LEFT, true], [str(nb), QuarryTheme.INK if nb > 0 else QuarryTheme.DIM, 48, R], [str(nbin), QuarryTheme.INK if nbin > 0 else QuarryTheme.DIM, 48, R], [str(nout), QuarryTheme.INK if nout > 0 else QuarryTheme.DIM, 54, R], ["$%s" % _price_text(state.unit_price(key)), QuarryTheme.DIM, 56, R], [QuarryTheme.money_text(state.payout(key, n)), QuarryTheme.MONEY, 76, R, true]],
 			[["clerk_" + key, "Clerk: " + ("on" if ok else "off"), true, func(): menu_act("sell", i, true), 84, "toggle"], ["sell_" + key, "SELL", true, func(): menu_act("sell", i, false), 80, "primary"]], QuarryTheme.RES_COLORS.get(key, Color.WHITE), false, key)
 	p.button_bar([["sell_all", "SELL ALL   %s" % QuarryTheme.money_text(total_value), total_value > 0, func(): menu_act("sell", RESOURCE_ORDER.size(), false), 260, "primary"], ["office", "OFFICE COMPUTER", true, func(): _open_menu("manage"), 200]])
-	p.text("Prices are the same at every stage. A sale never pays less than $1. 'Clerk' chooses what the sales clerk may sell for you.", QuarryTheme.DIM)
+	# sales history: what the game really records (lifetime revenue, units sold, today); it keeps no list of single transactions
+	var units_sold := 0
+	for k in state.lifetime["sold"]:
+		units_sold += int(state.lifetime["sold"][k])
+	var today := business.day_stats(business.current_day())
+	p.text("SALES HISTORY", QuarryTheme.ACCENT)
+	p.text("Lifetime sales revenue: %s     Units sold: %d     Sold today: %d units, %s" % [QuarryTheme.money_text(state.earned), units_sold, int(today.get("sold", 0)), QuarryTheme.money_text(int(today.get("revenue", 0)))], QuarryTheme.INK)
+	p.text("Prices are the same at every stage. A sale never pays less than $1. 'Clerk' chooses what the sales clerk may sell for you automatically; you can always sell by hand.", QuarryTheme.DIM)
 
 func _storage_all(store: bool) -> void:
 	for key in RESOURCE_ORDER:
@@ -2387,51 +2396,70 @@ func _tool_line(tier: int) -> String:
 		return "%s   mining power %.0f/s, held down   hardness: %s" % [str(t["title"]), prog.tool_dps(tier), hard]
 	return "%s   %.0f damage a swing, %.1f swings a second   hardness: %s" % [str(t["title"]), prog.tool_power(tier), 1.0 / prog.tool_interval(tier) * prog.speed_mult(), hard]
 
+var workbench_tab := "Tools"
+const WORKBENCH_TABS := ["Tools", "Hauling", "Equipment", "Upgrades"]
+
 func _draw_upgrades(p: QuarryStationUI) -> void:
-	p.begin("WORKBENCH", state.money, "Click BUY on the bench. Keys 1-6 also work.")
-	var nt := prog.next_tool()
-	var tools_total := prog.tools().size()
-	p.text("You are holding the %s  (%.0f damage a second)" % [str(prog.tool()["title"]), prog.tool_dps(state.tool_tier)], QuarryTheme.INK)
-	if nt.is_empty():
-		p.text("Every tool on the pegboard is yours. The jackhammer breaks anything.", QuarryTheme.GOOD)
-		p.offer_item("tool", str(prog.tool()["title"]), str(prog.tool().get("desc", "")), 0, "In your hand", PurchaseOffers.tool_owned(self))
+	p.begin("WORKBENCH", state.money, "Select an item to see it on the left, then BUY.  Keys 1-6 also work.")
+	p.set_tabs(WORKBENCH_TABS, workbench_tab, func(t: String):
+		workbench_tab = t
+		p.selected_offer = ""
+		_draw_menu())
+	var shown_any := false
+	if workbench_tab == "Tools":
+		shown_any = true
+		var nt := prog.next_tool()
+		var tools_total := prog.tools().size()
+		p.text("YOUR CURRENT TOOL", QuarryTheme.ACCENT)
+		p.text("%s  -  %.0f damage a second" % [str(prog.tool()["title"]), prog.tool_dps(state.tool_tier)], QuarryTheme.INK)
+		if nt.is_empty():
+			p.text("Every tool on the pegboard is yours. The jackhammer breaks anything.", QuarryTheme.GOOD)
+			p.offer_item("tool", str(prog.tool()["title"]), str(prog.tool().get("desc", "")), 0, "In your hand", PurchaseOffers.tool_owned(self))
+		else:
+			var nxt := state.tool_tier + 1
+			p.text("NEXT UPGRADE", QuarryTheme.ACCENT)
+			var hard_n: String = ["", "stone and coal", "up to iron", "up to copper", "anything, gold too"][clampi(int(nt.get("max_hardness", 1)), 0, 4)]
+			p.text("%.0f damage a second, %d%% more than now. Rock hardness: %s" % [prog.tool_dps(nxt), prog.tool_gain_percent(state.tool_tier, nxt), hard_n], QuarryTheme.GOOD)
+			var newly := int(nt.get("max_hardness", 1)) > int(prog.tool().get("max_hardness", 1))
+			var short := maxi(0, int(nt["cost"]) - state.money)
+			var lock_txt := prog.unlock_missing_text(str(nt["id"]))
+			p.offer_item("tool", str(nt["title"]), "%s%s" % [str(nt.get("desc", "")), "  It can break harder rock than your current tool." if newly else ""], int(nt["cost"]),
+				"Tool %d of %d" % [nxt + 1, tools_total], PurchaseOffers.tool_next(self, func(): menu_act("upgrades", 0, false)), lock_txt if lock_txt != "" else ("" if short <= 0 else "Need %s more" % QuarryTheme.money_text(short)))
+		# Phase 9.2: the rest of the pegboard - specialist tools (Q swaps the tool in your hand), grouped by what they are for
+		_workbench_gear(p, "PRECISION AND POWER TOOLS", ["pointed_chisel", "flat_chisel", "repaired_pickaxe", "sledgehammer", "steel_pickaxe", "hardened_pickaxe", "hand_splitter", "powered_hammer", "pneumatic_chisel"])
+	elif workbench_tab == "Hauling":
+		shown_any = _workbench_gear(p, "HAULING", ["hand_cart", "wheelbarrow", "reinforced_wheelbarrow"])
+	elif workbench_tab == "Equipment":
+		shown_any = _workbench_gear(p, "EQUIPMENT", ["air_compressor"])
 	else:
-		var nxt := state.tool_tier + 1
-		p.text("NEXT UPGRADE", QuarryTheme.ACCENT)
-		var hard_n: String = ["", "stone and coal", "up to iron", "up to copper", "anything, gold too"][clampi(int(nt.get("max_hardness", 1)), 0, 4)]
-		p.text("%.0f damage a second, %d%% more than now. Rock hardness: %s" % [prog.tool_dps(nxt), prog.tool_gain_percent(state.tool_tier, nxt), hard_n], QuarryTheme.GOOD)
-		var newly := int(nt.get("max_hardness", 1)) > int(prog.tool().get("max_hardness", 1))
-		var short := maxi(0, int(nt["cost"]) - state.money)
-		var lock_txt := prog.unlock_missing_text(str(nt["id"]))
-		p.offer_item("tool", str(nt["title"]), "%s%s" % [str(nt.get("desc", "")), "  It can break harder rock than your current tool." if newly else ""], int(nt["cost"]),
-			"Tool %d of %d" % [nxt + 1, tools_total], PurchaseOffers.tool_next(self, func(): menu_act("upgrades", 0, false)), lock_txt if lock_txt != "" else ("" if short <= 0 else "Need %s more" % QuarryTheme.money_text(short)))
-	# Phase 9.2: the rest of the pegboard - specialist tools (Q swaps the tool in your hand) and hauling aids
-	var cats := [["TOOLS FOR THE JOB", ["pointed_chisel", "flat_chisel", "repaired_pickaxe", "sledgehammer", "steel_pickaxe", "hardened_pickaxe", "hand_splitter", "powered_hammer", "pneumatic_chisel", "air_compressor"]], ["HAULING", ["hand_cart", "wheelbarrow", "reinforced_wheelbarrow"]]]
-	for cat in cats:
-		var shown := []
-		for gid in cat[1]:
-			if not prog.owns(str(gid)) and not prog.gear_obsolete(str(gid)):            # what you own, or have outgrown, is never offered again
-				shown.append(gid)
-		if shown.is_empty():
-			continue
-		p.text(str(cat[0]), QuarryTheme.ACCENT)
-		for gid in shown:
-			var gd := prog.gear_def(str(gid))
-			var have := prog.owns(str(gid))
-			var note := ""
-			if not have:
-				note = prog.unlock_missing_text(str(gid))
-			var gcopy := str(gid)
-			p.offer_item("gear_" + gcopy, str(gd["title"]), str(gd.get("desc", "")), int(gd["cost"]), "OWNED" if have else str(gd.get("class", "")).capitalize(),
-				PurchaseOffers.gear(self, gcopy, func(): buy_gear(gcopy)), note)
-	p.text("TUNING AND GEAR", QuarryTheme.ACCENT)
-	for i in range(UPGRADE_MENU.size()):
-		var key: String = UPGRADE_MENU[i]
-		var info: Dictionary = prog.cfg.get("player_upgrades", {}).get(key, {})
-		var owned: bool = state.upgrades[key]
-		var open_ := owned or prog.unlocked(key)
-		p.item("up_" + key, str(info.get("title", key)), str(info.get("effect", "")), int(state.config["upgrades"][key]),
-			"INSTALLED" if owned else "", "OWNED" if owned else "BUY", (not owned) and open_, func(): menu_act("upgrades", i + 1, false), "" if open_ else prog.unlock_missing_text(key))
+		p.text("TUNING AND GEAR", QuarryTheme.ACCENT)
+		for i in range(UPGRADE_MENU.size()):
+			var key: String = UPGRADE_MENU[i]
+			var info: Dictionary = prog.cfg.get("player_upgrades", {}).get(key, {})
+			var owned: bool = state.upgrades[key]
+			var open_ := owned or prog.unlocked(key)
+			p.item("up_" + key, str(info.get("title", key)), str(info.get("effect", "")), int(state.config["upgrades"][key]),
+				"INSTALLED" if owned else "", "OWNED" if owned else "BUY", (not owned) and open_, func(): menu_act("upgrades", i + 1, false), "" if open_ else prog.unlock_missing_text(key))
+			shown_any = true
+	if not shown_any:
+		p.text("Nothing on offer here at the moment: what you own, or have outgrown, is not offered again.", QuarryTheme.DIM)
+
+## One pegboard category of the workbench: the pieces you do not own yet (and have not outgrown), each an offer card. Returns whether any were shown.
+func _workbench_gear(p: QuarryStationUI, heading: String, ids: Array) -> bool:
+	var shown := []
+	for gid in ids:
+		if not prog.owns(str(gid)) and not prog.gear_obsolete(str(gid)):
+			shown.append(gid)
+	if shown.is_empty():
+		return false
+	p.text(heading, QuarryTheme.ACCENT)
+	for gid in shown:
+		var gd := prog.gear_def(str(gid))
+		var note := prog.unlock_missing_text(str(gid))
+		var gcopy := str(gid)
+		p.offer_item("gear_" + gcopy, str(gd["title"]), str(gd.get("desc", "")), int(gd["cost"]), str(gd.get("class", "")).capitalize(),
+			PurchaseOffers.gear(self, gcopy, func(): buy_gear(gcopy)), note)
+	return true
 
 ## Workbench in the office: the bench top, a vise, and the pegboard of tools above it (Phase 8.3). The tools you own hang
 ## in full colour; the next one is lit and has a price tag; the rest are dim.
