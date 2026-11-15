@@ -133,7 +133,20 @@ func _flush() -> void:
 func bx(key: String, c: Vector3, size: Vector3, yaw := 0.0, taper := Vector2.ONE) -> void:
 	MeshKit.box_into(soup(key), Vector3.ZERO, size, taper, Transform3D(Basis(Vector3.UP, yaw), c))
 
+## The yard's visible ground layers (the gravel, the concrete slabs, the asphalt) lie 7-11 cm above the collision ground (which is at y = 0): [Rect2 in x/z, height].
+## Machines rest on the collision ground, so their models are lifted by `visual_ground_y` to stand ON the surface you see instead of sinking into it.
+var ground_layers: Array = []
+
+func visual_ground_y(x: float, z: float) -> float:
+	var best := 0.0
+	for g in ground_layers:
+		if (g[0] as Rect2).has_point(Vector2(x, z)) and float(g[1]) > best:
+			best = float(g[1])
+	return best
+
 func quad_flat(key: String, c: Vector3, size: Vector2, yaw := 0.0, y := 0.02) -> void:
+	if yaw == 0.0 and key != "Hazard" and not key.begins_with("flat:") and y < 0.1 and y > 0.0 and not key.contains("Lino") and not key.contains("Linoleum") and not key == M_LINO and not key == M_BASEMENT:
+		ground_layers.append([Rect2(Vector2(c.x - size.x * 0.5, c.z - size.y * 0.5), size), y])
 	var xf := Transform3D(Basis(Vector3.UP, yaw), Vector3(c.x, y, c.z))
 	var h := size * 0.5
 	soup(key).quad(xf * Vector3(-h.x, 0, -h.y), xf * Vector3(-h.x, 0, h.y), xf * Vector3(h.x, 0, h.y), xf * Vector3(h.x, 0, -h.y))

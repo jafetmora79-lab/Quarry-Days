@@ -489,7 +489,28 @@ func rotate_camera(rel: Vector2) -> void:
 		cam_yaw -= rel.x * 0.003
 	cam_pitch = clampf(cam_pitch - rel.y * 0.003, -1.1, 0.25)
 
+## The model stands on the surface you SEE: the yard's gravel, slabs and asphalt are drawn above the collision ground, so the model is lifted by the height of
+## the visible layer under the machine's footprint (its highest corner, so no track or tyre is ever buried), eased so it never jumps at a slab's edge.
+var _lift_now := GROUND_LIFT
+func _update_ground_lift(delta: float) -> void:
+	if model_root == null or game_art() == null:
+		return
+	var hx := size.x * 0.5
+	var hz := size.z * 0.5
+	var best := 0.0
+	for sx in [-1.0, 0.0, 1.0]:
+		for sz in [-1.0, 0.0, 1.0]:
+			var p := global_transform * Vector3(sx * hx, 0.0, sz * hz)
+			best = maxf(best, game_art().visual_ground_y(p.x, p.z))
+	_lift_now = move_toward(_lift_now, GROUND_LIFT + best, delta * 0.4)
+	model_root.position.y = _lift_now
+
+func game_art():
+	var g = get_parent().get_parent() if get_parent() != null and get_parent().get_parent() != null else null
+	return g.art if g != null and "art" in g else null
+
 func control(delta: float) -> void:
+	_update_ground_lift(delta)
 	data = fleet.vehicle(vehicle_id)
 	if data.is_empty():
 		return
