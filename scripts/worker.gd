@@ -98,6 +98,7 @@ static func named_model(candidate_id: String) -> String:
 	var path := NAMED % (candidate_id.substr(0, 1).to_upper() + candidate_id.substr(1))
 	return path if ResourceLoader.exists(path) else ""
 var rig: VeilRig
+var face: FaceAnim                 ## blinking (named cast only; the shared profession models have no face frames)
 var speed_now := 0.0
 
 func _build_rig() -> void:
@@ -122,6 +123,10 @@ func _build_rig() -> void:
 		return
 	rig = VeilRig.new()
 	rig.setup(found[0], float(employee_id) * 1.7)
+	if named != "":
+		var fa := FaceAnim.new()
+		if fa.setup(body, named.get_file().get_basename().trim_prefix("CHR_QD_"), employee_id):
+			face = fa
 	for cfg in TOOL_CFG.get(profession, []):
 		var node: Node3D = call(str(cfg["builder"]))
 		node.name = str(cfg["name"])
@@ -314,6 +319,8 @@ func _animate(delta: float) -> void:
 		if profession == "miner":
 			rig.set_tool_held("pickaxe", anim == "work" or (not carrying and anim in ["idle", "walk", "turn"]))
 		rig.pose(dt, anim, speed_now, profession, carrying, anim_phase, yr)
+		if face != null:
+			face.update(dt, false)
 
 # ------------------------------------------------------------------ navigation
 

@@ -5729,6 +5729,9 @@ func _spawn_walter(at := Vector3.INF, face_to := Vector3.ZERO, npc := "walter") 
 		r.setup(found[0], 3.3)
 		r.elder = npc == "walter"          # Grandpa: stooped, a careful limping step, fidgets while he waits
 		root.set_meta("rig", r)
+		var fa := FaceAnim.new()            # blinking, talking mouth and brow accents (the painted head frames); eye contact is the rig's look_yaw
+		if fa.setup(body, "Walter" if npc == "walter" else "Marsh"):
+			root.set_meta("face", fa)
 	world.add_child(root)
 	walter_node = root
 	walter_pose = "idle"
@@ -5853,6 +5856,7 @@ func _walter_tick(delta: float) -> void:
 		walter_wave_t -= delta                      # a goodbye wave to the player before he turns and goes
 		if walter_node.has_meta("rig"):
 			walter_node.get_meta("rig").pose(delta, "wave", 0.0, "miner", false)
+			_walter_look(delta, true)
 		return
 	if walter_mode == "arriving" or walter_mode == "leaving" or walter_mode == "to_truck":
 		walking = _walter_walk(delta)
@@ -5873,6 +5877,27 @@ func _walter_tick(delta: float) -> void:
 	if walter_node.has_meta("rig"):
 		var st := "walk" if walking else walter_pose
 		walter_node.get_meta("rig").pose(delta, st, walter_speed if walking else 0.0, "miner", false)
+		_walter_look(delta, false)
+
+## Eye contact and the face: while he waits, talks, offers or points the head turns to the player (up to 45 degrees; the body turns on its own
+## when he starts the talk), and the face frames blink, talk and raise the brows. Walking, he looks where he is going.
+func _walter_look(delta: float, waving: bool) -> void:
+	var rig = walter_node.get_meta("rig")
+	var engaged: bool = walter_pose in ["idle", "talk", "offer", "point", "chin", "wave"] and walter_mode != "arriving" and walter_mode != "leaving" and walter_mode != "to_truck"
+	if player != null and (engaged or waving):
+		var d := player.global_position - walter_node.global_position
+		if d.length() < 10.0:
+			var rel := wrapf(atan2(-d.x, -d.z) - walter_node.rotation.y, -PI, PI)
+			rig.look_yaw = clampf(rad_to_deg(rel), -45.0, 45.0)
+			rig.look_pitch = clampf(rad_to_deg(atan2(walter_node.global_position.y + 1.62 - (player.global_position.y + 1.6), maxf(d.length(), 0.5))), -12.0, 12.0)
+		else:
+			rig.look_yaw = 0.0
+			rig.look_pitch = 0.0
+	else:
+		rig.look_yaw = 0.0
+		rig.look_pitch = 0.0
+	if walter_node.has_meta("face"):
+		walter_node.get_meta("face").update(delta, walter_pose == "talk", waving or walter_pose == "offer")
 
 func _walter_face_player() -> void:
 	if walter_node and player:

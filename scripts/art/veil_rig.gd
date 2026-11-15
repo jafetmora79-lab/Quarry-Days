@@ -532,6 +532,12 @@ static func knee_curve(x: float) -> float:
 		return 7.0 * sin(PI * x / STANCE)
 	return 62.0 * pow(maxf(sin(PI * (x - STANCE) / (1.0 - STANCE)), 0.0), 1.15)
 
+## Where the head looks, in degrees relative to the body (yaw: + turns left, pitch: + looks down). The game sets it to give eye contact; the
+## head follows smoothly, with the neck taking a third of it.
+var look_yaw := 0.0
+var look_pitch := 0.0
+var _look := Vector2.ZERO
+
 func pose(delta: float, state: String, speed: float, work_kind: String, carrying: bool, phase := -1.0, yaw_rate := 0.0) -> void:
 	_t += delta
 	var moving := state == "walk" and speed > 0.12
@@ -551,6 +557,7 @@ func pose(delta: float, state: String, speed: float, work_kind: String, carrying
 	_last_speed = spd_now
 	_accel_lean = lerpf(_accel_lean, clampf(acc * 2.2, -9.0, 9.0), 1.0 - exp(-7.0 * delta))     # leans into a start, rocks back as it stops
 	var t := _t + _seed
+	_look = _look.lerp(Vector2(look_yaw, look_pitch), 1.0 - exp(-5.0 * delta))
 	var w := _walk
 	var ph := _phase
 	var cyc := cos(ph)
@@ -576,10 +583,10 @@ func pose(delta: float, state: String, speed: float, work_kind: String, carrying
 	_pose_bone("Spine", _q(R, -br * 0.7 - lean * 0.5) * _q(U, spine_yaw))
 	_pose_bone("Chest", _q(R, -br * 1.4 - lean * 0.35 - 3.0 * _carry))
 	_pose_bone("UpperChest", _q(R, -br * 0.8 - lean * 0.15) * _q(U, chest_yaw))
-	_pose_bone("Neck", _q(R, lean * 0.25))
+	_pose_bone("Neck", _q(R, lean * 0.25 + _look.y * 0.3) * _q(U, _look.x * 0.3))
 	# the head is stabilised against the torso turn, and looks into a turn a little ahead of the body
 	var stab := -(pelvis_yaw + spine_yaw + chest_yaw - float(_cur["twist"]) * 0.7) * 0.9
-	_pose_bone("Head", _q(R, lean * 0.1 + float(_cur["head"]) + sin(t * 0.5) * 2.0 * (1.0 - k)) * _q(U, stab + clampf(_yr * 7.0, -14.0, 14.0) * w + sin(t * 0.23 + _seed) * 6.0 * (1.0 - w) * (1.0 - k) + float(_cur["twist"]) * 0.3))
+	_pose_bone("Head", _q(R, lean * 0.1 + float(_cur["head"]) + sin(t * 0.5) * 2.0 * (1.0 - k) + _look.y * 0.7) * _q(U, stab + clampf(_yr * 7.0, -14.0, 14.0) * w + sin(t * 0.23 + _seed) * 6.0 * (1.0 - w) * (1.0 - k) + float(_cur["twist"]) * 0.3 + _look.x * 0.7))
 	# arms: relaxed swing, opposite to the legs, damped by what the hand holds ----------------
 	var hold := {"Left": hold_amount("Left"), "Right": hold_amount("Right")}
 	for side in ["Left", "Right"]:

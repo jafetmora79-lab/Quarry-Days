@@ -101,7 +101,8 @@ def tile_row(z): return int((1 - (z / TILE) % 1.0) * 64) % 64
 
 
 # ================================================================ face
-def paint_head(name, sp):
+def paint_head(name, sp, pose=None):
+    pose = pose or {}
     W, H = 128, 64; f = sp["face"]; SK = ramp(sp["skin"], 3, 1, 0.11, 0.03)
     hair = sp["hair"]; HR = ramp(hair["color"], 2, 2, 0.20)
     cv = Canvas(W, H, SK[3]); c = W // 2
@@ -166,6 +167,15 @@ def paint_head(name, sp):
     LID = (40, 26, 24); WH = (238, 232, 218); WH2 = (214, 206, 192)
     for side in (-1, 1):
         ex = c + side * 8 - 3; ey = r_eye - 2; outer = ex + 6 if side > 0 else ex
+        if pose.get("blink"):                                  # eyes closed: a flat lid line (the smiling crescents flatten out)
+            if style in ("squint", "jolly"):
+                cv.hline(ex, ex + 6, ey + 2, LID)
+                for yy in (ey + 1, ey + 3): cv.hline(ex, ex + 6, yy, SK[3])
+            else:
+                for yy in range(ey, ey + 4): cv.hline(ex, ex + 6, yy, SK[2])
+                cv.hline(ex, ex + 6, ey + 1, LID)
+                if f.get("lashes") or style == "cat": cv.put(outer + side, ey + 2, LID)
+            continue
         if style in ("squint", "jolly"):                     # smiling crescents
             for i, dy in enumerate((2, 1, 0, 0, 0, 1, 2)): cv.put(ex + i, ey + 1 + dy, LID)
             if style == "jolly": cv.hline(ex + 2, ex + 4, ey + 2, mix(IR, LID, 0.4))
@@ -196,15 +206,16 @@ def paint_head(name, sp):
     prof = {"arch": (1, 0, -1, -1, -1, -1, 0, 1, 2), "flat": (0,) * 9, "angled": (2, 1, 1, 0, 0, -1, -1, -1, 0),
             "soft": (0, -1, -1, -1, -1, 0, 0, 1, 2)}[shape]
     rows = {"thin": 1, "medium": 2, "thick": 2, "bushy": 3}[bt]
+    rb = r_brow - (2 if pose.get("brow") else 0)           # raised brows for an accent
     for side in (-1, 1):
         for i in range(9):
             dy = prof[i]; x = c + side * (4 + i)
             for r in range(rows):
                 if bt == "medium" and r == 1 and i in (0, 7, 8): continue
                 if bt == "bushy" and r == 0 and i % 2 == 0: continue
-                cv.put(x, r_brow - 2 + dy + r - (1 if bt == "bushy" else 0), BC[0] if r == rows - 1 else BC[1])
+                cv.put(x, rb - 2 + dy + r - (1 if bt == "bushy" else 0), BC[0] if r == rows - 1 else BC[1])
         if bt == "bushy":
-            cv.put(c + side * 13, r_brow - 1, BC[1]); cv.put(c + side * 3, r_brow - 2, BC[1])
+            cv.put(c + side * 13, rb - 1, BC[1]); cv.put(c + side * 3, rb - 2, BC[1])
     # ---- nose shading
     for y in range(r_eye + 1, r_nose + 1): cv.put(c - 3, y, SK[2]); cv.put(c + 3, y, SK[1])
     cv.put(c - 2, r_nose + 1, mix(SK[0], (100, 50, 40), 0.3)); cv.put(c + 2, r_nose + 1, mix(SK[0], (100, 50, 40), 0.3))
@@ -254,6 +265,16 @@ def paint_head(name, sp):
         for side in (-1, 1):
             for y in range(row(1.64), row(1.59) + 1):
                 for dx in range(27, 31): cv.put(c + side * dx, y, HR[1])
+    om = pose.get("mouth", 0)
+    if om:                                                 # the jaw drops: a dark mouth under the moustache / lip line, with a row of teeth when wide
+        inside = (60, 22, 24)
+        half = 2 + om
+        for yy in range(r_mouth + 1, r_mouth + 1 + 1 + 2 * om):
+            for xx in range(c - half, c + half + 1):
+                if abs(xx - c) == half and yy in (r_mouth + 1, r_mouth + 2 * om + 1): continue      # rounded corners
+                cv.put(xx, yy, inside)
+        if om >= 2: cv.hline(c - half + 1, c + half - 1, r_mouth + 1, (232, 226, 212))
+        cv.put(c, r_mouth + 2 * om, mix(lip, inside, 0.4))                                          # tongue hint
     return cv
 
 
