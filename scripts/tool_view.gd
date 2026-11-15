@@ -67,6 +67,8 @@ func equip(t: int, instant := false) -> void:
 		_show(t)
 		equip_t = 1.0
 		return
+	if pending_tier == t:
+		return                                   # already swapping to it (the game asks every frame: never restart the swap)
 	pending_tier = t
 	equip_t = 0.0
 

@@ -6,10 +6,13 @@ class_name QuarryRamps
 ## STAGE is built instead: a free-standing ramp that ends in a landing, and the next ramp starts from that landing (staged construction). Ramps can be taken away
 ## again, but never while something stands on them or another ramp rests on their top.
 ##
-## Starter ramps are 4.4 m wide with a grade of at most 30% (16.7 degrees): the starter dump truck, small construction vehicles and the player on foot. (Later,
+## Starter ramps are 3.2 m wide with a grade of at most 30% (16.7 degrees): the starter dump truck, small construction vehicles and the player on foot. (Later,
 ## heavier machines use the permanent haul roads the survey crew builds.)
 
-const WIDTH := 4.4
+const WIDTH := 3.2
+const MAX_RISE := 4.2
+const MIN_ENCLOSED := 3        # of 16 directions the ground must rise around the start: a hollow, not a hillside or the yard
+const STAGE_ENCLOSED := 8      # a free-standing staging ramp needs a deep hole all around
 const MAX_SLOPE := 0.30
 const STAGE_SLOPE := 0.25
 const STAGE_LEN := 12.0
@@ -48,8 +51,18 @@ func ground_at(x: float, z: float, from_y: float, ignore_id := -1) -> float:
 	for node in game.vehicle_nodes.values():
 		if node is CollisionObject3D:
 			q.exclude.append((node as CollisionObject3D).get_rid())
-	var hit: Dictionary = game.get_world_3d().direct_space_state.intersect_ray(q)
-	return float(hit["position"].y) if not hit.is_empty() else NAN
+	var space: PhysicsDirectSpaceState3D = game.get_world_3d().direct_space_state
+	for attempt in range(8):
+		var hit: Dictionary = space.intersect_ray(q)
+		if hit.is_empty():
+			return NAN
+		var c = hit["collider"]
+		# loose rock, rubble, weeds and survey markers lie ON the ground: they are not the ground (they never stop a ramp being planned, and the ramp is built under them)
+		if c is Node and (str((c as Node).get_meta("kind", "")) in ["piece", "debris", "pile", "worker"]):
+			q.exclude.append((c as CollisionObject3D).get_rid())
+			continue
+		return float(hit["position"].y)
+	return NAN
 
 ## The ramp whose top end (landing) is within `r` of a point: the next stage starts from it.
 func landing_near(p: Vector3, r := 2.2) -> Dictionary:
@@ -86,6 +99,11 @@ func evaluate(aim: Vector3, yaw: float) -> Dictionary:
 		if is_nan(gy) or absf(gy - y_s) > 0.4:
 			out["reason"] = "The foot of the ramp needs level ground across its width."
 			return out
+	# a ramp only makes sense in an excavation: the ground must rise around the start (a pit, a basin or a trench), not be open flat country
+	var rim := _rim_height(start)
+	if rim < 0.8:
+		out["reason"] = "Not in an excavation: aim at the floor of a pit or trench."
+		return out
 	# find the wall: the first place along the centre line where the ground stands 0.7 m above the start
 	var wall_l := -1.0
 	var l := 0.75
@@ -121,7 +139,12 @@ func evaluate(aim: Vector3, yaw: float) -> Dictionary:
 			out["reason"] = "Nothing to climb here: the wall is lower than the ramp's start."
 			return out
 		out["stage"] = false
-	else:
+		if y_e - y_s > MAX_RISE:                       # too high for one ramp: a staging ramp (it needs a deep hole)
+			wall_l = -1.0
+	if wall_l <= 0.0:
+		if rim < 3.0 or _rim_walls < STAGE_ENCLOSED:
+			out["reason"] = "Nothing to climb to from here."
+			return out
 		# no wall within reach: a free-standing stage that ends in a landing (the next ramp continues from it)
 		length = STAGE_LEN
 		y_e = y_s + STAGE_SLOPE * length
@@ -182,6 +205,25 @@ func evaluate(aim: Vector3, yaw: float) -> Dictionary:
 	out["base"] = lowest - 0.1
 	out["valid"] = true
 	return out
+
+## How high the ground stands above `start` around it (16 directions out to 16 m); needs at least 3 of the 16 to rise 0.8 m or more, else 0.
+var _rim_walls := 0          ## how many of the 16 directions rise (set by _rim_height)
+
+func _rim_height(start: Vector3) -> float:
+	var best := 0.0
+	var walls := 0
+	for d in range(16):
+		var a := TAU * float(d) / 16.0
+		var up := 0.0
+		for r in [3.0, 6.0, 9.0, 12.0, 16.0]:
+			var gy := ground_at(start.x + cos(a) * r, start.z + sin(a) * r, start.y + 30.0)
+			if not is_nan(gy):
+				up = maxf(up, gy - start.y)
+		if up >= 0.8:
+			walls += 1
+			best = maxf(best, up)
+	_rim_walls = walls
+	return best if walls >= MIN_ENCLOSED else 0.0
 
 ## The ground footprint (x, z polygon) of a ramp.
 func _footprint(start: Vector3, dir: Vector3, length: float) -> PackedVector2Array:

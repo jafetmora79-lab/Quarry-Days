@@ -779,32 +779,31 @@ func _update_drive_plate() -> void:
 	set_bar_color(drive_load_bar, QuarryTheme.WARN if int(info["load"]) >= cap else QuarryTheme.GOOD)
 	drive_hint.text = str(info["action"]) if str(info["action"]) != "" else "WASD drive  Space brake  R recover  E exit"
 
-## The hotbar line under the tool name: every tool in reach with its number key, the one in hand brighter.
-var hotbar_label: RichTextLabel
+## The hotbar: boxed slots (number, icon, name) centred above the bottom plates; the tool in hand is lit.
+var hotbar_view: QuarryHotbar
 func _set_hotbar(prog: QuarryProgression) -> void:
-	if hotbar_label == null:
-		hotbar_label = RichTextLabel.new()
-		hotbar_label.bbcode_enabled = true
-		hotbar_label.fit_content = true
-		hotbar_label.scroll_active = false
-		hotbar_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		hotbar_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		hotbar_label.add_theme_font_override("normal_font", QuarryTheme.hud())
-		hotbar_label.add_theme_font_override("bold_font", QuarryTheme.hud())
-		hotbar_label.add_theme_font_size_override("normal_font_size", QuarryTheme.pixel_font_size(QuarryTheme.SMALL))
-		hotbar_label.add_theme_font_size_override("bold_font_size", QuarryTheme.pixel_font_size(QuarryTheme.SMALL))
-		hotbar_label.name = "Hotbar"
-		tool_pips.get_parent().add_child(hotbar_label)
-		tool_pips.get_parent().move_child(hotbar_label, tool_pips.get_index())
+	if hotbar_view == null:
+		hotbar_view = QuarryHotbar.new()
+		add_child(hotbar_view)
+		hotbar_view.set_anchor(SIDE_LEFT, 0.5)
+		hotbar_view.set_anchor(SIDE_RIGHT, 0.5)
+		hotbar_view.set_anchor(SIDE_TOP, 1.0)
+		hotbar_view.set_anchor(SIDE_BOTTOM, 1.0)
+		hotbar_view.offset_left = -200
+		hotbar_view.offset_right = 200
+		hotbar_view.offset_top = -138
+		hotbar_view.offset_bottom = -82
+		hotbar_view.grow_vertical = Control.GROW_DIRECTION_BEGIN
 		tool_pips.visible = false
 	var bar := prog.hotbar()
-	var cur := prog.hotbar_slot()
-	var parts := []
+	var slots := []
 	for i in range(bar.size()):
 		var t: Dictionary = prog.gear_def(str(bar[i])) if str(bar[i]) != "" else prog.tools()[clampi(game.state.tool_tier, 0, prog.tools().size() - 1)]
-		var nm := str(t.get("title", "?")).split(" ")[-1].to_upper()
-		parts.append(("[color=#ffd266][b]%d %s[/b][/color]" % [i + 1, nm]) if i == cur else ("[color=#b8a88c]%d %s[/color]" % [i + 1, nm]))
-	hotbar_label.text = "  ".join(parts)
+		var cl := str(t.get("class", ""))
+		var kind := "shovel" if cl == "digging" else "flag" if cl == "survey" else ("hammer" if str(bar[i]) == "" and game.state.tool_tier == 0 else "pick")
+		var title := str(t.get("title", "?"))
+		slots.append({"name": "Plan" if cl == "survey" else title.split(" ")[-1], "kind": kind})
+	hotbar_view.set_slots(slots, prog.hotbar_slot())
 
 func refresh_panels() -> void:
 	var st: QuarryState = game.state

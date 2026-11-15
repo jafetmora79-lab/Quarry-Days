@@ -1,5 +1,10 @@
 # Changelog
 
+### Ramp and hotbar fixes (from play-testing)
+- **Ramps:** only offered in a hollow (the ground must rise around the foot - never in the open yard), 3.2 m wide, at most one 4.2 m climb per ramp (taller needs a staging ramp inside a deep hole), and loose rocks, debris and heaps on the floor no longer make the foot "not level".
+- **Held tool:** the swap animation restarted every frame (the game re-asked for the tool each frame), so a new tool only appeared after opening a menu. It now completes in about half a second. The "tuck against a wall" no longer triggers on ramps and ground.
+- **Hotbar:** boxed slots (number, icon, name) centred above the bottom plates; the tool in hand is lit in amber.
+
 ### Ground gaps and the objective window
 - **Holes round the quarry fixed:** the topsoil field's outer edge no longer wobbles (it pulled back from the grass and left a strip of void showing the background colour), and the grass now covers everything outside the field exactly - the old cut-out did not match the soil, which left a whole band bare along the south side. `tests/test_ground_cover.gd` samples the ring round the field.
 - **Objective window:** the stage bar is the average of its requirements with a percentage, "Clear Grandpa's overgrown site" counts real weeds and rubble (14/40, not 0%), the cleanup and each open area contract get their own bar, and percentages round up so the first bit of work shows (never 100% before the end). `tests/test_objective_progress.gd` keeps them honest.

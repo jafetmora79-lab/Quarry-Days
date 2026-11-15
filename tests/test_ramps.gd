@@ -65,6 +65,8 @@ func run() -> void:
 	var A := Vector3(900, 0, 900)
 	box(game, A + Vector3(0, -0.5, 0), Vector3(60, 1, 90))                          # the pit floor, top at y = 0
 	box(game, A + Vector3(0, 1.5, -15.0 - 15.0), Vector3(60, 3.0, 30))              # a plateau 3 m up, its face 15 m from the start
+	box(game, A + Vector3(-12.0, 1.75, 0.0), Vector3(4, 3.5, 90))                    # side walls: a hollow, as a dug pit is
+	box(game, A + Vector3(12.0, 1.75, 0.0), Vector3(4, 3.5, 90))
 	var R: QuarryRamps = game.ramps
 	check(R != null and R.ramps.is_empty(), "the ramp system exists and starts empty")
 	# ---- planning: the foot at the aim point, climbing the way you face
@@ -72,7 +74,7 @@ func run() -> void:
 	check(bool(plan["valid"]) and absf(float(plan["y1"]) - 3.0) < 0.1 and absf(float(plan["slope"]) - 0.2) < 0.03, "a ramp to the 3 m plateau is valid: %d%% grade, %.1f m long (%s)" % [roundi(float(plan["slope"]) * 100.0), float(plan["len"]), str(plan["reason"])])
 	check(absf(float(plan["len"]) - 15.0) < 0.8, "its length meets the wall (%.1f of 15 m)" % float(plan["len"]))
 	# ---- invalid placements
-	var blocker := box(game, A + Vector3(0, 0.6, -8.0), Vector3(3.0, 1.2, 1.0))            # a rock in the middle of the ramp's path
+	var blocker := box(game, A + Vector3(1.4, 1.25, -8.0), Vector3(1.0, 2.5, 1.0))            # a tall rock at the side of the ramp's path, above where the surface would be
 	await frames(2)
 	var blocked := R.evaluate(A, 0.0)
 	check(not bool(blocked["valid"]), "a ramp whose path is blocked by solid ground is rejected: %s" % str(blocked["reason"]))
@@ -172,6 +174,8 @@ func run() -> void:
 	var B := A + Vector3(200, 0, 0)                                                         # a second arena: floor, and a 6 m face 40 m ahead
 	box(game, B + Vector3(0, -0.5, 0), Vector3(60, 1, 120))
 	box(game, B + Vector3(0, 3.0, -55.0), Vector3(60, 6.0, 30))
+	box(game, B + Vector3(-12.0, 3.0, 0.0), Vector3(4, 6.0, 120))                    # walls around: a deep pit, not open country
+	box(game, B + Vector3(12.0, 3.0, 0.0), Vector3(4, 6.0, 120))
 	await frames(3)
 	var s1 := R.evaluate(B, 0.0)
 	check(bool(s1["valid"]) and bool(s1["stage"]) and absf(float(s1["len"]) - QuarryRamps.STAGE_LEN) < 0.1, "with the rim out of reach a staging ramp (%.0f m, %d%%) is offered: %s" % [float(s1["len"]), roundi(float(s1["slope"]) * 100.0), str(s1["note"])])
@@ -181,5 +185,65 @@ func run() -> void:
 	check(bool(s2["valid"]) and str(s2["note"]).contains("Stage 2") and absf(float(s2["y0"]) - float(R.ramp_by_id(sid)["y1"])) < 0.05, "the next stage starts from the landing at its height: %s %s" % [str(s2["note"]), str(s2["reason"])])
 	var sid2 := R.place(s2)
 	check(sid2 >= 0 and R.remove(sid).contains("Another ramp starts"), "the first stage cannot be removed while the second rests on its landing")
+	# ---- real-play regressions: open ground, loose rocks, a smooth and unrescued climb, the held tool, the hotbar
+	for i in range(5):
+		if game.driving == null:
+			break
+		game.exit_vehicle()
+		await frames(20)
+	check(game.driving == null, "on foot again for the walking checks")
+	var C := A + Vector3(400, 0, 0)
+	box(game, C + Vector3(0, -0.5, 0), Vector3(200, 1, 200))                                 # open flat country: no walls anywhere
+	await frames(3)
+	var open := R.evaluate(C, 0.0)
+	check(not bool(open["valid"]) and str(open["reason"]).contains("excavation"), "no ramp in open country: %s" % str(open["reason"]))
+	var D := A + Vector3(600, 0, 0)
+	box(game, D + Vector3(0, -0.5, 0), Vector3(60, 1, 90))
+	box(game, D + Vector3(0, 1.5, -30.0), Vector3(60, 3.0, 30))
+	box(game, D + Vector3(-12.0, 1.75, 0.0), Vector3(4, 3.5, 90))
+	box(game, D + Vector3(12.0, 1.75, 0.0), Vector3(4, 3.5, 90))
+	var rocks := []
+	for k in range(6):
+		var rk := box(game, D + Vector3(-1.0 + float(k) * 0.4, 0.2, 0.3 + float(k % 2) * 0.5), Vector3(0.5, 0.4, 0.5))
+		rk.set_meta("kind", "debris")                                                          # loose rocks on the floor
+		rocks.append(rk)
+	await frames(3)
+	var loose := R.evaluate(D, 0.0)
+	check(bool(loose["valid"]), "loose rocks on the floor do not stop a ramp: %s" % str(loose["reason"]))
+	check(float(loose["w"]) <= 3.3 and float(loose["len"]) <= 20.0, "the ramp is a sensible size (%.1f m wide, %.1f m long)" % [float(loose["w"]), float(loose["len"])])
+	var rid := R.place(loose)
+	for rk in rocks:
+		rk.queue_free()                                                                        # (the rocks are cleared once the ramp is planned)
+	await frames(3)
+	game.safety.enabled = true
+	game.player.global_position = D + Vector3(0, 0.1, 4.0)
+	game.player.velocity = Vector3.ZERO
+	await frames(30)
+	var r0: int = game.safety.rescues
+	var maxjump := 0.0
+	var last_y: float = game.player.global_position.y
+	game.player.drive_wish = Vector3(0, 0, -1)
+	var n := 0
+	while n < 600 and game.player.global_position.z > D.z - 18.0:
+		await physics_frame
+		n += 1
+		maxjump = maxf(maxjump, absf(game.player.global_position.y - last_y))
+		last_y = game.player.global_position.y
+	game.player.drive_wish = Vector3.INF
+	check(game.player.global_position.y > 2.8 and game.safety.rescues == r0, "walking up the ramp reaches the top without a pit rescue (y %.2f, rescues %d)" % [game.player.global_position.y, game.safety.rescues - r0])
+	check(maxjump < 0.12, "the climb is smooth: largest step %.3f m per frame" % maxjump)
+	game.safety.enabled = false
+	# the tool in hand changes on its own, without opening any menu
+	var tvw = game.player.tool_view
+	game.select_tool_slot(0)
+	await frames(90)
+	var t0: int = tvw.tier
+	game.select_tool_slot(1)
+	for i in range(60):
+		game.player.tool_view.equip(game.prog.model_tier())                                   # the game asks every frame
+		await physics_frame
+	check(tvw.tier == game.prog.model_tier() and tvw.tier != t0, "changing tool swaps the model in the hands within a second, with no menu (%d -> %d)" % [t0, tvw.tier])
+	var hb: Control = game.hud.hotbar_view
+	check(hb != null and hb.get_child_count() == game.prog.hotbar().size() and hb.is_visible_in_tree(), "the hotbar shows one boxed slot per tool")
 	print("RESULT: %d checks, %d failures" % [checks, failures.size()])
 	quit(1 if failures.size() > 0 else 0)

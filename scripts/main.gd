@@ -1611,8 +1611,8 @@ func _update_tool_obstruction() -> void:
 	var o := 0.0
 	if last_target != null and is_instance_valid(last_target) and not driving:
 		var k := str(last_target.get_meta("kind", ""))
-		if not (k in ["deposit", "debris", "piece", "pile", "ground"]):
-			o = clampf((0.95 - _look_dist) / 0.35, 0.0, 1.0)
+		if k != "" and not (k in ["deposit", "debris", "piece", "pile", "ground", "ramp"]) and not last_target.has_meta("ramp_id") and not last_target.has_meta("ground"):
+			o = clampf((0.8 - _look_dist) / 0.3, 0.0, 1.0)
 	player.tool_view.obstruct = o
 
 ## Which contract area the player (or the machine they drive) is standing in: the yard-side Area 1 by its rectangle, the pit areas by
