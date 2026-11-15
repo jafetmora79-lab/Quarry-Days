@@ -73,9 +73,13 @@ func run() -> void:
 	ex.global_position = Vector3(cc.x, 0.3, cc.z + 4.2)
 	ex.rotation.y = 0.0
 	ex.velocity = Vector3.ZERO
-	for off in [Vector3(-4.5, 0, 6.0), Vector3(4.5, 0, 6.0), Vector3(-4.5, 0, 9.0), Vector3(4.5, 0, 9.0), Vector3(0, 0, 10.0)]:
-		truck.global_position = Vector3(cc.x + off.x, 0.3, cc.z + off.z)
-		truck.rotation.y = 0.0
+	# the truck is parked where the excavator's arm can reach its bed (cab away, bed toward the excavator), found from the real bed geometry
+	var tb: AABB = truck.bed_box()
+	for off in [Vector3(0, 0, 3.0), Vector3(0, 0, -3.0), Vector3(3.0, 0, 0), Vector3(-3.0, 0, 0), Vector3(2.2, 0, 2.2)]:
+		var yaw := atan2(-off.x, -off.z)
+		truck.rotation.y = yaw
+		var p0: Vector3 = ex.global_position + off - Basis(Vector3.UP, yaw) * Vector3(0, 0, tb.get_center().z)
+		truck.global_position = Vector3(p0.x, 0.3, p0.z)
 		truck.velocity = Vector3.ZERO
 		await frames(25)
 		if truck.global_position.y < 0.4:

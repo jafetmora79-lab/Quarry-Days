@@ -244,7 +244,11 @@ func run() -> void:
 		await physics_frame
 	check(tvw.tier == game.prog.model_tier() and tvw.tier != t0, "changing tool swaps the model in the hands within a second, with no menu (%d -> %d)" % [t0, tvw.tier])
 	var hb: Control = game.hud.hotbar_view
-	check(hb != null and hb.get_child_count() == game.prog.hotbar().size() and hb.is_visible_in_tree(), "the hotbar shows one boxed slot per tool")
+	var filled_slots := 0
+	for sl in hb.get_children():
+		if sl.find_child("Name", true, false) != null or sl.find_child("Icon", true, false) != null:
+			filled_slots += 1
+	check(hb != null and hb.get_child_count() == 5 and filled_slots == game.prog.hotbar().size() and hb.is_visible_in_tree(), "the hotbar has five slots, one filled per tool")
 	check(not game._inside_dig_perimeter(str(game.prog.area_def("area_1")["formations"][0]), Vector3(150.0, 0.0, -15.0)) and game._inside_dig_perimeter(str(game.prog.area_def("area_1")["formations"][0]), Vector3(0.0, 0.0, -15.0)), "the starter cut can only be dug inside its survey lines")
 	var rbody: Node = R.bodies[rid] if R.bodies.has(rid) else null
 	var rmat = null

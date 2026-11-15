@@ -54,7 +54,7 @@ func run() -> void:
 	await create_timer(1.2).timeout
 	check(absf(wb.tilt.rotation.x) < 0.05, "and it settles back (%.2f rad)" % wb.tilt.rotation.x)
 	var hc: QuarryCart = carts["hand_cart"]
-	check(hc.body == null and hc.wheel == null and hc.model != null, "the hand cart keeps its original prop")
+	check(hc.body != null and hc.wheels.size() == 2 and hc.model != null and not (hc.model.name as String).is_empty(), "the hand cart is its own Blender model: a body that tips and two wheels that turn")
 	hc.tip()
 	check(true, "tip() on a hand cart is a harmless no-op")
 	print("RESULT: %d checks, %d failures" % [checks, failures.size()])

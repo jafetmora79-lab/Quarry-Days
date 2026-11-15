@@ -35,11 +35,11 @@ func run() -> void:
 	game.player.locked = true
 	# ---- 1: the roster
 	var types: Array = fleet.types()
-	check(types.size() == 7 and types[0] == "loader", "1 seven vehicle types: %s" % str(types))
-	var by_kind := {"truck": [], "excavator": [], "loader": []}
+	check(types.size() == 8 and types[0] == "loader", "1 eight vehicle types: %s" % str(types))
+	var by_kind := {"truck": [], "excavator": [], "loader": [], "bulldozer": []}
 	for t in types:
 		by_kind[fleet.kind(t)].append(t)
-	check(by_kind["truck"].size() == 4 and by_kind["excavator"].size() == 2 and by_kind["loader"].size() == 1, "1b four trucks, two excavators, the loader")
+	check(by_kind["truck"].size() == 4 and by_kind["excavator"].size() == 2 and by_kind["loader"].size() == 1 and by_kind["bulldozer"].size() == 1, "1b four trucks, two excavators, the loader and the bulldozer")
 	var ok_stats := true
 	for t in types:
 		var s := fleet.spec(t)

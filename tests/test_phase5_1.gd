@@ -151,6 +151,7 @@ func scene_tests() -> void:
 	game.hud.money_merge.clear()
 	st.money = 20
 	game.prog.stage = 1                       # the backpack opens at Better Tools
+	game.workbench_tab = "Upgrades"           # (the player upgrades have their own tab on the workbench)
 	game._open_menu("upgrades", -1)
 	var cost: int = int(st.config["upgrades"]["larger_backpack"])
 	check(game.panel.buttons["up_larger_backpack"].disabled and game.panel.pane.buy_btn.disabled, "2 unaffordable upgrades have disabled buttons")
@@ -175,6 +176,7 @@ func scene_tests() -> void:
 	st.money = 500
 	st.tool_tier = 0
 	prog.stage = prog.stage_index("tools")
+	game.workbench_tab = "Tools"
 	game._open_menu("upgrades", -1)
 	var tool_cost: int = int(prog.next_tool()["cost"])
 	game._click_ms.clear()
