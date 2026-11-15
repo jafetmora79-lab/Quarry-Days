@@ -54,7 +54,7 @@ run_one() {
   t="$1"
   dir="$OUT/$t"; mkdir -p "$dir/data"
   start=$(date +%s)
-  XDG_DATA_HOME="$dir/data" timeout 900 "$GODOT" --headless --fixed-fps 60 -s "tests/$t.gd" > "$dir/log" 2>&1
+  XDG_DATA_HOME="$dir/data" APPDATA="$dir/data" timeout 900 "$GODOT" --headless --fixed-fps 60 -s "tests/$t.gd" > "$dir/log" 2>&1
   code=$?
   secs=$(( $(date +%s) - start ))
   res=$(grep -a "^RESULT" "$dir/log" | tail -1)
