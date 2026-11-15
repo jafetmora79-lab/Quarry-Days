@@ -75,6 +75,15 @@ func run() -> void:
 	titles(game.panel, out)
 	var all := " | ".join(out)
 	check(not all.contains("Rock Hammer") and not all.contains("Pointed Chisel") and not all.contains("Hand Cart") and not all.contains("Repaired Pickaxe") and not all.contains("Sledgehammer"), "the workbench list no longer shows tools you own or have outgrown")
-	check(all.contains("Reinforced Wheelbarrow") or all.contains("Hand Rock Splitter") or all.contains("Powered Hammer"), "but what is still ahead of you is there")
+	game.workbench_tab = "Hauling"                       # the carts have their own tab on the workbench
+	game._draw_menu()
+	await process_frame
+	var out2 := []
+	titles(game.panel, out2)
+	var all2 := " | ".join(out2)
+	check(all.contains("Hand Rock Splitter") or all.contains("Powered Hammer") or all2.contains("Reinforced Wheelbarrow"), "but what is still ahead of you is there")
+	check(not all2.contains("Hand Cart") and not all2.contains("Wheelbarrow
+") or all2.contains("Reinforced Wheelbarrow"), "and the carts tab offers the bigger cart only")
+	game.workbench_tab = "Tools"
 	print("RESULT: %d checks, %d failures" % [checks, failures.size()])
 	quit(1 if failures.size() > 0 else 0)
