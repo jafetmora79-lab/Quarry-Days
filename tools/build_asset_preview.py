@@ -26,8 +26,8 @@ def main():
     NEWG = "NEW: buildings, sell station, production line"
     bdir = os.path.join(ROOT, "assets", "buildings")
     os.makedirs(os.path.join(OUT, "blender"), exist_ok=True)
-    nice = {"Home": "Grandpa's house (cabin + living room)", "Workshop": "Workshop", "Shed": "Storage shed", "Office": "Office", "SellKiosk": "Quick Sell Station"}
-    for key in ["Home", "Workshop", "Shed", "Office", "SellKiosk"]:
+    nice = {"Home": "Grandpa's house (cabin + living room)", "Workshop": "Workshop", "Shed": "Storage shed", "Office": "Office", "SellKiosk": "Quick Sell Station", "Garage": "Machinery garage"}
+    for key in ["Garage", "Home", "Workshop", "Shed", "Office", "SellKiosk"]:
         src = os.path.join(bdir, "BLD_QD_%s.glb" % key)
         if os.path.exists(src):
             shutil.copy2(src, os.path.join(OUT, "blender", "BLD_QD_%s.glb" % key))

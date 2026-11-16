@@ -261,7 +261,7 @@ func _ground() -> void:
 	# Haul roads (dirt), yard (gravel) and pads (concrete).
 	# The roads and the yard used to be separate overlay patches; their edges showed as faint rectangles all over the
 	# floor, so the whole site now shares the one continuous ground (only the concrete pads and bay lines sit on it).
-	quad_flat(M_CONCRETE, Vector3(5.0, 0, 18.7), Vector2(19.6, 7.6), 0.0, 0.075)         # garage slab
+	quad_flat(M_FOUNDATION, Vector3(5.0, 0, 18.7), Vector2(19.6, 7.6), 0.0, 0.075)         # garage slab: clean poured concrete
 	quad_flat(M_CONCRETE, game.OFFICE_POS, Vector2(6.4, 6.4), 0.0, 0.075)        # office pad
 	quad_flat(M_CONCRETE, game.SHED_POS, Vector2(6.0, 6.0), 0.0, 0.075)         # shed pad
 	quad_flat(M_CONCRETE, game.TOOLSHED_POS, Vector2(6.0, 6.0), 0.0, 0.075)      # tool shed pad
@@ -647,13 +647,53 @@ func _shed() -> void:
 
 ## Open-front equipment garage over the parking bays: steel frame, corrugated walls and roof,
 ## workbench, shelving and clutter along the walls (clear of the bays).
-var garage_roof: MeshInstance3D
+var garage_roof: Node3D
 
 ## Height of the garage roof's underside at depth z: a single slope falling from 6.5 m at the open front to 6.0 m at the back wall (the wall's own height).
 func garage_under(z: float, z0: float, z1: float) -> float:
-	return 6.5 - 0.5 * (z - z0) / (z1 - z0)
+	return 5.0 - 0.4 * (z - z0) / (z1 - z0)
+
+## The machinery garage from Blender (tools/building_models/build_garage.py): the same footprint, back doorway and open front as before, with the colliders and the
+## parking row untouched; a portal frame and door hoods on the open front, a framed rolled-up service door, steel rafters, the concrete band, a workbench with a pegboard,
+## rack storage, a monorail hoist and strip lights. Returns false (and the procedural garage is built) when the model is missing.
+func _garage_blender() -> bool:
+	var shell := BuildingModels.load_model("Garage", "Corrugated")
+	if shell == null:
+		return false
+	var ox: float = game.GARAGE_DX
+	var x0 := -4.7 + ox
+	var x1 := 14.5 + ox
+	var z0 := 14.9
+	var z1 := 22.4
+	var cx := (x0 + x1) * 0.5
+	var gdx: float = QuarryDelivery.DOOR_X + ox
+	var dx0: float = gdx - QuarryDelivery.DOOR_W * 0.5
+	var dx1: float = gdx + QuarryDelivery.DOOR_W * 0.5
+	for seg in [[x0, dx0], [dx1, x1]]:
+		var sc: float = (float(seg[0]) + float(seg[1])) * 0.5
+		var sw: float = float(seg[1]) - float(seg[0])
+		solid("Garage back wall", Vector3(sc, 2.0, z1), Vector3(sw, 4.0, 0.25))
+	solid("Garage wall", Vector3(x0, 2.0, (z0 + z1) * 0.5), Vector3(0.25, 4.0, z1 - z0))
+	solid("Garage wall", Vector3(x1, 2.0, (z0 + z1) * 0.5), Vector3(0.25, 4.0, z1 - z0))
+	solid("Garage shelving", Vector3((dx1 + x1) * 0.5, 0.9, z1 - 0.45), Vector3(x1 - dx1 - 0.4, 1.8, 0.6))       # behind the bays, clear of the door
+	solid("Garage workbench", Vector3(x0 + 0.5, 0.5, 20.2), Vector3(0.75, 1.0, 3.6))
+	solid("Garage drums", Vector3(13.6 + ox, 0.45, 19.6), Vector3(0.9, 0.9, 1.9))
+	shell.position = Vector3(cx, 0.0, (z0 + z1) * 0.5)
+	root.add_child(shell)
+	garage_roof = shell.get_meta("roof", null)
+	_sign(root, "Sign_Garage", Vector3(cx, 4.9, z0 - 0.67), Vector2(4.0, 0.36), PI)
+	_sign(root, "Sign_Safety", Vector3(x0 - 0.13, 2.6, z0 + 1.6), Vector2(1.5, 0.5), -PI * 0.5)
+	prop(P_BOXES, Vector3(14.0 + ox, 0.0, 21.6), -PI * 0.5)
+	prop(P_BIN, Vector3(14.0 + ox, 0.0, 17.2), -PI * 0.5)
+	prop(P_CONE, Vector3(x0 + 0.6, 0.0, 16.8))
+	prop(P_CONE, Vector3(x0 + 1.0, 0.0, 17.2))
+	light(Vector3(cx - 5, 4.2, 19.0), Color(0.9, 0.95, 1.0), 1.2, 9.0)
+	light(Vector3(cx + 5, 4.2, 19.0), Color(0.9, 0.95, 1.0), 1.2, 9.0)
+	return true
 
 func _garage() -> void:
+	if _garage_blender():
+		return
 	var ox: float = game.GARAGE_DX
 	var x0 := -4.7 + ox
 	var x1 := 14.5 + ox
@@ -774,7 +814,7 @@ func _fence_line(a: Vector2, b: Vector2, collide := true, height := 1.4) -> void
 
 func _pads() -> void:
 	var ox: float = game.GARAGE_DX
-	quad_flat(M_CONCRETE, Vector3(5.0 + ox, 0, 18.7), Vector2(19.6, 7.6), 0.0, 0.075)         # garage slab
+	quad_flat(M_FOUNDATION, Vector3(5.0 + ox, 0, 18.7), Vector2(19.6, 7.6), 0.0, 0.075)         # garage slab: clean poured concrete
 	quad_flat(M_CONCRETE, game.OFFICE_POS, Vector2(6.4, 6.4), 0.0, 0.075)
 	quad_flat(M_CONCRETE, game.SHED_POS, Vector2(6.0, 6.0), 0.0, 0.075)
 	quad_flat(M_CONCRETE, game.TOOLSHED_POS, Vector2(6.0, 6.0), 0.0, 0.075)

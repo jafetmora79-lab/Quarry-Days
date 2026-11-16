@@ -6,6 +6,10 @@
     "title": "1. Buildings (modelled in Blender)",
     "items": [
      {
+      "name": "Machinery garage",
+      "file": "models/blender/BLD_QD_Garage.glb"
+     },
+     {
       "name": "Grandpa's house (cabin + living room)",
       "file": "models/blender/BLD_QD_Home.glb"
      },
