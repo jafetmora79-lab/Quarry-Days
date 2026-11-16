@@ -680,6 +680,24 @@ func _production(b: QuarryBusiness) -> void:
 	var card := _card()
 	card.add_child(_label("TODAY'S PRODUCTION", ACCENT))
 	card.add_child(_label("Mined by staff %d   -   Hauled %d   -   Conveyed %d   -   Crushed (automated) %d   -   Sold by clerk %d" % [today["mined"], today["hauled"], today["conveyed"], today["crushed"], today["sold"]]))
+	var ov := _card()
+	var rows: Array = b.production_overview()
+	var counts := {"running": 0, "idle": 0, "blocked": 0}
+	for r in rows:
+		counts[str(r["state"])] = int(counts.get(str(r["state"]), 0)) + 1
+	ov.add_child(_label("PRODUCTION OVERVIEW   running %d   idle %d   blocked %d" % [counts["running"], counts["idle"], counts["blocked"]], ACCENT))
+	if rows.is_empty():
+		ov.add_child(_label("No machines placed yet. Order crushers, belts and bins in the Equipment Catalog, then place them with Build Mode (B).", DIM, QuarryTheme.BODY))
+	for r in rows:
+		var line := _row()
+		ov.add_child(line)
+		var chip := _label(str(r["state"]).to_upper(), GOOD if str(r["state"]) == "running" else (WARN_COLOR if str(r["state"]) == "blocked" else DIM), QuarryTheme.SMALL, false)
+		chip.custom_minimum_size = Vector2(72, 0)
+		line.add_child(chip)
+		var nm := _label(str(r["name"]), INK, QuarryTheme.BODY, false)
+		nm.custom_minimum_size = Vector2(150, 0)
+		line.add_child(nm)
+		line.add_child(_label(str(r["reason"]), DIM, QuarryTheme.BODY))
 	var auth := _card()
 	auth.add_child(_label("SALES CLERK MAY SELL", ACCENT))
 	var row := _row()

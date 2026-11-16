@@ -942,6 +942,73 @@ func belt_status(i: int) -> String:
 		return "active"
 	return "idle"
 
+# ---------------------------------------------------------------- production overview
+
+## What one machine is doing, for the Production Overview: {"state": "running" | "idle" | "blocked", "reason": String}. It reads state only.
+func machine_status(kind: String, index: int) -> Dictionary:
+	match kind:
+		"crusher":
+			if index < 0 or index >= state.crushers.size():
+				return {"state": "idle", "reason": "Not placed"}
+			var c: Dictionary = state.crushers[index]
+			if bool(c["running"]):
+				return {"state": "running", "reason": "Crushing, %.0f s left" % float(c["remaining"])}
+			if crusher_output_full(index):
+				return {"state": "blocked", "reason": "Output full: collect it or connect a belt to a bin"}
+			var held := int(c.get("hopper", 0)) + int(c["input"])
+			if held > 0:
+				return {"state": "blocked", "reason": "Has limestone but no operator is running it"}
+			if int(c["output"]) > 0 and (index >= crusher_outputs.size() or int(crusher_outputs[index]) < 0):
+				var belted := false
+				for l in links:
+					if str(l["src"].get("type", "")) == "crusher" and int(l["src"].get("index", -1)) == index:
+						belted = true
+				if not belted:
+					return {"state": "blocked", "reason": "Finished stone waiting: nothing takes it away"}
+			return {"state": "idle", "reason": "No limestone to crush"}
+		"conveyor":
+			var s := belt_status(index)
+			var kindname := "Merger" if str(conveyors[index].get("kind", "straight")) == "merger" else "Belt"
+			match s:
+				"active": return {"state": "running", "reason": "%s moving material" % kindname}
+				"blocked":
+					var dst: Dictionary = links[index]["dst"] if index < links.size() else {}
+					return {"state": "blocked", "reason": "Blocked: %s is full" % describe_ep(dst) if not dst.is_empty() else "Blocked: nothing at its end"}
+				"disconnected":
+					var l: Dictionary = links[index] if index < links.size() else {"src": {}, "dst": {}}
+					if l["dst"].is_empty() and l["src"].is_empty() and str(conveyors[index].get("kind", "straight")) != "merger":
+						return {"state": "blocked", "reason": "Not connected at either end"}
+					if l["dst"].is_empty():
+						return {"state": "blocked", "reason": "Its output end is not connected"}
+					if l["src"].is_empty() and str(conveyors[index].get("kind", "straight")) != "merger":
+						return {"state": "idle", "reason": "Nothing feeds it yet"}
+					return {"state": "idle", "reason": "Waiting for material"}
+				_: return {"state": "idle", "reason": "Connected, waiting for material"}
+		"output":
+			if index < 0 or index >= outputs.size():
+				return {"state": "idle", "reason": "Not placed"}
+			var total := output_total(index)
+			if total >= output_capacity_of(index):
+				return {"state": "blocked", "reason": "Full: sell or empty it, or the belts feeding it stop"}
+			if total > 0:
+				return {"state": "running", "reason": "Holding %d / %d" % [total, output_capacity_of(index)]}
+			return {"state": "idle", "reason": "Empty"}
+	return {"state": "idle", "reason": ""}
+
+## Every placed machine with its status, for the Production Overview.
+func production_overview() -> Array:
+	var rows := []
+	for i in range(state.crushers.size()):
+		var s := machine_status("crusher", i)
+		rows.append({"kind": "crusher", "index": i, "name": ("Advanced crusher #%d" if int(state.crushers[i].get("tier", 1)) >= 2 else "Crusher #%d") % (i + 1), "state": s["state"], "reason": s["reason"]})
+	for i in range(conveyors.size()):
+		var s := machine_status("conveyor", i)
+		rows.append({"kind": "conveyor", "index": i, "name": ("Merger #%d" if str(conveyors[i].get("kind", "straight")) == "merger" else "Conveyor #%d") % (i + 1), "state": s["state"], "reason": s["reason"]})
+	for i in range(outputs.size()):
+		var s := machine_status("output", i)
+		rows.append({"kind": "output", "index": i, "name": "%s #%d" % [{"output": "Output storage", "hopper": "Small hopper", "sorter": "Sorting table"}.get(variant_of(i), "Storage"), i + 1], "state": s["state"], "reason": s["reason"]})
+	return rows
+
 ## Units currently on belts; used to prove conservation in tests.
 func conveyor_total() -> int:
 	var n := 0
