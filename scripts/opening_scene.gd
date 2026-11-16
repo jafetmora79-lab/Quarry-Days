@@ -459,9 +459,13 @@ func _truck_basis() -> Basis:
 
 ## Where Walt stands when they have stepped out (by the driver's door) and where the player faces him from.
 func walt_spot() -> Vector3:
+	if not g.blueprint:
+		return g.walter_pos()                                   # the old layout (legacy saves, old tests): where Walt has always stood
 	return _truck_spot() + _truck_basis() * Vector3(-2.7, 0.0, -0.9)
 
 func player_spot() -> Vector3:
+	if not g.blueprint:
+		return g.walter_pos() + Vector3(2.4, 0.2, 1.4)
 	return _truck_spot() + _truck_basis() * Vector3(-2.7, 0.2, -4.0)
 
 ## Outside, at the parked truck: the truck is back at its own spot, Walt stands by it, the player faces him.
