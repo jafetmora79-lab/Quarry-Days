@@ -238,89 +238,178 @@ func _embankment_height(r: float) -> float:
 			return lerpf(float(rings[k][1]), float(rings[k + 1][1]), (r - float(rings[k][0])) / (float(rings[k + 1][0]) - float(rings[k][0])))
 	return 9.0
 
-## The blueprint world's forests: dense groves in the strips east and west of the quarry, thinning out south of the quarry fence (east of the yard).
-func _forest_blueprint() -> void:
-	var s := MeshKit.Soup.new()
-	MeshKit.frustum_into(s, Vector3(0, 0.0, 0), 0.18, 0.14, 1.2, 5)
-	MeshKit.frustum_into(s, Vector3(0, 0.9, 0), 1.3, 0.35, 2.0, 6)
-	MeshKit.frustum_into(s, Vector3(0, 2.4, 0), 0.95, 0.2, 1.8, 6)
-	var m := s.mesh()
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.20, 0.36, 0.22)
-	mat.roughness = 1.0
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	m.surface_set_material(0, mat)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 78
-	var xfs := []
-	# [x0, z0, x1, z1, count]: the strips beside the quarry, and the land east of the yard and south of the quarry fence
-	var zones := [[-196.0, -112.0, -134.0, 30.0, 420], [134.0, -112.0, 196.0, 30.0, 420], [30.0, -4.0, 130.0, 74.0, 180], [-134.0, 30.0, -100.0, 74.0, 60]]
-	for z in zones:
-		var n := 0
-		var tries := 0
-		while n < int(z[4]) and tries < 8000:
-			tries += 1
-			var p := Vector3(rng.randf_range(float(z[0]), float(z[2])), 0.0, rng.randf_range(float(z[1]), float(z[3])))
-			if sin(p.x * 0.13 + 1.3) * 0.5 + cos(p.z * 0.17) * 0.5 < -0.25 and rng.randf() < 0.7:
-				continue               # groves, not an even carpet
-			if p.x > 24.0 and p.x < 56.0 and p.z > -4.0 and p.z < 30.0:
-				continue               # the east extension stays clear
-			var sc := rng.randf_range(1.2, 2.4)
-			xfs.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU) * Basis.from_scale(Vector3(sc, sc * rng.randf_range(0.9, 1.4), sc)), p))
-			n += 1
+## ------------------------------------------------------------------ the forest (Blender models, MultiMesh)
+## Species: tall and young pines, birches (trees: `forest` holds the pines, `tree_positions` their spots); under and between them bushes, ferns, grass, wildflowers, logs,
+## stumps and mossy stones. Handcrafted-looking rather than an even carpet: the density grows with the distance from the working yard, trees gather in groves with
+## clearings between them, species mix by distance (young pines, birches and bushes near the edge, tall pines far away), every instance has its own scale, turn, a slight
+## lean and a tint. Ground cover is split into 64 m chunks with their own draw distance. Nothing grows on the yard, the roads, the tunnel approach, the quarry or the
+## east extension.
+
+var _mm_nodes := {}
+var young_positions: Array = []
+
+## True where nothing may grow (xz in world metres).
+func forest_blocked(p: Vector2) -> bool:
+	var hub: Rect2 = game.hub_rect()
+	if hub.grow(7.0).has_point(p):
+		return true
+	if p.x > -134.0 and p.x < 134.0 and p.y > -115.0 and p.y < -2.0:
+		return true                                              # the quarry and its fence
+	if p.x > -78.0 and p.x < -18.0 and p.y > 12.0 and p.y < 40.0:
+		return true                                              # the service lane and the tunnel approach
+	if p.x > -110.0 and p.x < -26.0 and p.y > -6.0 and p.y < 80.0:
+		return true                                              # the tunnel mountain
+	if p.x > 22.0 and p.x < 58.0 and p.y > -6.0 and p.y < 32.0:
+		return true                                              # the east extension
+	if absf(p.x) < 9.0 and p.y > -140.0 and p.y < 30.0:
+		return true                                              # the central road, the gate and the haul road
+	return false
+
+## Slow value noise: groves where it is high, clearings where it is low.
+static func grove(p: Vector2) -> float:
+	return 0.5 * sin(p.x * 0.071 + 1.3) * cos(p.y * 0.053) + 0.3 * sin(p.x * 0.19 + p.y * 0.13) + 0.2 * cos(p.y * 0.23 - p.x * 0.11)
+
+func _add_mm(key: String, nm: String, xfs: Array, tints: Array, draw_end := 0.0) -> MultiMeshInstance3D:
+	var m: ArrayMesh = WorldModels.mesh(key)
+	if m == null or xfs.is_empty():
+		return null
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = true
 	mm.mesh = m
 	mm.instance_count = xfs.size()
 	for i in range(xfs.size()):
 		mm.set_instance_transform(i, xfs[i])
-	forest = MultiMeshInstance3D.new()
-	forest.name = "Forest"
-	forest.multimesh = mm
-	forest.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(forest)
-	tree_count = xfs.size()
-	for x in xfs:
-		tree_positions.append((x as Transform3D).origin)
+		mm.set_instance_color(i, tints[i])
+	var mi := MultiMeshInstance3D.new()
+	mi.name = nm
+	mi.multimesh = mm
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	if draw_end > 0.0:
+		mi.visibility_range_end = draw_end
+		mi.visibility_range_end_margin = 10.0
+	add_child(mi)
+	_mm_nodes[nm] = mi
+	return mi
 
+func _xf(r: RandomNumberGenerator, p: Vector3, smin: float, smax: float, lean := 0.04) -> Transform3D:
+	var sc := r.randf_range(smin, smax)
+	var b := Basis(Vector3.UP, r.randf() * TAU) * Basis(Vector3.RIGHT, r.randf_range(-lean, lean)) * Basis(Vector3.FORWARD, r.randf_range(-lean, lean))
+	return Transform3D(b.scaled(Vector3(sc, sc * r.randf_range(0.92, 1.12), sc)), p)
+
+static func _tint(r: RandomNumberGenerator, v := 0.1) -> Color:
+	var f := r.randf_range(1.0 - v, 1.0 + v)
+	return Color(f, f * r.randf_range(0.97, 1.03), f * r.randf_range(0.94, 1.0))
+
+func _cover_add(chunks: Dictionary, kind: String, xf: Transform3D, tint: Color) -> void:
+	var o := xf.origin
+	var key := "%s|%d_%d" % [kind, int(floor(o.x / 64.0)), int(floor(o.z / 64.0))]
+	if not chunks.has(key):
+		chunks[key] = [[], []]
+	chunks[key][0].append(xf)
+	chunks[key][1].append(tint)
+
+## Plants the forest. `rects`: [x0, z0, x1, z1, attempts] areas to grow in; `centre`: the working yard the density is measured from.
+func _plant(rects: Array, seed: int, ground_y: Callable, centre := Vector2(0.0, 12.0)) -> void:
+	var r := RandomNumberGenerator.new()
+	r.seed = seed
+	var pine_x: Array = []
+	var pine_t: Array = []
+	var young_x: Array = []
+	var young_t: Array = []
+	var birch_x: Array = []
+	var birch_t: Array = []
+	var chunks := {}
+	for z in rects:
+		var tries := 0
+		while tries < int(z[4]):
+			tries += 1
+			var p2 := Vector2(r.randf_range(float(z[0]), float(z[2])), r.randf_range(float(z[1]), float(z[3])))
+			if forest_blocked(p2):
+				continue
+			var d := p2.distance_to(centre)
+			var far := smoothstep(45.0, 170.0, d)
+			var gv := grove(p2)
+			var keep := lerpf(0.10, 0.92, far)
+			if gv < -0.05:
+				keep *= 0.18                                 # a clearing
+			elif gv > 0.35:
+				keep = minf(1.0, keep * 1.5)                 # the heart of a grove
+			if r.randf() > keep:
+				if r.randf() < 0.07 and d > 50.0:            # a clearing is not bare: meadow flowers and grass
+					var q := Vector3(p2.x, ground_y.call(p2), p2.y)
+					_cover_add(chunks, "flowers", _xf(r, q, 0.9, 1.6, 0.0), _tint(r, 0.12))
+					_cover_add(chunks, "grass", _xf(r, q + Vector3(r.randf_range(-0.8, 0.8), 0, r.randf_range(-0.8, 0.8)), 0.9, 1.8, 0.0), _tint(r, 0.15))
+				continue
+			var p := Vector3(p2.x, ground_y.call(p2), p2.y)
+			var roll := r.randf()
+			var young_share := lerpf(0.5, 0.12, far)
+			var birch_share := 0.12 * (1.0 - far * 0.5)
+			if roll < young_share:
+				young_x.append(_xf(r, p, 0.8, 1.5))
+				young_t.append(_tint(r))
+			elif roll < young_share + birch_share and gv < 0.3:
+				birch_x.append(_xf(r, p, 0.85, 1.35))
+				birch_t.append(_tint(r))
+			else:
+				pine_x.append(_xf(r, p, 0.75 + 0.2 * far, 1.35 + 0.25 * far))
+				pine_t.append(_tint(r))
+			var u := r.randf()                               # the forest floor around it
+			var around := p + Vector3(r.randf_range(-2.6, 2.6), 0, r.randf_range(-2.6, 2.6))
+			around.y = ground_y.call(Vector2(around.x, around.z))
+			if u < 0.30:
+				_cover_add(chunks, "fern", _xf(r, around, 0.8, 1.5, 0.0), _tint(r, 0.12))
+			elif u < 0.52:
+				_cover_add(chunks, "bush", _xf(r, around, 0.8, 1.5, 0.0), _tint(r, 0.1))
+			elif u < 0.68:
+				_cover_add(chunks, "grass", _xf(r, around, 1.0, 1.8, 0.0), _tint(r, 0.15))
+			elif u < 0.74:
+				_cover_add(chunks, "flowers", _xf(r, around, 0.9, 1.4, 0.0), _tint(r, 0.1))
+			elif u < 0.77:
+				_cover_add(chunks, "mossy_stone", _xf(r, around, 0.8, 1.7, 0.0), Color(1, 1, 1))
+			elif u < 0.785:
+				_cover_add(chunks, "log", _xf(r, around, 0.8, 1.3, 0.0), Color(1, 1, 1))
+			elif u < 0.80:
+				_cover_add(chunks, "stump", _xf(r, around, 0.8, 1.3, 0.0), Color(1, 1, 1))
+	forest = _add_mm("pine_tall", "Forest", pine_x, pine_t)
+	_add_mm("pine_young", "ForestYoung", young_x, young_t)
+	_add_mm("birch", "ForestBirch", birch_x, birch_t)
+	tree_count = pine_x.size()
+	for x in pine_x:
+		tree_positions.append((x as Transform3D).origin)
+	for x in young_x:
+		young_positions.append((x as Transform3D).origin)
+	for x in birch_x:
+		young_positions.append((x as Transform3D).origin)
+	for key in chunks:
+		var kind: String = str(key).get_slice("|", 0)
+		var data: Array = chunks[key]
+		_add_mm(kind, "Cover_%s" % str(key).replace("|", "_"), data[0], data[1], 110.0 if kind in ["fern", "grass", "flowers"] else 150.0)
+
+## The blueprint world's forests: the strips east and west of the quarry, the land east of the yard and south of the quarry fence, thinning toward the yard.
+func _forest_blueprint() -> void:
+	var flat := func(_p: Vector2) -> float: return 0.0
+	_plant([[-200.0, -125.0, -132.0, 76.0, 5200], [132.0, -125.0, 200.0, 76.0, 5200], [-132.0, 40.0, 132.0, 76.0, 3200], [-200.0, 76.0, 200.0, 80.0, 400]], 78, flat)
+
+## The old (non-blueprint) layout: trees only on the embankment ring (radius 34-49 m), outside the pit corridor and the east side.
 func _forest() -> void:
-	var s := MeshKit.Soup.new()
-	MeshKit.frustum_into(s, Vector3(0, 0.0, 0), 0.18, 0.14, 1.2, 5)                 # trunk
-	MeshKit.frustum_into(s, Vector3(0, 0.9, 0), 1.3, 0.35, 2.0, 6)                  # lower cone
-	MeshKit.frustum_into(s, Vector3(0, 2.4, 0), 0.95, 0.2, 1.8, 6)                  # upper cone
-	var m := s.mesh()
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.20, 0.36, 0.22)
-	mat.roughness = 1.0
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	m.surface_set_material(0, mat)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 77
-	var xfs := []
+	var r := RandomNumberGenerator.new()
+	r.seed = 77
+	var xfs: Array = []
+	var tints: Array = []
 	var tries := 0
-	while xfs.size() < 360 and tries < 4000:
+	while xfs.size() < 360 and tries < 6000:
 		tries += 1
-		var a := rng.randf() * TAU
-		var r := rng.randf_range(34.0, 49.0)
-		# clumps: only keep spots where a slow noise is high, so the trees gather in groves
-		if sin(a * 5.0 + 1.3) * 0.5 + cos(a * 9.0) * 0.5 < -0.15 and rng.randf() < 0.75:
+		var a := r.randf() * TAU
+		var rad := r.randf_range(34.0, 49.0)
+		if sin(a * 5.0 + 1.3) * 0.5 + cos(a * 9.0) * 0.5 < -0.15 and r.randf() < 0.75:
 			continue
-		var p := Vector3(cos(a) * r, _embankment_height(r) - 0.25, sin(a) * r)
+		var p := Vector3(cos(a) * rad, _embankment_height(rad) - 0.25, sin(a) * rad)
 		if game.in_pit_corridor(p, 8.0) or (p.x > 24.0 and absf(p.z) < 18.0):
 			continue
-		var sc := rng.randf_range(1.2, 2.3)
-		xfs.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU) * Basis.from_scale(Vector3(sc, sc * rng.randf_range(0.9, 1.4), sc)), p))
-	var mm := MultiMesh.new()
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.mesh = m
-	mm.instance_count = xfs.size()
-	for i in range(xfs.size()):
-		mm.set_instance_transform(i, xfs[i])
-	forest = MultiMeshInstance3D.new()
-	forest.name = "Forest"
-	forest.multimesh = mm
-	forest.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(forest)
+		xfs.append(_xf(r, p, 0.9, 1.5))
+		tints.append(_tint(r))
+	forest = _add_mm("pine_tall", "Forest", xfs, tints)
 	tree_count = xfs.size()
 	for x in xfs:
 		tree_positions.append((x as Transform3D).origin)

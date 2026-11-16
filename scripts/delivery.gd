@@ -96,6 +96,18 @@ func build(main_node) -> void:
 func _build_gate_west() -> void:
 	var stone := MeshKit.mat("RockLimestone")
 	var gx := WEST_GATE.x - 0.9
+	var portal: Node3D = WorldModels.placed("tunnel_portal")         # the carved Blender entrance: rock face, timber frame, signs, lamps, drainage (the posts below keep the collision)
+	if portal != null:
+		portal.name = "TunnelPortal"
+		portal.position = Vector3(WEST_GATE.x - 1.8 - 0.1, 0.0, WEST_GATE.z)
+		portal.rotation.y = PI * 0.5                                    # the model faces +Z, the yard is to the east (+x)
+		game.world.add_child(portal)
+		var pl := OmniLight3D.new()                                     # warm light on the mouth
+		pl.position = Vector3(WEST_GATE.x + 0.5, 3.8, WEST_GATE.z)
+		pl.light_color = Color(1.0, 0.82, 0.55)
+		pl.light_energy = 1.3
+		pl.omni_range = 11.0
+		game.world.add_child(pl)
 	for sz in [-1.0, 1.0]:
 		var post := MeshInstance3D.new()
 		var pm := BoxMesh.new()
@@ -103,6 +115,7 @@ func _build_gate_west() -> void:
 		post.mesh = pm
 		post.position = Vector3(gx, 2.8, WEST_GATE.z + sz * 4.1)
 		post.material_override = stone
+		post.visible = portal == null
 		game.world.add_child(post)
 		var wall := StaticBody3D.new()
 		wall.name = "Gate post"
@@ -119,6 +132,7 @@ func _build_gate_west() -> void:
 	lintel.mesh = lm
 	lintel.position = Vector3(gx, 5.0, WEST_GATE.z)
 	lintel.material_override = stone
+	lintel.visible = portal == null
 	game.world.add_child(lintel)
 	var stripe := MeshInstance3D.new()
 	var sm := BoxMesh.new()
@@ -126,6 +140,7 @@ func _build_gate_west() -> void:
 	stripe.mesh = sm
 	stripe.position = Vector3(gx + 0.92, 4.4, WEST_GATE.z)
 	stripe.material_override = MeshKit.mat("Hazard")
+	stripe.visible = portal == null
 	game.world.add_child(stripe)
 	_build_tunnel(0.0)
 
@@ -223,12 +238,30 @@ func _build_tunnel(z0: float) -> void:
 	box.call(Vector3(cx, h + 0.3, (z0 + z1) * 0.5), Vector3(w + 1.2, 0.6, z1 - z0), stone, true)
 	var lamp := MeshKit.flat(Color(1.0, 0.92, 0.7), 2.2)
 	var k := z0 + 2.0
+	var lining := WorldModels.mesh("tunnel_set")
+	var set_n := 0
 	while k < z1 - 1.0:
-		box.call(Vector3(cx, h - 0.05, k), Vector3(w - 0.4, 0.14, 0.18), rib)           # roof rib
-		for sx in [-1.0, 1.0]:
-			box.call(Vector3(cx + sx * (w * 0.5 - 0.55), h - 0.55, k), Vector3(1.1, 0.14, 0.18), rib, false, -sx * PI * 0.25)    # the corner braces make it an arch
-			box.call(Vector3(cx + sx * (w * 0.5 - 0.08), 1.9, k + 1.6), Vector3(0.1, 0.22, 0.5), lamp)                         # wall lights
-		box.call(Vector3(cx, h - 0.16, k + 1.6), Vector3(1.4, 0.08, 0.3), lamp)         # ceiling lamp
+		if lining != null:
+			# a Blender lining section: timber set (posts, cap beam, braces), drainage gutters and caged lamps; every second one also lights the road
+			var mi := MeshInstance3D.new()
+			mi.mesh = lining
+			mi.position = Vector3(cx, 0.0, k + 0.8)
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			parts.add_child(mi)
+			if set_n % 2 == 0:
+				var tl := OmniLight3D.new()
+				tl.position = Vector3(cx, h - 0.6, k + 1.8)
+				tl.light_color = Color(1.0, 0.85, 0.6)
+				tl.light_energy = 0.9
+				tl.omni_range = 6.5
+				parts.add_child(tl)
+		else:
+			box.call(Vector3(cx, h - 0.05, k), Vector3(w - 0.4, 0.14, 0.18), rib)           # roof rib
+			for sx in [-1.0, 1.0]:
+				box.call(Vector3(cx + sx * (w * 0.5 - 0.55), h - 0.55, k), Vector3(1.1, 0.14, 0.18), rib, false, -sx * PI * 0.25)    # the corner braces make it an arch
+				box.call(Vector3(cx + sx * (w * 0.5 - 0.08), 1.9, k + 1.6), Vector3(0.1, 0.22, 0.5), lamp)                         # wall lights
+			box.call(Vector3(cx, h - 0.16, k + 1.6), Vector3(1.4, 0.08, 0.3), lamp)         # ceiling lamp
+		set_n += 1
 		k += 3.2
 	# the far end: daylight and the street carrying on (sky-coloured glow, road and kerb lines)
 	box.call(Vector3(cx, h * 0.5, z1 + 0.15), Vector3(w + 1.2, h + 0.6, 0.3), MeshKit.flat(Color(0.82, 0.90, 1.0), 1.6), true)

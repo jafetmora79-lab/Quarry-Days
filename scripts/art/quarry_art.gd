@@ -847,19 +847,23 @@ func _blueprint_world() -> void:
 	_fence_line(Vector2(-fx, fz1), Vector2(-fx, fz0), false, 2.0)
 	_fence_line(Vector2(fx, fz1), Vector2(fx, fz0), false, 2.0)
 	_fence_line(Vector2(-fx, fz0), Vector2(fx, fz0), false, 2.0)
-	# the mountain range to the north: not interactable, only seen
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 5150
-	var rs := MeshKit.Soup.new()
-	for i in range(22):
-		var x := -200.0 + float(i) * 19.5 + rng.randf_range(-6.0, 6.0)
-		var h := rng.randf_range(26.0, 52.0) * (1.0 - 0.45 * absf(x) / 220.0)
-		MeshKit.rock_into(rs, Vector3(x, -2.0, rng.randf_range(-170.0, -140.0)), Vector3(rng.randf_range(44.0, 70.0), h, rng.randf_range(36.0, 52.0)), 400 + i, 4, 8)
-	for i in range(14):
-		var x2 := -190.0 + float(i) * 29.0 + rng.randf_range(-8.0, 8.0)
-		MeshKit.rock_into(rs, Vector3(x2, -2.0, rng.randf_range(-128.0, -118.0)), Vector3(rng.randf_range(30.0, 46.0), rng.randf_range(8.0, 15.0), rng.randf_range(16.0, 24.0)), 500 + i, 3, 7)
+	# the mountain range to the north: not interactable, only seen. Faceted Blender mountains (scripts/art/world_models.gd) of different shapes, crooked rather than
+	# repetitive: a long ridge behind, big peaks between, foothills in front, then the sides. Falls back to the old rock blobs when the models are missing.
 	var rock_mat := _mountain_material()
-	MeshKit.inst(root, rs.mesh(), rock_mat).name = "NorthRange"
+	if WorldModels.has("peak_a"):
+		_world_mountains()
+	else:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 5150
+		var rs := MeshKit.Soup.new()
+		for i in range(22):
+			var x := -200.0 + float(i) * 19.5 + rng.randf_range(-6.0, 6.0)
+			var h := rng.randf_range(26.0, 52.0) * (1.0 - 0.45 * absf(x) / 220.0)
+			MeshKit.rock_into(rs, Vector3(x, -2.0, rng.randf_range(-170.0, -140.0)), Vector3(rng.randf_range(44.0, 70.0), h, rng.randf_range(36.0, 52.0)), 400 + i, 4, 8)
+		for i in range(14):
+			var x2 := -190.0 + float(i) * 29.0 + rng.randf_range(-8.0, 8.0)
+			MeshKit.rock_into(rs, Vector3(x2, -2.0, rng.randf_range(-128.0, -118.0)), Vector3(rng.randf_range(30.0, 46.0), rng.randf_range(8.0, 15.0), rng.randf_range(16.0, 24.0)), 500 + i, 3, 7)
+		MeshKit.inst(root, rs.mesh(), rock_mat).name = "NorthRange"
 	# the west mountain with the tunnel: rock masses beside and above the tunnel (its own walls and roof are built by the delivery system)
 	var ms := MeshKit.Soup.new()
 	MeshKit.rock_into(ms, Vector3(-62.0, -1.0, 6.0), Vector3(74.0, 26.0, 40.0), 611, 4, 8)
@@ -867,6 +871,31 @@ func _blueprint_world() -> void:
 	MeshKit.rock_into(ms, Vector3(-38.0, 5.2, 25.4), Vector3(34.0, 12.0, 16.0), 613, 3, 7)
 	MeshKit.rock_into(ms, Vector3(-86.0, -1.0, 27.0), Vector3(40.0, 20.0, 30.0), 614, 3, 7)
 	MeshKit.inst(root, ms.mesh(), rock_mat).name = "TunnelMountain"
+
+## Places the Blender mountains round the property (visual only: the property's boundary walls and the quarry's cliffs are unchanged).
+func _world_mountains() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 5150
+	# [model, x, z, scale, yaw (deg)]
+	var spots := [
+		["ridge", 0.0, -214.0, 2.2, 0.0], ["ridge", -150.0, -196.0, 1.7, 14.0], ["ridge", 160.0, -200.0, 1.8, -10.0],
+		["peak_a", -105.0, -172.0, 1.25, 20.0], ["peak_b", 82.0, -176.0, 1.2, -8.0], ["peak_a", 20.0, -160.0, 1.45, 160.0], ["peak_b", -30.0, -190.0, 1.5, 10.0],
+		["peak_a", 190.0, -145.0, 1.1, 70.0], ["peak_b", -200.0, -120.0, 1.05, 100.0],
+		["foothill", -170.0, -128.0, 1.5, 5.0], ["foothill", -120.0, -134.0, 1.3, 40.0], ["foothill", -62.0, -132.0, 1.2, 190.0], ["foothill", 52.0, -134.0, 1.3, 120.0],
+		["foothill", 112.0, -130.0, 1.4, 20.0], ["foothill", 168.0, -126.0, 1.5, 70.0],
+		["peak_b", 212.0, -40.0, 1.0, 90.0], ["peak_b", -212.0, 60.0, 1.0, 85.0], ["foothill", 205.0, 30.0, 1.4, 100.0], ["foothill", -200.0, -20.0, 1.4, 80.0],
+		["peak_a", -158.0, 34.0, 1.0, 30.0]]
+	for sp in spots:
+		var n: Node3D = WorldModels.placed(str(sp[0]))
+		if n == null:
+			continue
+		n.position = Vector3(float(sp[1]), -1.0, float(sp[2]))
+		n.scale = Vector3.ONE * float(sp[3])
+		n.rotation.y = deg_to_rad(float(sp[4]))
+		n.set_meta("mountain", true)
+		root.add_child(n)
+		for mi in n.find_children("*", "MeshInstance3D", true, false):
+			(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 ## The strata rock of the mountains, a touch darker and warmer than the quarry cliffs so the range reads as distant hills rather than pale boulder piles.
 func _mountain_material() -> Material:
