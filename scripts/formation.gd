@@ -206,6 +206,8 @@ func _build_decor(dd: Dictionary) -> void:
 				continue
 			var lp := _local(i)
 			var sc: float = rng.randf_range(float(kd[4].x), float(kd[4].y))
+			if _decor_blocked(prog.column_pos(fid, i)):
+				continue
 			var top := float(prog.column_tiers(fid, i)) * tier_h + float(kd[5])
 			var basis := Basis(Vector3.UP, rng.randf() * TAU) * Basis.from_scale(Vector3(sc, sc * rng.randf_range(0.8, 1.2) if ki != 4 else 1.0, sc))
 			xfs.append(Transform3D(basis, Vector3(lp.x + rng.randf_range(-cell * 0.4, cell * 0.4), top, lp.z + rng.randf_range(-cell * 0.4, cell * 0.4))))
@@ -238,6 +240,12 @@ func _build_decor(dd: Dictionary) -> void:
 		clean.fill(false)
 		_decor_groups.append({"mm": mm, "base": xfs, "col": cols, "on": on, "clean": clean, "overgrowth": ki != 4})
 	_apply_cleanup_state()
+
+## No scrub, tufts or stones on the road: the through-tunnel's roadway (and 6 m either side), its portals, and the forest road outside.
+static func _decor_blocked(w: Vector3) -> bool:
+	if w.x < -22.0 and w.x > -124.0 and absf(w.z - 25.4) < 6.0:
+		return true
+	return QuarryOpening.near_road(Vector2(w.x, w.z), 6.0)
 
 static var _decor_mat: StandardMaterial3D
 

@@ -12,6 +12,8 @@ const COLOURS := {
 	"RockA": Color(0.62, 0.55, 0.45), "RockB": Color(0.50, 0.45, 0.39), "RockC": Color(0.72, 0.65, 0.52), "RockD": Color(0.42, 0.40, 0.38),
 	"Fur": Color(0.62, 0.42, 0.25), "FurLight": Color(0.88, 0.78, 0.62), "Antler": Color(0.82, 0.74, 0.56), "Dark": Color(0.10, 0.09, 0.08),
 	"RabbitFur": Color(0.60, 0.50, 0.40), "RabbitWhite": Color(0.93, 0.91, 0.86), "Pink": Color(0.92, 0.62, 0.62),
+	"PickGreen": Color(0.30, 0.42, 0.31), "PickDark": Color(0.19, 0.28, 0.21), "PickWood": Color(0.45, 0.32, 0.20), "PickSeat": Color(0.44, 0.30, 0.19),
+	"PickDash": Color(0.20, 0.18, 0.16), "PickTrim": Color(0.66, 0.66, 0.62), "PickTyre": Color(0.07, 0.07, 0.07), "PickRed": Color(0.75, 0.12, 0.10), "PickRust": Color(0.45, 0.24, 0.12),
 	"Timber": Color(0.45, 0.31, 0.18), "Steel": Color(0.38, 0.40, 0.42), "Concrete": Color(0.55, 0.55, 0.53), "Hazard": Color(0.90, 0.72, 0.10), "Paint": Color(0.90, 0.78, 0.20)}
 const FOLIAGE := {
 	"Pine": Color(0.16, 0.33, 0.20), "PineLight": Color(0.25, 0.43, 0.24), "Leaf": Color(0.42, 0.55, 0.20), "LeafWarm": Color(0.68, 0.58, 0.20),
@@ -84,6 +86,13 @@ static func material_for(name: String) -> Material:
 		m = sm
 	elif name == "Lamp":
 		m = MeshKit.flat(Color(1.0, 0.86, 0.55), 1.2)
+	elif name == "PickGlass":
+		var gm := StandardMaterial3D.new()                       # window glass: see-through, both sides
+		gm.albedo_color = Color(0.62, 0.78, 0.82, 0.16)
+		gm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		gm.cull_mode = BaseMaterial3D.CULL_DISABLED
+		gm.roughness = 0.2
+		m = gm
 	elif COLOURS.has(name):
 		var sm2 := StandardMaterial3D.new()
 		sm2.albedo_color = COLOURS[name]

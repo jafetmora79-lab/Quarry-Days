@@ -212,6 +212,8 @@ func _ready() -> void:
 	wildlife.setup(self)
 	ambience = QuarryAmbience.new()
 	ambience.setup(self)
+	item_tips = QuarryItemTips.new()
+	item_tips.setup(self)
 	_spawn_cleanup()
 	art.dress_storage(storage_body)
 	for kind in deposit_nodes:
@@ -3452,6 +3454,8 @@ func order_machine(key: String) -> bool:
 	var titles := {"crusher": "Small jaw crusher", "hopper": "Small hopper", "sorter": "Manual sorting table", "output": "Output storage", "advanced_crusher": "Advanced crusher", "conveyor": "Straight conveyor",
 		"conveyor_left": "Left corner conveyor", "conveyor_right": "Right corner conveyor", "conveyor_merger": "Merger"}
 	hud.toast("Delivery confirmed", "%s is in your construction inventory - place it from the order screen or in construction mode." % titles.get(key, key), "unlock")
+	if item_tips != null:
+		item_tips.offer("machine:" + key)
 	if delivery:
 		delivery.start_crate(key)                  # cosmetic flatbed with the crate; the inventory above is already final
 	_sfx_unlock()
@@ -5923,6 +5927,8 @@ func ui_buy_vehicle(type: String) -> String:
 		if slot == null:
 			return "Equipment parking is blocked - the %s will not fit in the garage or on the apron. Drive another machine out of the way first." % fleet.spec(type)["title"]
 	var rec := fleet.buy(type, slot, 0.0)
+	if not rec.is_empty() and item_tips != null:
+		item_tips.offer("vehicle:" + type)
 	_sync_vehicles()
 	nav_dirty = true
 	if delivery and not rec.is_empty() and delivery.start(int(rec["id"]), slot, fallback):
@@ -6486,6 +6492,7 @@ func _cine_stop() -> void:
 ## real world (no video). Esc / Enter / Space / E / a click skips straight to the meeting with Grandpa. Off in headless runs (tests) unless forced.
 var intro_shots_enabled := DisplayServer.get_name() != "headless"
 var opening_scene: QuarryOpeningScene
+var item_tips: QuarryItemTips          ## the "what is this for?" cards (scripts/item_tips.gd)
 var est_running := false
 var est_cam: Camera3D
 var est_tween: Tween
@@ -6605,6 +6612,9 @@ func _finish_intro() -> void:
 	prog.story["intro_seen"] = true
 	player.locked = false
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	if item_tips != null:
+		for tip in ["tool:0", "gear:shovel", "gear:ramp_plan"]:        # after Walt's scene: what the starting tools are for
+			item_tips.offer(tip)
 	if natural_start_enabled and prog.natural_start() and not bool(prog.excavator_state()["started"]):
 		_grandpa_to_post()   # Phase 10: he waits by the broken excavator and helps once it is repaired
 	else:
@@ -7412,6 +7422,8 @@ func buy_next_tool() -> bool:
 	player.tool_view.equip(prog.model_tier(), menu != "")   # behind a menu nobody sees the swap animation: just show the new tool
 	_refresh_workbench()
 	hud.toast("New tool: " + str(nt["title"]), "MINING POWER +%d%%" % prog.tool_gain_percent(from, state.tool_tier), "unlock")
+	if item_tips != null:
+		item_tips.offer("tool:%d" % state.tool_tier)
 	_sfx_unlock()
 	_notify(str(nt.get("desc", "")))
 	return true
@@ -7431,6 +7443,8 @@ func buy_gear(id: String) -> bool:
 		hud.toast(str(g["title"]), "POWERED TOOLS +%d%%" % int(round((float(g.get("power_mult", 1.0)) - 1.0) * 100.0)), "unlock")
 	else:
 		hud.toast("New tool: " + str(g["title"]), str(g.get("class", "")).to_upper(), "unlock")
+	if item_tips != null:
+		item_tips.offer("gear:" + id)
 	_sfx_unlock()
 	_notify(str(g.get("desc", "")))
 	return true
@@ -7798,6 +7812,8 @@ func install_rig(type: String, formation: String) -> bool:
 		return false
 	var r := prog.buy_rig(type, formation)
 	_sync_rigs()
+	if not r.is_empty() and item_tips != null:
+		item_tips.offer("rig:" + type)
 	nav_dirty = true
 	hud.toast("%s installed" % str(prog.machine(type)["title"]), "Working the %s from its drilling pad." % str(prog.fdef(formation)["title"]), "unlock")
 	_sfx_unlock()

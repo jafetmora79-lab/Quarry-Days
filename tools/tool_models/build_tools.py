@@ -319,11 +319,15 @@ def hand(root, mirror):
     t = TM("Body", root, mirror=mirror)
     r = 0.021                                                                              # the typical handle
     R = r + 0.0105
-    grip_band(t, 0.0, 0.088, R, 8, -120, 0.021, "Glove", steps=7, taper=0.1)               # fingers: glove over the first two joints...
-    grip_band(t, 0.0, 0.086, R, -120, -215, 0.0195, "Skin", steps=5, taper=0.25)           # ...bare finger tips
-    for y in (-0.022, 0.0, 0.022):                                                          # seams between the fingers
-        grip_band(t, y, 0.0035, R + 0.0019, -25, -110, 0.021, "GloveDark", steps=5, taper=0.1, chamfer=0.0)
-        grip_band(t, y, 0.0030, R + 0.0016, -125, -205, 0.0195, "SkinDark", steps=4, taper=0.25, chamfer=0.0)
+    # four separate fingers wrapped round the handle from the BACK of the hand to the FRONT of the grip, side by side along it: the index nearest the head (+Y), the little finger
+    # nearest the butt (-Y), each a little shorter than the one before; glove over the first two joints, bare tips curling in. A bend at every joint (three segments each).
+    fingers = [(0.033, 0.0112, -222), (0.011, 0.0116, -230), (-0.011, 0.0112, -224), (-0.033, 0.0098, -205)]        # (y along the grip, finger radius, where the tip ends: degrees)
+    for (fy, fr, end) in fingers:
+        j1, j2 = -60.0, -128.0                                                                  # the joint angles round the handle
+        finger_arc(t, fy, R, 6, j1, fr, "Glove", n=4, seg=6)                                    # proximal segment, over the knuckle
+        finger_arc(t, fy, R + 0.0008, j1 - 3, j2, fr * 0.96, "Glove", n=4, seg=6)               # middle segment
+        finger_arc(t, fy, R + 0.0012, j2 - 3, end, fr * 0.9, "Skin", n=4, seg=6)                # the bare tip, pressed against the grip
+        t.cyl((math.sin(math.radians(j1)) * (R + 0.002), fy, math.cos(math.radians(j1)) * (R + 0.002)), fr * 1.02, fr * 1.02, fr * 1.9, "Glove", seg=6, axis='y')   # the joint's knuckle
     for y in (-0.033, -0.011, 0.011, 0.033):                                                # knuckles across the back of the hand
         t.cyl((0.0, y, r + 0.058), 0.0105, 0.0105, 0.024, "Glove", seg=6, axis='x')
     t.box((0, 0.0, r + 0.035), (0.084, 0.092, 0.034), "Glove", taper=(0.94, 0.96))         # palm and heel of the hand

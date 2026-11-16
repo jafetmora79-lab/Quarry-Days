@@ -981,6 +981,8 @@ func _land_detail() -> void:
 				continue                       # the yard, and the service lane + tunnel approach
 			if p.x > 24.0 and p.x < 56.0 and p.y > -4.0 and p.y < 30.0:
 				continue                       # the east extension
+			if (p.x > -126.0 and p.x < -20.0 and absf(p.y - 25.4) < 7.0) or QuarryOpening.near_road(p, 7.0):
+				continue                       # the through-tunnel's roadway and the forest road: no tufts or stones on the tarmac
 			var sc: float = rng.randf_range(float(kd[4].x), float(kd[4].y))
 			var basis := Basis(Vector3.UP, rng.randf() * TAU) * Basis.from_scale(Vector3(sc, sc if ki != 1 else 1.0, sc))
 			xfs.append(Transform3D(basis, Vector3(p.x, float(kd[5]), p.y)))

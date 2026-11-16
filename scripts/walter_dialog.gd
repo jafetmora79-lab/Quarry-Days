@@ -49,7 +49,7 @@ func setup(entries: Array, is_timed := false) -> void:
 	next_btn.pressed.connect(advance)
 	row.add_child(next_btn)
 	skip_btn = Button.new()
-	skip_btn.text = "Skip"
+	skip_btn.text = "Skip  [Esc]"
 	skip_btn.pressed.connect(skip)
 	row.add_child(skip_btn)
 	_show()
@@ -69,7 +69,7 @@ func _show() -> void:
 	var said := str(l.get("text", ""))
 	visible = said != ""                                       # a line with no words is a silent beat (the drive): the box is away
 	body.text = '"%s"' % said
-	next_btn.text = "Continue" if index < lines.size() - 1 else "Done"
+	next_btn.text = "Continue  [E]" if index < lines.size() - 1 else "Done  [E]"
 	_timer = float(l.get("dur", 4.0))
 	line_changed.emit(index)
 

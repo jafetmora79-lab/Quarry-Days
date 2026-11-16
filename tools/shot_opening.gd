@@ -28,6 +28,14 @@ func run() -> void:
 	var mi := 0
 	while sc.phase == "drive" or sc.phase == "exit":
 		await physics_frame
+		if sc.clock >= 9.0 and not FileAccess.file_exists(out + "/a2_walt_wheel.png"):
+			sc.look_yaw = 0.8
+			sc.look_pitch = -0.1
+			for i in 20:
+				await physics_frame
+			await shot("a2_walt_wheel", out)
+			sc.look_yaw = 0.0
+			sc.look_pitch = 0.0
 		if mi < marks.size() and sc.clock >= float(marks[mi][1]):
 			await shot(marks[mi][0], out)
 			mi += 1

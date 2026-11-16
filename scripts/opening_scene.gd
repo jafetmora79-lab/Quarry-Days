@@ -125,26 +125,71 @@ func _tw() -> Tween:
 	tweens.append(t)
 	return t
 
+var bar_top: ColorRect
+var bar_bottom: ColorRect
+const BAR := 0.11                           ## each black bar is this fraction of the screen's height
+
+## Cinematic black bars, top and bottom; they slide in with the first shot and out when the opening ends.
+func _make_bars() -> void:
+	if g.ui == null:
+		return
+	for k in range(2):
+		var b := ColorRect.new()
+		b.color = Color.BLACK
+		b.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.name = "LetterboxTop" if k == 0 else "LetterboxBottom"
+		g.ui.add_child(b)
+		b.anchor_left = 0.0
+		b.anchor_right = 1.0
+		if k == 0:
+			b.anchor_top = 0.0
+			b.anchor_bottom = 0.0
+			b.offset_bottom = 0.0
+			bar_top = b
+		else:
+			b.anchor_top = 1.0
+			b.anchor_bottom = 1.0
+			b.offset_top = 0.0
+			bar_bottom = b
+	var h: float = g.ui.size.y * BAR
+	var tw := _tw()
+	tw.set_parallel(true)
+	tw.tween_property(bar_top, "offset_bottom", h, 0.9).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(bar_bottom, "offset_top", -h, 0.9).set_trans(Tween.TRANS_SINE)
+
+func _bars_off() -> void:
+	for b in [bar_top, bar_bottom]:
+		if b != null and is_instance_valid(b):
+			b.queue_free()
+	bar_top = null
+	bar_bottom = null
+
+## What the player can press: the drive only listens for Esc; the talk can be moved on with E / Space.
+func _set_hint(text: String) -> void:
+	if hint != null and is_instance_valid(hint):
+		hint.text = text
+
 func _make_hint() -> void:
 	if g.ui == null:
 		return
+	_make_bars()
 	hint = Label.new()
-	hint.text = "Esc  skip"
+	hint.text = "Esc   skip the opening"
 	hint.add_theme_font_size_override("font_size", 13)
 	hint.add_theme_color_override("font_color", Color(0.93, 0.85, 0.66, 0.85))
 	hint.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
 	hint.add_theme_constant_override("outline_size", 4)
 	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	g.ui.add_child(hint)
-	hint.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE)
-	hint.offset_left -= 18.0
-	hint.offset_right -= 18.0
-	hint.offset_top += 14.0
-	hint.offset_bottom += 14.0
+	hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE)
+	hint.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	hint.offset_right = -22.0
+	hint.offset_bottom = -(g.ui.size.y * BAR * 0.5 - 9.0)                # centred in the bottom black bar
 
 func _dialog(lines: Array, on_done: Callable) -> void:
 	g._open_walter_dialog(lines, on_done, true)
 	if g.walter_dialog:
+		g.walter_dialog.offset_bottom = -(g.ui.size.y * BAR + 14.0)           # above the cinematic bar
 		g.walter_dialog.line_changed.connect(_on_line.bind(lines))
 		_on_line(0, lines)
 
@@ -186,6 +231,8 @@ func _begin_drive() -> void:
 	w.scale = Vector3.ONE * 0.95
 	g.walter_mode = "waiting"
 	g.walter_pose = "idle"
+	if w.has_meta("rig"):
+		w.get_meta("rig").wheel_hands = true            # both hands on the wheel; they turn with the road
 	# the passenger's eyes
 	look_yaw = 0.0
 	look_pitch = 0.0
@@ -268,6 +315,12 @@ func _process(delta: float) -> void:
 		var prev_h := heading
 		_place_rig(s)
 		var yaw_rate := angle_difference(prev_h, heading) / maxf(delta, 0.0001)
+		if g.walter_node != null and is_instance_valid(g.walter_node) and g.walter_node.has_meta("rig"):
+			var wr = g.walter_node.get_meta("rig")
+			wr.wheel_angle = lerpf(wr.wheel_angle, clampf(-yaw_rate * 2.2, -0.9, 0.9), clampf(delta * 4.0, 0.0, 1.0))
+			var sw = parts.get("steering")
+			if sw != null and is_instance_valid(sw):
+				(sw as Node3D).basis = Basis(Vector3(0.0, 0.342, 0.94), -wr.wheel_angle * 1.6)       # the wheel turns about its own axis with his hands
 		roll = lerpf(roll, clampf(yaw_rate * 0.05, -0.05, 0.05), clampf(delta * 3.0, 0.0, 1.0))
 		for w in parts.get("wheels", []):
 			if is_instance_valid(w):
@@ -436,10 +489,13 @@ func _begin_yard(from_truck: bool) -> void:
 	else:
 		g.hud.fade_to(0.0, 0.0)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_set_hint("E / Space   next line        Esc   skip the opening")
 	_dialog(_lines(["yard"]), _yard_done)
 
 ## The pickup stays where the game has always parked Walt's truck.
 func _restore_truck() -> void:
+	if g.walter_node != null and is_instance_valid(g.walter_node) and g.walter_node.has_meta("rig"):
+		g.walter_node.get_meta("rig").wheel_hands = false
 	if rig != null and is_instance_valid(rig):
 		rig.global_position = _truck_spot()
 		rig.rotation = Vector3(0.0, float(_truck_cfg().get("yaw", 1.5708)), 0.0)
@@ -776,6 +832,7 @@ func _finish(skipped: bool) -> void:
 		g.prog.story["deed_received"] = true                   # skipped before the handoff: the deed is still theirs, once
 	if hint != null and is_instance_valid(hint):
 		hint.queue_free()
+	_bars_off()
 	g.player.tool_view.suppressed = false
 	g.player.tool_view.visible = true
 	g.player.camera.position.y = 1.58

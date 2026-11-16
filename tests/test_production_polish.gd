@@ -36,7 +36,7 @@ func run() -> void:
 	# ---- 1: Walter's truck is the game's truck model, joined up
 	var truck: Node3D = game.truck_node
 	var meshes := truck.find_children("*", "MeshInstance3D", true, false)
-	check(truck != null and meshes.size() >= 20, "1 Walter's truck is built from the real truck model (%d parts)" % meshes.size())
+	check(truck != null and meshes.size() >= 8, "1 Walter's truck is the Blender pickup (%d parts: one merged mesh per holder)" % meshes.size())
 	var lo := Vector3(INF, INF, INF)
 	var hi := Vector3(-INF, -INF, -INF)
 	for mi in meshes:

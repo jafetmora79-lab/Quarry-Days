@@ -32,6 +32,13 @@ func run() -> void:
 		await physics_frame
 	game.hud.toast("Sold stone", "+$120", "sale")
 	await shot("hud_play", out)
-	game._open_menu("pause") if game.has_method("_open_menu") else null
-	await shot("hud_pause", out)
+	game.item_tips.offer("gear:ramp_plan")
+	for i in 80:
+		await physics_frame
+	await shot("tip_ramp", out)
+	game.item_tips._close()
+	game.item_tips.offer("vehicle:compact_excavator")
+	for i in 80:
+		await physics_frame
+	await shot("tip_excavator", out)
 	quit()

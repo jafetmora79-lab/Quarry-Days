@@ -508,7 +508,26 @@ func _carry_arms(cen: Vector3, cf: Transform3D) -> void:
 	_solve_arm("Right", cen + half, cf.basis * _v(Vector3(0.7, -0.7, -0.2)), Basis.IDENTITY, false)
 	_solve_arm("Left", cen - half, cf.basis * _v(Vector3(-0.7, -0.7, -0.2)), Basis.IDENTITY, false)
 
+## Both hands on a steering wheel (the opening's drive): the wheel's centre sits 1.14 up and 0.32 ahead of the rig origin, 0.17 m radius, its plane tilted back 70 degrees.
+## `wheel_hands` turns it on; `wheel_angle` (radians, + = turning to the right) takes the hands round the rim. Works over any FK state (talking, idle).
+var wheel_hands := false
+var wheel_angle := 0.0
+var _wheel_w := 0.0
+
+func _wheel_arms() -> void:
+	var c := Vector3(0.0, 1.14, 0.32)
+	var side := Vector3(1.0, 0.0, 0.0)
+	var top := Vector3(0.0, 0.94, 0.34)
+	for e in [["Right", deg_to_rad(22.0) - wheel_angle], ["Left", deg_to_rad(158.0) - wheel_angle]]:
+		var phi: float = e[1]
+		var rel: Vector3 = side * cos(phi) * 0.17 + top * sin(phi) * 0.17
+		var sgn := 1.0 if str(e[0]) == "Right" else -1.0
+		_solve_arm(str(e[0]), _v(c + rel), _v(Vector3(0.7 * sgn, -0.6, -0.2)), Basis.IDENTITY, false)
+
 func _reach_arms(state: String, p: float) -> void:
+	if wheel_hands:
+		_wheel_arms()
+		return
 	if state == "pickup":
 		var g := _v(Vector3(0.16, 0.30, 0.58))
 		_solve_arm("Right", g, _v(Vector3(0.7, -0.5, 0.0)), Basis.IDENTITY, false)
@@ -621,8 +640,8 @@ func pose(delta: float, state: String, speed: float, work_kind: String, carrying
 	var pick := tool_named("pickaxe")
 	var swinging := state == "work" and work_kind == "miner" and not pick.is_empty()
 	_swing_w = move_toward(_swing_w, 1.0 if swinging else 0.0, delta * 7.0)
-	var reach_on := state in ["interact"] or (state == "pickup" and work_kind == "hauler")
-	var rt := clampf(sin(clampf(p, 0.0, 1.0) * PI) * 1.6, 0.0, 1.0) if state == "pickup" else 1.0
+	var reach_on := wheel_hands or state in ["interact"] or (state == "pickup" and work_kind == "hauler")
+	var rt := clampf(sin(clampf(p, 0.0, 1.0) * PI) * 1.6, 0.0, 1.0) if state == "pickup" and not wheel_hands else 1.0
 	_reach_w = move_toward(_reach_w, rt if reach_on else 0.0, delta * 6.0)
 	if swinging:
 		_swing_p = p

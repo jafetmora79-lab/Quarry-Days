@@ -48,6 +48,16 @@ Q.MATERIALS.update({
     "Hazard":    (None, (0.90, 0.72, 0.10), 0.8, 0.0, {}),
     "Lamp":      (None, (1.0, 0.86, 0.55), 0.5, 0.0, {"emit": 2.0}),
     "Paint":     (None, (0.90, 0.78, 0.20), 0.9, 0.0, {}),
+    "PickGreen": (None, (0.30, 0.42, 0.31), 0.85, 0.0, {}),
+    "PickDark":  (None, (0.19, 0.28, 0.21), 0.9, 0.0, {}),
+    "PickWood":  (None, (0.45, 0.32, 0.20), 1.0, 0.0, {}),
+    "PickSeat":  (None, (0.44, 0.30, 0.19), 1.0, 0.0, {}),
+    "PickDash":  (None, (0.20, 0.18, 0.16), 1.0, 0.0, {}),
+    "PickTrim":  (None, (0.66, 0.66, 0.62), 0.5, 0.4, {}),
+    "PickTyre":  (None, (0.07, 0.07, 0.07), 1.0, 0.0, {}),
+    "PickGlass": (None, (0.62, 0.78, 0.82), 0.2, 0.0, {}),
+    "PickRed":   (None, (0.75, 0.12, 0.10), 0.6, 0.0, {"emit": 0.6}),
+    "PickRust":  (None, (0.45, 0.24, 0.12), 1.0, 0.0, {}),
 })
 
 
@@ -301,7 +311,21 @@ def tunnel_mountain(root):
             cu = 43.0 - sum(p[0] for p in q) / 4
             cz = sum(p[2] for p in q) / 4
             if abs(cz) < 3.9 and (-1.0 < cu < 1.4 or 85.3 < cu < 87.2):
-                continue                                                                                # the tunnel mouths are open: no rock across them
+                # the tunnel mouths are open, and the portal's stone head closes them up to 9.6 m: the rock above that height is kept (the face quads are cut there)
+                cut = []
+                for a, b in ((q[0], q[3]), (q[1], q[2])):
+                    lo, hi = (a, b) if a[1] < b[1] else (b, a)
+                    if hi[1] <= 9.6:
+                        cut = []
+                        break
+                    k = max(0.0, (9.6 - lo[1]) / (hi[1] - lo[1]))
+                    cut.append((lo, hi, tuple(lo[n] + (hi[n] - lo[n]) * k for n in range(3))))
+                if len(cut) == 2:
+                    nq = list(q)
+                    for (lo, hi, nlo) in cut:
+                        nq[nq.index(lo)] = nlo
+                    groups.setdefault("RockB", []).append(nq)
+                continue
             slope = (max(p[1] for p in q) - min(p[1] for p in q)) / (W / nx)
             band = int(ym / 32.0 * 7.0)
             if slope > 1.6:
@@ -378,10 +402,9 @@ def tunnel_portal(root):
         for k in range(5):
             t.box((side * (W2 + 0.75), 0.4 + k * 0.95, 1.02), (1.56, 0.12, 0.08), "RockB")        # mortar courses
         t.box((side * (W2 + 0.2), 0.12, 1.0), (0.5, 0.24, 1.9), "Concrete")
-    t.box((0, OH + 0.75, 0.15), (OW + 3.0, 1.5, 1.7), "RockC")                                       # the arch lintel
-    t.box((0, OH + 1.7, 0.1), (OW + 3.6, 0.4, 1.8), "RockD")                                         # the cap
+    t.box((0, OH + 0.75, 0.15), (OW + 4.4, 1.5, 1.7), "RockB")                                       # the arch lintel (wider than the cut in the face: it overlaps the rock)
     t.box((0, OH + 0.4, 1.02), (1.1, 1.1, 0.1), "RockB")                                             # the keystone
-    t.box((0, (OH + 1.9 + 9.9) / 2, 0.15), (OW + 3.0, 9.9 - OH - 1.9, 1.7), "RockC")                # the stone head up to the top of the face, closing the gap above the opening
+    t.box((0, (OH + 1.5 + 9.9) / 2, 0.15), (OW + 4.4, 9.9 - OH - 1.5, 1.7), "RockB")                # the stone head up to 9.9 m, closing the gap above the opening; the face carries on above it
     for side in (-1, 1):                                                                              # timber frame
         t.box((side * (W2 + 0.3), OH / 2, 1.0), (0.55, OH, 0.55), "Timber")
         t.bar((side * (W2 + 0.3), OH - 1.4, 1.0), (side * (W2 - 1.1), OH, 1.0), 0.2, 0.28, "Timber", up=(0, 0, 1))
@@ -500,10 +523,131 @@ def rabbit(root):
     lb.finish()
 
 
+def pickup(root):
+    """Grandpa Walt's old pickup, 5.4 m long, faded green, facing -Z (the driver sits on the left, -X). Holders: Body (paint, bed, bumpers, lamps), Interior (dash, seat, door cards,
+    pedals), Glass (windscreen, side and rear windows: one transparent material), SteeringWheel (pivot at the hub, tilted back 70 degrees) and WheelFL/FR/BL/BR (pivot at the
+    wheel centre, turn about X). Everything is chunky boxes and tapered boxes, flat shaded like the rest of the game."""
+    t = TM("Body", root, holder=True)
+    G, D, W, TR, Y = "PickGreen", "PickDark", "PickWood", "PickTrim", "PickDash"
+    t.box((0, 0.58, 0.1), (1.8, 0.28, 4.9), Y)                                                        # chassis
+    t.box((0, 0.98, -1.55), (1.84, 0.45, 1.55), G, taper=(0.93, 0.97))                               # hood
+    t.box((0, 1.22, -1.55), (1.3, 0.05, 1.2), D)                                                     # the hood's raised centre
+    t.box((0, 0.97, -2.35), (1.44, 0.46, 0.08), D)                                                   # grille shell
+    for k in range(6):
+        t.box((-0.5 + k * 0.2, 0.97, -2.4), (0.05, 0.38, 0.03), TR)                                  # grille bars
+    for sx in (-1, 1):
+        t.box((sx * 0.7, 1.02, -2.37), (0.34, 0.3, 0.1), TR)                                         # headlamp rims
+        t.box((sx * 0.7, 1.02, -2.43), (0.24, 0.2, 0.05), "Lamp")                                    # headlamps
+        t.box((sx * 0.96, 1.0, -1.55), (0.2, 0.14, 1.3), G, taper=(0.8, 1.0))                        # front wings
+        t.box((sx * 1.0, 0.9, -1.55), (0.1, 0.4, 1.3), G)
+        t.box((sx * 1.0, 0.9, 1.75), (0.1, 0.4, 1.3), G)                                             # rear arches
+        t.box((sx * 0.96, 0.62, 0.0), (0.12, 0.06, 4.1), TR)                                         # running boards
+        t.box((sx * 0.78, 0.5, 2.98), (0.12, 0.16, 0.06), "PickRed")                                 # tail lamps
+        t.box((sx * 1.04, 1.52, -0.82), (0.05, 0.22, 0.14), Y)                                       # wing mirrors
+        t.box((sx * 0.97, 1.44, -0.8), (0.1, 0.03, 0.03), Y)
+    t.box((0, 0.55, -2.44), (1.98, 0.16, 0.16), TR)                                                  # bumpers
+    t.box((0, 0.6, 2.97), (1.98, 0.16, 0.16), TR)
+    t.box((0, 0.72, 2.99), (0.3, 0.12, 0.02), "PickTrim")                                            # number plate
+    t.box((0.62, 0.42, 2.2), (0.1, 0.1, 0.5), Y)                                                     # exhaust
+    # the cab shell: floor, door skins, pillars, roof, rear wall
+    t.box((0, 0.66, -0.08), (1.86, 0.06, 1.42), Y)
+    for sx in (-1, 1):
+        t.box((sx * 0.93, 0.95, -0.08), (0.07, 0.58, 1.42), G)
+        t.box((sx * 0.955, 1.22, -0.08), (0.03, 0.04, 1.42), TR)                                     # the window sills
+        t.box((sx * 0.955, 0.95, 0.22), (0.02, 0.5, 0.02), D)                                        # door seams
+        t.box((sx * 0.955, 0.95, -0.7), (0.02, 0.5, 0.02), D)
+        t.box((sx * 0.97, 1.06, 0.12), (0.04, 0.04, 0.14), TR)                                       # outer door handles
+        t.box((sx * 0.93, 1.67, -0.74), (0.1, 0.94, 0.1), G)                                         # A pillars
+        t.box((sx * 0.93, 1.67, 0.6), (0.1, 0.94, 0.1), G)                                           # rear pillars
+        t.box((sx * 0.93, 2.16, -0.08), (0.1, 0.06, 1.42), G)                                        # roof rails
+    t.box((0, 2.17, -0.08), (1.96, 0.07, 1.5), G, taper=(0.95, 0.96))                               # roof
+    t.box((0, 1.3, 0.6), (1.86, 0.3, 0.06), G)
+    t.box((0, 2.1, 0.6), (1.86, 0.1, 0.06), G)
+    t.box((0, 0.95, -0.78), (1.86, 0.55, 0.06), D)                                                   # firewall
+    # the bed: floor, planked wooden sides, tailgate, a toolbox, a crate and a coil of rope
+    t.box((0, 0.8, 1.78), (1.82, 0.12, 2.3), Y)
+    for sx in (-1, 1):
+        for k in range(3):
+            t.box((sx * 0.9, 0.94 + k * 0.16, 1.78), (0.1, 0.14, 2.3), W)                            # side planks
+        t.box((sx * 0.9, 1.34, 1.78), (0.14, 0.05, 2.34), TR)
+    for k in range(3):
+        t.box((0, 0.94 + k * 0.16, 0.68), (1.82, 0.14, 0.1), W)
+        t.box((0, 0.94 + k * 0.16, 2.92), (1.82, 0.14, 0.1), W)
+    t.box((0, 1.34, 2.97), (1.84, 0.05, 0.06), TR)
+    t.box((-0.35, 1.02, 1.2), (0.5, 0.34, 0.4), "PickRust")                                          # toolbox
+    t.box((-0.35, 1.2, 1.2), (0.52, 0.04, 0.42), TR)
+    t.box((0.4, 0.95, 2.3), (0.45, 0.2, 0.45), "PickWood")
+    t.cyl((0.45, 0.93, 1.3), 0.2, 0.2, 0.16, "PickSeat", seg=10)                                     # the coil of rope
+    t.finish()
+
+    i = TM("Interior", root, holder=True)
+    S = "PickSeat"
+    i.box((0, 0.95, -0.55), (1.8, 0.5, 0.42), Y)                                                     # dashboard
+    i.box((0, 1.21, -0.62), (1.7, 0.03, 0.3), Y)
+    i.box((-0.45, 1.12, -0.34), (0.5, 0.14, 0.04), "Dark")                                           # instrument binnacle
+    for k in range(3):
+        i.box((-0.58 + k * 0.13, 1.12, -0.315), (0.08, 0.08, 0.01), "Lamp")
+    i.box((0.45, 1.0, -0.33), (0.6, 0.2, 0.04), Y)                                                   # glovebox
+    i.box((0.45, 0.98, -0.305), (0.1, 0.03, 0.02), TR)
+    i.box((0.0, 1.05, -0.33), (0.28, 0.16, 0.04), "Dark")                                            # radio
+    i.box((0, 0.82, 0.1), (1.78, 0.22, 0.58), S)                                                     # bench seat
+    i.box((0, 1.26, 0.42), (1.78, 0.66, 0.16), S)
+    i.box((0, 0.98, 0.08), (0.04, 0.12, 0.5), "PickRust")
+    i.box((0, 2.12, -0.08), (1.82, 0.03, 1.44), "PickSeat", taper=(1.0, 1.0))                        # headliner
+    i.box((0, 1.98, -0.72), (0.16, 0.05, 0.02), "Dark")                                              # mirror
+    i.box((0, 2.05, -0.72), (0.02, 0.1, 0.02), "Dark")
+    i.box((0.1, 1.88, -0.72), (0.03, 0.07, 0.005), "Moss")                                           # the air freshener
+    for sx in (-1, 1):
+        i.box((sx * 0.45, 2.07, -0.62), (0.7, 0.03, 0.26), "Dark")                                   # sun visors
+        i.box((sx * 0.88, 0.95, -0.08), (0.05, 0.5, 1.36), "PickRust")                               # door cards
+        i.box((sx * 0.86, 1.12, -0.08), (0.08, 0.06, 0.5), "PickWood")                               # armrests
+        i.box((sx * 0.86, 1.06, 0.2), (0.06, 0.05, 0.16), TR)
+    i.box((0, 0.7, 0.0), (0.18, 0.1, 0.5), "Dark")
+    i.bar((0.0, 0.8, -0.05), (0.0, 1.2, -0.17), 0.04, 0.04, "Dark", up=(1, 0, 0))                   # gear stick
+    for sx, pz in ((-0.45, -0.1), (-0.3, -0.1), (-0.58, -0.1)):
+        i.box((sx, 0.72, -0.42), (0.08, 0.04, 0.12), "Dark")                                         # pedals
+    i.finish()
+
+    g = TM("Glass", root, holder=True)
+    g.box((0, 1.68, -0.8), (1.76, 0.92, 0.012), "PickGlass")                                         # windscreen
+    for sx in (-1, 1):
+        g.box((sx * 0.93, 1.67, -0.08), (0.012, 0.9, 1.32), "PickGlass")
+    g.box((0, 1.78, 0.6), (1.5, 0.5, 0.012), "PickGlass")
+    g.finish()
+
+    sw = TM("SteeringWheel", root, loc=(-0.45, 1.2, -0.2), holder=True)                              # the wheel: a ring of eight bars, a hub and a column
+    cx, cy, cz = -0.45, 1.2, -0.2
+    ca, sa = math.cos(math.radians(70)), math.sin(math.radians(70))
+    def wp(u, v, d=0.0):
+        # u along the wheel's right, v along its tilted "up" in the plane, d along its normal
+        return (cx + u, cy + v * (-sa) + d * ca, cz + v * ca + d * sa)
+    for k in range(10):
+        a0 = k * math.tau / 10
+        a1 = (k + 1) * math.tau / 10
+        sw.bar(wp(math.cos(a0) * 0.17, math.sin(a0) * 0.17), wp(math.cos(a1) * 0.17, math.sin(a1) * 0.17), 0.035, 0.03, "Dark", up=(0, 1, 0))
+    for a in (90, 210, 330):
+        sw.bar(wp(0, 0), wp(math.cos(math.radians(a)) * 0.17, math.sin(math.radians(a)) * 0.17), 0.025, 0.02, "Dark", up=(0, 1, 0))
+    sw.box((cx, cy, cz), (0.1, 0.04, 0.1), TR)
+    sw.finish()
+    col = TM("Column", root, holder=True)
+    col.bar((-0.45, 0.95, -0.55), (-0.45, 1.2, -0.2), 0.05, 0.05, "Dark", up=(1, 0, 0))
+    col.finish()
+
+    for (nm, x, z) in (("WheelFL", -0.9, -1.55), ("WheelFR", 0.9, -1.55), ("WheelBL", -0.9, 1.75), ("WheelBR", 0.9, 1.75)):
+        w = TM(nm, root, loc=(x, 0.42, z), holder=True)
+        w.cyl((x, 0.42, z), 0.42, 0.42, 0.28, "PickTyre", seg=14, axis='x')
+        w.cyl((x, 0.42, z), 0.22, 0.22, 0.3, TR, seg=10, axis='x')
+        w.cyl((x, 0.42, z), 0.1, 0.1, 0.34, D, seg=8, axis='x')
+        for k in range(5):
+            a = k * math.tau / 5
+            w.box((x + (0.16 if x > 0 else -0.16), 0.42 + math.cos(a) * 0.14, z + math.sin(a) * 0.14), (0.04, 0.04, 0.04), TR)    # lug nuts
+        w.finish()
+
+
 MODELS = {
     "pine_tall": pine_tall, "pine_young": pine_young, "birch": birch, "log": log, "stump": stump, "bush": bush, "fern": fern, "grass": grass, "flowers": flowers,
     "mossy_stone": mossy_stone, "peak_a": peak_a, "peak_b": peak_b, "ridge": ridge, "foothill": foothill, "cliff": cliff, "tunnel_mountain": tunnel_mountain,
-    "tunnel_portal": tunnel_portal, "tunnel_set": tunnel_set, "deer": deer, "rabbit": rabbit,
+    "tunnel_portal": tunnel_portal, "tunnel_set": tunnel_set, "pickup": pickup, "deer": deer, "rabbit": rabbit,
 }
 
 

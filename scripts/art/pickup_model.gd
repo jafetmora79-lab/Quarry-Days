@@ -52,7 +52,40 @@ static func _quad(parent: Node3D, pos: Vector3, size: Vector2, rot: Vector3, mat
 	parent.add_child(mi)
 	return mi
 
+## The Blender model (tools/world_models/build_world.py -> WLD_QD_pickup.glb) when it is there; the box-built one below is the fallback.
 static func build() -> Dictionary:
+	if WorldModels.has("pickup"):
+		var d: Dictionary = WorldModels.animal("pickup")
+		if not d.is_empty():
+			return _from_model(d)
+	return _build_procedural()
+
+static func _from_model(d: Dictionary) -> Dictionary:
+	var root: Node3D = d["root"]
+	root.name = "Pickup"
+	var parts: Dictionary = d["parts"]
+	var wheels: Array = []
+	for k in ["WheelFL", "WheelFR", "WheelBL", "WheelBR"]:
+		if parts.has(k):
+			(parts[k] as Node3D).set_meta("radius", 0.42)
+			wheels.append(parts[k])
+	var lights := Node3D.new()
+	lights.name = "Headlights"
+	lights.position = Vector3(0, 1.0, -2.5)
+	for sx in [-1.0, 1.0]:
+		var sp := SpotLight3D.new()
+		sp.position = Vector3(sx * 0.66, 0, 0)
+		sp.rotation_degrees = Vector3(-4, 0, 0)
+		sp.spot_range = 30.0
+		sp.spot_angle = 34.0
+		sp.light_energy = 2.2
+		sp.light_color = Color(1.0, 0.92, 0.72)
+		sp.shadow_enabled = false
+		lights.add_child(sp)
+	root.add_child(lights)
+	return {"root": root, "wheels": wheels, "interior": parts.get("Interior"), "headlights": lights, "steering": parts.get("SteeringWheel")}
+
+static func _build_procedural() -> Dictionary:
 	_acc.clear()
 	var root := Node3D.new()
 	root.name = "Pickup"

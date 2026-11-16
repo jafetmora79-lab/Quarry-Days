@@ -60,7 +60,9 @@ func set_slots(slots: Array, cur: int) -> void:
 			p.tooltip_text = str(item.get("name", ""))
 			var tex: Texture2D = null
 			var mk := str(item.get("key", ""))
-			if thumbs != null and mk != "":
+			if thumbs != null and mk == "ramp_plan":
+				tex = thumbs.get_thumb("tool:ramp_miniature", Callable(QuarryHotbar, "ramp_miniature"))      # the item is a ramp: its picture is a little ramp
+			elif thumbs != null and mk != "":
 				tex = thumbs.get_thumb("tool:" + mk, func(): return ToolModels.load_tool(mk))
 			if tex != null:
 				var tr := TextureRect.new()
@@ -107,3 +109,59 @@ func set_slots(slots: Array, cur: int) -> void:
 func refresh() -> void:
 	_sig = ""
 	set_slots(_slots, _cur)
+
+## A miniature haul ramp (a wedge of packed earth with hazard-yellow edge rails and a striped marker post) for the ramp item's picture.
+static func ramp_miniature() -> Node3D:
+	var root := Node3D.new()
+	var A := Vector3(-0.6, 0.0, -0.9)
+	var B := Vector3(0.6, 0.0, -0.9)
+	var C := Vector3(0.6, 0.0, 0.9)
+	var D := Vector3(-0.6, 0.0, 0.9)
+	var E := Vector3(-0.6, 0.55, 0.9)
+	var F := Vector3(0.6, 0.55, 0.9)
+	var earth := MeshKit.Soup.new()
+	earth.quad(A, B, F, E)
+	earth.quad(D, C, F, E)
+	earth.tri(A, D, E)
+	earth.tri(B, C, F)
+	var mi := MeshInstance3D.new()
+	mi.mesh = earth.mesh()
+	var em := MeshKit.flat(Color(0.62, 0.45, 0.30)).duplicate() as StandardMaterial3D
+	em.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mi.material_override = em
+	root.add_child(mi)
+	var slope := atan2(0.55, 1.8)
+	for sx in [-0.56, 0.56]:
+		var rail := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(0.1, 0.07, 1.9)
+		rail.mesh = bm
+		rail.position = Vector3(sx, 0.32, 0.0)
+		rail.rotation.x = -slope
+		rail.material_override = MeshKit.flat(Color(0.95, 0.76, 0.12))
+		root.add_child(rail)
+	for k in range(3):                                    # tread bars across the surface
+		var z := -0.5 + 0.5 * k
+		var bar := MeshInstance3D.new()
+		var bb := BoxMesh.new()
+		bb.size = Vector3(1.0, 0.04, 0.1)
+		bar.mesh = bb
+		bar.position = Vector3(0.0, (z + 0.9) / 1.8 * 0.55 + 0.03, z)
+		bar.rotation.x = -slope
+		bar.material_override = MeshKit.flat(Color(0.40, 0.29, 0.19))
+		root.add_child(bar)
+	var post := MeshInstance3D.new()
+	var pm := BoxMesh.new()
+	pm.size = Vector3(0.08, 0.5, 0.08)
+	post.mesh = pm
+	post.position = Vector3(0.45, 0.8, 0.8)
+	post.material_override = MeshKit.flat(Color(0.95, 0.95, 0.9))
+	root.add_child(post)
+	var cap := MeshInstance3D.new()
+	var cm := BoxMesh.new()
+	cm.size = Vector3(0.09, 0.14, 0.09)
+	cap.mesh = cm
+	cap.position = Vector3(0.45, 0.95, 0.8)
+	cap.material_override = MeshKit.flat(Color(0.85, 0.2, 0.15))
+	root.add_child(cap)
+	return root
