@@ -160,8 +160,13 @@ func setup(main_node, shell_ui) -> void:
 	# wallpaper: the tile repeated, with nearest filtering so the pattern stays crisp at any window size
 	var wp := TextureRect.new()
 	wp.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	wp.texture = tex("wallpaper_tile.png")
-	wp.stretch_mode = TextureRect.STRETCH_TILE
+	if tex("wallpaper.png") != null:
+		wp.texture = tex("wallpaper.png")                  # the art sheet's wallpaper: forest, mountains, excavator; scaled to cover the desktop
+		wp.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		wp.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	else:
+		wp.texture = tex("wallpaper_tile.png")
+		wp.stretch_mode = TextureRect.STRETCH_TILE
 	wp.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	wp.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(wp)
@@ -302,7 +307,7 @@ func _make_icon(a: Array) -> Control:
 	var sel := ColorRect.new()                           # the selected-state plate behind the caption
 	sel.name = "Sel"
 	sel.color = Color(0.0, 0.0, 0.5, 0.0)
-	sel.position = Vector2(4, 44)
+	sel.position = Vector2(4, 47)
 	sel.size = Vector2(ICON_W - 8, 26)
 	sel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	c.add_child(sel)
@@ -310,9 +315,11 @@ func _make_icon(a: Array) -> Control:
 	img.name = "Img"
 	img.texture = tex("icon_%s.png" % str(a[2]))
 	img.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	img.custom_minimum_size = Vector2(32, 32)
-	img.size = Vector2(32, 32)
-	img.position = Vector2((ICON_W - 32.0) * 0.5, 6)
+	img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	img.custom_minimum_size = Vector2(46, 46)
+	img.size = Vector2(46, 46)
+	img.position = Vector2((ICON_W - 46.0) * 0.5, 1)
 	img.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	c.add_child(img)
 	if img.texture == null:                              # fallback: a plain tile so the shortcut still exists
@@ -328,7 +335,7 @@ func _make_icon(a: Array) -> Control:
 	l.add_theme_constant_override("shadow_offset_y", 1)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.position = Vector2(4, 46)
+	l.position = Vector2(4, 49)
 	l.size = Vector2(ICON_W - 8, 24)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	c.add_child(l)
@@ -356,7 +363,11 @@ func _select(id: String) -> void:
 	selected_icon = id
 	for k in icons:
 		var sel: ColorRect = icons[k].get_node("Sel")
-		sel.color = Color(0.0, 0.0, 0.5, 0.95) if k == id else Color(0, 0, 0, 0)
+		sel.color = Color(0.36, 0.24, 0.1, 0.92) if k == id else Color(0, 0, 0, 0)        # a bronze plate behind the caption
+		var img: TextureRect = icons[k].get_node("Img")
+		var key := str(app_def(str(k))[2])
+		var st: Texture2D = tex("icon_%s_sel.png" % key) if k == id else null
+		img.texture = st if st != null else tex("icon_%s.png" % key)                      # the selected shortcut sits on the amber plate
 
 func _build_taskbar() -> void:
 	var bar := PanelContainer.new()
@@ -408,7 +419,8 @@ func _build_start_menu() -> void:
 		var b := Button.new()
 		b.text = " " + str(a[1])
 		b.icon = tex("icon_%s.png" % str(a[2]))
-		b.expand_icon = false
+		b.expand_icon = true
+		b.add_theme_constant_override("icon_max_width", 26)
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		b.custom_minimum_size = Vector2(170, 34)
 		b.focus_mode = Control.FOCUS_NONE

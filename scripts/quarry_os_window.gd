@@ -139,11 +139,11 @@ func set_active(on: bool) -> void:
 	if t != null:
 		var st := StyleBoxTexture.new()
 		st.texture = t
-		st.set_texture_margin_all(0)
+		st.set_texture_margin_all(3)
 		st.set_content_margin_all(2)
 		st.content_margin_left = 3
 		title_bar.add_theme_stylebox_override("panel", st)
-	title_label.add_theme_color_override("font_color", Color(1, 1, 1) if on else Color(0.82, 0.82, 0.82))
+	title_label.add_theme_color_override("font_color", Color(0.16, 0.1, 0.05) if on else Color(0.38, 0.3, 0.22))
 
 ## A short fade-in so a window appears without a hard pop (0.14 s).
 func pop_in() -> void:

@@ -28,6 +28,10 @@ func run() -> void:
 	for i in 10:
 		await physics_frame
 	game.hud.close_card()
+	game.item_tips.enabled = false
+	game.item_tips.queue.clear()
+	if game.item_tips.panel != null:
+		game.item_tips._close()
 	for i in 20:
 		await physics_frame
 	game._open_menu("manage")
