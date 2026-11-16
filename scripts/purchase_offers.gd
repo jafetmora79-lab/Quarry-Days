@@ -125,13 +125,13 @@ static func machine(game, key: String, on_buy: Callable) -> Dictionary:
 			compare = [_cmp("A batch of 10 stone is worth %d%% more than selling it straight from the bag." % int(round((float(biz.cfg.get("sort_bonus", 1.3)) - 1.0) * 100.0)), "good")]
 			if not prog.unlocked("sorter"):
 				reason = "Unlocks at the %s stage" % prog.feature_stage_title("sorter")
-		"conveyor", "conveyor_left", "conveyor_right":
-			var bk := "straight" if key == "conveyor" else ("left" if key == "conveyor_left" else "right")
-			title = {"straight": "Conveyor, Straight", "left": "Conveyor, Left Corner", "right": "Conveyor, Right Corner"}[bk]
-			price = int(biz.cfg["conveyor_price"])
+		"conveyor", "conveyor_left", "conveyor_right", "conveyor_merger":
+			var bk := "straight" if key == "conveyor" else key.substr(9)
+			title = {"straight": "Conveyor, Straight", "left": "Conveyor, Left Corner", "right": "Conveyor, Right Corner", "merger": "Conveyor Merger"}[bk]
+			price = biz.belt_price(bk)
 			model = {"kind": "conveyor", "belt": bk}
 			stats = [_row("Speed", "%.1f items a second" % float(biz.cfg.get("conveyor_rate", 0.5))), _row("Holds", "%d items" % int(biz.cfg.get("conveyor_capacity", 3))),
-				_row("Shape", "a 2 m belt" if bk == "straight" else "turns the material 90 degrees to the %s" % bk), _row("Connects", "snaps onto machine ports")]
+				_row("Shape", "a 2 m belt" if bk == "straight" else ("a 2 x 2 m junction: belts join at its back and both sides, one belt leaves the front" if bk == "merger" else "turns the material 90 degrees to the %s" % bk)), _row("Connects", "snaps onto machine ports")]
 			compare = [_cmp("You own %d belt%s." % [biz.conveyors.size(), "" if biz.conveyors.size() == 1 else "s"], "flat")]
 			if not biz.conveyors_unlocked():
 				reason = "Needs a crusher and an operator"

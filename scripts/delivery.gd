@@ -276,7 +276,7 @@ func _anyone_near() -> bool:
 ## money or save data, never drives through a person (it gives up and vanishes at the gate instead), and `finish_all` clears it.
 var crate_jobs: Array = []
 const CRATE_COLORS := {"crusher": Color(0.30, 0.38, 0.40), "advanced_crusher": Color(0.26, 0.34, 0.30), "hopper": Color(0.55, 0.45, 0.25), "sorter": Color(0.50, 0.40, 0.28),
-	"output": Color(0.30, 0.42, 0.32), "conveyor": Color(0.22, 0.24, 0.26), "conveyor_left": Color(0.22, 0.24, 0.26), "conveyor_right": Color(0.22, 0.24, 0.26)}
+	"output": Color(0.30, 0.42, 0.32), "conveyor": Color(0.22, 0.24, 0.26), "conveyor_left": Color(0.22, 0.24, 0.26), "conveyor_right": Color(0.22, 0.24, 0.26), "conveyor_merger": Color(0.22, 0.24, 0.26)}
 
 func _crate_route() -> Array:
 	if west:

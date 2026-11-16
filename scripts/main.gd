@@ -3416,7 +3416,7 @@ func order_machine(key: String) -> bool:
 		return false
 	business.inventory[key] = int(business.inventory.get(key, 0)) + 1
 	var titles := {"crusher": "Small jaw crusher", "hopper": "Small hopper", "sorter": "Manual sorting table", "output": "Output storage", "advanced_crusher": "Advanced crusher", "conveyor": "Straight conveyor",
-		"conveyor_left": "Left corner conveyor", "conveyor_right": "Right corner conveyor"}
+		"conveyor_left": "Left corner conveyor", "conveyor_right": "Right corner conveyor", "conveyor_merger": "Merger"}
 	hud.toast("Delivery confirmed", "%s is in your construction inventory - place it from the order screen or in construction mode." % titles.get(key, key), "unlock")
 	if delivery:
 		delivery.start_crate(key)                  # cosmetic flatbed with the crate; the inventory above is already final
@@ -3444,7 +3444,7 @@ func machine_lock_reason(key: String) -> String:
 ## which is separate from the bag and the storage bin, and is placed from Build Mode.
 const CATALOG := [
 	["crusher", "Small Jaw Crusher", "Crushers"], ["advanced_crusher", "Advanced Crusher", "Crushers"],
-	["conveyor", "Straight Conveyor", "Conveyors"], ["conveyor_left", "Left Corner Conveyor", "Conveyors"], ["conveyor_right", "Right Corner Conveyor", "Conveyors"],
+	["conveyor", "Straight Conveyor", "Conveyors"], ["conveyor_left", "Left Corner Conveyor", "Conveyors"], ["conveyor_right", "Right Corner Conveyor", "Conveyors"], ["conveyor_merger", "Merger (3-way junction)", "Conveyors"],
 	["output", "Output Storage", "Storage"], ["hopper", "Small Hopper", "Storage"],
 	["sorter", "Manual Sorting Table", "Processing"]]
 
@@ -3462,6 +3462,8 @@ func catalog_title(key: String) -> String:
 	return key
 
 func catalog_unit_price(key: String) -> int:
+	if key == "conveyor_merger":
+		return business.belt_price("merger")
 	return _placement_price("conveyor" if key.begins_with("conveyor") else key)
 
 ## "" when `qty` of `key` can be bought now, else the reason (locked, or not enough money).
@@ -3786,6 +3788,7 @@ func _placement_price(kind: String) -> int:
 		"hopper": return int(business.cfg["hopper_price"])
 		"sorter": return int(business.cfg["sorter_price"])
 		"conveyor": return int(business.cfg["conveyor_price"])
+		"conveyor_merger": return business.belt_price("merger")
 	return int(state.config["crusher_price"])
 
 ## Key of a placeable in the construction inventory.
@@ -3794,7 +3797,7 @@ func inventory_key(kind: String, belt := "straight") -> String:
 
 func _start_placement(kind: String) -> void:
 	placement_belt = "straight"
-	if kind == "conveyor_left" or kind == "conveyor_right":
+	if kind == "conveyor_left" or kind == "conveyor_right" or kind == "conveyor_merger":
 		placement_belt = kind.substr(9)
 		kind = "conveyor"
 	if kind in ["hopper", "sorter"] and not prog.unlocked(kind):
@@ -4489,6 +4492,8 @@ func _conveyor_visual(parent: Node3D, transparent := false, belt := "straight") 
 	if art:
 		if belt == "straight":
 			art.conveyor_model(parent, 0.0)
+		elif belt == "merger":
+			art.conveyor_merger_model(parent, 0.0)
 		else:
 			art.conveyor_corner_model(parent, 0.0, belt)
 		if transparent:
@@ -4534,7 +4539,11 @@ func _create_conveyor(index: int) -> void:
 	body.set_meta("kind","conveyor")
 	body.set_meta("belt_kind", bk)
 	body.set_meta("index",index)
-	if bk != "straight":
+	if bk == "merger":
+		for ch in body.get_children():
+			if ch is CollisionShape3D:
+				(ch.shape as BoxShape3D).size = Vector3(2.0, 0.26, 2.0)         # the junction is 2 x 2 m: belts meet it at its back and both sides
+	elif bk != "straight":
 		# an L: one box under each half (entry half behind the centre, exit half out to the side)
 		var sgn := -1.0 if bk == "left" else 1.0
 		for ch in body.get_children():
@@ -4622,7 +4631,7 @@ func _update_structures() -> void:
 			if item.visible:
 				var zi := minf(0.75, 0.75 - 1.5 * float(c["progress"]) + 0.55 * k)
 				var bkind := str(c.get("kind", "straight"))
-				if bkind == "straight":
+				if bkind == "straight" or bkind == "merger":
 					item.position.z = zi
 				else:
 					# along the L: back edge -> centre (1 m), then centre -> the exit side (1 m)
@@ -4736,7 +4745,7 @@ func conveyor_snap(at: Vector3, kind := "straight") -> Dictionary:
 		if str(port["io"]) == "out":
 			cands.append({"pos": pp + pd, "yaw": yd})
 		else:
-			if kind == "straight":
+			if kind == "straight" or kind == "merger":
 				cands.append({"pos": pp - pd, "yaw": yd})
 			elif kind == "left":
 				cands.append({"pos": pp - pd, "yaw": yd - PI * 0.5})
@@ -4812,6 +4821,9 @@ func belt_ports() -> Array:
 			ports.append({"pos": ends[1], "dir": Business.belt_out_dir(float(cj["yaw"]), kj), "io": "out"})
 		if link.get("src", {}).is_empty():
 			ports.append({"pos": ends[0], "dir": Business.forward(float(cj["yaw"])), "io": "in"})
+		for side_pt in business.conveyor_side_inputs(Business.v3(cj["position"]), float(cj["yaw"]), kj):     # a merger also takes belts at both sides
+			var sd: Vector3 = (side_pt - Business.v3(cj["position"]) * Vector3(1, 0, 1)).normalized()
+			ports.append({"pos": side_pt, "dir": -sd, "io": "in"})
 	return ports
 
 ## Magnetic placement for crushers and output storages: next to a belt end, a crusher chute or an output, the ghost
@@ -4862,7 +4874,9 @@ func conveyor_valid(pos: Vector3, yaw: float, kind := "straight") -> bool:
 	var fwd := Business.forward(yaw)
 	var side := Vector3(fwd.z, 0, -fwd.x)
 	var points := [pos, pos + fwd * 0.85, pos - fwd * 0.85, pos + side * 0.4, pos - side * 0.4]
-	if kind != "straight":
+	if kind == "merger":
+		points = [pos, pos + fwd * 0.85, pos - fwd * 0.85, pos + side * 0.85, pos - side * 0.85]
+	elif kind != "straight":
 		var od := Business.belt_out_dir(yaw, kind)
 		points = [pos, pos - fwd * 0.85, pos + od * 0.85, pos - fwd * 0.4 + od * 0.4]
 	for body in world.get_children():

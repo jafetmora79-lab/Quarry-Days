@@ -1228,12 +1228,38 @@ func conveyor_corner_model(parent: Node3D, g: float, kind: String) -> void:
 	if made.has("Belt"):
 		parent.set_meta("belt", made["Belt"])
 
+## The merger: a 2 x 2 m junction. Main lane runs back to front (-Z is forward); two side lanes feed into it from -X and +X. Arrows show the flow.
+func conveyor_merger_model(parent: Node3D, g: float) -> void:
+	var p := {"SteelPlate": MeshKit.Soup.new(), "Belt": MeshKit.Soup.new(), "Hazard": MeshKit.Soup.new(), "SteelGreen": MeshKit.Soup.new()}
+	MeshKit.box_into(p["Belt"], Vector3(0, g + 0.25, 0), Vector3(0.74, 0.03, 2.0))                  # main lane, back to front
+	for s in [-1.0, 1.0]:
+		MeshKit.box_into(p["Belt"], Vector3(s * 0.68, g + 0.25, 0), Vector3(0.64, 0.03, 0.74))     # side lane into the main lane
+		MeshKit.box_into(p["SteelGreen"], Vector3(s * 0.68, g + 0.2, 0.42), Vector3(0.64, 0.14, 0.06))     # its rails
+		MeshKit.box_into(p["SteelGreen"], Vector3(s * 0.68, g + 0.2, -0.42), Vector3(0.64, 0.14, 0.06))
+		MeshKit.box_into(p["SteelPlate"], Vector3(s * 0.97, g + 0.22, 0), Vector3(0.14, 0.14, 0.78))       # side rollers (the inlets)
+		MeshKit.box_into(p["Hazard"], Vector3(s * 0.7, g + 0.275, 0), Vector3(0.3, 0.012, 0.16))           # arrows pointing to the centre
+		MeshKit.box_into(p["Hazard"], Vector3(s * 0.97, g + 0.02, 0), Vector3(0.08, 0.04, 1.0))
+	for x in [-0.42, 0.42]:
+		MeshKit.box_into(p["SteelGreen"], Vector3(x, g + 0.2, 0.7), Vector3(0.06, 0.14, 0.6))        # main rails, short: the side lanes enter between them
+		MeshKit.box_into(p["SteelGreen"], Vector3(x, g + 0.2, -0.7), Vector3(0.06, 0.14, 0.6))
+		for z in [-0.9, 0.9]:
+			MeshKit.box_into(p["SteelPlate"], Vector3(x, g + 0.07, z), Vector3(0.06, 0.14, 0.06))
+	for z in [-0.97, 0.97]:
+		MeshKit.drum_into(p["SteelPlate"], Vector3(0, g + 0.22, z), 0.07, 0.78, 6)
+		MeshKit.box_into(p["Hazard"], Vector3(0, g + 0.02, z), Vector3(1.0, 0.04, 0.08))
+	MeshKit.box_into(p["Hazard"], Vector3(0, g + 0.275, -0.7), Vector3(0.18, 0.012, 0.3))             # flow arrow at the exit
+	var made := _parts(parent, p)
+	if made.has("Belt"):
+		parent.set_meta("belt", made["Belt"])
+
 func dress_conveyor(body: StaticBody3D) -> void:
 	var items: Array = body.get_meta("items")
 	_strip(body, items)
 	var bk: String = str(body.get_meta("belt_kind", "straight"))
 	if bk == "straight":
 		conveyor_model(body, -(body.position.y - float(body.get_meta("ground_y", 0.0))))
+	elif bk == "merger":
+		conveyor_merger_model(body, -(body.position.y - float(body.get_meta("ground_y", 0.0))))
 	else:
 		conveyor_corner_model(body, -(body.position.y - float(body.get_meta("ground_y", 0.0))), bk)
 	if not piece_meshes.has("belt_item"):

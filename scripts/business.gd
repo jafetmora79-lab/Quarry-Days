@@ -770,6 +770,18 @@ func conveyor_ends(pos: Vector3, yaw: float, kind := "straight") -> Array:
 		return [p - forward(yaw), p + forward(yaw - PI * 0.5)]
 	return [p - forward(yaw), p + forward(yaw)]
 
+## The merger (a 3-way junction): material comes in at the back and at BOTH sides, and leaves through the front. Its two side inlets sit 1 m from its centre.
+func conveyor_side_inputs(pos: Vector3, yaw: float, kind: String) -> Array:
+	if kind != "merger":
+		return []
+	var p := pos * Vector3(1, 0, 1)
+	return [p + forward(yaw - PI * 0.5), p + forward(yaw + PI * 0.5)]
+
+func belt_price(kind: String) -> int:
+	if kind == "merger":
+		return int(cfg.get("merger_price", int(cfg["conveyor_price"]) * 2))
+	return int(cfg["conveyor_price"])
+
 ## Direction material travels as it leaves a belt piece through its far end.
 static func belt_out_dir(yaw: float, kind: String) -> Vector3:
 	if kind == "left":
@@ -792,6 +804,10 @@ func _endpoint_near(point: Vector3, as_source: bool, skip_conveyor: int, level :
 		var e: Vector3 = ends[1] if as_source else ends[0]
 		if _flat(point, e) < 0.75 and absf(level - v3(conveyors[j]["position"]).y) <= LEVEL_TOL:
 			return {"type": "conveyor", "index": j}
+		if not as_source:
+			for sp in conveyor_side_inputs(v3(conveyors[j]["position"]), float(conveyors[j]["yaw"]), str(conveyors[j].get("kind", "straight"))):
+				if _flat(point, sp) < 0.75 and absf(level - v3(conveyors[j]["position"]).y) <= LEVEL_TOL:
+					return {"type": "conveyor", "index": j}
 	for i in range(state.crushers.size()):
 		if _flat(point, crusher_output_port(i) if as_source else crusher_input_port(i)) < 1.0 and absf(level - v3(state.crushers[i]["position"]).y) <= LEVEL_TOL:
 			return {"type": "crusher", "index": i}
@@ -860,6 +876,19 @@ func describe_ep(ep: Dictionary) -> String:
 		"rig": return "%s #%d" % [str(prog.machine(str(prog.rigs[int(ep["index"])]["type"]))["title"]), int(ep["index"]) + 1] if ep_valid(ep) else "a rig"
 	return "nothing"
 
+## Where belts merge the feeders take turns (deterministic round robin): a belt that fed the merger last waits while another belt feeding it has material
+## ready at its end.
+func _merge_turn_ok(dst: Dictionary, from_belt: int) -> bool:
+	if str(dst.get("type", "")) != "conveyor":
+		return true
+	var m := int(dst["index"])
+	if str(conveyors[m].get("kind", "straight")) != "merger" or int(conveyors[m].get("rr", -1)) != from_belt:
+		return true
+	for j in range(conveyors.size()):
+		if j != from_belt and j < links.size() and links[j]["dst"] == dst and int(conveyors[j]["items"]) > 0 and float(conveyors[j]["progress"]) >= 1.0:
+			return false
+	return true
+
 func tick_conveyors(seconds: float) -> void:
 	if links.size() != conveyors.size():
 		compute_links()
@@ -871,7 +900,9 @@ func tick_conveyors(seconds: float) -> void:
 		if int(c["items"]) > 0:
 			c["progress"] = minf(1.0, float(c["progress"]) + rate * seconds)
 			var dst: Dictionary = link["dst"]
-			if float(c["progress"]) >= 1.0 and not dst.is_empty() and ep_put(dst, str(c["resource"]), 1) == 1:
+			if float(c["progress"]) >= 1.0 and not dst.is_empty() and _merge_turn_ok(dst, i) and ep_put(dst, str(c["resource"]), 1) == 1:
+				if str(dst["type"]) == "conveyor" and str(conveyors[int(dst["index"])].get("kind", "straight")) == "merger":
+					conveyors[int(dst["index"])]["rr"] = i              # a merger remembers who fed it last, so the other feeder goes next
 				c["items"] = int(c["items"]) - 1
 				c["progress"] = 0.0
 				if str(dst["type"]) != "conveyor":
@@ -1026,7 +1057,10 @@ func restore(data: Dictionary) -> void:
 			inventory[str(k)] = maxi(0, int(inv[k]))
 	conveyors = []
 	for c in data.get("conveyors", []):
-		conveyors.append({"position": c["position"].duplicate(), "yaw": float(c.get("yaw", 0.0)), "resource": str(c.get("resource", "")), "items": maxi(0, int(c.get("items", 0))), "progress": float(c.get("progress", 0.0)), "pull": float(c.get("pull", 0.0)), "kind": str(c.get("kind", "straight"))})
+		var rec := {"position": c["position"].duplicate(), "yaw": float(c.get("yaw", 0.0)), "resource": str(c.get("resource", "")), "items": maxi(0, int(c.get("items", 0))), "progress": float(c.get("progress", 0.0)), "pull": float(c.get("pull", 0.0)), "kind": str(c.get("kind", "straight"))}
+		if c.has("rr"):
+			rec["rr"] = int(c["rr"])                        # a merger's turn marker
+		conveyors.append(rec)
 	for k in authorized:
 		authorized[k] = bool(data.get("authorized", {}).get(k, false))
 	for k in milestones:

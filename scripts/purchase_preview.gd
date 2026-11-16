@@ -217,6 +217,9 @@ static func build_model(game, spec: Dictionary) -> Node3D:
 		"conveyor":
 			var body := Node3D.new()
 			var bk := str(spec.get("belt", "straight"))
+			if bk == "merger" and game.art:
+				game.art.conveyor_merger_model(body, 0.0)
+				return body
 			game._visual_box(body, Vector3(0, 0.13, 0), Vector3(0.9, 0.26, 2.0), Color(0.16, 0.17, 0.18))
 			game._visual_box(body, Vector3(0, 0.28, 0), Vector3(0.7, 0.04, 2.0 if bk == "straight" else 0.7), Color(0.07, 0.07, 0.07))
 			if bk != "straight":

@@ -7,6 +7,7 @@
   "output_storage_price": 60,
   "output_capacity": 30,
   "conveyor_price": 450,
+  "merger_price": 900,
   "conveyor_rate": 0.5,
   "conveyor_capacity": 3,
   "crusher_hopper_capacity": 24,
