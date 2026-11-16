@@ -1,5 +1,80 @@
 [
  {
+  "group": "NEW: buildings, sell station, production line",
+  "sections": [
+   {
+    "title": "1. Buildings (modelled in Blender)",
+    "items": [
+     {
+      "name": "Grandpa's house (cabin + living room)",
+      "file": "models/blender/BLD_QD_Home.glb"
+     },
+     {
+      "name": "Workshop",
+      "file": "models/blender/BLD_QD_Workshop.glb"
+     },
+     {
+      "name": "Storage shed",
+      "file": "models/blender/BLD_QD_Shed.glb"
+     },
+     {
+      "name": "Office",
+      "file": "models/blender/BLD_QD_Office.glb"
+     },
+     {
+      "name": "Quick Sell Station",
+      "file": "models/blender/BLD_QD_SellKiosk.glb"
+     }
+    ]
+   },
+   {
+    "title": "2. Production machinery (the game's own builders)",
+    "items": [
+     {
+      "name": "Jaw crusher",
+      "file": "models/procedural/machinery__jaw_crusher.glb"
+     },
+     {
+      "name": "Advanced crusher",
+      "file": "models/procedural/machinery__cone_crusher.glb"
+     },
+     {
+      "name": "Hopper",
+      "file": "models/procedural/machinery__small_hopper.glb"
+     },
+     {
+      "name": "Output storage bin",
+      "file": "models/procedural/machinery__output_storage.glb"
+     },
+     {
+      "name": "Sorting table",
+      "file": "models/procedural/machinery__sorting_table.glb"
+     },
+     {
+      "name": "Storage crate",
+      "file": "models/procedural/machinery__storage_crate.glb"
+     },
+     {
+      "name": "Conveyor, straight",
+      "file": "models/procedural/machinery__conveyor.glb"
+     },
+     {
+      "name": "Conveyor, left corner",
+      "file": "models/procedural/machinery__conveyor_corner_left.glb"
+     },
+     {
+      "name": "Conveyor, right corner",
+      "file": "models/procedural/machinery__conveyor_corner_right.glb"
+     },
+     {
+      "name": "Conveyor merger (3-way junction)",
+      "file": "models/procedural/machinery__conveyor_merger.glb"
+     }
+    ]
+   }
+  ]
+ },
+ {
   "group": "The Veil pack",
   "sections": [
    {
@@ -319,6 +394,10 @@
      {
       "name": "Conveyor Corner Right",
       "file": "models/procedural/machinery__conveyor_corner_right.glb"
+     },
+     {
+      "name": "Conveyor Merger",
+      "file": "models/procedural/machinery__conveyor_merger.glb"
      },
      {
       "name": "Drill Rig",

@@ -34,6 +34,9 @@ class Stub extends Node:
 	var OFFICE_POS := Vector3.ZERO
 	var SHED_POS := Vector3.ZERO
 	var HOME_POS := Vector3.ZERO
+	var TOOLSHED_POS := Vector3.ZERO
+	func quicksell_pos() -> Vector3:
+		return Vector3.ZERO
 	var world: Node3D
 	func in_hillside_zone(_p: Vector3, _m := 0.0) -> bool:
 		return false
@@ -59,6 +62,7 @@ func machinery() -> void:
 		"conveyor": func(a, n): a.conveyor_model(n, 0.0),
 		"conveyor_corner_left": func(a, n): a.conveyor_corner_model(n, 0.0, "left"),
 		"conveyor_corner_right": func(a, n): a.conveyor_corner_model(n, 0.0, "right"),
+		"conveyor_merger": func(a, n): a.conveyor_merger_model(n, 0.0),
 		"storage_crate": func(a, n): a.storage_model(n, 0.0)}
 	for k in items:
 		var a := art_instance()
@@ -98,7 +102,11 @@ func run() -> void:
 		out_dir = args[0]
 	DirAccess.make_dir_recursive_absolute(out_dir)
 	var cfg: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/progression.json"))
+	var only := args[1] if args.size() > 1 else ""        # "machinery": just the production machinery (what changes most often)
 	machinery()
+	if only == "machinery":
+		quit()
+		return
 	buildings()
 	for k in ["loader", "excavator", "truck"]:
 		save(vehicle(k), "vehicles", k)

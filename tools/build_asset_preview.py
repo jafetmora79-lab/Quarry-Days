@@ -22,6 +22,24 @@ def main():
     def add(group, sub, path, name):
         groups.setdefault(group, {}).setdefault(sub, []).append({"name": name, "file": path})
 
+    # NEW: the Blender yard buildings (assets/buildings) and the production line, first in the list so a phone opens straight on them
+    NEWG = "NEW: buildings, sell station, production line"
+    bdir = os.path.join(ROOT, "assets", "buildings")
+    os.makedirs(os.path.join(OUT, "blender"), exist_ok=True)
+    nice = {"Home": "Grandpa's house (cabin + living room)", "Workshop": "Workshop", "Shed": "Storage shed", "Office": "Office", "SellKiosk": "Quick Sell Station"}
+    for key in ["Home", "Workshop", "Shed", "Office", "SellKiosk"]:
+        src = os.path.join(bdir, "BLD_QD_%s.glb" % key)
+        if os.path.exists(src):
+            shutil.copy2(src, os.path.join(OUT, "blender", "BLD_QD_%s.glb" % key))
+            add(NEWG, "1. Buildings (modelled in Blender)", "models/blender/BLD_QD_%s.glb" % key, nice[key])
+    prod = [("jaw_crusher", "Jaw crusher"), ("cone_crusher", "Advanced crusher"), ("small_hopper", "Hopper"), ("output_storage", "Output storage bin"),
+            ("sorting_table", "Sorting table"), ("storage_crate", "Storage crate"), ("conveyor", "Conveyor, straight"),
+            ("conveyor_corner_left", "Conveyor, left corner"), ("conveyor_corner_right", "Conveyor, right corner"), ("conveyor_merger", "Conveyor merger (3-way junction)")]
+    for key, nm in prod:
+        f = os.path.join(OUT, "procedural", "machinery__%s.glb" % key)
+        if os.path.exists(f):
+            add(NEWG, "2. Production machinery (the game's own builders)", "models/procedural/machinery__%s.glb" % key, nm)
+
     # Veil asset pack
     veil_root = os.path.join(ROOT, "assets", "veil_qd")           # the repaired Quarry Days copies (tools/repair_glb.py)
     if not os.path.isdir(veil_root):
