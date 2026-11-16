@@ -44,7 +44,7 @@ func run_tests() -> void:
 	test_payroll()
 	test_insufficient_funds()
 	test_conveyors()
-	test_clerk_sales()
+	test_cash_hopper_sales()
 	test_upgrades()
 	test_exploits()
 	await scene_tests()
@@ -63,26 +63,22 @@ func test_hiring() -> void:
 	b.state.money = 10
 	check(b.hire("ines").is_empty() and b.state.money == 10, "hiring blocked without enough money, nothing deducted")
 	b.state.money = 1000
-	b.hire("tomas"); b.hire("bram"); b.hire("petra")
-	check(b.employees.size() == 4 and b.hire("omar").is_empty(), "staff limit of four enforced")
-	check(b.hire_block_reason("omar").begins_with("Staff limit"), "staff limit reported to UI")
+	b.hire("tomas"); b.hire("bram"); b.hire("felix")
+	check(b.employees.size() == 4 and b.hire("sofia").is_empty(), "staff limit of four enforced")
+	check(b.hire_block_reason("sofia").begins_with("Staff limit"), "staff limit reported to UI")
 
 func test_specialties() -> void:
 	var b := make()
 	b.state.new_crusher(Vector3(0, 0, 0), 0)
 	var miner := b.hire("rosa")
 	var op := b.hire("tomas")
-	var clerk := b.hire("petra")
+	var clerk := b.hire("felix")
 	check(not b.assign(int(miner["id"]), {"crusher": 0}), "2 miner cannot be assigned to a crusher")
 	check(not b.assign(int(op["id"]), {"resource": "coal"}), "2 operator cannot be assigned to mining")
-	check(not b.assign(int(clerk["id"]), {"src": {"type": "storage"}, "dst": {"type": "crusher", "index": 0}}), "2 clerk cannot be given a hauling route")
+	check(not b.assign(int(clerk["id"]), {"resource": "coal"}), "2 a hauler cannot be assigned to mining")
 	check(b.assign(int(miner["id"]), {"resource": "iron_ore"}) and miner["assignment"]["resource"] == "iron_ore", "2 miner can be assigned to iron")
 	b.state.clock_minutes = 600
 	b.payroll_minute = 600
-	b.authorized["limestone"] = true
-	b.state.storage["limestone"] = 5
-	var money := b.state.money
-	check(int(b.clerk_sell(miner)["units"]) == 0 and b.state.money == money, "2 miner cannot sell")
 	b.state.crushers[0]["input"] = 3
 	check(not b.operator_start(miner, 0) and not b.state.crushers[0]["running"], "2 miner cannot run a crusher")
 	check(b.operator_start(op, 0) and b.state.crushers[0]["running"], "2 operator can run its crusher")
@@ -163,28 +159,16 @@ func test_conveyors() -> void:
 		b2.tick(0.1)  # 10 seconds at 0.5 units/s
 	check(int(b2.state.crushers[0]["hopper"]) <= 5 and int(b2.state.crushers[0]["hopper"]) >= 3, "9 transfer respects the configured rate (got %d in 10 s)" % int(b2.state.crushers[0]["hopper"]))
 
-func test_clerk_sales() -> void:
+func test_cash_hopper_sales() -> void:
 	var b := make(100)
-	var clerk := b.hire("petra")
-	b.state.clock_minutes = 600
-	b.payroll_minute = 600
-	b.add_output(Vector3(0, 0, 0), 0)
-	b.outputs[0]["items"]["crushed_stone"] = 5
-	b.state.storage["crushed_stone"] = 2
-	b.state.storage["limestone"] = 9
+	var h: int = b.add_output(Vector3(0, 0, 0), 0, "cash_hopper")
+	b.outputs[h]["items"]["crushed_stone"] = 5
 	var money := b.state.money
-	var sale := b.clerk_sell(clerk)
-	check(int(sale["units"]) == 0 and b.state.money == money, "10 nothing sold without authorization")
-	b.authorized["crushed_stone"] = true
-	sale = b.clerk_sell(clerk)
-	check(int(sale["units"]) == 3 and b.state.money == money + 21, "10 clerk sells 3 crushed stone for $21")
-	check(int(b.state.storage["crushed_stone"]) == 0 and b.output_total(0) == 4, "10 sold stock removed from storage then output storage")
-	check(int(b.state.storage["limestone"]) == 9, "10 unauthorized limestone untouched")
-	check(b.chain["sold"], "10 automated crushed-stone sale counts toward the chain")
-	b.state.clock_minutes = 1200
-	b.tick(0.0)
-	money = b.state.money
-	check(int(b.clerk_sell(clerk)["units"]) == 0 and b.state.money == money, "10 clerk does not sell off shift")
+	b.tick(1.0)
+	check(b.state.money == money + 7 and b.cash_queue(h) == 4, "10 the Cash Hopper sells one unit per second at $7")
+	b.tick(10.0)
+	check(b.cash_queue(h) == 0 and b.state.money == money + 35, "10 and the queue empties for exactly 5 x $7")
+	check(b.chain["sold"], "10 a crushed-stone sale counts toward the chain")
 
 func test_upgrades() -> void:
 	var b := make(2000)
@@ -211,13 +195,6 @@ func test_upgrades() -> void:
 	b.payroll_minute = 600
 	b.operator_start(op, 0)
 	check(is_equal_approx(float(b.state.crushers[0]["remaining"]), 18.0 * 0.8), "11 trained operator crushes in 14.4 s instead of 18 s")
-	var clerk := b.hire("petra")
-	b.buy_upgrade(int(clerk["id"])); b.buy_upgrade(int(clerk["id"])); b.buy_upgrade(int(clerk["id"]))
-	b.authorized["crushed_stone"] = true
-	b.state.storage["crushed_stone"] = 6
-	money = b.state.money
-	var sale := b.clerk_sell(clerk)
-	check(int(sale["units"]) == 6 and b.state.money - money == int(round(42 * 1.06)), "11 trained clerk sells 6 per transaction with a 6% bonus")
 	var copy := make()
 	copy.restore(JSON.parse_string(JSON.stringify(b.snapshot())))
 	check(int(copy.employee(int(miner["id"]))["upgrade"]) == 3 and int(copy.stat(copy.employee(int(hauler["id"])), "carry")) == 9, "11 upgrades persist through save data")
@@ -248,19 +225,11 @@ func test_exploits() -> void:
 	check(b.outstanding_debt == 0.0 and b.state.money == 100 - int(ceil(owed - 0.0001)), "14 outstanding wages are paid once funds exist")
 	check(not b.hire("dmitri").is_empty(), "14 hiring possible again after debts are paid")
 	var b3 := make(1000)
-	var clerk := b3.hire("petra")
-	b3.state.clock_minutes = 600
-	b3.payroll_minute = 600
-	b3.authorized["coal"] = true
-	b3.state.storage["coal"] = 2
-	var m := b3.state.money
-	var sale := b3.clerk_sell(clerk)
-	check(int(sale["units"]) == 2 and b3.state.money == m + 14 and b3.stock("coal") == 0, "14 clerk cannot sell more than the stock")
-	check(int(b3.clerk_sell(clerk)["units"]) == 0 and b3.state.money == m + 14, "14 empty stock earns nothing")
+	var rehire := b3.hire("felix")
 	var fee_before := b3.state.money
-	b3.fire(int(clerk["id"]))
-	b3.hire("petra")
-	check(b3.state.money <= fee_before - 15, "14 rehiring charges the fee again")
+	b3.fire(int(rehire["id"]))
+	b3.hire("felix")
+	check(b3.state.money <= fee_before - b3.hire_fee(b3.candidate("felix")), "14 rehiring charges the fee again")
 
 # ------------------------------------------------------------------ scene tests
 
@@ -294,29 +263,6 @@ func scene_tests() -> void:
 	game.player_mine("coal_mountain", -1, 42.0)
 	var m: int = game.state.money
 	check(game.state.sell("coal", 1) == 1 and game.state.money == m + int(round(game.state.unit_price("coal"))), "13 manual mining and selling still work")
-	# --- clerk walks to the station and sells authorized stock
-	game.state.clock_minutes = 600.0 # 10:00
-	game.business.payroll_minute = 600
-	game.ui_hire("petra")
-	var clerk_node = game.worker_nodes.values()[0]
-	var clerk: Dictionary = game.business.employees[0]
-	var track := {"last": clerk_node.global_position, "max": 0.0, "walked": 0.0}
-	var start_pos: Vector3 = clerk_node.global_position
-	var arrived := await frames(game, 1500, func():
-		var d: float = clerk_node.global_position.distance_to(track["last"])
-		track["max"] = maxf(track["max"], d)
-		track["walked"] += d
-		track["last"] = clerk_node.global_position
-		return clerk_node._flat(clerk_node.global_position, Vector3(game.SELL_ANCHOR.x, 0, game.SELL_ANCHOR.z)) < 2.6)
-	check(arrived < 1500 and start_pos.distance_to(Vector3(game.SELL_ANCHOR.x, 0, game.SELL_ANCHOR.z)) > 5.0, "6 clerk walks from the break area to the office (%d frames)" % arrived)
-	check(track["max"] < 0.6 and track["walked"] > 4.0, "6 worker moves smoothly without teleporting (max step %.2f m, walked %.1f m)" % [track["max"], track["walked"]])
-	game.state.storage["crushed_stone"] = 4
-	game.business.authorized["crushed_stone"] = true
-	m = game.state.money
-	var rev0 := int(game.business.day_stats(game.business.current_day())["revenue"])
-	await frames(game, 1500, func(): return int(game.state.storage["crushed_stone"]) < 4)
-	check(int(game.state.storage["crushed_stone"]) == 1, "10 clerk in the world sells stock at the counter")
-	check(int(game.business.day_stats(game.business.current_day())["revenue"]) - rev0 == 21 and game.state.money > m, "10 automated sale awards exactly $21")
 	# --- miner: walks, strikes the deposit, picks up the pieces, delivers them to storage
 	game.state.clock_minutes = 600.0
 	game.business.payroll_minute = 600
@@ -325,9 +271,8 @@ func scene_tests() -> void:
 		game.ground_pieces.erase(id)
 	game.state.storage["limestone"] = 0
 	game.ui_hire("rosa")
-	var miner: Dictionary = game.business.employees[1]
+	var miner: Dictionary = game.business.employees[0]
 	game.business.set_shift(int(miner["id"]), 0, 1439)
-	game.business.set_shift(int(clerk["id"]), 0, 1439)
 	var mined := await frames(game, 6000, func(): return int(game.state.storage["limestone"]) >= 4)
 	check(mined < 6000, "6/8 miner mines limestone and carries it to storage (%s)" % miner["task"])
 	check(game.business.chain["mined"] and int(miner["stats"]["units_total"]) >= 4, "miner production recorded")
@@ -339,7 +284,7 @@ func scene_tests() -> void:
 	game._rebake_nav()
 	game.state.crushers[0]["hopper"] = 4
 	game.ui_hire("tomas")
-	var op: Dictionary = game.business.employees[2]
+	var op: Dictionary = game.business.employees[1]
 	game.business.set_shift(int(op["id"]), 0, 1439)
 	check(game.business.milestones["mechanized"] and game.business.conveyors_unlocked(), "milestone 2 unlocks conveyors")
 	var cons := {"ok": true, "loaded": false}
@@ -360,7 +305,7 @@ func scene_tests() -> void:
 	game._rebake_nav()
 	game.state.crushers[1]["hopper"] = 3
 	game.ui_hire("hana")
-	var op2: Dictionary = game.business.employees[3]
+	var op2: Dictionary = game.business.employees[2]
 	game.business.set_shift(int(op2["id"]), 0, 1439)
 	game.ui_assign(int(op2["id"]), {"crusher": 1})
 	await frames(game, 600)
@@ -402,12 +347,12 @@ func scene_tests() -> void:
 	check(JSON.stringify(snap["outputs"]) == JSON.stringify(after["outputs"]) and JSON.stringify(snap["conveyors"]) == JSON.stringify(after["conveyors"]), "12 output storage and conveyors restored")
 	check(snap["milestones"] == after["milestones"] and snap["authorized"] == after["authorized"] and snap["payroll_minute"] == after["payroll_minute"], "12 milestones, sales authorizations and payroll clock restored")
 	check(money_loaded == money_saved and is_equal_approx(clock_loaded, clock_saved) and crushers_loaded == crushers_saved, "12 money, game time and production queues restored")
-	check(game.worker_nodes.size() == 4 and game.output_nodes.size() == 1 and game.conveyor_nodes.size() == 1 and game.crusher_nodes.size() == 2, "12 world objects rebuilt once")
+	check(game.worker_nodes.size() == 3 and game.output_nodes.size() == 1 and game.conveyor_nodes.size() == 1 and game.crusher_nodes.size() == 2, "12 world objects rebuilt once")
 	game._load()
 	var money_again: int = game.state.money
 	await process_frame
 	await process_frame
-	check(game.workers_root.get_child_count() == 4 and game.output_nodes.size() == 1 and money_again == money_saved, "14 repeated load does not duplicate workers, structures or money")
+	check(game.workers_root.get_child_count() == 3 and game.output_nodes.size() == 1 and money_again == money_saved, "14 repeated load does not duplicate workers, structures or money")
 	# --- milestone 3 and expansion
 	for step in QuarryBusiness.CHAIN_STEPS:
 		game.business.chain[step] = true
@@ -431,7 +376,7 @@ func scene_tests() -> void:
 	game.queue_free()
 	await process_frame
 
-## Acceptance: Miner -> Storage -> Hauler -> Crusher -> Output storage -> Sales clerk with no player input.
+## Acceptance: Miner -> Storage -> Hauler -> Crusher -> Cash Hopper (sells the stone) with no player input.
 func chain_test() -> void:
 	var game = load("res://Main.tscn").instantiate()
 	game.natural_start_enabled = false      # Phase 10: these suites test the older systems on the old starting layout
@@ -444,19 +389,19 @@ func chain_test() -> void:
 	Engine.time_scale = 4.0
 	game.state.new_crusher(Vector3(2, 0, 3), 0)
 	game._create_crusher(0)
-	game.business.add_output(Vector3(2, 0, 0), 0)
+	game.business.add_output(Vector3(2, 0, 0), 0, "cash_hopper")
 	game._create_output(0)
 	game.business.compute_links()
 	game._rebake_nav()
 	check(game.business.crusher_outputs[0] == 0, "output storage attached to the crusher chute")
-	for cid in ["rosa", "bram", "tomas", "petra"]:
+	for cid in ["rosa", "bram", "tomas"]:
 		game.ui_hire(cid)
 	for e in game.business.employees:
 		game.business.set_shift(int(e["id"]), 0, 1439)
 	var hauler: Dictionary = game.business.employees[1]
 	check(game.ui_assign(int(hauler["id"]), {"src": {"type": "storage"}, "dst": {"type": "crusher", "index": 0}}) == "Assignment updated", "hauler assigned storage -> crusher hopper")
 	game.business.authorized["crushed_stone"] = true
-	# Phase 3 pacing: milestone 3 needs 20 crushed stone sold by the clerk. Seed hand-mined
+	# Phase 3 pacing: milestone 3 needs 20 crushed stone sold by the Cash Hopper. Seed hand-mined
 	# limestone in the crate so the test does not wait for five deposit regrowth cycles.
 	game.state.storage["limestone"] = 24
 	var start_money: int = game.state.money

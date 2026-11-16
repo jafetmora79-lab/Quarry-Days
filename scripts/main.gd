@@ -2237,6 +2237,7 @@ func _draw_menu() -> void:
 						_save(true)
 					get_tree().quit(), "danger")
 				p.text("The game saves itself every minute and when you close it.", QuarryTheme.DIM, true)
+		"sell": _draw_sell(p)
 		"upgrades": _draw_upgrades(p)
 		"cart": _draw_cart(p, idx)
 		"storage":
@@ -2348,6 +2349,16 @@ func sorter_sell_now(idx: int) -> int:
 	return pay
 
 ## ------------------------------------------------------------------ the Cash Hopper panel
+
+## The old "sales" menu now simply shows the Cash Hopper's panel (nothing is sold by hand any more).
+func _draw_sell(p: QuarryStationUI) -> void:
+	var hs: Array = business.cash_hopper_indices()
+	if hs.is_empty():
+		p.begin("SALES", state.money, "Selling is done by the Cash Hopper.")
+		p.text("There is no Cash Hopper in the yard.", QuarryTheme.DIM)
+		p.button_bar([["ch_close", "CLOSE", true, func(): _close_menu(), 110]])
+	else:
+		_draw_cash_hopper(p, int(hs[0]))
 
 ## One action puts material in the hopper, however much it is; the hopper then sells it by itself at its own speed (see Business.tick_cash_hoppers).
 ## `keys` empty = everything the bag holds. `from_crate` takes from the storage crate instead (an explicit choice: the crate never sells by itself).

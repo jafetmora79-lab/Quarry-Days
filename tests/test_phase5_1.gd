@@ -108,7 +108,9 @@ func scene_tests() -> void:
 	game.panel.get_child(0).get_child(0).get_child(2).pressed.emit() # the header CLOSE button
 	check(game.menu == "" and not game.panel.visible, "1 the CLOSE button closes a menu")
 
-	# ---- 2 + 3 clickable sales with money pop-ups
+	# ---- 2 + 3 the Cash Hopper panel: one click deposits, the hopper sells by itself (its "+$n" rises over the machine, not as a HUD pop-up)
+	var hi: int = game.business.add_output(game.cash_hopper_pos(), 0.0, "cash_hopper")
+	game._create_output(hi)
 	st.money = 0
 	for k in st.inventory:
 		st.inventory[k] = 0
@@ -117,33 +119,25 @@ func scene_tests() -> void:
 	var lp: int = int(st.config["prices"]["limestone"])
 	var cp: int = int(st.config["prices"]["coal"])
 	game._open_menu("sell", -1)
-	check(game.panel.buttons.has("sell_limestone") and game.panel.buttons.has("sell_all") and game.panel.buttons.has("clerk_coal"), "2 the sales booth has Sell, Sell All and clerk buttons")
-	check(not game.panel.buttons.has("sell_iron_ore") and not game.panel.buttons["sell_limestone"].disabled, "2 materials you do not own have no row at all")
-	click(game, "sell_limestone")
-	check(st.money == 4 * lp and st.inventory["limestone"] == 0, "2 clicking Sell sells the whole stack ($%d)" % (4 * lp))
-	check(pop_texts(game).has("+$%d" % (4 * lp)), "3 a green '+$%d' pop-up shows the sale amount (%s)" % [4 * lp, str(pop_texts(game))])
-	var anchored := false
-	for c in game.hud.popups.get_children():
-		if str(c.text).begins_with("+$"):
-			anchored = absf(c.get_meta("origin").y - game.panel.buttons.get("sell_limestone", game.panel).get_global_rect().position.y) < 80.0 or true
-	check(anchored, "3 the pop-up is created")
+	check(game.panel.buttons.has("ch_all") and game.panel.buttons.has("ch_selected") and game.panel.buttons.has("ch_close") and game.panel.buttons.has("ch_pick_coal"), "2 the Cash Hopper panel has Deposit All, Deposit Selected, Close and a pick button per material")
+	check(not game.panel.buttons.has("ch_pick_iron_ore") and not game.panel.buttons["ch_pick_limestone"].disabled, "2 materials you do not own have no row at all")
+	click(game, "ch_pick_coal")
 	tick_clicks(game)
-	var auth0: bool = game.business.authorized["coal"]
-	click(game, "clerk_coal")
-	check(game.business.authorized["coal"] == (not auth0), "2 the clerk ON/OFF button toggles what the clerk may sell")
+	click(game, "ch_selected")
+	check(st.inventory["coal"] == 0 and st.inventory["limestone"] == 4 and game.business.cash_queue(hi) == 3 and st.money == 0, "2 Deposit Selected puts only the picked material in the hopper, and pays nothing yet")
+	game.business.tick(5.0)
+	check(st.money == 3 * cp and game.business.cash_queue(hi) == 0, "2 the hopper then sells it by itself for the exact price ($%d)" % (3 * cp))
+	check(pop_texts(game).is_empty(), "3 the HUD shows no pop-up for hopper income (the machine shows its own +$n)")
 	tick_clicks(game)
-	click(game, "clerk_coal")
-	check(game.business.authorized["coal"] == auth0, "2 the clerk toggle is reversible")
-	tick_clicks(game)
-	st.inventory["limestone"] = 2
 	var m_before: int = st.money
-	click(game, "sell_all")
-	check(st.money == m_before + 2 * lp + 3 * cp and game.state.total(st.inventory) == 0, "2 Sell All sells everything for the exact total")
-	check(st.money > m_before, "2 earnings were added once")
+	click(game, "ch_all")
+	check(st.total(st.inventory) == 0 and game.business.cash_queue(hi) == 4 and st.money == m_before, "2 Deposit All empties the bag in one click")
+	game.business.tick(6.0)
+	check(st.money == m_before + 4 * lp, "2 earnings were added once, at the price table's value")
 	tick_clicks(game)
 	var m_after: int = st.money
-	check(not click(game, "sell_all"), "2 Sell All is disabled when the bag is empty")
-	check(st.money == m_after, "4 nothing is paid for an empty sale")
+	check(not click(game, "ch_all"), "2 Deposit All is disabled when the bag is empty")
+	check(st.money == m_after, "4 nothing is paid for an empty deposit")
 
 	# ---- clickable purchases
 	for c in game.hud.popups.get_children():

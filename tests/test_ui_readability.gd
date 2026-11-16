@@ -54,7 +54,8 @@ func run() -> void:
 	game.state.inventory["coal"] = 3
 	for k in game.state.inventory.keys():
 		game.state.inventory[k] = 1                  # the booth only lists what you own
-	game._open_menu("sell", -1)
+	game._create_output(game.business.add_output(game.cash_hopper_pos(), 0.0, "cash_hopper"))
+	game._open_menu("sell", -1)                      # (the Cash Hopper's panel)
 	await process_frame
 	await process_frame
 	var all := []
@@ -99,9 +100,9 @@ func run() -> void:
 		if p2.global_position.y - (p1.global_position.y + p1.size.y) < 2.0 or p1.size.y < 26.0:
 			spaced = false
 	check(spaced, "6 rows are separated and tall enough to click")
-	var sell: Button = game.panel.buttons["sell_limestone"]
-	var clerk: Button = game.panel.buttons["clerk_limestone"]
-	check(sell.get_theme_stylebox("normal") != clerk.get_theme_stylebox("normal") and sell.size.x >= 70.0 and clerk.size.x >= 70.0, "6 Sell and Clerk buttons look different and are easy targets")
+	var sell: Button = game.panel.buttons["ch_all"]
+	var clerk: Button = game.panel.buttons["ch_pick_limestone"]
+	check(sell.get_theme_stylebox("normal") != clerk.get_theme_stylebox("normal") and sell.size.x >= 70.0 and clerk.size.x >= 70.0, "6 Deposit and Pick buttons look different and are easy targets")
 	var inside := true
 	for c in all:
 		if c is Label and c.is_visible_in_tree():

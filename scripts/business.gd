@@ -1208,6 +1208,12 @@ func machine_status(kind: String, index: int) -> Dictionary:
 			if index < 0 or index >= outputs.size():
 				return {"state": "idle", "reason": "Not placed"}
 			var total := output_total(index)
+			if is_cash_hopper(index):
+				if total >= output_capacity_of(index):
+					return {"state": "blocked", "reason": "Queue full (%d): the belts feeding it wait until it has sold some" % total}
+				if total > 0:
+					return {"state": "running", "reason": "Selling %s: %d waiting, %.0f units / s" % [cash_current(index).replace("_", " "), total, cash_rate(index)]}
+				return {"state": "idle", "reason": "Waiting for material to sell"}
 			if total >= output_capacity_of(index):
 				return {"state": "blocked", "reason": "Full: sell or empty it, or the belts feeding it stop"}
 			if total > 0:
@@ -1226,7 +1232,7 @@ func production_overview() -> Array:
 		rows.append({"kind": "conveyor", "index": i, "name": ({"merger": "Merger #%d", "splitter": "Splitter #%d", "short": "Short conveyor #%d", "incline": "Incline conveyor #%d"}.get(str(conveyors[i].get("kind", "straight")), "Conveyor #%d")) % (i + 1), "state": s["state"], "reason": s["reason"]})
 	for i in range(outputs.size()):
 		var s := machine_status("output", i)
-		rows.append({"kind": "output", "index": i, "name": "%s #%d" % [{"output": "Output storage", "hopper": "Small hopper", "sorter": "Sorting table"}.get(variant_of(i), "Storage"), i + 1], "state": s["state"], "reason": s["reason"]})
+		rows.append({"kind": "output", "index": i, "name": "%s #%d" % [{"output": "Output storage", "hopper": "Small hopper", "sorter": "Sorting table", "cash_hopper": "Cash Hopper"}.get(variant_of(i), "Storage"), i + 1], "state": s["state"], "reason": s["reason"]})
 	return rows
 
 ## Units currently on belts; used to prove conservation in tests.

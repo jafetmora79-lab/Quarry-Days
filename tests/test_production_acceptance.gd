@@ -1,5 +1,5 @@
 extends SceneTree
-## The whole new production loop, as a player does it: sell from the Quick Sell Station, open Quarry OS, buy several crushers, conveyors, a merger and an
+## The whole new production loop, as a player does it: sell through the Cash Hopper, open Quarry OS, buy several crushers, conveyors, a merger and an
 ## output bin from the Equipment Catalog into the Build Inventory, pick them in Build Mode and place them (the ghost is checked for validity), connect two
 ## crushers through belts and a merger into one shared bin, process material with no duplication, store a machine back into the Build Inventory, place it
 ## somewhere else, and save and load the whole yard.
@@ -63,14 +63,18 @@ func run() -> void:
 	var biz = game.business
 	var prog = game.prog
 
-	# 1. mine / quick sell
+	# 1. mine / sell through the Cash Hopper
 	for k in game.RESOURCE_ORDER:
 		st.inventory[k] = 0
 		st.storage[k] = 0
 	st.inventory["limestone"] = 8
 	var m0: int = st.money
-	var got: int = game.quick_sell({"limestone": 8})
-	check(got > 0 and st.money == m0 + got and int(st.inventory["limestone"]) == 0, "quick sell: 8 limestone sold at the station for $%d" % got)
+	var hop0: int = biz.add_output(game.cash_hopper_pos(), 0.0, "cash_hopper")
+	game._create_output(hop0)
+	game.cash_deposit(hop0, [])
+	biz.tick(9.0)
+	var got: int = st.money - m0
+	check(got == 8 * int(st.config["prices"]["limestone"]) and int(st.inventory["limestone"]) == 0, "Cash Hopper: 8 limestone deposited and sold for $%d" % got)
 
 	# 2. Quarry OS: buy 2 crushers, 4 belts, a merger, 1 output bin
 	for s in range(prog.stages().size()):
