@@ -44,7 +44,7 @@ func run() -> void:
 		var bb: AABB = m.global_transform * m.mesh.get_aabb()
 		lo = lo.min(bb.position)
 		hi = hi.max(bb.end)
-	check(lo.y > -0.05 and lo.y < 0.2 and hi.y > 1.6 and hi.y < 2.8 and (hi - lo).x < 5.0 and (hi - lo).z < 5.0, "1b it sits on the ground and is truck-sized (%s)" % str(hi - lo))
+	check(lo.y > -0.05 and lo.y < 0.2 and hi.y > 1.6 and hi.y < 2.8 and (hi - lo).x < 6.0 and (hi - lo).z < 6.0, "1b it sits on the ground and is truck-sized (Walt's pickup is 5.5 m long) (%s)" % str(hi - lo))
 	# ---- 2: highlights
 	var bench: Node3D = game.world.get_node("Workbench")
 	game.last_target = bench

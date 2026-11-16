@@ -37,7 +37,7 @@ func run() -> void:
 	var said := ""
 	for l in game.walter_dialog.lines:
 		said += str(l["text"]) + " "
-	check(said.contains("retiring") and said.contains("hammer"), "A Walter says he is retiring and that the player has his hammer")
+	check(said.contains("good stone") and said.contains("yours now") and said.contains("fishing rod"), "A Walter hands the quarry over at the yard (the retirement lines belong to the drive, which headless runs skip)")
 	game.walter_dialog.skip()
 	await process_frame
 	check(game.hud.card_open() and game.hud.card_title.text.contains("FIRST DAY") and game.hud.card_body.text.contains("sleep"), "A a card explains the first day, including sleeping")

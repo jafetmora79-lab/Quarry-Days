@@ -12,17 +12,25 @@ const WOOD := Color(0.45, 0.32, 0.20)
 const SEAT := Color(0.44, 0.30, 0.19)
 const DASH := Color(0.20, 0.18, 0.16)
 
-static func _box(parent: Node3D, pos: Vector3, size: Vector3, color: Color, emissive := 0.0, rot := Vector3.ZERO) -> MeshInstance3D:
-	var mi := MeshInstance3D.new()
-	var bm := BoxMesh.new()
-	bm.size = size
-	mi.mesh = bm
-	mi.position = pos
-	mi.rotation_degrees = rot
-	mi.material_override = MeshKit.flat(color, emissive)
-	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	parent.add_child(mi)
-	return mi
+## Boxes are collected per parent and colour and emitted as ONE mesh each by _flush() (the whole pickup is about two dozen mesh nodes, not two hundred).
+static var _acc := {}
+
+static func _box(parent: Node3D, pos: Vector3, size: Vector3, color: Color, emissive := 0.0, rot := Vector3.ZERO) -> void:
+	var key := "%d|%s|%s" % [parent.get_instance_id(), color.to_html(), str(emissive)]
+	if not _acc.has(key):
+		_acc[key] = {"soup": MeshKit.Soup.new(), "parent": parent, "color": color, "emissive": emissive}
+	var xf := Transform3D(Basis.from_euler(Vector3(deg_to_rad(rot.x), deg_to_rad(rot.y), deg_to_rad(rot.z))), pos)
+	MeshKit.box_into(_acc[key]["soup"], Vector3.ZERO, size, Vector2.ONE, xf)
+
+static func _flush() -> void:
+	for key in _acc:
+		var e: Dictionary = _acc[key]
+		var mi := MeshInstance3D.new()
+		mi.mesh = (e["soup"] as MeshKit.Soup).mesh()
+		mi.material_override = MeshKit.flat(e["color"], float(e["emissive"]))
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		(e["parent"] as Node3D).add_child(mi)
+	_acc.clear()
 
 static func _glass() -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
@@ -45,6 +53,7 @@ static func _quad(parent: Node3D, pos: Vector3, size: Vector2, rot: Vector3, mat
 	return mi
 
 static func build() -> Dictionary:
+	_acc.clear()
 	var root := Node3D.new()
 	root.name = "Pickup"
 	# ---- chassis, hood, grille, lights, bumpers
@@ -165,8 +174,7 @@ static func build() -> Dictionary:
 		_box(inside, Vector3(sx * 0.86, 1.06, 0.2), Vector3(0.06, 0.05, 0.16), TRIM)                     # door handles
 		_box(inside, Vector3(sx * 0.86, 1.04, -0.4), Vector3(0.06, 0.08, 0.06), TRIM)                    # window winders
 	_box(inside, Vector3(0, 0.7, 0.0), Vector3(0.18, 0.1, 0.5), Color(0.15, 0.14, 0.13))                # gear-stick tunnel hump
-	var gs := _box(inside, Vector3(0.0, 0.92, -0.1), Vector3(0.04, 0.4, 0.04), Color(0.1, 0.1, 0.1))
-	gs.rotation_degrees = Vector3(-12, 0, 0)
+	_box(inside, Vector3(0.0, 0.92, -0.1), Vector3(0.04, 0.4, 0.04), Color(0.1, 0.1, 0.1), 0.0, Vector3(-12, 0, 0))
 	# ---- headlights
 	var lights := Node3D.new()
 	lights.name = "Headlights"
@@ -182,6 +190,7 @@ static func build() -> Dictionary:
 		sp.shadow_enabled = false
 		lights.add_child(sp)
 	root.add_child(lights)
+	_flush()
 	return {"root": root, "wheels": wheels, "interior": inside, "headlights": lights}
 
 ## Where things sit in the cab (truck-local metres): Walt at the wheel (hips on the bench), the passenger's eyes.
