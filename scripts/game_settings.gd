@@ -62,6 +62,6 @@ static func set_vsync(on: bool) -> void:
 ## The controls reference shown in Settings: [key, what it does].
 const CONTROLS := [
 	["W A S D", "Move"], ["SHIFT", "Sprint"], ["MOUSE", "Look"], ["LEFT CLICK", "Use the tool in hand (hold for power tools)"],
-	["1 - 5", "Choose a tool on the hotbar"], ["E", "Interact / get in or out of a machine"], ["B", "Build mode"], ["M", "Management (after your first hire)"],
+	["1 - 5", "Choose a tool on the hotbar"], ["E", "Interact / get in or out of a machine"], ["B", "Build mode (I store a machine, [ ] pick from the Build Inventory, P place)"], ["M", "Management (after your first hire)"],
 	["O", "Open or close the full objectives list"], ["RIGHT CLICK", "In a machine: dump the bucket / raise the bed"], ["TAB", "Cab view in a machine"],
 	["R", "Recover a stuck machine"], ["J", "Auto crew for the machine you drive"], ["F5 / F9", "Save / load"], ["ESC", "Pause"]]

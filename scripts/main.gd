@@ -102,6 +102,7 @@ var storage_body: StaticBody3D
 var sell_body: StaticBody3D
 var pile_nodes := {}
 var construction := false
+var build_sel := 0                 ## index into build_inventory_keys(): the item picked in Build Mode
 var relocating := {}
 var sell_confirm := ""
 var sleeping := false
@@ -1975,6 +1976,14 @@ func _unhandled_input(event: InputEvent) -> void:
 			var t := _construction_target()
 			if not t.is_empty():
 				request_sell(str(t["kind"]), int(t["index"]))
+		if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_I:
+			var t := _construction_target()
+			if not t.is_empty():
+				store_to_inventory(str(t["kind"]), int(t["index"]))
+		if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode in [KEY_BRACKETLEFT, KEY_BRACKETRIGHT, KEY_COMMA, KEY_PERIOD]:
+			build_pick_step(-1 if event.physical_keycode in [KEY_BRACKETLEFT, KEY_COMMA] else 1)
+		if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_P:
+			build_place_selected()
 		return
 	if event.is_action_pressed("place_machine"):
 		_notify("Order machinery at the office computer first.")
@@ -5857,16 +5866,71 @@ func _construction_target() -> Dictionary:
 func _structure_name(kind: String, index: int) -> String:
 	return "Storage crate" if kind == "storage" else business.describe_ep({"type": kind, "index": index})
 
+## The Build Inventory as an ordered list of keys that have a count (catalog order).
+func build_inventory_keys() -> Array:
+	var out := []
+	for e in CATALOG:
+		if int(business.inventory.get(str(e[0]), 0)) > 0:
+			out.append(str(e[0]))
+	return out
+
+## The item picked in Build Mode ("" when the inventory is empty).
+func build_selected() -> String:
+	var keys := build_inventory_keys()
+	if keys.is_empty():
+		return ""
+	build_sel = clampi(build_sel, 0, keys.size() - 1)
+	return str(keys[build_sel])
+
+func build_pick_step(d: int) -> void:
+	var keys := build_inventory_keys()
+	if keys.is_empty():
+		_notify("Your Build Inventory is empty. Order machines in the Equipment Catalog on the office computer.")
+		return
+	build_sel = posmod(build_sel + d, keys.size())
+	var k := build_selected()
+	_notify("Selected: %s (%d in inventory). P places it." % [catalog_title(k), int(business.inventory.get(k, 0))])
+
+## P in Build Mode: starts placing the selected inventory item (ghost preview, R rotates, snaps to ports, green when valid, red when blocked).
+func build_place_selected() -> bool:
+	var k := build_selected()
+	if k == "":
+		_notify("Your Build Inventory is empty. Order machines in the Equipment Catalog on the office computer.")
+		return false
+	if placement:
+		return false
+	_start_placement(k)
+	return placement
+
+## I in Build Mode: picks a placed machine up into the Build Inventory (free; contents return to storage).
+func store_to_inventory(kind: String, index: int) -> bool:
+	var reason := business.store_block_reason(kind, index)
+	if reason != "":
+		_notify(reason)
+		return false
+	var label := _structure_name(kind, index)
+	var key := business.store_structure(kind, index)
+	if key == "":
+		return false
+	_rebuild_structures(kind)
+	nav_dirty = true
+	_notify("%s is back in your Build Inventory (%d x %s)." % [label, int(business.inventory.get(key, 0)), catalog_title(key)])
+	return true
+
 func _construction_prompt() -> String:
 	var t := _construction_target()
+	var inv := ""
+	var sel := build_selected()
+	if sel != "":
+		inv = "  |  [ ] pick: %d x %s, P place" % [int(business.inventory.get(sel, 0)), catalog_title(sel)]
 	if t.is_empty():
-		return "CONSTRUCTION MODE: aim at a crusher, conveyor, storage crate or output storage  |  B / Esc exit"
+		return "CONSTRUCTION MODE: aim at a machine%s  |  B / Esc exit" % (inv if inv != "" else " (crusher, conveyor, storage crate or output storage)")
 	var kind := str(t["kind"])
 	var index := int(t["index"])
 	if kind == "storage":
-		return "Storage crate  |  left click move  (the main crate cannot be sold)  |  B exit"
+		return "Storage crate  |  left click move  (the main crate cannot be sold)  |  B exit%s" % inv
 	var n := business.contents_total(business.structure_contents(kind, index))
-	return "%s%s  |  left click move  |  X sell (+$%d refund)  |  B exit" % [_structure_name(kind, index), (" holding %d items" % n) if n > 0 else "", business.refund_value(kind, index)]
+	return "%s%s  |  left click move  |  I store  |  X sell (+$%d refund)%s  |  B exit" % [_structure_name(kind, index), (" holding %d items" % n) if n > 0 else "", business.refund_value(kind, index), inv]
 
 func start_relocation(kind: String, index: int) -> bool:
 	var node := _structure_node(kind, index)
@@ -7147,7 +7211,7 @@ func hud_hints() -> Array:
 	if placement:
 		return [["LEFT CLICK", "Place"], ["R", "Rotate"], ["G", "Grid snap"], ["ESC", "Cancel"]]
 	if construction:
-		return [["LEFT CLICK", "Select a machine"], ["B", "Move it"], ["X", "Sell it"], ["ESC", "Leave build mode"]]
+		return [["LEFT CLICK", "Move a machine"], ["I", "Store it"], ["X", "Sell it"], ["[ ]", "Pick from inventory"], ["P", "Place it"], ["ESC", "Leave"]]
 	var mine := "HOLD LEFT CLICK" if prog.is_continuous() else "LEFT CLICK"
 	return [["W A S D", "Move"], ["SHIFT", "Sprint"], [mine, "Mine"], ["E", "Interact"], ["B", "Build mode"], ["M", "Management"], ["ESC", "Pause"]]
 
@@ -7162,7 +7226,7 @@ func build_info() -> Dictionary:
 		var t := _construction_target()
 		if t.is_empty():
 			return {"active": true, "title": "Build mode", "hint": "Aim at a crusher, conveyor, storage crate or output storage."}
-		return {"active": true, "title": _structure_name(str(t["kind"]), int(t["index"])), "hint": "Left click to move it, X to sell it."}
+		return {"active": true, "title": _structure_name(str(t["kind"]), int(t["index"])), "hint": "Left click to move it, I to store it in the Build Inventory, X to sell it."}
 	return {"active": false}
 
 func _hint_text() -> String:
@@ -7171,7 +7235,7 @@ func _hint_text() -> String:
 	if placement:
 		return "Left click place  R rotate  G grid snap  Esc cancel"
 	if construction:
-		return "Left click select a machine  B move  X sell  Esc leave construction"
+		return "Left click move a machine  I store it  X sell it  [ ] pick from inventory  P place  Esc leave"
 	return "WASD move  SHIFT sprint  left click mine  E use  M manage  B build  F5 save  ESC pause" + ("  J auto crew" if crew.eligible(crew_candidate()) == "" else "") + ("  K skip delivery" if delivery and not delivery.jobs.is_empty() else "")
 
 ## Small status lines under the clock: deliveries waiting in the construction inventory, vehicles on their way, belts

@@ -1187,20 +1187,59 @@ func sell_block_reason(kind: String, index: int) -> String:
 func sell_structure(kind: String, index: int) -> int:
 	if sell_block_reason(kind, index) != "":
 		return -1
+	var refund := refund_value(kind, index)
+	_detach_structure(kind, index)
+	state.money += refund
+	return refund
+
+## Takes a machine out of the yard: its contents go to the storage crate, other output storages or the bag (never lost), the record is removed, worker
+## references are repaired and the links rebuilt.
+func _detach_structure(kind: String, index: int) -> void:
 	for step in _return_plan(kind, index)[1]:
 		match str(step[0]):
 			"storage": state.storage[step[2]] = int(state.storage[step[2]]) + int(step[3])
 			"output": outputs[int(step[1])]["items"][step[2]] = int(outputs[int(step[1])]["items"][step[2]]) + int(step[3])
 			"bag": state.inventory[step[2]] = int(state.inventory[step[2]]) + int(step[3])
-	var refund := refund_value(kind, index)
 	match kind:
 		"crusher": state.crushers.remove_at(index)
 		"output": outputs.remove_at(index)
 		"conveyor": conveyors.remove_at(index)
 	_fix_references(kind, index)
-	state.money += refund
 	compute_links()
-	return refund
+
+## The Build Inventory key of a placed machine (what it becomes when it is stored).
+func inventory_key_of(kind: String, index: int) -> String:
+	match kind:
+		"crusher":
+			return "advanced_crusher" if int(state.crushers[index].get("tier", 1)) >= 2 else "crusher"
+		"output":
+			return variant_of(index)
+		"conveyor":
+			var bk := str(conveyors[index].get("kind", "straight"))
+			return "conveyor" if bk == "straight" else "conveyor_" + bk
+	return ""
+
+## Why a machine cannot be returned to the Build Inventory ("" when it can).
+func store_block_reason(kind: String, index: int) -> String:
+	if kind == "storage":
+		return "The main storage crate can be moved but not stored"
+	if structure_record(kind, index).is_empty():
+		return "Nothing to store"
+	if not bool(_return_plan(kind, index)[0]):
+		return "No room for its %d stored items - empty some storage first" % contents_total(structure_contents(kind, index))
+	return ""
+
+## Picks a machine up into the Build Inventory: no money changes hands, its contents are returned to storage, and it can be placed again later.
+## Returns the inventory key, or "" when it was refused.
+func store_structure(kind: String, index: int) -> String:
+	if store_block_reason(kind, index) != "":
+		return ""
+	var key := inventory_key_of(kind, index)
+	if key == "":
+		return ""
+	_detach_structure(kind, index)
+	inventory[key] = int(inventory.get(key, 0)) + 1
+	return key
 
 func _fix_ep(ep: Dictionary, kind: String, removed: int) -> Dictionary:
 	if str(ep.get("type", "")) != kind:
