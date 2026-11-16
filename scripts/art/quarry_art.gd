@@ -519,8 +519,31 @@ func _sign(parent: Node3D, tex_key: String, pos: Vector3, size: Vector2, yaw := 
 	var mi := MeshKit.inst(parent, q, _material(tex_key), pos, Vector3(0, yaw, 0))
 	mi.set_meta("art", true)
 
+## The Quick Sell Station: the Blender stall beside the office, with its sign written on it.
+func _sell_kiosk() -> void:
+	var kp: Vector3 = game.quicksell_pos()
+	var model := BuildingModels.load_model("SellKiosk", "CorrugatedRed")
+	if model == null:
+		return
+	model.position = kp
+	root.add_child(model)
+	var lab := Label3D.new()
+	lab.text = "SELL MATERIALS"
+	lab.pixel_size = 0.0042
+	lab.font = QuarryTheme.display()
+	lab.font_size = 64
+	lab.outline_size = 0
+	lab.modulate = Color(0.18, 0.11, 0.04)
+	lab.position = kp + Vector3(0, 2.15, -0.81)
+	lab.rotation = Vector3(0, PI, 0)
+	lab.double_sided = false
+	lab.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	root.add_child(lab)
+	light(kp + Vector3(0, 2.3, -0.4), Color(1.0, 0.86, 0.6), 0.9, 5.0)
+
 func _office() -> void:
 	var c: Vector3 = game.OFFICE_POS
+	_sell_kiosk()
 	var shell := BuildingModels.load_model("Office", "CorrugatedRed")          # the Blender shell: walls with real window openings, roof with eaves and porch, trim
 	if shell != null:
 		shell.position = c

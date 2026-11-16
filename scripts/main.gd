@@ -407,6 +407,7 @@ func _build_quarry() -> void:
 	sell.visible = false
 	sell.set_meta("kind","sell_anchor")
 	sell_body = sell
+	_build_quicksell_station()
 	_build_workbench()
 	var storage := _solid(world,"Storage crate",STORAGE_POS,Vector3(2,1.3,1.6),Color(0.33,0.23,0.13))
 	storage.set_meta("kind","storage")
@@ -1526,7 +1527,7 @@ func _notify(s: String) -> void:
 ## Interaction highlight (Phase 8.5): a thin warm outline on the one thing you could press E on. Only real interactables get it
 ## (never terrain, rock, loose pieces or weeds), it is removed the moment you look away, open a menu, drive or build, and it is
 ## never used for construction ghosts, which have their own blueprint look.
-const HIGHLIGHT_KINDS := ["repair_part", "cart", "door", "bed", "sell", "upgrades", "storage", "crusher", "output", "shop", "office", "rig", "vehicle", "discovery", "fossil", "egg", "conveyor", "gate"]      # (people are never outlined: it ruins the character art)
+const HIGHLIGHT_KINDS := ["repair_part", "cart", "door", "bed", "sell", "quicksell", "upgrades", "storage", "crusher", "output", "shop", "office", "rig", "vehicle", "discovery", "fossil", "egg", "conveyor", "gate"]      # (people are never outlined: it ruins the character art)
 var highlight_node: Node3D
 var highlight_meshes: Array = []
 var _hl_mat: StandardMaterial3D
@@ -1761,6 +1762,7 @@ func _physics_process(delta: float) -> void:
 			"piece": prompt = "E: collect "+str(last_target.get_meta("resource"))
 			"crusher": prompt = "E: use crusher"
 			"sell": prompt = "E: sell materials"
+			"quicksell": prompt = "E: quick sell  (%d units to sell)" % quicksell_total_units()
 			"shop": prompt = "E: order machinery"
 			"output":
 				var ov := str(last_target.get_meta("variant", "output"))
@@ -1993,6 +1995,9 @@ func _interact(target: Node3D) -> void:
 				_notify("Backpack full")
 		"sell", "upgrades", "storage", "crusher", "output", "shop":
 			_open_menu(str(target.get_meta("kind")),int(target.get_meta("index",-1)))
+		"quicksell":
+			quicksell_qty.clear()
+			_open_menu("quicksell")
 		"cart":
 			_open_menu("cart", state.carts.find(str(target.get_meta("cart"))))
 		"office":
@@ -2202,6 +2207,7 @@ func _draw_menu() -> void:
 					get_tree().quit(), "danger")
 				p.text("The game saves itself every minute and when you close it.", QuarryTheme.DIM, true)
 		"sell": _draw_sell(p)
+		"quicksell": _draw_quicksell(p)
 		"upgrades": _draw_upgrades(p)
 		"cart": _draw_cart(p, idx)
 		"storage":
@@ -2367,6 +2373,94 @@ func _draw_cart(p: QuarryStationUI, idx: int) -> void:
 	p.button_bar(bar)
 	p.text("The crate and the office are %s." % ("in reach of this cart" if (near_store or near_sell) else "too far away: push the cart close to one"), QuarryTheme.DIM)
 
+# ------------------------------------------------------------------ the Quick Sell Station
+
+var quicksell_qty := {}                ## material -> how many are picked to sell (absent = all of it)
+
+## Units of everything the station can take: the bag, the storage bin and the output storages (the same stock the sales desk sells).
+func quicksell_total_units() -> int:
+	var n := 0
+	for key in RESOURCE_ORDER:
+		n += business.sellable_units(key)
+	return n
+
+func _qs_picked(key: String) -> int:
+	return clampi(int(quicksell_qty.get(key, business.sellable_units(key))), 0, business.sellable_units(key))
+
+func _qs_set(key: String, v: int) -> void:
+	quicksell_qty[key] = clampi(v, 0, business.sellable_units(key))
+	_draw_menu()
+
+## One transaction: sells the picked quantity of each material (Business.sell_material: bag first, then the bin, then the output storages; one sale and one
+## payment per material), clamped to what is really there, so nothing is sold twice or below zero. One coin sound and one earnings pop-up for the whole sale.
+## `selection`: material -> units. Returns the money paid.
+func quick_sell(selection: Dictionary) -> int:
+	var total := 0
+	var parts := []
+	for key in RESOURCE_ORDER:
+		if not selection.has(key):
+			continue
+		var want := mini(int(selection[key]), business.sellable_units(key))
+		if want <= 0:
+			continue
+		var r: Dictionary = business.sell_material(str(key), want)
+		if int(r["units"]) <= 0:
+			continue
+		total += int(r["money"])
+		parts.append("%d %s" % [int(r["units"]), prog.display(key).to_upper()])
+	if total > 0:
+		sfx["coin"].play()
+		hud.popup_money(total)
+		hud.toast("Sold " + ", ".join(parts), "+" + QuarryTheme.money_text(total), "sale")
+		quicksell_qty.clear()
+	else:
+		_notify("Nothing to sell.")
+	return total
+
+func _draw_quicksell(p: QuarryStationUI) -> void:
+	p.begin("QUICK SELL", state.money, "Pick how many to sell, then SELL SELECTED, or sell everything with SELL ALL.")
+	var R := HORIZONTAL_ALIGNMENT_RIGHT
+	var sel_total := 0
+	var all_total := 0
+	var sel := {}
+	var any := false
+	for key in RESOURCE_ORDER:
+		var have := business.sellable_units(key)
+		if have <= 0:
+			continue
+		any = true
+		var picked := _qs_picked(key)
+		sel[key] = picked
+		sel_total += state.payout(key, picked) if picked > 0 else 0
+		all_total += state.payout(key, have)
+	if not any:
+		p.text("Nothing to sell yet. Mine some rock, or bring it from the storage bin: whatever you own shows up here.", QuarryTheme.DIM)
+	else:
+		p.row([["MATERIAL", QuarryTheme.DIM, 96], ["AVAILABLE", QuarryTheme.DIM, 66, R], ["EACH", QuarryTheme.DIM, 50, R], ["SELLING", QuarryTheme.DIM, 56, R], ["TOTAL", QuarryTheme.DIM, 70, R]], [], Color(0, 0, 0, 0), true, "_")
+	for key in RESOURCE_ORDER:
+		var have := business.sellable_units(key)
+		if have <= 0:
+			continue
+		var picked := _qs_picked(key)
+		var k: String = key
+		var step := maxi(1, have / 10)
+		p.row([[prog.display(key), QuarryTheme.INK, 96, HORIZONTAL_ALIGNMENT_LEFT, true], [str(have), QuarryTheme.INK, 66, R], ["$%s" % _price_text(state.unit_price(key)), QuarryTheme.DIM, 50, R],
+			["x %d" % picked, QuarryTheme.INK if picked > 0 else QuarryTheme.DIM, 56, R, true], [QuarryTheme.money_text(state.payout(key, picked)) if picked > 0 else "-", QuarryTheme.MONEY, 70, R, true]],
+			[["qs_minus_" + k, "-", picked > 0, func(): _qs_set(k, _qs_picked(k) - step), 34], ["qs_plus_" + k, "+", picked < have, func(): _qs_set(k, _qs_picked(k) + step), 34],
+			["qs_all_" + k, "ALL", picked < have, func(): _qs_set(k, have), 50], ["qs_sell_" + k, "SELL", picked > 0, func(): quick_sell({k: _qs_picked(k)}); _draw_menu(), 64, "primary"]],
+			QuarryTheme.RES_COLORS.get(key, Color.WHITE), false, key)
+	var bar := [["qs_sell_selected", "SELL SELECTED   %s" % QuarryTheme.money_text(sel_total), sel_total > 0, func(): quick_sell(sel); _draw_menu(), 260, "primary"],
+		["qs_sell_all", "SELL ALL   %s" % QuarryTheme.money_text(all_total), all_total > 0, func(): quick_sell_all(); _draw_menu(), 220, "primary"]]
+	p.button_bar(bar)
+	p.text("The office computer's Sales application keeps the history, lifetime earnings and the clerk's permissions.", QuarryTheme.DIM)
+
+## Sells every unit of everything the station takes, in one transaction.
+func quick_sell_all() -> int:
+	var everything := {}
+	for kk in RESOURCE_ORDER:
+		everything[kk] = business.sellable_units(kk)
+	return quick_sell(everything)
+
 func _draw_sell(p: QuarryStationUI) -> void:
 	var total_value := 0
 	var any := false
@@ -2495,6 +2589,23 @@ func _workbench_gear(p: QuarryStationUI, heading: String, ids: Array) -> bool:
 ## in full colour; the next one is lit and has a price tag; the rest are dim.
 var workbench_tools: Node3D
 var workbench_tag: Label3D
+
+## Where the Quick Sell Station stands: east of the office, in the open, clear of the doorway and the ramp (it faces the yard, -Z).
+func quicksell_pos() -> Vector3:
+	return Vector3(SELL_ANCHOR.x + 5.5, 0.0, SELL_ANCHOR.z + 0.4)
+
+## The collider and interaction point of the station (the model is drawn by QuarryArt). Aiming at it and pressing E opens the Quick Sell panel.
+func _build_quicksell_station() -> void:
+	var body := StaticBody3D.new()
+	body.name = "Quick sell station"
+	body.position = quicksell_pos() + Vector3(0, 1.3, 0)
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(2.8, 2.6, 2.0)
+	shape.shape = box
+	body.add_child(shape)
+	body.set_meta("kind", "quicksell")
+	world.add_child(body)
 
 func _build_workbench() -> void:
 	# On the office's front wall, left of the door: clear wall, nothing in the way, in view as you walk in.

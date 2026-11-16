@@ -185,6 +185,45 @@ def office(root):
     t.finish()
 
 
+
+def sell_kiosk(root):
+    """The Quick Sell Station: an open-fronted stall with a counter, a weighing scale, a sign board and a shed roof, facing -Z. 2.8 x 2.0 footprint, 2.8 m high."""
+    t = TM("Shell", root, holder=True)
+    t.box((0, 0.05, 0), (3.0, 0.1, 2.3), "Concrete")                                    # slab
+    # counter along the front, with a deeper top and a toe board
+    t.box((0, 0.55, -0.55), (2.5, 1.0, 0.5), "DarkWood")
+    t.box((0, 1.06, -0.58), (2.7, 0.07, 0.72), "Wood")
+    for k in range(5):
+        t.box((-1.0 + k * 0.5, 0.55, -0.81), (0.04, 0.9, 0.02), "Wood")                  # front planks
+    # back wall with a window, side walls half height
+    t.box((0, 1.25, 0.85), (2.6, 2.3, 0.12), "Siding")
+    t.box((0, 1.65, 0.78), (1.0, 0.7, 0.04), "Glass")
+    for sx in (-1, 1):
+        t.box((sx * 1.24, 0.85, 0.2), (0.1, 1.5, 1.4), "Siding")
+        t.box((sx * 1.3, 1.35, -0.7), (0.14, 2.5, 0.14), "DarkWood")                     # front posts
+        t.box((sx * 1.3, 1.35, 0.9), (0.14, 2.5, 0.14), "DarkWood")
+    # roof: a shed roof, high at the back, low and overhanging at the front
+    t.hexa([(-1.6, 2.5, -1.2), (1.6, 2.5, -1.2), (1.6, 2.72, 1.1), (-1.6, 2.72, 1.1),
+            (-1.6, 2.6, -1.2), (1.6, 2.6, -1.2), (1.6, 2.82, 1.1), (-1.6, 2.82, 1.1)], "Roof")
+    t.box((0, 2.42, -0.72), (2.8, 0.2, 0.12), "DarkWood")                                # the beam the sign hangs from
+    t.box((0, 2.15, -0.76), (2.3, 0.5, 0.06), "Yellow")                                  # the sign board (the game writes SELL MATERIALS on it)
+    t.box((0, 2.15, -0.79), (2.34, 0.54, 0.02), "DarkWood")
+    # the scale and its readout, a till and a ledger on the counter
+    t.box((-0.7, 1.12, -0.6), (0.7, 0.06, 0.5), "Steel")
+    t.cyl((-0.7, 1.18, -0.44), 0.16, 0.16, 0.06, "Bright", seg=10, axis='z')
+    t.box((-0.7, 1.32, -0.34), (0.1, 0.2, 0.1), "Steel")
+    t.box((0.55, 1.2, -0.6), (0.5, 0.22, 0.34), "Steel")                                 # a cash box
+    t.box((0.55, 1.33, -0.6), (0.34, 0.04, 0.2), "Lamp")                                 # its glowing display
+    t.box((1.0, 1.12, -0.5), (0.3, 0.05, 0.4), "Paper")                                  # a ledger
+    # beside it: crates and a barrel, a hazard bollard each side
+    t.box((-1.75, 0.3, -0.1), (0.6, 0.6, 0.6), "Wood")
+    t.box((-1.75, 0.75, -0.1), (0.5, 0.3, 0.5), "Wood")
+    t.cyl((1.75, 0.45, 0.0), 0.3, 0.3, 0.9, "Steel", seg=10)
+    t.cyl((1.75, 0.92, 0.0), 0.3, 0.3, 0.04, "Rubber", seg=10)
+    for sx in (-1, 1):
+        t.cyl((sx * 1.55, 0.45, -1.15), 0.07, 0.07, 0.8, "Yellow", seg=6)
+    t.finish()
+
 def build(name, fn, glb):
     Q.reset()
     root = empty("QD_" + name, size=0.2)
@@ -201,4 +240,6 @@ if __name__ == "__main__":
     only = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     if not only or "office" in only:
         build("Office", office, "BLD_QD_Office.glb")
+    if not only or "sellkiosk" in only:
+        build("SellKiosk", sell_kiosk, "BLD_QD_SellKiosk.glb")
     print("BUILD_OK")
