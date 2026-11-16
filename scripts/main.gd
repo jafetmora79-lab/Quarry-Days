@@ -2619,7 +2619,7 @@ func _home_wing() -> void:
 
 ## Where the Quick Sell Station stands: east of the office, in the open, clear of the doorway and the ramp (it faces the yard, -Z).
 func quicksell_pos() -> Vector3:
-	return Vector3(OFFICE_POS.x + (5.5 if blueprint else -5.5), 0.0, OFFICE_POS.z - 2.6)
+	return Vector3(OFFICE_POS.x + 5.5, 0.0, OFFICE_POS.z - 2.6) if blueprint else Vector3(OFFICE_POS.x - 6.0, 0.0, OFFICE_POS.z - 5.5)
 
 ## The collider and interaction point of the station (the model is drawn by QuarryArt). Aiming at it and pressing E opens the Quick Sell panel.
 func _build_quicksell_station() -> void:
