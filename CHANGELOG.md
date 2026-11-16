@@ -1,5 +1,12 @@
 # Changelog
 
+### Cash Hopper and automated selling (branch feature/cash-hopper-foundation)
+- **Grandpa's old Cash Hopper** stands east of the office from the first minute. Put material in once (E on the hopper: DEPOSIT ALL / DEPOSIT SELECTED / CRATE / UPGRADE / CLOSE; carts tip into it; belts feed it) and it sells it **one unit at a time**, wherever you are, at the one price table. Rocks fall into the funnel, a clunk and a coin sound play (pitch varies), a green or amber `+$n` rises over the machine, and a little display shows what is selling, what waits, today's earnings and the speed. Speeds 1 / 4 / 12 units per second (`data/business.json`), upgrades $900 and $3,500.
+- **Belts and mergers:** the hopper is an `output` structure variant, so crushers, belts, mergers, backpressure and saving are the existing code. A belt out of the storage crate carries whatever it holds, only if the player builds that route.
+- **Sales clerk retired:** no clerk hiring, wages or automated sales; old saves drop their clerks on load. The Quick Sell kiosk is gone. The Quarry OS **Sales** app now shows statistics (revenue, today, materials sold, hopper status, revenue by material, earnings by day). Automated Business now counts crushed stone sold through a Cash Hopper.
+- **Visual replacement contract:** `scripts/cash_hopper_view.gd` owns every visual; drop `assets/world/WLD_QD_cash_hopper.glb` with `Attach_*` / `Pivot_*` nodes to replace the placeholder (see `docs/CASH_HOPPER.md`).
+- **Tests:** `tests/test_cash_hopper.gd` (39 checks); the older suites that used the clerk or the kiosk were updated.
+
 ### Playtest round 2
 - **Sunrise and sunset:** a golden-hour glow while the sun is near the horizon: the sun gets low, the light turns orange (sunset) or soft rose (sunrise), the horizon, haze, clouds and sun disc warm up, ambient light follows.
 - **Minimap:** a real top-down picture of the property (an orthographic camera renders it every few seconds, so digging shows); markers and the arrow sit on top. Headless runs keep the schematic map.
