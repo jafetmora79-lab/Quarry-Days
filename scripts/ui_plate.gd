@@ -10,8 +10,9 @@ var skinned := false                              ## the generated panel art dra
 var _target_alpha := 1.0
 
 ## The HUD's look since the redesign: small, flat, dark and translucent with a thin warm-amber edge and an optional coloured strip, no ornamental frame.
-const FLAT_BG := Color(0.045, 0.04, 0.035, 0.66)
-const FLAT_EDGE := Color(0.95, 0.74, 0.32, 0.5)
+const FLAT_BG := Color(0.115, 0.088, 0.065, 0.86)            ## warm dark brown-charcoal (never cool slate), mostly opaque so it reads over sky and rock alike
+const FLAT_EDGE := Color(0.70, 0.51, 0.27, 0.9)             ## thin bronze / muted amber border
+const CORNER := Color(0.88, 0.68, 0.36, 0.9)                ## the small corner details
 
 func _init(margin := 8, strip := Color(0, 0, 0, 0)) -> void:
 	accent = strip
@@ -32,7 +33,13 @@ func _init(margin := 8, strip := Color(0, 0, 0, 0)) -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 func _draw() -> void:
-	pass                                                       # no coloured strip, no frame art: a flat dark plate with a thin border (see _init)
+	if skinned:
+		return
+	# no coloured strip: a flat dark plate, a thin bronze border (see _init) and a small bright tick in each corner
+	var w := size.x
+	var h := size.y
+	for c in [Vector2(2, 2), Vector2(w - 5, 2), Vector2(2, h - 5), Vector2(w - 5, h - 5)]:
+		draw_rect(Rect2(c, Vector2(3, 3)), CORNER, true)
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED:
