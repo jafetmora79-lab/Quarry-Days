@@ -30,6 +30,12 @@ Q.MATERIALS.update({
     "FlowerR":  (None, (0.85, 0.25, 0.2), 1.0, 0.0, {}),
     "FlowerY":  (None, (0.95, 0.8, 0.25), 1.0, 0.0, {}),
     "Lamp":     (None, (1.0, 0.86, 0.55), 0.5, 0.0, {"emit": 2.0}),
+    "Industrial": (None, (0.55, 0.58, 0.60), 0.9, 0.1, {}),
+    "Corrugated": (None, (0.52, 0.54, 0.53), 0.8, 0.3, {}),
+    "Chimney":  (None, (0.50, 0.28, 0.22), 1.0, 0.0, {}),
+    "Fabric":   (None, (0.30, 0.44, 0.46), 1.0, 0.0, {}),
+    "FabricRed": (None, (0.62, 0.28, 0.22), 1.0, 0.0, {}),
+    "Tv":       (None, (0.08, 0.10, 0.14), 0.3, 0.0, {}),
 })
 
 FLOOR = 0.16          # plinth / floor height
@@ -224,6 +230,220 @@ def sell_kiosk(root):
         t.cyl((sx * 1.55, 0.45, -1.15), 0.07, 0.07, 0.8, "Yellow", seg=6)
     t.finish()
 
+# ----------------------------------------------------------------------------------------------------------------------------------------------
+# The other yard buildings: Grandpa's house (with a living-room wing), the workshop and the storage shed. Same frame as the office.
+# ----------------------------------------------------------------------------------------------------------------------------------------------
+
+def gable_roof(t, cx, W, D, RISE, TH, east_x, west_x, gable_mat="Siding", vents=True, roof_mat="Roof"):
+    """One long gable roof, ridge along X, centred on x=cx and W long, D deep. Gable ends in `gable_mat` standing in the end walls at east_x / west_x."""
+    sheet = [(-D / 2, 0.0), (0.0, RISE), (D / 2, 0.0), (D / 2, TH), (0.0, RISE + TH), (-D / 2, TH)]
+    t.prism(sheet, W, (0, H, 0), roof_mat, x=cx)
+    zb = 2.51
+    under = lambda z: RISE * (1.0 - abs(z) / (D / 2))
+    gable = [(-zb, 0.0), (zb, 0.0), (zb, under(zb) + 0.02), (0.0, RISE + 0.02), (-zb, under(zb) + 0.02)]
+    for gx, sx in ((east_x, 1), (west_x, -1)):
+        t.prism(gable, T, (0, H, 0), gable_mat, x=gx)
+        if vents:
+            t.box((gx + sx * 0.12, H + 0.62, 0), (0.05, 0.34, 0.5), "Trim")
+            for i in range(3):
+                t.box((gx + sx * 0.145, H + 0.52 + i * 0.1, 0), (0.02, 0.025, 0.42), "DarkWood")
+    for sz in (-1, 1):
+        t.box((cx, H - 0.01, sz * (D / 2 - 0.02)), (W, 0.18, 0.05), "Trim")                     # fascia
+        t.box((cx, H + 0.04, sz * (D / 2 + 0.04)), (W, 0.07, 0.07), "Concrete")                  # gutter
+    for ex in (east_x + 0.13, west_x - 0.13):
+        for sz in (-1, 1):
+            t.bar((ex, H + 0.0, sz * (D / 2 - 0.02)), (ex, H + RISE - 0.04, 0.0), 0.05, 0.14, "Trim", up=(1, 0, 0))   # rake boards
+    t.box((cx, H + RISE + TH, 0), (W + 0.06, 0.08, 0.26), "Trim")                                # ridge cap
+
+
+def door_frame(t, axis, fixed, centre, w, top, sign=1.0):
+    """Jambs, a header and a threshold round a doorway of width w and height `top` (axis 'x' = in a wall running along X; 'z' = along Z)."""
+    for sx in (-1, 1):
+        if axis == 'x':
+            t.box((centre + sx * (w / 2 + 0.04), (FLOOR + top) / 2, fixed), (0.1, top - FLOOR, T + 0.06), "Trim")
+        else:
+            t.box((fixed, (FLOOR + top) / 2, centre + sx * (w / 2 + 0.04)), (T + 0.06, top - FLOOR, 0.1), "Trim")
+    if axis == 'x':
+        t.box((centre, top + 0.04, fixed), (w + 0.18, 0.1, T + 0.06), "Trim")
+        t.box((centre, FLOOR + 0.01, fixed), (w, 0.04, T + 0.02), "DarkWood")
+    else:
+        t.box((fixed, top + 0.04, centre), (T + 0.06, 0.1, w + 0.18), "Trim")
+        t.box((fixed, FLOOR + 0.01, centre), (T + 0.02, 0.04, w), "DarkWood")
+
+
+def corner_boards(t, x0, x1, z0=-2.47, z1=2.47):
+    for x in (x0, x1):
+        for z in (z0, z1):
+            t.box((x, FLOOR + H / 2, z), (0.1, H, 0.1), "Trim")
+
+
+def house(root):
+    """Grandpa's house: the old one-room cabin (kitchen, bedroom, bathroom: the game furnishes it) plus a LIVING-ROOM WING to the west, joined through a wide
+    doorway in the west wall. Main block as the office frame (walls x +-2.4, z +-2.35), the wing from x -2.4 to -5.8 with its own windows, one long gable roof
+    over both, a chimney, a porch light bracket and flower boxes."""
+    t = TM("Shell", root, holder=True)
+    AX = -4.1                                                                      # wing centre
+    t.box((0, FLOOR / 2, 0), (5.24, FLOOR, 5.24), "Concrete")
+    t.box((-4.125, FLOOR / 2, 0), (3.7, FLOOR, 5.24), "Concrete")
+    # main block: east wall with two windows, west wall with the wide doorway to the wing, back wall with a window over the bed, front wall with the door
+    east = [(-1.45, 1.1, 0.95, 2.25), (0.45, 1.1, 0.95, 2.25)]
+    wall_run(t, 'z', 2.4, -2.46, 2.46, FLOOR, H, east, outward=1.0)
+    for (c, w, b, tp) in east:
+        window(t, 'z', 2.4, c, w, tp - b, b, 1.0)
+    wall_run(t, 'z', -2.4, -2.46, 2.46, FLOOR, H, [(-0.15, 1.0, FLOOR, 2.2)], outward=-1.0)
+    door_frame(t, 'z', -2.4, -0.15, 1.0, 2.2)
+    wall_run(t, 'x', 2.35, -2.51, 2.51, FLOOR, H, [(-0.4, 0.8, 1.2, 2.2)], outward=1.0)
+    window(t, 'x', 2.35, -0.4, 0.8, 1.0, 1.2, 1.0)
+    front = [(-1.6, 0.6, 1.5, 2.1), (1.6, 0.9, 1.0, 2.1), (0.0, 1.4, FLOOR, 2.25)]
+    wall_run(t, 'x', -2.35, -2.51, 2.51, FLOOR, H, front, outward=-1.0)
+    window(t, 'x', -2.35, -1.6, 0.6, 0.6, 1.5, -1.0)
+    window(t, 'x', -2.35, 1.6, 0.9, 1.1, 1.0, -1.0)
+    door_frame(t, 'x', -2.35, 0.0, 1.4, 2.25)
+    # the wing
+    wfront = [(-5.0, 1.0, 1.0, 2.1), (-3.2, 0.9, 1.0, 2.1)]
+    wall_run(t, 'x', -2.35, -5.9, -2.49, FLOOR, H, wfront, outward=-1.0)
+    for (c, w, b, tp) in wfront:
+        window(t, 'x', -2.35, c, w, tp - b, b, -1.0)
+    wall_run(t, 'x', 2.35, -5.9, -2.49, FLOOR, H, [(-4.1, 1.6, 1.0, 2.1)], outward=1.0)
+    window(t, 'x', 2.35, -4.1, 1.6, 1.1, 1.0, 1.0)
+    wwest = [(-1.1, 1.0, 0.95, 2.15), (1.1, 1.0, 0.95, 2.15)]
+    wall_run(t, 'z', -5.8, -2.46, 2.46, FLOOR, H, wwest, outward=-1.0)
+    for (c, w, b, tp) in wwest:
+        window(t, 'z', -5.8, c, w, tp - b, b, -1.0)
+    corner_boards(t, 2.53, -5.93)
+    # battens on the outer faces (main block east and front, wing west and front)
+    def clear(pos, ops):
+        return all(abs(pos - o[0]) > o[1] / 2 + 0.08 for o in ops)
+    for k in range(-5, 6):
+        z = k * 0.45
+        if clear(z, east):
+            t.box((2.525, FLOOR + H / 2, z), (0.03, H, 0.07), "Trim")
+        if clear(z, wwest):
+            t.box((-5.925, FLOOR + H / 2, z), (0.03, H, 0.07), "Trim")
+    for k in range(-12, 6):
+        x = k * 0.45 - 0.2
+        if -2.3 < x < 2.3 and clear(x, front):
+            t.box((x, FLOOR + H / 2, -2.495), (0.07, H, 0.03), "Trim")
+        if -5.7 < x < -2.6 and clear(x, wfront):
+            t.box((x, FLOOR + H / 2, -2.495), (0.07, H, 0.03), "Trim")
+    # one long gable roof over both parts (x from -6.0 to +2.95)
+    gable_roof(t, -1.525, 8.95, 6.2, 1.1, 0.10, 2.4, -5.8)
+    # a brick-coloured chimney through the main slope, a pendant lamp in each room, ceiling and beams
+    t.box((3.3, 2.2, 0.0), (0.5, 4.1, 0.6), "Chimney")                                          # a brick stack against the east gable, outside the roof's overhang
+    t.box((3.3, 4.28, 0.0), (0.62, 0.08, 0.72), "Concrete")
+    t.box((3.3, 0.3, 0.0), (0.7, 0.3, 0.8), "Concrete")
+    t.box((-4.1, FLOOR + 0.006, 0), (3.2, 0.012, 4.4), "Wood")                                  # the wing's floorboards
+    t.box((0, H - 0.03, 0), (4.56, 0.06, 4.56), "Plaster")
+    t.box((-4.1, H - 0.03, 0), (3.3, 0.06, 4.56), "Plaster")
+    for z in (-1.3, 0.0, 1.3):
+        t.box((0, H - 0.14, z), (4.5, 0.14, 0.12), "DarkWood")
+        t.box((-4.1, H - 0.14, z), (3.3, 0.14, 0.12), "DarkWood")
+    t.cyl((-4.1, H - 0.3, 0.4), 0.008, 0.008, 0.3, "DarkWood", seg=4)
+    t.cyl((-4.1, H - 0.5, 0.4), 0.05, 0.13, 0.12, "Yellow", seg=8)
+    t.box((-4.1, H - 0.57, 0.4), (0.08, 0.03, 0.08), "Lamp")
+    # baseboards in the wing
+    t.box((-5.67, FLOOR + 0.06, 0), (0.03, 0.12, 4.4), "DarkWood")
+    t.box((-4.1, FLOOR + 0.06, 2.2), (3.2, 0.12, 0.03), "DarkWood")
+    # porch: a lean-to over the front door, two posts and a beam, flower boxes under the windows
+    for sx in (-1, 1):
+        t.box((sx * 1.2, FLOOR + 1.3, -2.95), (0.13, 2.6, 0.13), "DarkWood")
+        t.bar((sx * 1.2, 2.0, -2.95), (sx * 1.2, 2.75, -2.55), 0.07, 0.07, "DarkWood", up=(1, 0, 0))
+    t.box((0, 2.72, -2.95), (2.8, 0.2, 0.15), "DarkWood")
+    flower_box(t, 1.6, -2.62, 0.9)
+    flower_box(t, -5.0, -2.62, 1.0)
+    # ------------- the living room (wing interior)
+    t.box((-4.1, FLOOR + 0.012, 0.9), (2.4, 0.024, 1.9), "FabricRed")                           # rug
+    # sofa against the back wall, facing the room
+    t.box((-4.1, 0.4, 1.8), (2.0, 0.34, 0.8), "Fabric")                                       # seat
+    t.box((-4.1, 0.78, 2.13), (2.0, 0.5, 0.18), "Fabric")                                     # back
+    for sx in (-1, 1):
+        t.box((-4.1 + sx * 1.0, 0.55, 1.8), (0.16, 0.5, 0.8), "Fabric")                       # arms
+    for sx in (-1, 1):
+        t.box((-4.1 + sx * 0.5, 0.62, 1.78), (0.8, 0.12, 0.62), "FabricRed")                 # cushions
+    t.box((-4.1, 0.2, 1.8), (1.9, 0.1, 0.7), "DarkWood")                                       # plinth
+    # coffee table with a mug and a magazine
+    t.box((-4.1, 0.36, 0.7), (1.0, 0.05, 0.55), "Wood")
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            t.box((-4.1 + sx * 0.44, 0.17, 0.7 + sz * 0.22), (0.05, 0.34, 0.05), "DarkWood")
+    t.cyl((-3.85, 0.44, 0.7), 0.05, 0.05, 0.1, "Bright", seg=8)
+    t.box((-4.35, 0.39, 0.72), (0.3, 0.015, 0.22), "Paper")
+    # television on a cabinet against the front wall (beside the window), and a loudspeaker either side
+    t.box((-3.2, 0.3, -2.0), (1.3, 0.6, 0.4), "DarkWood")
+    t.box((-3.2, 0.96, -2.05), (0.95, 0.58, 0.08), "Rubber")
+    t.box((-3.2, 0.96, -2.0), (0.86, 0.5, 0.02), "Tv")
+    t.box((-3.2, 0.64, -2.0), (0.4, 0.04, 0.2), "Rubber")
+    # armchair near the west wall, angled toward the room
+    t.box((-5.1, 0.3, -0.5), (0.75, 0.3, 0.75), "FabricRed")
+    t.box((-5.4, 0.62, -0.5), (0.14, 0.55, 0.75), "FabricRed")
+    for sz in (-1, 1):
+        t.box((-5.1, 0.5, -0.5 + sz * 0.4), (0.75, 0.3, 0.1), "FabricRed")
+    # bookshelf on the west wall, full of books
+    t.box((-5.55, 0.9, 1.3), (0.3, 1.8, 1.1), "DarkWood")
+    cols = ["FabricRed", "Fabric", "Yellow", "Paper", "Green"]
+    for row in range(4):
+        for k in range(7):
+            t.box((-5.52, 0.35 + row * 0.42, 0.85 + k * 0.15), (0.18, 0.3 + (k % 3) * 0.03, 0.1), cols[(row + k) % 5])
+    # floor lamp and a plant in the back corners, pictures on the back wall
+    t.cyl((-2.95, 0.7, 2.0), 0.02, 0.02, 1.4, "Steel", seg=6)
+    t.cyl((-2.95, 1.5, 2.0), 0.1, 0.2, 0.25, "Lamp", seg=8)
+    t.cyl((-5.45, 0.2, 2.0), 0.18, 0.14, 0.4, "Roof", seg=8)
+    t.box((-5.45, 0.65, 2.0), (0.3, 0.5, 0.3), "Green")
+    for k, c in enumerate((-4.6, -3.6)):
+        t.box((c, 1.7, 2.2), (0.6, 0.45, 0.03), "DarkWood")
+        t.box((c, 1.7, 2.185), (0.52, 0.37, 0.02), "FlowerY" if k == 0 else "Green")
+    t.finish()
+
+
+def workshop(root):
+    """The workshop (the tool shed, upgrades): industrial siding, a steel awning with hazard striping over the 1.4 m doorway, big side windows, a roof vent."""
+    t = TM("Shell", root, holder=True)
+    t.box((0, FLOOR / 2, 0), (5.24, FLOOR, 5.24), "Concrete")
+    side_ops = [(-0.6, 1.0, 1.0, 2.2), (0.9, 1.0, 1.0, 2.2)]
+    for sx in (-1, 1):
+        wall_run(t, 'z', sx * 2.4, -2.46, 2.46, FLOOR, H, side_ops, outer_mat="Industrial", outward=float(sx))
+        for (c, w, b, tp) in side_ops:
+            window(t, 'z', sx * 2.4, c, w, tp - b, b, float(sx))
+    wall_run(t, 'x', 2.35, -2.51, 2.51, FLOOR, H, [], outer_mat="Industrial", outward=1.0)
+    wall_run(t, 'x', -2.35, -2.51, 2.51, FLOOR, H, [(0.0, 1.4, FLOOR, 2.25)], outer_mat="Industrial", outward=-1.0)
+    door_frame(t, 'x', -2.35, 0.0, 1.4, 2.25)
+    corner_boards(t, 2.53, -2.53)
+    gable_roof(t, 0.0, 5.9, 6.2, 0.9, 0.10, 2.4, -2.4, gable_mat="Industrial", vents=False, roof_mat="Roof2")
+    t.box((0, 2.42, -2.95), (2.4, 0.07, 0.8), "Steel")                                           # the awning over the door, under the eave
+    t.box((0, 2.455, -3.33), (2.4, 0.09, 0.05), "Hazard")
+    for sx in (-1, 1):
+        t.bar((sx * 1.15, 2.0, -2.5), (sx * 1.15, 2.4, -3.2), 0.06, 0.06, "Steel", up=(1, 0, 0))
+    t.cyl((1.7, H + 0.55, 1.2), 0.22, 0.22, 0.5, "Steel", seg=8)                                   # a roof vent
+    t.cyl((1.7, H + 0.85, 1.2), 0.3, 0.05, 0.12, "Steel", seg=8)
+    t.box((0, H - 0.03, 0), (4.56, 0.06, 4.56), "Plaster")
+    for sx in (-1, 1):
+        t.box((sx * 2.28, FLOOR + 0.06, 0), (0.03, 0.12, 4.5), "DarkWood")
+    t.box((0, FLOOR + 0.06, 2.24), (4.5, 0.12, 0.03), "DarkWood")
+    t.box((2.55, 0.5, -1.4), (0.3, 1.0, 0.8), "Steel")                                             # a gas bottle cage beside the door
+    t.cyl((2.62, 0.45, -1.4), 0.12, 0.12, 0.8, "Red", seg=8)
+    t.finish()
+
+
+def storage_shed(root):
+    """The storage shed: corrugated steel walls and roof, a roll-up shutter door (drum and guides) over the 1.4 m opening, high clerestory windows, loading bumpers."""
+    t = TM("Shell", root, holder=True)
+    t.box((0, FLOOR / 2, 0), (5.24, FLOOR, 5.24), "Concrete")
+    hi = [(-0.8, 1.2, 2.0, 2.5), (0.8, 1.2, 2.0, 2.5)]
+    for sx in (-1, 1):
+        wall_run(t, 'z', sx * 2.4, -2.46, 2.46, FLOOR, H, hi, outer_mat="Corrugated", outward=float(sx))
+        for (c, w, b, tp) in hi:
+            window(t, 'z', sx * 2.4, c, w, tp - b, b, float(sx))
+    wall_run(t, 'x', 2.35, -2.51, 2.51, FLOOR, H, [], outer_mat="Corrugated", outward=1.0)
+    wall_run(t, 'x', -2.35, -2.51, 2.51, FLOOR, H, [(0.0, 1.4, FLOOR, 2.3)], outer_mat="Corrugated", outward=-1.0)
+    corner_boards(t, 2.53, -2.53)
+    gable_roof(t, 0.0, 5.9, 6.2, 0.7, 0.10, 2.4, -2.4, gable_mat="Corrugated", vents=False, roof_mat="Roof")
+    t.box((0, 2.2, -2.45), (1.5, 0.5, 0.05), "Corrugated")                                       # the rolled-up shutter curtain above the opening
+    for sx in (-1, 1):                                                                              # dock bumpers
+        t.box((sx * 1.2, 0.3, -2.58), (0.18, 0.3, 0.1), "Rubber")
+    t.box((0, H - 0.03, 0), (4.56, 0.06, 4.56), "Plaster")
+    t.finish()
+
+
 def build(name, fn, glb):
     Q.reset()
     root = empty("QD_" + name, size=0.2)
@@ -242,4 +462,10 @@ if __name__ == "__main__":
         build("Office", office, "BLD_QD_Office.glb")
     if not only or "sellkiosk" in only:
         build("SellKiosk", sell_kiosk, "BLD_QD_SellKiosk.glb")
+    if not only or "house" in only:
+        build("Home", house, "BLD_QD_Home.glb")
+    if not only or "workshop" in only:
+        build("Workshop", workshop, "BLD_QD_Workshop.glb")
+    if not only or "shed" in only:
+        build("Shed", storage_shed, "BLD_QD_Shed.glb")
     print("BUILD_OK")

@@ -6,7 +6,7 @@ class_name BuildingModels
 
 const DIR := "res://assets/buildings/"
 const COLOURS := {"DarkWood": Color(0.30, 0.20, 0.12), "Green": Color(0.25, 0.5, 0.25), "FlowerR": Color(0.85, 0.25, 0.2), "FlowerY": Color(0.95, 0.8, 0.25),
-	"Door": Color(0.36, 0.24, 0.14)}
+	"Door": Color(0.36, 0.24, 0.14), "Chimney": Color(0.50, 0.28, 0.22), "Fabric": Color(0.30, 0.44, 0.46), "FabricRed": Color(0.62, 0.28, 0.22), "Tv": Color(0.08, 0.10, 0.14)}
 
 static func material_for(name: String, roof_key: String) -> Material:
 	match name:
@@ -19,6 +19,9 @@ static func material_for(name: String, roof_key: String) -> Material:
 		"Glass": return load(QuarryArt.M_GLASS)
 		"Wood": return load(QuarryArt.M_WOOD)
 		"Lamp": return MeshKit.flat(Color(1.0, 0.86, 0.55), 1.2)
+		"Industrial": return load(QuarryArt.M_INDUSTRIAL)
+		"Corrugated": return MeshKit.mat("Corrugated")
+		"Hazard": return MeshKit.mat("Hazard")
 	if COLOURS.has(name):
 		return MeshKit.flat(COLOURS[name])
 	return ToolModels.material_for(name)

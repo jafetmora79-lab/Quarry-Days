@@ -42,7 +42,7 @@ func run() -> void:
 	world_vertices(game, verts)
 	check(verts.size() > 1000, "the world has geometry to check (%d vertices)" % verts.size())
 	# ---- gable buildings: nothing rises above the ridge cap, and the roof sheets start at the wall tops
-	var specs := [["office", game.OFFICE_POS, 1.1], ["home", game.HOME_POS, 1.0], ["workshop", game.TOOLSHED_POS, 0.9], ["storage shed", game.SHED_POS, 0.7]]
+	var specs := [["office", game.OFFICE_POS, 1.1], ["home", game.HOME_POS, 1.1], ["workshop", game.TOOLSHED_POS, 0.9], ["storage shed", game.SHED_POS, 0.7]]
 	for sp in specs:
 		var c: Vector3 = sp[1]
 		var rise: float = sp[2]

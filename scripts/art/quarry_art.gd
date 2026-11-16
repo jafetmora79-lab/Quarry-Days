@@ -567,8 +567,14 @@ func _office() -> void:
 ## The player's small house by the garage: a bed to sleep in once the day is done (see main.try_sleep).
 func _home() -> void:
 	var c: Vector3 = game.HOME_POS
-	_walls(c, M_SIDING, M_DRYWALL, 2.8, [["R", -1.45, 1.1, 1.3], ["R", 0.45, 1.1, 1.3], ["L", 0.55, 1.1, 1.3]])
-	_gable_roof(c, "Corrugated", 5.6, 5.6, 2.8, 1.0)
+	var shell := BuildingModels.load_model("Home", "Corrugated")           # Grandpa's house: the cabin plus a living-room wing to the west, under one gable roof
+	if shell != null:
+		shell.position = c
+		root.add_child(shell)
+		_living_room(c)
+	else:
+		_walls(c, M_SIDING, M_DRYWALL, 2.8, [["R", -1.45, 1.1, 1.3], ["R", 0.45, 1.1, 1.3], ["L", 0.55, 1.1, 1.3]])
+		_gable_roof(c, "Corrugated", 5.6, 5.6, 2.8, 1.0)
 	quad_flat(M_LINO, c, Vector2(4.6, 4.5), 0.0, 0.165)
 	_sign(root, "Sign_Home", c + Vector3(0, 2.5, -2.51), Vector2(1.4, 0.35), PI)
 	prop(P_WALL_LAMP, c + Vector3(-1.0, 2.3, -2.5), PI)
@@ -585,12 +591,27 @@ func _home() -> void:
 	prop(P_CLOCK, c + Vector3(1.4, 2.1, 2.2), PI)
 	BuildingDetails.home_interior(self, c)
 
+## The living-room wing of Grandpa's house (the Blender shell draws the furniture; these are its solid parts, so you walk round them, plus the floor and the light).
+func _living_room(c: Vector3) -> void:
+	solid("Chimney", c + Vector3(3.3, 2.1, 0.0), Vector3(0.52, 4.2, 0.62))
+	solid("Sofa", c + Vector3(-4.1, 0.45, 1.8), Vector3(2.1, 0.9, 0.85))
+	solid("Coffee table", c + Vector3(-4.1, 0.25, 0.7), Vector3(1.0, 0.5, 0.55))
+	solid("TV cabinet", c + Vector3(-3.2, 0.4, -2.0), Vector3(1.3, 0.8, 0.45))
+	solid("Armchair", c + Vector3(-5.2, 0.4, -0.5), Vector3(0.9, 0.8, 0.8))
+	solid("Bookshelf", c + Vector3(-5.55, 0.9, 1.3), Vector3(0.34, 1.8, 1.1))
+	light(c + Vector3(-4.1, 2.2, 0.4), Color(1.0, 0.86, 0.6), 1.0, 6.0)
+
 ## The tool shed: its own little building for upgrading the player's tools and vehicles. The workbench stands against the back wall
 ## (built by main), shelves and a toolchest sit against the side walls, and the doorway and the floor in front of it stay clear.
 func _toolshed() -> void:
 	var c: Vector3 = game.TOOLSHED_POS
-	_walls(c, M_INDUSTRIAL, M_DRYWALL, 2.8, [["L", -0.6, 1.0, 1.2], ["L", 0.9, 1.0, 1.2], ["R", -0.6, 1.0, 1.2], ["R", 0.9, 1.0, 1.2]])
-	_gable_roof(c, "Corrugated", 5.6, 5.6, 2.8, 0.9, M_INDUSTRIAL, M_DRYWALL)
+	var shell := BuildingModels.load_model("Workshop", "Corrugated")      # the workshop: industrial walls, a steel awning over the door, a roof vent
+	if shell != null:
+		shell.position = c
+		root.add_child(shell)
+	else:
+		_walls(c, M_INDUSTRIAL, M_DRYWALL, 2.8, [["L", -0.6, 1.0, 1.2], ["L", 0.9, 1.0, 1.2], ["R", -0.6, 1.0, 1.2], ["R", 0.9, 1.0, 1.2]])
+		_gable_roof(c, "Corrugated", 5.6, 5.6, 2.8, 0.9, M_INDUSTRIAL, M_DRYWALL)
 	quad_flat(M_LINO, c, Vector2(4.6, 4.5), 0.0, 0.165)
 	_sign(root, "Sign_Upgrades", c + Vector3(0, 2.5, -2.51), Vector2(1.6, 0.4), PI)
 	prop(P_WALL_LAMP, c + Vector3(1.0, 2.3, -2.5), PI)
@@ -603,11 +624,17 @@ func _toolshed() -> void:
 
 func _shed() -> void:
 	var c: Vector3 = game.SHED_POS
-	_walls(c, "Corrugated", M_BASEMENT)
-	_gable_roof(c, "CorrugatedRed", 5.6, 5.6, 2.8, 0.7, "Corrugated", M_BASEMENT)
-	quad_flat(M_BASEMENT, c, Vector2(4.6, 4.5), 0.0, 0.165)
-	bx("Corrugated", c + Vector3(0, 2.45, -2.42), Vector3(1.5, 0.7, 0.06))                # rolled-up door
-	bx("SteelPlate", c + Vector3(0, 2.82, -2.45), Vector3(1.6, 0.14, 0.16))
+	var shell := BuildingModels.load_model("Shed", "CorrugatedRed")       # the storage shed: corrugated steel, clerestory windows, a roll-up shutter over the opening
+	if shell != null:
+		shell.position = c
+		root.add_child(shell)
+		quad_flat(M_BASEMENT, c, Vector2(4.6, 4.5), 0.0, 0.165)
+	else:
+		_walls(c, "Corrugated", M_BASEMENT)
+		_gable_roof(c, "CorrugatedRed", 5.6, 5.6, 2.8, 0.7, "Corrugated", M_BASEMENT)
+		quad_flat(M_BASEMENT, c, Vector2(4.6, 4.5), 0.0, 0.165)
+		bx("Corrugated", c + Vector3(0, 2.45, -2.42), Vector3(1.5, 0.7, 0.06))            # rolled-up door
+		bx("SteelPlate", c + Vector3(0, 2.82, -2.45), Vector3(1.6, 0.14, 0.16))
 	_sign(root, "Sign_Storage", c + Vector3(1.6, 2.4, -2.48), Vector2(1.2, 0.3), PI)
 	prop(P_SHELF, c + Vector3(-1.9, 0.16, 1.4), PI * 0.5)
 	prop(P_SHELF, c + Vector3(1.9, 0.16, 1.4), -PI * 0.5)

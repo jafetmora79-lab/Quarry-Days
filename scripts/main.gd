@@ -400,6 +400,7 @@ func _build_quarry() -> void:
 	_building("Office", OFFICE_POS, Color(0.48,0.42,0.31))
 	_building("Storage shed", SHED_POS, Color(0.38,0.37,0.31))
 	_building("Home", HOME_POS, Color(0.46,0.38,0.28))
+	_home_wing()
 	_building("Tool shed", TOOLSHED_POS, Color(0.40,0.36,0.30))
 	var bed := _solid(world, "Bed", HOME_POS + Vector3(-1.3, 0.35, 1.3), Vector3(1.0, 0.7, 2.0), Color(0.45,0.3,0.22))
 	bed.set_meta("kind", "bed")
@@ -2598,6 +2599,23 @@ func _workbench_gear(p: QuarryStationUI, heading: String, ids: Array) -> bool:
 ## in full colour; the next one is lit and has a price tag; the rest are dim.
 var workbench_tools: Node3D
 var workbench_tag: Label3D
+
+## Grandpa's house has a living-room wing to the west of the cabin, joined through a wide doorway in the cabin's west wall (z -0.65 .. 0.35). The cabin's west
+## wall collider is split around that doorway and the wing gets a floor, three walls and a roof, all named "Home ..." so the art hides these plain boxes.
+func _home_wing() -> void:
+	var col := Color(0.46, 0.38, 0.28)
+	var old := world.get_node_or_null("Home left")
+	if old != null:
+		world.remove_child(old)
+		old.queue_free()
+	_solid(world, "Home left front", HOME_POS + Vector3(-2.4, 1.4, -1.525), Vector3(0.22, 2.8, 1.75), col)
+	_solid(world, "Home left back", HOME_POS + Vector3(-2.4, 1.4, 1.375), Vector3(0.22, 2.8, 2.05), col)
+	_solid(world, "Home doorway head", HOME_POS + Vector3(-2.4, 2.5, -0.15), Vector3(0.22, 0.6, 1.0), col)
+	_solid(world, "Home wing floor", HOME_POS + Vector3(-4.125, 0.08, 0), Vector3(3.5, 0.16, 4.8), col)
+	_solid(world, "Home wing west", HOME_POS + Vector3(-5.8, 1.4, 0), Vector3(0.22, 2.8, 4.8), col)
+	_solid(world, "Home wing front", HOME_POS + Vector3(-4.1, 1.4, -2.35), Vector3(3.4, 2.8, 0.22), col)
+	_solid(world, "Home wing back", HOME_POS + Vector3(-4.1, 1.4, 2.35), Vector3(3.4, 2.8, 0.22), col)
+	_solid(world, "Home wing roof", HOME_POS + Vector3(-4.1, 2.92, 0), Vector3(3.8, 0.27, 5.2), Color(0.24, 0.25, 0.26))
 
 ## Where the Quick Sell Station stands: east of the office, in the open, clear of the doorway and the ramp (it faces the yard, -Z).
 func quicksell_pos() -> Vector3:
