@@ -185,6 +185,16 @@ def smooth(a, b, x):
     return k * k * (3 - 2 * k)
 
 
+def emit_field(t, groups, below):
+    """Adds height-field quads with EVERY normal pointing away from `below` (a point far under the ground), so every face is front-facing from above and from the sides:
+    a one-sided surface whose faces were oriented by guesswork showed up as holes and see-through peaks in the game."""
+    for m, quads in groups.items():
+        mesher = t._mesher(m)
+        for q in quads:
+            uvs = [(p[0] * 0.1, p[2] * 0.1) for p in q]
+            mesher.raw_quad([t._p(p) for p in q], uvs, m, outward=t._p(below))
+
+
 def mountain(root, seed, W, D, H, bumps, res=34, ridged=0.42, trees=True):
     """A mountain as a faceted height field: gaussian masses at the given summits (x, z, radius, height factor) shaped by ridged noise, fading to the ground at the edge.
     Faces are coloured by height band (alternating strata) and by steepness (dark crags on the steep ones, moss on the gentle low ones); a skirt of pines stands on the gentle
@@ -230,13 +240,7 @@ def mountain(root, seed, W, D, H, bumps, res=34, ridged=0.42, trees=True):
             else:
                 m = bands[band % len(bands)]
             groups.setdefault(m, []).append(q)
-    for m, quads in groups.items():
-        verts, faces = [], []
-        for q in quads:
-            base = len(verts)
-            verts += q
-            faces.append((base, base + 1, base + 2, base + 3))
-        t.solid(verts, faces, m)
+    emit_field(t, groups, (0.0, -60.0, 0.0))
     if trees:
         for k in range(int(W * D / 90)):
             x, z = r.uniform(-W * 0.48, W * 0.48), r.uniform(-D * 0.48, D * 0.48)
@@ -248,6 +252,77 @@ def mountain(root, seed, W, D, H, bumps, res=34, ridged=0.42, trees=True):
             hh = r.uniform(4.0, 8.0)
             t.cyl((x, y + 0.5, z), 0.14, 0.1, 1.0, "Bark", seg=4)
             t.cyl((x, y + 0.9 + hh * 0.5, z), r.uniform(1.2, 2.0), 0.06, hh, "Pine" if k % 2 else "PineLight", seg=5)
+    t.finish()
+
+
+def tunnel_mountain(root):
+    """The mountain the west tunnel runs through, 100 x 80 m, centred where the tunnel's middle is. Local +X is EAST (the yard side): a sheer rock face stands at x = +43 (the
+    portal is set into it), the ridge rises behind it and falls away to a second face at x = -42.5 (the tunnel's far exit), the flanks slope down to the ground at z = +-40. The
+    surface is kept at least 9.5 m over the tunnel's line, so the tunnel is inside solid rock the whole way. One continuous, correctly oriented surface."""
+    t = TM("Body", root, holder=True)
+    r = rnd(91)
+    W, D = 100.0, 80.0
+    waves = [(r.uniform(0, math.tau), r.uniform(0.07, 0.2), r.uniform(0, 6.3), r.uniform(0.5, 1.0)) for _ in range(6)]
+    def height(x, z):
+        u = 43.0 - x
+        if u <= 0.0:
+            return 0.0
+        face = 14.0 * min(1.0, (u / 3.2) ** 0.6)
+        base = (face + 17.0 * smooth(3.0, 36.0, u) * (1.0 - 0.55 * smooth(55.0, 82.0, u))) * (1.0 - smooth(85.55, 85.65, u))
+        lat = 1.0 - smooth(14.0, 40.0, abs(z))
+        rg = 0.0
+        for (ang, fr, ph, am) in waves:
+            q = x * math.cos(ang) + z * math.sin(ang)
+            rg += am * (1.0 - abs(math.sin(q * fr + ph)))
+        rg /= len(waves)
+        calm = smooth(7.0, 22.0, u) * (1.0 - smooth(70.0, 84.0, u))
+        h = base * lat * (1.0 + 0.3 * (rg - 0.5) * 2.0 * calm)
+        if 0.5 < u < 85.6:
+            h = max(h, 9.5 * (1.0 - smooth(7.0, 17.0, abs(z))) * smooth(0.0, 1.2, u))
+        return max(0.0, h)
+    nx, nz = 80, 32
+    pts = {}
+    for i in range(nx + 1):
+        for j in range(nz + 1):
+            x = -W / 2 + W * i / nx
+            z = -D / 2 + D * j / nz
+            jit = 1.0 if (abs(z) > 9.0 and 0 < i < nx and 0 < j < nz) else 0.0
+            x += r.uniform(-0.3, 0.3) * (W / nx) * jit
+            z += r.uniform(-0.3, 0.3) * (D / nz) * jit
+            pts[(i, j)] = (x, height(x, z), z)
+    bands = ["RockD", "RockB", "RockA", "RockC", "RockB", "RockA"]
+    groups = {}
+    for i in range(nx):
+        for j in range(nz):
+            q = [pts[(i, j)], pts[(i, j + 1)], pts[(i + 1, j + 1)], pts[(i + 1, j)]]
+            ym = sum(p[1] for p in q) / 4
+            if max(p[1] for p in q) < 0.05:
+                continue
+            cu = 43.0 - sum(p[0] for p in q) / 4
+            cz = sum(p[2] for p in q) / 4
+            if abs(cz) < 3.9 and (-1.0 < cu < 1.4 or 85.3 < cu < 87.2):
+                continue                                                                                # the tunnel mouths are open: no rock across them
+            slope = (max(p[1] for p in q) - min(p[1] for p in q)) / (W / nx)
+            band = int(ym / 32.0 * 7.0)
+            if slope > 1.6:
+                m = "RockD" if band % 2 == 0 else "RockB"
+            elif ym < 7.0 and slope < 0.5:
+                m = "Moss"
+            else:
+                m = bands[band % len(bands)]
+            groups.setdefault(m, []).append(q)
+    emit_field(t, groups, (0.0, -80.0, 0.0))
+    for k in range(70):                                                                               # pines on the gentle lower flanks
+        x, z = r.uniform(-45.0, 40.0), r.uniform(-38.0, 38.0)
+        if abs(z) < 12.0:
+            continue
+        y = height(x, z)
+        slope = abs(height(x + 0.8, z) - y) + abs(height(x, z + 0.8) - y)
+        if y < 0.4 or y > 15.0 or slope > 1.0:
+            continue
+        hh = r.uniform(4.0, 7.5)
+        t.cyl((x, y + 0.5, z), 0.14, 0.1, 1.0, "Bark", seg=4)
+        t.cyl((x, y + 0.9 + hh * 0.5, z), r.uniform(1.2, 1.9), 0.06, hh, "Pine" if k % 2 else "PineLight", seg=5)
     t.finish()
 
 
@@ -293,55 +368,40 @@ OW, OH = 6.8, 4.4               # the opening the game's tunnel interior has
 
 
 def tunnel_portal(root):
-    """The carved entrance, facing +Z (the tunnel runs toward -Z from z = 0). A rock face with an arched cut, a timber portal frame and braces, a hazard-striped steel
-    lintel, two warning signs, wall lamps with cages, and a drainage ditch with a grate beside the road. Clear opening 6.8 x 4.4 m."""
+    """The entrance set into the mountain's face (the face plane is z = 0; the portal faces +Z, the tunnel runs toward -Z). A stone surround (two piers, an arch lintel with a
+    keystone, a cap), the timber portal frame with knee braces, a hazard-striped steel lintel, two warning signs, caged wall lamps, a drainage ditch with grates.
+    Clear opening 6.8 x 4.4 m. It is a frame only: the rock around it is the mountain itself."""
     t = TM("Body", root, holder=True)
-    r = rnd(81)
     W2 = OW / 2
-    # the rock face: a left and right mass beside the opening, a head above it, each in layered slabs
-    for side in (-1, 1):
-        for li in range(5):
-            y0 = li * 2.0
-            w = 7.5 - li * 1.0
-            x0 = side * (W2 + 0.6 + w / 2)
-            t.hexa([(x0 - w / 2, y0, -2.5), (x0 + w / 2, y0, -2.5), (x0 + w / 2, y0, 1.2 - li * 0.25), (x0 - w / 2, y0, 1.2 - li * 0.25),
-                    (x0 - w / 2 + 0.3, y0 + 2.05, -2.3), (x0 + w / 2 - 0.3, y0 + 2.05, -2.3), (x0 + w / 2 - 0.3, y0 + 2.05, 0.9 - li * 0.25), (x0 - w / 2 + 0.3, y0 + 2.05, 0.9 - li * 0.25)],
-                   ["RockA", "RockB", "RockC", "RockB", "RockA"][li])
-    for li in range(4):                                                                              # the head over the opening
-        y0 = OH + 0.9 + li * 1.8
-        w = OW + 2.4 + 2.4 - li * 1.5
-        t.hexa([(-w / 2, y0, -2.5), (w / 2, y0, -2.5), (w / 2, y0, 1.0 - li * 0.3), (-w / 2, y0, 1.0 - li * 0.3),
-                (-w / 2 + 0.3, y0 + 1.85, -2.3), (w / 2 - 0.3, y0 + 1.85, -2.3), (w / 2 - 0.3, y0 + 1.85, 0.8 - li * 0.3), (-w / 2 + 0.3, y0 + 1.85, 0.8 - li * 0.3)], ["RockB", "RockA", "RockC", "RockB"][li])
-    t.box((0, OH + 0.45, -0.7), (OW + 2.0, 0.9, 3.4), "RockD")                                       # the arch's stone lining above the frame
-    # timber frame: posts, header, knee braces, a steel lintel with hazard stripes
-    for side in (-1, 1):
+    for side in (-1, 1):                                                                              # stone piers, a little proud of the face
+        t.box((side * (W2 + 0.75), (OH + 1.0) / 2, 0.15), (1.5, OH + 1.0, 1.7), "RockD")
+        for k in range(5):
+            t.box((side * (W2 + 0.75), 0.4 + k * 0.95, 1.02), (1.56, 0.12, 0.08), "RockB")        # mortar courses
+        t.box((side * (W2 + 0.2), 0.12, 1.0), (0.5, 0.24, 1.9), "Concrete")
+    t.box((0, OH + 0.75, 0.15), (OW + 3.0, 1.5, 1.7), "RockC")                                       # the arch lintel
+    t.box((0, OH + 1.7, 0.1), (OW + 3.6, 0.4, 1.8), "RockD")                                         # the cap
+    t.box((0, OH + 0.4, 1.02), (1.1, 1.1, 0.1), "RockB")                                             # the keystone
+    t.box((0, (OH + 1.9 + 9.9) / 2, 0.15), (OW + 3.0, 9.9 - OH - 1.9, 1.7), "RockC")                # the stone head up to the top of the face, closing the gap above the opening
+    for side in (-1, 1):                                                                              # timber frame
         t.box((side * (W2 + 0.3), OH / 2, 1.0), (0.55, OH, 0.55), "Timber")
-        t.box((side * (W2 + 0.3), 0.2, 1.0), (0.8, 0.4, 0.8), "Concrete")
         t.bar((side * (W2 + 0.3), OH - 1.4, 1.0), (side * (W2 - 1.1), OH, 1.0), 0.2, 0.28, "Timber", up=(0, 0, 1))
     t.box((0, OH + 0.25, 1.0), (OW + 1.2, 0.5, 0.6), "Timber")
     t.box((0, OH + 0.62, 1.1), (OW + 1.4, 0.18, 0.7), "Steel")
     for k in range(9):
         t.box((-OW / 2 - 0.4 + k * (OW + 0.8) / 8, OH + 0.62, 1.46), ((OW + 0.8) / 16, 0.18, 0.03), "Hazard" if k % 2 == 0 else "Dark")
-    # warning signs on posts, wall lamps with cages
-    for side in (-1, 1):
-        t.box((side * (W2 + 1.5), 1.4, 1.6), (0.07, 2.8, 0.07), "Steel")
-        t.box((side * (W2 + 1.5), 2.5, 1.66), (0.9, 0.9, 0.04), "Paint")
-        t.box((side * (W2 + 1.5), 2.5, 1.69), (0.62, 0.62, 0.02), "Dark")
-        t.box((side * (W2 + 1.5), 2.62, 1.71), (0.08, 0.34, 0.02), "Paint")
-        t.box((side * (W2 + 1.5), 2.3, 1.71), (0.08, 0.08, 0.02), "Paint")
-        t.box((side * (W2 + 0.05), 3.4, 1.4), (0.5, 0.3, 0.3), "Lamp")
+    for side in (-1, 1):                                                                              # warning signs on posts, caged lamps on the piers
+        t.box((side * (W2 + 2.2), 1.4, 1.8), (0.07, 2.8, 0.07), "Steel")
+        t.box((side * (W2 + 2.2), 2.5, 1.86), (0.9, 0.9, 0.04), "Paint")
+        t.box((side * (W2 + 2.2), 2.5, 1.89), (0.62, 0.62, 0.02), "Dark")
+        t.box((side * (W2 + 2.2), 2.62, 1.91), (0.08, 0.34, 0.02), "Paint")
+        t.box((side * (W2 + 2.2), 2.3, 1.91), (0.08, 0.08, 0.02), "Paint")
+        t.box((side * (W2 + 0.55), 3.3, 1.25), (0.4, 0.3, 0.3), "Lamp")
         for dz in (-0.18, 0.18):
-            t.box((side * (W2 + 0.05), 3.4, 1.4 + dz), (0.56, 0.36, 0.03), "Steel")
-    # drainage: a concrete ditch along the road's right edge, with grates, and gravel bedding at the road edges
-    for side in (-1, 1):
+            t.box((side * (W2 + 0.55), 3.3, 1.25 + dz), (0.46, 0.36, 0.03), "Steel")
+    for side in (-1, 1):                                                                              # drainage ditch with grates along the road edges
         t.box((side * (W2 - 0.25), 0.04, 3.5), (0.5, 0.08, 7.0), "Concrete")
         for k in range(7):
             t.box((side * (W2 - 0.25), 0.1, 0.6 + k), (0.36, 0.03, 0.5), "Steel")
-    # roots and moss on the rock, a few pines on the head
-    r2 = rnd(82)
-    for k in range(6):
-        x = r2.uniform(-9, 9)
-        t.box((x, 8.8 + r2.uniform(-1.5, 2), r2.uniform(-1.5, 0.2)), (r2.uniform(1.0, 2.2), 0.3, r2.uniform(0.8, 1.6)), "Moss")
     t.finish()
 
 
@@ -442,7 +502,7 @@ def rabbit(root):
 
 MODELS = {
     "pine_tall": pine_tall, "pine_young": pine_young, "birch": birch, "log": log, "stump": stump, "bush": bush, "fern": fern, "grass": grass, "flowers": flowers,
-    "mossy_stone": mossy_stone, "peak_a": peak_a, "peak_b": peak_b, "ridge": ridge, "foothill": foothill, "cliff": cliff,
+    "mossy_stone": mossy_stone, "peak_a": peak_a, "peak_b": peak_b, "ridge": ridge, "foothill": foothill, "cliff": cliff, "tunnel_mountain": tunnel_mountain,
     "tunnel_portal": tunnel_portal, "tunnel_set": tunnel_set, "deer": deer, "rabbit": rabbit,
 }
 

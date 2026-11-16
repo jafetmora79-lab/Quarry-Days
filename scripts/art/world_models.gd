@@ -51,11 +51,33 @@ void fragment() {
 """
 	return _shader
 
+const ROCK_TINT := {"RockA": Color(1.0, 0.92, 0.80), "RockB": Color(0.80, 0.74, 0.66), "RockC": Color(1.0, 0.96, 0.84), "RockD": Color(0.64, 0.62, 0.60), "Moss": Color(0.62, 0.78, 0.50)}
+
+## Mountain rock: the game's strata texture (pixelated, nearest-filtered) mapped in WORLD space on all three axes, so a face never stretches however steep it is, tinted per
+## stratum, drawn on both sides so a mis-oriented face can never turn into a hole.
+static func _rock(name: String) -> Material:
+	var base := MeshKit.mat("CliffStrata")
+	var m: StandardMaterial3D
+	if base is StandardMaterial3D:
+		m = (base as StandardMaterial3D).duplicate() as StandardMaterial3D
+	else:
+		m = StandardMaterial3D.new()
+	m.albedo_color = ROCK_TINT[name]
+	m.uv1_triplanar = true
+	m.uv1_world_triplanar = true
+	m.uv1_scale = Vector3(0.11, 0.11, 0.11)
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.roughness = 1.0
+	return m
+
 static func material_for(name: String) -> Material:
 	if _mats.has(name):
 		return _mats[name]
 	var m: Material = null
-	if FOLIAGE.has(name):
+	if ROCK_TINT.has(name):
+		m = _rock(name)
+	elif FOLIAGE.has(name):
 		var sm := ShaderMaterial.new()
 		sm.shader = _sway_shader()
 		sm.set_shader_parameter("albedo", FOLIAGE[name])

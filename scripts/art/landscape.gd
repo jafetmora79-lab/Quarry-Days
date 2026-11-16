@@ -257,8 +257,10 @@ func forest_blocked(p: Vector2) -> bool:
 		return true                                              # the quarry and its fence
 	if p.x > -78.0 and p.x < -18.0 and p.y > 12.0 and p.y < 40.0:
 		return true                                              # the service lane and the tunnel approach
-	if p.x > -110.0 and p.x < -26.0 and p.y > -6.0 and p.y < 80.0:
+	if p.x > -126.0 and p.x < -26.0 and p.y > -16.0 and p.y < 68.0:
 		return true                                              # the tunnel mountain
+	if QuarryOpening.near_road(p, 7.5):
+		return true                                              # the winding forest road out of the tunnel
 	if p.x > 22.0 and p.x < 58.0 and p.y > -6.0 and p.y < 32.0:
 		return true                                              # the east extension
 	if absf(p.x) < 9.0 and p.y > -140.0 and p.y < 30.0:

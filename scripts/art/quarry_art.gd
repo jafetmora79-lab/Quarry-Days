@@ -864,13 +864,48 @@ func _blueprint_world() -> void:
 			var x2 := -190.0 + float(i) * 29.0 + rng.randf_range(-8.0, 8.0)
 			MeshKit.rock_into(rs, Vector3(x2, -2.0, rng.randf_range(-128.0, -118.0)), Vector3(rng.randf_range(30.0, 46.0), rng.randf_range(8.0, 15.0), rng.randf_range(16.0, 24.0)), 500 + i, 3, 7)
 		MeshKit.inst(root, rs.mesh(), rock_mat).name = "NorthRange"
-	# the west mountain with the tunnel: rock masses beside and above the tunnel (its own walls and roof are built by the delivery system)
-	var ms := MeshKit.Soup.new()
-	MeshKit.rock_into(ms, Vector3(-62.0, -1.0, 6.0), Vector3(74.0, 26.0, 40.0), 611, 4, 8)
-	MeshKit.rock_into(ms, Vector3(-66.0, -1.0, 52.0), Vector3(80.0, 30.0, 50.0), 612, 4, 8)
-	MeshKit.rock_into(ms, Vector3(-38.0, 5.2, 25.4), Vector3(34.0, 12.0, 16.0), 613, 3, 7)
-	MeshKit.rock_into(ms, Vector3(-86.0, -1.0, 27.0), Vector3(40.0, 20.0, 30.0), 614, 3, 7)
-	MeshKit.inst(root, ms.mesh(), rock_mat).name = "TunnelMountain"
+	# the west mountain with the tunnel: ONE solid Blender mountain (a continuous, correctly oriented surface with a sheer rock face where the portal is set in, a ridge over the
+	# tunnel and a second face at the far exit), 100 x 80 m. Falls back to the old rock masses when the model is missing.
+	var tm: Node3D = WorldModels.placed("tunnel_mountain")
+	if tm != null:
+		tm.position = Vector3(-70.1, -0.05, 25.4)
+		tm.name = "TunnelMountain"
+		root.add_child(tm)
+		(tm.get_child(0) as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_forest_road()
+	else:
+		var ms := MeshKit.Soup.new()
+		MeshKit.rock_into(ms, Vector3(-62.0, -1.0, 6.0), Vector3(74.0, 26.0, 40.0), 611, 4, 8)
+		MeshKit.rock_into(ms, Vector3(-66.0, -1.0, 52.0), Vector3(80.0, 30.0, 50.0), 612, 4, 8)
+		MeshKit.rock_into(ms, Vector3(-38.0, 5.2, 25.4), Vector3(34.0, 12.0, 16.0), 613, 3, 7)
+		MeshKit.rock_into(ms, Vector3(-86.0, -1.0, 27.0), Vector3(40.0, 20.0, 30.0), 614, 3, 7)
+		MeshKit.inst(root, ms.mesh(), rock_mat).name = "TunnelMountain"
+
+## The winding forest road that comes out of the tunnel's far exit and leads away through the western forest (the road the opening drive follows): a gravel strip along the
+## Catmull-Rom curve of QuarryOpening.road_points(), 5.2 m wide, a few centimetres above the ground like the yard's other surfaces.
+func _forest_road() -> void:
+	var pts: Array = QuarryOpening.road_curve(3.0)
+	if pts.size() < 3:
+		return
+	var soup := MeshKit.Soup.new()
+	var half := 2.6
+	var left: Array = []
+	var right: Array = []
+	for i in range(pts.size()):
+		var p: Vector3 = pts[i]
+		var nxt: Vector3 = pts[mini(i + 1, pts.size() - 1)]
+		var prv: Vector3 = pts[maxi(i - 1, 0)]
+		var d := (nxt - prv)
+		d.y = 0.0
+		d = d.normalized()
+		var side := Vector3(-d.z, 0, d.x)
+		left.append(p + side * half + Vector3(0, 0.06, 0))
+		right.append(p - side * half + Vector3(0, 0.06, 0))
+	for i in range(pts.size() - 1):
+		soup.quad(left[i], left[i + 1], right[i + 1], right[i])
+	var mi := MeshKit.inst(root, soup.mesh(), _material(M_GRAVEL))
+	mi.name = "ForestRoad"
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 ## Places the Blender mountains round the property (visual only: the property's boundary walls and the quarry's cliffs are unchanged).
 func _world_mountains() -> void:
@@ -883,8 +918,7 @@ func _world_mountains() -> void:
 		["peak_a", 190.0, -145.0, 1.1, 70.0], ["peak_b", -200.0, -120.0, 1.05, 100.0],
 		["foothill", -170.0, -128.0, 1.5, 5.0], ["foothill", -120.0, -134.0, 1.3, 40.0], ["foothill", -62.0, -132.0, 1.2, 190.0], ["foothill", 52.0, -134.0, 1.3, 120.0],
 		["foothill", 112.0, -130.0, 1.4, 20.0], ["foothill", 168.0, -126.0, 1.5, 70.0],
-		["peak_b", 212.0, -40.0, 1.0, 90.0], ["peak_b", -212.0, 60.0, 1.0, 85.0], ["foothill", 205.0, 30.0, 1.4, 100.0], ["foothill", -200.0, -20.0, 1.4, 80.0],
-		["peak_a", -158.0, 34.0, 1.0, 30.0]]
+		["peak_b", 212.0, -40.0, 1.0, 90.0], ["foothill", -214.0, 8.0, 1.2, 85.0], ["foothill", 205.0, 30.0, 1.4, 100.0], ["foothill", -200.0, -20.0, 1.4, 80.0]]
 	for sp in spots:
 		var n: Node3D = WorldModels.placed(str(sp[0]))
 		if n == null:

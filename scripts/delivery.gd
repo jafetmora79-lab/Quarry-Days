@@ -108,6 +108,27 @@ func _build_gate_west() -> void:
 		pl.light_energy = 1.3
 		pl.omni_range = 11.0
 		game.world.add_child(pl)
+	# the mountain's yard face is solid: invisible walls along it (nobody climbs the rock), the tunnel opening and its header left
+	var face_x := WEST_GATE.x - 1.9
+	for seg in [[-14.0, WEST_GATE.z - 3.6], [WEST_GATE.z + 3.6, 66.0]]:
+		var fw := StaticBody3D.new()
+		fw.name = "Mountain face"
+		fw.position = Vector3(face_x - 0.5, 10.0, (float(seg[0]) + float(seg[1])) * 0.5)
+		var fcs := CollisionShape3D.new()
+		var fb := BoxShape3D.new()
+		fb.size = Vector3(1.0, 20.0, float(seg[1]) - float(seg[0]))
+		fcs.shape = fb
+		fw.add_child(fcs)
+		game.world.add_child(fw)
+	var head := StaticBody3D.new()
+	head.name = "Mountain face"
+	head.position = Vector3(face_x - 0.5, 13.0, WEST_GATE.z)
+	var hcs := CollisionShape3D.new()
+	var hb := BoxShape3D.new()
+	hb.size = Vector3(1.0, 16.0, 7.2)
+	hcs.shape = hb
+	head.add_child(hcs)
+	game.world.add_child(head)
 	for sz in [-1.0, 1.0]:
 		var post := MeshInstance3D.new()
 		var pm := BoxMesh.new()
@@ -186,8 +207,12 @@ func _build_gate() -> void:
 
 ## A real tunnel behind the portal: asphalt road with a dashed centre line, lined walls with ribs, an arched-flat roof, ceiling lamps
 ## and a bright daylight opening at the far end where the street continues. The road also runs from the garage apron to the portal.
+## Length of the west tunnel (the blueprint yard): from the yard face of the mountain to its far face, where a service gate closes the exit onto the forest road.
+const WEST_TUNNEL_LENGTH := 85.7
+var far_gate: Node3D                        ## the service gate at the tunnel's far exit (closed to the player; the opening drive swings it open)
+
 func _build_tunnel(z0: float) -> void:
-	var z1 := z0 + 20.0
+	var z1 := z0 + (WEST_TUNNEL_LENGTH if west else 20.0)
 	var w := 6.8
 	var h := 4.4
 	var cx := DOOR_X
@@ -263,6 +288,10 @@ func _build_tunnel(z0: float) -> void:
 			box.call(Vector3(cx, h - 0.16, k + 1.6), Vector3(1.4, 0.08, 0.3), lamp)         # ceiling lamp
 		set_n += 1
 		k += 3.2
+	if west:
+		_build_far_exit(parts, cx, z1, w, h)
+		box.call(Vector3(cx, h + 0.05, z0 - 0.4), Vector3(w + 0.2, 0.12, 0.8), dark)
+		return
 	# the far end: daylight and the street carrying on (sky-coloured glow, road and kerb lines)
 	box.call(Vector3(cx, h * 0.5, z1 + 0.15), Vector3(w + 1.2, h + 0.6, 0.3), MeshKit.flat(Color(0.82, 0.90, 1.0), 1.6), true)
 	box.call(Vector3(cx, 0.5, z1 - 0.05), Vector3(w, 1.0, 0.1), MeshKit.flat(Color(0.35, 0.37, 0.4), 0.4))
@@ -275,6 +304,58 @@ func _build_tunnel(z0: float) -> void:
 		box.call(Vector3(cx + sx * (w * 0.5 - 0.2), h * 0.5, z1 - 0.4), Vector3(0.3, h - 0.2, 0.3), rib)                  # portal jambs
 	# dark inside the portal so the opening reads as depth from the garage
 	box.call(Vector3(cx, h + 0.05, z0 - 0.4), Vector3(w + 0.2, 0.12, 0.8), dark)
+
+## The tunnel's far exit (west tunnel): the Blender portal set into the mountain's far face, warm lights on the mouth, and a closed steel service gate (solid: nobody walks out
+## onto the forest road, it is not part of the playable yard). `set_far_gate(true)` swings it open for the opening drive.
+func _build_far_exit(parts: Node3D, cx: float, z1: float, w: float, h: float) -> void:
+	var portal: Node3D = WorldModels.placed("tunnel_portal")
+	if portal != null:
+		portal.name = "TunnelExitPortal"
+		portal.position = Vector3(cx, 0.0, z1 - 0.1)
+		parts.add_child(portal)
+	far_gate = Node3D.new()
+	far_gate.name = "ServiceGate"
+	far_gate.position = Vector3(cx, 0.0, z1 + 0.75)
+	parts.add_child(far_gate)
+	var panel := MeshInstance3D.new()
+	var pm := BoxMesh.new()
+	pm.size = Vector3(w + 0.2, h, 0.22)
+	panel.mesh = pm
+	panel.position = Vector3(0, h * 0.5, 0)
+	panel.material_override = MeshKit.mat("SteelPlate")
+	far_gate.add_child(panel)
+	var stripe := MeshInstance3D.new()
+	var sm := BoxMesh.new()
+	sm.size = Vector3(w + 0.22, 0.3, 0.26)
+	stripe.mesh = sm
+	stripe.position = Vector3(0, h * 0.55, 0)
+	stripe.material_override = MeshKit.mat("Hazard")
+	far_gate.add_child(stripe)
+	var body := StaticBody3D.new()
+	body.name = "Service gate"
+	body.set_meta("art", true)
+	var cs := CollisionShape3D.new()
+	var bs := BoxShape3D.new()
+	bs.size = Vector3(w + 0.4, h + 0.6, 0.5)
+	cs.shape = bs
+	cs.position = Vector3(0, h * 0.5, 0)
+	body.add_child(cs)
+	far_gate.add_child(body)
+	for sx in [-1.0, 1.0]:
+		var l := OmniLight3D.new()
+		l.position = Vector3(cx + sx * 3.0, 3.4, z1 - 2.5)
+		l.light_color = Color(1.0, 0.82, 0.55)
+		l.light_energy = 1.0
+		l.omni_range = 8.0
+		parts.add_child(l)
+
+func set_far_gate(open: bool) -> void:
+	if far_gate == null or not is_instance_valid(far_gate):
+		return
+	far_gate.visible = not open
+	var body := far_gate.get_node_or_null("Service gate") as StaticBody3D
+	if body != null:
+		body.collision_layer = 0 if open else 1
 
 ## Where a newly hired worker steps out (spread a little so several hires do not stack).
 func gate_point(k := 0) -> Vector3:

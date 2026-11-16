@@ -44,8 +44,8 @@ func run() -> void:
 	print("DEER AT ", d.anchor, " RABBIT ", rb.anchor)
 	for i in 40:
 		wl.step(0.05)
-	var views := [["wild", d.anchor + Vector3(-5.5, 3.8, 3.0), d.anchor + Vector3(0, 0.9, 0)], ["north", Vector3(0, 3.0, 8.0), Vector3(0, 14.0, -160.0)], ["portal", Vector3(-9.0, 2.2, 25.4), Vector3(-30.0, 2.5, 25.4)],
-		["east", Vector3(120.0, 5.0, 10.0), Vector3(190.0, 10.0, -30.0)], ["west", Vector3(-124.0, 5.0, 10.0), Vector3(-190.0, 8.0, -40.0)]]
+	var views := [["portal", Vector3(-9.0, 2.2, 25.4), Vector3(-30.0, 3.0, 25.4)], ["inside", Vector3(-32.0, 1.9, 25.4), Vector3(-110.0, 2.2, 25.4)],
+		["exit", Vector3(-126.0, 2.2, 25.4), Vector3(-114.0, 3.0, 25.4)], ["mountain", Vector3(-8.0, 6.0, 40.0), Vector3(-60.0, 12.0, 25.4)]]
 	var cam := Camera3D.new()
 	cam.fov = 70.0
 	cam.far = 900.0

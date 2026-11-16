@@ -136,8 +136,19 @@ func run() -> void:
 				sets += 1
 	check(sets >= 5, "the tunnel is lined with %d Blender timber sets with gutters and lamps" % sets)
 	var gz := 25.4
-	var why := clear_sweep(game, Vector3(2.8, 3.4, 4.8), Vector3(-14.0, 0.25 + 1.7, gz), Vector3(-45.0, 0.25 + 1.7, gz))
-	check(why == "", "a truck-sized box drives from the yard through the portal to the end of the tunnel without touching anything (%s)" % why)
+	var why := clear_sweep(game, Vector3(2.8, 3.4, 4.8), Vector3(-14.0, 0.25 + 1.7, gz), Vector3(-108.0, 0.25 + 1.7, gz))
+	check(why == "", "a truck-sized box drives from the yard through the portal and the whole 85 m tunnel without touching anything (%s)" % why)
+	var closed := clear_sweep(game, Vector3(2.8, 3.4, 4.8), Vector3(-108.0, 0.25 + 1.7, gz), Vector3(-124.0, 0.25 + 1.7, gz))
+	check(closed.contains("gate"), "the far service gate is closed and solid (%s)" % closed)
+	game.delivery.set_far_gate(true)
+	await physics_frame
+	await physics_frame
+	var opened := clear_sweep(game, Vector3(2.8, 3.4, 4.8), Vector3(-108.0, 0.25 + 1.7, gz), Vector3(-124.0, 0.25 + 1.7, gz))
+	check(opened == "", "opened for the opening drive, it lets a truck through onto the forest road (%s)" % opened)
+	game.delivery.set_far_gate(false)
+	await physics_frame
+	var face := clear_sweep(game, Vector3(1.0, 1.5, 1.0), Vector3(-20.0, 1.0, 12.0), Vector3(-34.0, 1.0, 12.0))
+	check(face != "", "the mountain's yard face is solid beside the opening (%s)" % face)
 	var wall := clear_sweep(game, Vector3(1.0, 1.5, 1.0), Vector3(-35.0, 1.0, gz), Vector3(-35.0, 1.0, gz + 6.0))
 	check(wall != "", "and the tunnel's side wall is solid")
 	var roof := clear_sweep(game, Vector3(1.0, 1.0, 1.0), Vector3(-35.0, 3.8, gz), Vector3(-35.0, 6.5, gz))
