@@ -103,12 +103,12 @@ func run() -> void:
 	var titled := 0
 	for cb in cards:
 		var img: TextureRect = (cb as Control).get_node("Img")
-		if img.texture != null and img.texture.get_width() == 32:
-			plates += 1                                        # a 32 x 32 native icon
+		if img.texture != null and img.texture.get_width() == 64 and img.size.x <= 48.0:
+			plates += 1                                        # a 64 px picture from the art sheet, drawn at 46 px
 		var cap: Label = (cb as Control).get_node("Caption")
 		if cap.text != "" and (cb as Control).tooltip_text != "":
 			titled += 1
-	check(plates == cards.size() and titled == cards.size(), "each desktop icon has its 32 px picture, a name and a tooltip")
+	check(plates == cards.size() and titled == cards.size(), "each desktop icon has its art-sheet picture (64 px, drawn at 46), a name and a tooltip")
 	# ---- hire page: roomy buttons, wage and fee in their own column
 	mg._set_tab("hire")
 	await frames(4)
