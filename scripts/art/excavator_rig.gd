@@ -93,7 +93,9 @@ func build() -> void:
 static func _prune_engine_clip(a: Animation) -> void:
 	for t in range(a.get_track_count() - 1, -1, -1):
 		var path := str(a.track_get_path(t).get_concatenated_names())
-		var keep := path.ends_with("ExhaustCap") or (path.ends_with("Turret") and a.track_get_type(t) == Animation.TYPE_POSITION_3D)
+		# Only the exhaust cap stays baked. A track on the Turret itself (even just its position) makes the AnimationPlayer write the turret's WHOLE transform every frame while
+		# the engine clips play, which reset the cab's rotation to zero: the upper body could not be turned with the mouse. The cab's shake is done in code (Vehicle._joints).
+		var keep := path.ends_with("ExhaustCap")
 		if not keep:
 			a.remove_track(t)
 

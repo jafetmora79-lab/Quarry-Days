@@ -77,6 +77,7 @@ var _dust: CPUParticles3D
 # loader
 var arm: Node3D
 var turret: Node3D            ## excavator: the upper body, swings on the slewing ring
+var turret_rest_y := 0.0      ## its height on the undercarriage (the Blender turret sits 0.78 m up on the slewing ring): the engine shake is added to THIS, never replaces it
 var stick: Node3D             ## excavator: the stick, hinged at the boom's elbow
 var swing := 0.0              ## manual excavator joints: turret yaw (rad) and boom / stick / bucket (-1..1)
 var boom_m := 0.0
@@ -211,6 +212,7 @@ func _build_excavator() -> void:
 		if r.model != null and r.turret != null and r.boom != null and r.stick != null and r.bucket != null:
 			rig = r
 			turret = r.turret
+			turret_rest_y = turret.position.y
 			arm = r.boom
 			stick = r.stick
 			bucket = r.bucket
@@ -957,7 +959,9 @@ func _joints(delta: float) -> void:
 		turret.rotation.z = _turret_roll
 		_vib_t += delta
 		var working := driven or digging
-		turret.position.y = (0.004 * sin(_vib_t * 53.0) + 0.002 * sin(_vib_t * 31.0)) if working else move_toward(turret.position.y, 0.0, delta * 0.05)
+		# The engine shakes the cab a few millimetres about its REST height. (This used to write the shake as the absolute height, so the whole upper body slid down
+		# from its slewing ring into the tracks: 0.78 m in 15 s when idle, at once while digging.)
+		turret.position.y = turret_rest_y + ((0.004 * sin(_vib_t * 53.0) + 0.002 * sin(_vib_t * 31.0)) if working else move_toward(turret.position.y - turret_rest_y, 0.0, delta * 0.05))
 
 func start_unload(target: Dictionary) -> void:
 	unload_target = target
