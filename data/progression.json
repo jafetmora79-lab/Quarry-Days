@@ -6558,31 +6558,31 @@
    14
   ],
   "found_title": "SOMETHING IN THE ROCK",
-  "found_text": "The last of the stone falls away and there it is: a spine as long as a truck, ribs curving out of the rock like the hull of an old boat, and a skull with teeth the size of your hand. It is not stone. It is a skeleton, and it is enormous.\n\nNobody has stood here and seen this for millions of years.",
+  "found_text": "The last of the stone falls away and there she is: a spine as long as a truck, ribs curving out of the rock like the hull of an old boat, a skull with a beak and a tail that ends in a heavy bone club. She is curled round something, the way a hen curls round a nest.\n\nFour stone eggs lie in the hollow between her legs. A fifth sits a little apart, wrapped in a crust of pale calcite. When you rest a hand on it, it is warm.\n\nNobody has stood here and seen this for sixty-eight million years.",
   "toast": [
    "Something in the rock...",
-   "The lowest level has uncovered a huge fossil. Go and look (E)."
+   "The lowest level has uncovered a huge fossil in a nest. Go and look (E)."
   ],
   "buyers": {
    "collector": {
     "title": "Sell to the collector",
     "who": "Mr. Aldric Vane",
     "price": 75000,
-    "pitch": "A private collector, Mr. Vane, has heard rumours and offers $75,000 for the whole skeleton, crated and gone by the end of the week. It will hang in his private gallery.",
+    "pitch": "Mr. Vane, a private collector, has heard rumours and offers $75,000 for the whole nest, crated and gone by the end of the week. He waves at the calcite egg: 'A rock. It goes with the set.' It will hang in his private gallery, where nobody will see it.",
     "journal": "fossil_collector"
    },
    "scientist": {
     "title": "Give it to the scientist",
     "who": "Dr. Evelyn Marsh",
     "price": 2000,
-    "pitch": "Dr. Evelyn Marsh of the university can pay only $2,000 towards the cost of the dig. But she will study it, put it on display for everyone, and her name for you will be 'the discoverer'.",
+    "pitch": "Dr. Evelyn Marsh of the university, Grandpa Walt's old friend, can pay only $2,000 towards the dig. She goes quiet when she touches the calcite egg: 'It is warm. That cannot be.' She will study the nest, put the mother on display for everyone, and she asks to come back and talk about the warm one.",
     "journal": "fossil_scientist"
    }
   },
   "confirm": "This cannot be undone. Once you choose, the other buyer is gone for good.",
   "results": {
-   "collector": "Mr. Vane's crew crates the bones and a truck takes them away. $75,000 lands in your account.",
-   "scientist": "Dr. Marsh's team arrives the next morning, delighted. They cry a little. $2,000 and a promise: the university will keep in touch."
+   "collector": "Mr. Vane's crew crates the bones and the stone eggs and a truck takes them away. $75,000 lands in your account. Nobody mentions the warm one, and nobody checks.",
+   "scientist": "Dr. Marsh's team arrives the next morning, delighted. They cry a little. $2,000 and a promise: she will come back for you, and bring news about the egg that was warm."
   }
  },
  "walter": {
@@ -6623,27 +6623,27 @@
    },
    "fossil_found": {
     "title": "The thing in the rock",
-    "text": "Something huge lay in the gold bench of the lowest level: a skeleton, ribs and spine and a skull full of teeth. Walter says his father always said so."
+    "text": "Something huge lay in the gold bench of the lowest level: a skeleton curled round a nest. Four stone eggs and a fifth, wrapped in calcite, that is warm to touch. Walter says his father always said so."
    },
    "fossil_collector": {
     "title": "Sold to the collector",
-    "text": "I sold the skeleton to Mr. Vane for $75,000. It is hanging in a private gallery now, where nobody will see it."
+    "text": "I sold the nest to Mr. Vane for $75,000. It is hanging in a private gallery now, where nobody will see it. I still think about the warm egg."
    },
    "fossil_scientist": {
     "title": "Given to the scientist",
-    "text": "Dr. Marsh and her team took the skeleton for the university. I got $2,000 and the feeling of having done something right."
+    "text": "Dr. Marsh and her team took the mother for the university. I got $2,000, the feeling of having done something right, and a promise that she will come back about the warm egg."
    },
    "companion_egg": {
     "title": "The egg",
-    "text": "Dr. Marsh left an egg on the porch. It is warm and it moves a little. It should hatch in a couple of days."
+    "text": "Dr. Marsh set up an incubator in Grandpa's living room. The egg is on its straw bed under the lamp. It is warm and it moves a little. It should hatch in a couple of days."
    },
    "companion_born": {
     "title": "A new family member",
-    "text": "The egg hatched. I have a dinosaur. Walter says he has never seen anything like it."
+    "text": "The egg hatched. I have a dinosaur: an ankylosaur, round as a loaf with a beak and enormous eyes. Walter says he has never seen anything like it."
    },
    "companion_adult": {
     "title": "All grown up",
-    "text": "My dinosaur is fully grown. It can break rock with its tail."
+    "text": "My dinosaur is fully grown. Its club tail can break rock when I ask (T)."
    },
    "level1_records": {
     "title": "Old photographs and records",
@@ -6651,11 +6651,11 @@
    },
    "level2_geology": {
     "title": "Geological notes",
-    "text": "Walter's notes on the first bench: 'Strange banding in the rock below. The layers do not match the survey. Ask Evelyn.'"
+    "text": "Walter's notes on the first bench: 'Strange banding in the rock below. The layers do not match the survey. Dad swore the east wall of the deep cut sweats and stays warm in winter. Ask Evelyn.'"
    },
    "level3_sketch": {
     "title": "A strange sketch",
-    "text": "A pencil sketch tucked into a notebook: a long spine, curved ribs, a heavy club of a tail. Under it, in Walter's hand: 'Dad was not making it up.'"
+    "text": "A pencil sketch tucked into a notebook: a long spine, curved ribs, a heavy club of a tail curled round a ring of eggs. Under it, in Walter's hand: 'Dad was not making it up. Old Mother Stonetail. Leave her for someone who deserves her.'"
    }
   },
   "visits": [
@@ -6671,15 +6671,23 @@
     "lines": [
      {
       "speaker": "DR. EVELYN MARSH",
-      "text": "Hello again. I promised I would come back."
+      "text": "Hello again. I told you I would come back."
      },
      {
       "speaker": "DR. EVELYN MARSH",
-      "text": "We found something odd inside the rock your fossil came from: an egg, still sealed. It should not be viable. It is."
+      "text": "The nest your dig uncovered sat beside a hot spring. The minerals sealed one egg like a jar and the heat never left it. It should be dead. It is warm, and it moves."
      },
      {
       "speaker": "DR. EVELYN MARSH",
-      "text": "Keep it warm and dry. It will hatch in a couple of days. Please look after it."
+      "text": "If I take it to the university they will put it behind glass. Walter always said this mountain looks after its own, so I brought it here instead."
+     },
+     {
+      "speaker": "DR. EVELYN MARSH",
+      "text": "There is a straw nest on your porch. I will put it in Walter's old brooder lamp in your living room: keep the lamp on, keep it warm. It hatches in a couple of days, and an ankylosaur grows up fast."
+     },
+     {
+      "speaker": "DR. EVELYN MARSH",
+      "text": "When it is big enough it can break rock with that club of a tail. Be kind to it. It will follow you everywhere."
      }
     ]
    },
@@ -6811,8 +6819,8 @@
     "title": "WALTER DROPS BY",
     "journal": "",
     "lines": [
-     "Is that an egg on the porch? Dr. Marsh left it for you?",
-     "Well, I never. Keep it warm and dry. I raised chickens once, how hard can it be?"
+     "Is that an egg in the incubator in my living room? Evelyn rigged up my old brooder lamp? Well, I never.",
+     "Keep it warm and the water tray full. I raised chickens once, how hard can it be? And kiddo: Old Mother Stonetail would be proud."
     ]
    },
    {
@@ -6827,8 +6835,8 @@
     "title": "WALTER DROPS BY",
     "journal": "companion_born",
     "lines": [
-     "It hatched! Look at that little face.",
-     "You are going to have to feed it. Or at least be nice to it. It will follow you around the quarry like a puppy."
+     "It hatched! Look at that little face, and those eyes.",
+     "You will have to be nice to it. It will follow you around the quarry like a puppy, and when its tail club comes in it will earn its keep."
     ]
    },
    {
@@ -6842,7 +6850,7 @@
     "journal": "companion_adult",
     "lines": [
      "Would you look at the size of it. And it can break rock with its tail!",
-     "In fifty years of working this quarry I never had a helper like that. Look after it, kiddo."
+     "Fifty years I worked this quarry and never had a helper like that. Old Mother Stonetail would be proud, kiddo. Look after it."
     ]
    }
   ],
@@ -7329,7 +7337,7 @@
   "wake_hour": 7.0
  },
  "companion": {
-  "_comment": "Phase 7.7: Dr. Marsh's team leaves the egg (scientist route only). Days are in-game days. Stages: egg -> hatchling -> juvenile -> adult. Tail smash: damage per hit and the hardest rock the companion can break (the same hardness rule as the player's tools).",
+  "_comment": "Phase 7.7, redesigned: the fossil is an ankylosaur mother (Walter's father called her Old Mother Stonetail) who nested by a warm mineral spring 68 million years ago; the spring's calcite sealed one egg like a jar. Only the scientist route (Dr. Marsh) saves it. The egg waits on the porch in a straw nest, then incubates in the incubator Dr. Marsh sets up in Grandpa's living room. Days are in-game days. Stages: egg -> hatchling -> juvenile -> adult (an ankylosaur, 'Stonetail'). Tail smash (key T): damage per hit and the hardest rock the dinosaur can break (the same hardness rule as the player's tools).",
   "egg_pos": [
    -1.0,
    0,
@@ -7370,10 +7378,10 @@
   "smash_hits": 6,
   "smash_interval": 1.1,
   "reach": 14.0,
-  "arrival_text": "Dr. Marsh sets the egg in a straw nest by the yard. It is the size of a watermelon and warm to the touch. 'Keep it warm and dry,' she says. 'It should hatch in a couple of days.'",
-  "hatch_text": "The egg cracks, wobbles, and a small, wet, very serious head pokes out. It looks at you and decides you are its family.",
-  "adult_text": "%s has grown into a full-size dinosaur. It can smash open hard rock with its tail now.",
-  "juvenile_text": "%s is growing fast. It is big enough to smash soft rock with its tail now (press T while looking at rock).",
+  "arrival_text": "Dr. Marsh lifts the egg out of its straw nest on the porch, carries it into Grandpa's living room and sets it on the bed of the incubator she has rigged up from Walter's old brooder lamp.\n\nIt is the size of a watermelon, speckled, wrapped in pale calcite, and warm all the way through. 'Keep the lamp on and the water tray full,' she says. 'It should hatch in a couple of days.'",
+  "hatch_text": "The calcite cracks. The egg wobbles, splits, and a small, wet, very serious head with a beak and enormous eyes looks at you from the straw. It blinks, decides you are its family, and climbs out of the incubator into the living room.",
+  "adult_text": "%s has grown into a full-size ankylosaur. Its club tail can smash open hard rock now (press T while looking at rock).",
+  "juvenile_text": "%s is growing fast. Its tail club has come in: it can smash soft rock now (press T while looking at rock, or at rubble to clear it).",
   "walter_mining_lines": [
    {
     "speaker": "GRANDPA WALTER",
@@ -7394,15 +7402,23 @@
    "lines": [
     {
      "speaker": "DR. EVELYN MARSH",
-     "text": "Hello again. I promised I would come back."
+     "text": "Hello again. I told you I would come back."
     },
     {
      "speaker": "DR. EVELYN MARSH",
-     "text": "We found something odd inside the rock your fossil came from: an egg, still sealed. It should not be viable. It is."
+     "text": "The nest your dig uncovered sat beside a hot spring. The minerals sealed one egg like a jar and the heat never left it. It should be dead. It is warm, and it moves."
     },
     {
      "speaker": "DR. EVELYN MARSH",
-     "text": "Keep it warm and dry. It will hatch in a couple of days. Please look after it."
+     "text": "If I take it to the university they will put it behind glass. Walter always said this mountain looks after its own, so I brought it here instead."
+    },
+    {
+     "speaker": "DR. EVELYN MARSH",
+     "text": "There is a straw nest on your porch. I will put it in Walter's old brooder lamp in your living room: keep the lamp on, keep it warm. It hatches in a couple of days, and an ankylosaur grows up fast."
+    },
+    {
+     "speaker": "DR. EVELYN MARSH",
+     "text": "When it is big enough it can break rock with that club of a tail. Be kind to it. It will follow you everywhere."
     }
    ]
   }
@@ -8410,31 +8426,31 @@
    17
   ],
   "found_title": "SOMETHING IN THE ROCK",
-  "found_text": "The last of the stone falls away and there it is: a spine as long as a truck, ribs curving out of the rock like the hull of an old boat, and a skull with teeth the size of your hand. It is not stone. It is a skeleton, and it is enormous.\n\nNobody has stood here and seen this for millions of years.",
+  "found_text": "The last of the stone falls away and there she is: a spine as long as a truck, ribs curving out of the rock like the hull of an old boat, a skull with a beak and a tail that ends in a heavy bone club. She is curled round something, the way a hen curls round a nest.\n\nFour stone eggs lie in the hollow between her legs. A fifth sits a little apart, wrapped in a crust of pale calcite. When you rest a hand on it, it is warm.\n\nNobody has stood here and seen this for sixty-eight million years.",
   "toast": [
    "Something in the rock...",
-   "The lowest level has uncovered a huge fossil. Go and look (E)."
+   "The lowest level has uncovered a huge fossil in a nest. Go and look (E)."
   ],
   "buyers": {
    "collector": {
     "title": "Sell to the collector",
     "who": "Mr. Aldric Vane",
     "price": 75000,
-    "pitch": "A private collector, Mr. Vane, has heard rumours and offers $75,000 for the whole skeleton, crated and gone by the end of the week. It will hang in his private gallery.",
+    "pitch": "Mr. Vane, a private collector, has heard rumours and offers $75,000 for the whole nest, crated and gone by the end of the week. He waves at the calcite egg: 'A rock. It goes with the set.' It will hang in his private gallery, where nobody will see it.",
     "journal": "fossil_collector"
    },
    "scientist": {
     "title": "Give it to the scientist",
     "who": "Dr. Evelyn Marsh",
     "price": 2000,
-    "pitch": "Dr. Evelyn Marsh of the university can pay only $2,000 towards the cost of the dig. But she will study it, put it on display for everyone, and her name for you will be 'the discoverer'.",
+    "pitch": "Dr. Evelyn Marsh of the university, Grandpa Walt's old friend, can pay only $2,000 towards the dig. She goes quiet when she touches the calcite egg: 'It is warm. That cannot be.' She will study the nest, put the mother on display for everyone, and she asks to come back and talk about the warm one.",
     "journal": "fossil_scientist"
    }
   },
   "confirm": "This cannot be undone. Once you choose, the other buyer is gone for good.",
   "results": {
-   "collector": "Mr. Vane's crew crates the bones and a truck takes them away. $75,000 lands in your account.",
-   "scientist": "Dr. Marsh's team arrives the next morning, delighted. They cry a little. $2,000 and a promise: the university will keep in touch."
+   "collector": "Mr. Vane's crew crates the bones and the stone eggs and a truck takes them away. $75,000 lands in your account. Nobody mentions the warm one, and nobody checks.",
+   "scientist": "Dr. Marsh's team arrives the next morning, delighted. They cry a little. $2,000 and a promise: she will come back for you, and bring news about the egg that was warm."
   }
  },
  "pit_zone_filled": {

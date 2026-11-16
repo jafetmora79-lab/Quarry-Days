@@ -94,7 +94,91 @@ func _spike(parent: Node3D, size: Vector3, pos: Vector3, color: Color, rot := Ve
 	p.size = size
 	return _mesh(parent, p, pos, color, rot)
 
+## Moves the merged mesh of a Blender holder under `parent` (the holder's geometry is already in its own pivot's frame, so it needs no offset).
+static func _take(parts: Dictionary, key: String, parent: Node3D) -> void:
+	var h: Node3D = parts.get(key)
+	if h == null:
+		return
+	var mi: Node = h.get_node_or_null("Mesh")
+	if mi == null:
+		return
+	h.remove_child(mi)
+	parent.add_child(mi)
+
+## The Blender dinosaur (tools/world_models/build_world.py -> WLD_QD_dino.glb): the same joints the animation drives, with the modelled body on them. False when it cannot load.
+func _build_from_model() -> bool:
+	if not WorldModels.has("dino"):
+		return false
+	var d: Dictionary = WorldModels.animal("dino")
+	if d.is_empty():
+		return false
+	var parts: Dictionary = d["parts"]
+	model = Node3D.new()
+	model.name = "Model"
+	add_child(model)
+	body = Node3D.new()
+	body.name = "Body"
+	model.add_child(body)
+	_take(parts, "Body", body)
+	plates = Node3D.new()
+	plates.name = "Plates"
+	plates.position = Vector3(0, 1.07, 0)
+	body.add_child(plates)
+	_take(parts, "Plates", plates)
+	neck = Node3D.new()
+	neck.position = Vector3(0, 0.84, -0.9)
+	model.add_child(neck)
+	_take(parts, "Neck", neck)
+	head = Node3D.new()
+	head.position = Vector3(0, -0.02, -0.34)
+	neck.add_child(head)
+	_take(parts, "Head", head)
+	for side in [-1.0, 1.0]:
+		var eye := Node3D.new()
+		eye.position = Vector3(side * 0.2, 0.07, -0.34)
+		head.add_child(eye)
+		_take(parts, "EyeL" if side < 0.0 else "EyeR", eye)
+		eyes.append(eye)
+	for e in [["FL", Vector3(-0.5, 0.62, -0.6)], ["FR", Vector3(0.5, 0.62, -0.6)], ["BL", Vector3(-0.5, 0.62, 0.58)], ["BR", Vector3(0.5, 0.62, 0.58)]]:
+		var hip := Node3D.new()
+		hip.position = e[1]
+		model.add_child(hip)
+		_take(parts, "Hip" + str(e[0]), hip)
+		var shin := Node3D.new()
+		shin.position = Vector3(0, -0.3, 0)
+		hip.add_child(shin)
+		_take(parts, "Shin" + str(e[0]), shin)
+		var foot := Node3D.new()
+		foot.position = Vector3(0, -0.28, -0.02)
+		shin.add_child(foot)
+		_take(parts, "Foot" + str(e[0]), foot)
+		hips.append(hip)
+		feet.append(foot)
+	tail = Node3D.new()
+	tail.position = PIVOT_LOCAL
+	model.add_child(tail)
+	_take(parts, "Tail1", tail)
+	tail_mid = Node3D.new()
+	tail_mid.position = Vector3(0, 0, 0.7)
+	tail.add_child(tail_mid)
+	_take(parts, "Tail2", tail_mid)
+	tail_tip = Node3D.new()
+	tail_tip.position = Vector3(0, 0, 0.7)
+	tail_mid.add_child(tail_tip)
+	_take(parts, "Tail3", tail_tip)
+	club = Node3D.new()
+	club.position = Vector3(0, 0, 0.68)
+	tail_tip.add_child(club)
+	_take(parts, "Club", club)
+	club_tip = Node3D.new()
+	club_tip.position = Vector3(0, 0, 0.12)
+	club.add_child(club_tip)
+	(d["root"] as Node).free()
+	return true
+
 func _build() -> void:
+	if _build_from_model():
+		return
 	model = Node3D.new()
 	model.name = "Model"
 	add_child(model)

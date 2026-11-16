@@ -1833,6 +1833,13 @@ func companion_stage(day: int) -> String:
 		return "hatchling" if day < j else ("juvenile" if day < a else "adult")
 	return ""
 
+## Days until the egg in the incubator hatches (0 or less: today).
+func companion_hatch_in(day: int) -> int:
+	var c: Dictionary = story["companion"]
+	if str(c.get("state", "")) != "egg":
+		return 0
+	return int(c.get("egg_day", 0)) + int(companion_cfg().get("egg_days", 2)) - day
+
 ## The egg is on the porch waiting to be picked up.
 func companion_egg_waiting(day: int) -> bool:
 	var c: Dictionary = story["companion"]

@@ -58,6 +58,34 @@ Q.MATERIALS.update({
     "PickGlass": (None, (0.62, 0.78, 0.82), 0.2, 0.0, {}),
     "PickRed":   (None, (0.75, 0.12, 0.10), 0.6, 0.0, {"emit": 0.6}),
     "PickRust":  (None, (0.45, 0.24, 0.12), 1.0, 0.0, {}),
+    "DinoSkin":  (None, (0.46, 0.40, 0.28), 0.95, 0.0, {}),
+    "DinoSkinDk": (None, (0.38, 0.33, 0.23), 0.95, 0.0, {}),
+    "DinoPlate": (None, (0.30, 0.26, 0.19), 0.9, 0.0, {}),
+    "DinoPlateLt": (None, (0.46, 0.40, 0.28), 0.9, 0.0, {}),
+    "DinoBelly": (None, (0.76, 0.70, 0.50), 0.95, 0.0, {}),
+    "DinoBone":  (None, (0.88, 0.84, 0.70), 0.9, 0.0, {}),
+    "DinoEye":   (None, (0.05, 0.04, 0.04), 0.4, 0.0, {}),
+    "DinoWhite": (None, (0.96, 0.95, 0.90), 0.6, 0.0, {}),
+    "DinoBlush": (None, (0.84, 0.52, 0.42), 1.0, 0.0, {}),
+    "DinoMoss":  (None, (0.34, 0.42, 0.22), 1.0, 0.0, {}),
+    "EggShell":  (None, (0.86, 0.82, 0.66), 0.9, 0.0, {}),
+    "EggSpot":   (None, (0.52, 0.44, 0.30), 1.0, 0.0, {}),
+    "EggCrust":  (None, (0.62, 0.58, 0.50), 1.0, 0.0, {}),
+    "EggInner":  (None, (0.92, 0.70, 0.40), 0.8, 0.0, {}),
+    "Amber":     (None, (1.0, 0.72, 0.30), 0.5, 0.0, {"emit": 1.6}),
+    "Straw":     (None, (0.82, 0.68, 0.34), 1.0, 0.0, {}),
+    "StrawDk":   (None, (0.62, 0.48, 0.24), 1.0, 0.0, {}),
+    "Wool":      (None, (0.88, 0.84, 0.76), 1.0, 0.0, {}),
+    "Brass":     (None, (0.78, 0.60, 0.24), 0.45, 0.6, {}),
+    "IncWood":   (None, (0.50, 0.34, 0.20), 1.0, 0.0, {}),
+    "IncWoodDk": (None, (0.34, 0.22, 0.13), 1.0, 0.0, {}),
+    "IncTin":    (None, (0.62, 0.64, 0.62), 0.5, 0.4, {}),
+    "IncRed":    (None, (0.78, 0.18, 0.14), 0.6, 0.0, {}),
+    "IncWater":  (None, (0.40, 0.62, 0.78), 0.4, 0.0, {}),
+    "FossilBone": (None, (0.84, 0.78, 0.62), 1.0, 0.0, {}),
+    "FossilEgg": (None, (0.66, 0.62, 0.54), 1.0, 0.0, {}),
+    "Slab":      (None, (0.46, 0.42, 0.36), 1.0, 0.0, {}),
+    "SlabLt":    (None, (0.60, 0.55, 0.46), 1.0, 0.0, {}),
 })
 
 
@@ -644,10 +672,263 @@ def pickup(root):
         w.finish()
 
 
+
+# ------------------------------------------------------------------------------------------------------------------------------ the dinosaur set
+def _bump(t, c, r, h, mat, seg=5):
+    """A little armour cone standing on the back at c (a pyramid-like frustum)."""
+    t.cyl(c, r, r * 0.25, h, mat, seg=seg)
+
+
+def dino(root):
+    """The companion: a small, round, friendly ANKYLOSAUR ('Stonetail') - low wide barrel body, rows of armour studs, a big-eyed wedge head with a beak and cheek horns, four
+    stubby legs with three claws, and a thick tail ending in a bone club. Facing -Z, ground at y = 0, about 1.4 m long without the tail (the game scales it by growth stage).
+    Holders (flat, each pivoting where the game's animation expects it): Body, Plates (0,1.07,0), Neck (0,0.84,-0.9), Head (0,0.82,-1.24), EyeL/EyeR, HipFL/FR/BL/BR (hip),
+    ShinFL.. (hip - 0.3), FootFL.. (shin - 0.28), Tail1 (0,0.8,0.85), Tail2 (+0.7), Tail3 (+0.7), Club (+0.68)."""
+    S, SD, PL, PLL, BE, BO = "DinoSkin", "DinoSkinDk", "DinoPlate", "DinoPlateLt", "DinoBelly", "DinoBone"
+    t = TM("Body", root, holder=True)
+    # barrel body: a cream belly slab, the skin shell (wider in the middle), a darker crown and mossy patches
+    t.box((0, 0.56, 0.0), (1.0, 0.3, 1.8), BE, taper=(0.9, 0.96))
+    t.hexa([(-0.52, 0.66, -0.9), (0.52, 0.66, -0.9), (0.62, 0.66, 0.0), (-0.62, 0.66, 0.0), (-0.38, 1.04, -0.84), (0.38, 1.04, -0.84), (0.46, 1.06, 0.0), (-0.46, 1.06, 0.0)], S)
+    t.hexa([(-0.62, 0.66, 0.0), (0.62, 0.66, 0.0), (0.54, 0.66, 0.9), (-0.54, 0.66, 0.9), (-0.46, 1.06, 0.0), (0.46, 1.06, 0.0), (0.38, 1.02, 0.84), (-0.38, 1.02, 0.84)], S)
+    t.box((0, 1.07, 0.0), (0.86, 0.1, 1.64), PL, taper=(0.92, 0.96))                                  # the armoured crown
+    for sx in (-1, 1):
+        t.box((sx * 0.55, 0.78, 0.0), (0.1, 0.26, 1.5), SD, taper=(1.0, 0.9))                         # darker flank band
+        for k in range(4):
+            t.box((sx * 0.3, 1.13, -0.55 + k * 0.4), (0.18, 0.04, 0.2), "DinoMoss")                  # tufts of moss, it is an old dinosaur
+    # a mossy patch and a big friendly belly line
+    t.box((0, 0.7, -0.2), (0.7, 0.03, 0.9), BE, taper=(0.9, 0.9))
+    t.finish()
+
+    pl = TM("Plates", root, loc=(0, 1.07, 0), holder=True)
+    for row in range(7):                                                                              # studs: three rows down the back, the middle tallest
+        z = -0.78 + row * 0.26
+        for col in (-1, 0, 1):
+            h = 0.2 if col == 0 else 0.13
+            r = 0.13 if col == 0 else 0.09
+            _bump(pl, (col * 0.33, 1.13 + h / 2, z + (0.05 if col else 0.0)), r, h, PLL if col == 0 else PL, seg=5)
+    for sx in (-1, 1):                                                                                # flank spikes, bigger at the shoulders
+        for k in range(6):
+            big = 1.0 + (0.5 if k < 2 else 0.0)
+            pl.cyl((sx * (0.66 + 0.1 * big), 0.92, -0.7 + k * 0.3), 0.07 * big, 0.012, 0.3 * big, BO, seg=5, axis='x') if sx > 0 else \
+                pl.cyl((sx * (0.66 + 0.1 * big), 0.92, -0.7 + k * 0.3), 0.012, 0.07 * big, 0.3 * big, BO, seg=5, axis='x')
+    pl.finish()
+
+    nk = TM("Neck", root, loc=(0, 0.84, -0.9), holder=True)
+    nk.box((0, 0.84, -1.0), (0.46, 0.36, 0.42), S, taper=(0.9, 0.9))
+    nk.box((0, 0.72, -1.0), (0.4, 0.1, 0.36), BE)                                                     # a cream throat
+    nk.finish()
+    hd = TM("Head", root, loc=(0, 0.82, -1.24), holder=True)
+    hd.hexa([(-0.25, 0.68, -1.12), (0.25, 0.68, -1.12), (0.22, 0.68, -1.58), (-0.22, 0.68, -1.58), (-0.27, 0.98, -1.1), (0.27, 0.98, -1.1), (0.2, 0.92, -1.56), (-0.2, 0.92, -1.56)], S)   # skull
+    hd.hexa([(-0.17, 0.7, -1.56), (0.17, 0.7, -1.56), (0.12, 0.7, -1.82), (-0.12, 0.7, -1.82), (-0.17, 0.88, -1.56), (0.17, 0.88, -1.56), (0.1, 0.84, -1.82), (-0.1, 0.84, -1.82)], S)    # snout
+    hd.box((0, 0.74, -1.8), (0.24, 0.07, 0.16), BO, taper=(0.8, 0.8))                                 # the beak
+    hd.box((0, 0.96, -1.38), (0.5, 0.07, 0.42), PL, taper=(0.95, 0.9))                                # brow armour
+    hd.box((0, 0.99, -1.3), (0.2, 0.06, 0.2), PLL)
+    for sx in (-1, 1):
+        hd.cyl((sx * 0.3, 0.9, -1.12), 0.07, 0.012, 0.28, BO, seg=5, axis='x') if sx > 0 else hd.cyl((sx * 0.3, 0.9, -1.12), 0.012, 0.07, 0.28, BO, seg=5, axis='x')   # cheek horns
+        hd.box((sx * 0.2, 0.76, -1.66), (0.1, 0.07, 0.06), "DinoBlush")                              # rosy cheeks
+        hd.box((sx * 0.06, 0.8, -1.84), (0.04, 0.04, 0.03), "DinoEye")                               # nostrils
+    hd.box((0, 0.7, -1.76), (0.2, 0.02, 0.12), "DinoEye")                                             # a small smile
+    hd.finish()
+    for sx, nm in ((-1, "EyeL"), (1, "EyeR")):
+        e = TM(nm, root, loc=(sx * 0.2, 0.89, -1.58), holder=True)
+        e.box((sx * 0.2, 0.89, -1.58), (0.1, 0.11, 0.07), "DinoWhite")
+        e.box((sx * 0.21, 0.885, -1.615), (0.07, 0.08, 0.03), "DinoEye")
+        e.box((sx * 0.225, 0.915, -1.63), (0.025, 0.025, 0.012), "DinoWhite")                         # the sparkle
+        e.finish()
+
+    for (nm, x, z) in (("FL", -0.5, -0.6), ("FR", 0.5, -0.6), ("BL", -0.5, 0.58), ("BR", 0.5, 0.58)):
+        hp = TM("Hip" + nm, root, loc=(x, 0.62, z), holder=True)
+        hp.box((x, 0.48, z), (0.34, 0.34, 0.36), S, taper=(0.86, 0.86))                               # thigh
+        hp.box((x + (0.1 if x > 0 else -0.1), 0.62, z), (0.12, 0.2, 0.34), SD)                        # outer muscle
+        hp.finish()
+        sh = TM("Shin" + nm, root, loc=(x, 0.32, z), holder=True)
+        sh.box((x, 0.2, z + 0.01), (0.26, 0.3, 0.28), SD, taper=(1.0, 1.0))
+        sh.box((x, 0.28, z - 0.12), (0.2, 0.1, 0.04), BE)                                             # a pale knee patch
+        sh.finish()
+        ft = TM("Foot" + nm, root, loc=(x, 0.04, z - 0.02), holder=True)
+        ft.box((x, 0.04, z - 0.06), (0.34, 0.1, 0.3), SD, taper=(0.9, 0.92))
+        for tx in (-0.1, 0.0, 0.1):
+            ft.box((x + tx, 0.04, z - 0.24), (0.07, 0.07, 0.1), BO, taper=(0.6, 0.5))                 # three claws
+        ft.finish()
+
+    tails = [("Tail1", (0, 0.8, 0.85), (0.52, 0.36, 0.72), 0.34), ("Tail2", (0, 0.8, 1.55), (0.38, 0.28, 0.72), 0.34), ("Tail3", (0, 0.8, 2.25), (0.26, 0.2, 0.5), 0.22)]
+    for nm, loc, size, zc in tails:
+        tt = TM(nm, root, loc=loc, holder=True)
+        tt.box((loc[0], loc[1], loc[2] + zc), size, S, taper=(0.82, 0.86))
+        tt.box((loc[0], loc[1] - size[1] * 0.42, loc[2] + zc), (size[0] * 0.7, size[1] * 0.3, size[2] * 0.9), BE)          # lighter underside
+        for k in range(2):
+            _bump(tt, (0, loc[1] + size[1] * 0.5 + 0.05, loc[2] + zc - 0.16 + k * 0.32), 0.07 if nm != "Tail3" else 0.05, 0.14, PL, seg=5)   # little studs along the tail
+        tt.finish()
+    cl = TM("Club", root, loc=(0, 0.8, 2.93), holder=True)
+    cl.cyl((0, 0.8, 2.93), 0.2, 0.3, 0.2, BO, seg=8, axis='z')                                         # the knob grows out of the tail
+    cl.cyl((0, 0.8, 3.1), 0.3, 0.26, 0.22, BO, seg=8, axis='z', squash=0.85)                           # the heavy mace
+    cl.cyl((0, 0.8, 3.25), 0.26, 0.16, 0.12, BO, seg=8, axis='z', squash=0.85)
+    for sx in (-1, 1):
+        cl.cyl((sx * 0.34, 0.8, 3.0), 0.07, 0.012, 0.22, PL, seg=5, axis='x') if sx > 0 else cl.cyl((sx * 0.34, 0.8, 3.0), 0.012, 0.07, 0.22, PL, seg=5, axis='x')   # side spikes
+    cl.finish()
+
+
+def egg(root):
+    """The dinosaur egg (about 0.8 m tall, an elongated ovoid) in a straw nest. Holders: Shell (the whole egg, sealed in a pale calcite crust with a warm amber seam and
+    speckles), Cracks (a dark crack pattern the game reveals while it hatches), ShellTop / ShellBottom (the two halves it splits into: jagged rims), Nest (straw ring and a wool pad)."""
+    prof = [(0.00, 0.10), (0.06, 0.24), (0.16, 0.31), (0.30, 0.345), (0.46, 0.34), (0.62, 0.30), (0.78, 0.23), (0.92, 0.12), (1.0, 0.04)]    # (height fraction, radius): fat at the bottom third
+    H = 0.82
+    def rings(t, mat, lo=0.0, hi=1.0):
+        for (f0, r0), (f1, r1) in zip(prof, prof[1:]):
+            if f1 <= lo or f0 >= hi:
+                continue
+            a, b = max(f0, lo), min(f1, hi)
+            ra = r0 + (r1 - r0) * (a - f0) / (f1 - f0)
+            rb = r0 + (r1 - r0) * (b - f0) / (f1 - f0)
+            t.cyl((0, 0.06 + (a + b) / 2 * H, 0), ra, rb, (b - a) * H, mat, seg=10)
+    sh = TM("Shell", root, holder=True)
+    rings(sh, "EggShell")
+    for k in range(14):                                                                               # speckles
+        a = k * 2.399
+        f = 0.2 + (k * 0.113) % 0.7
+        r = 0.31 * (1.0 - abs(f - 0.4) * 0.6)
+        sh.box((math.cos(a) * r, 0.06 + f * H, math.sin(a) * r), (0.05, 0.04, 0.05), "EggSpot")
+    for k in range(7):                                                                                # a crust of pale calcite lumps, thicker round the bottom
+        a = k * 0.9 + 0.3
+        f = 0.12 + (k * 0.071) % 0.35
+        r = 0.33
+        sh.box((math.cos(a) * r, 0.06 + f * H, math.sin(a) * r), (0.12, 0.09, 0.11), "EggCrust", taper=(0.7, 0.7))
+    sh.cyl((0, 0.06 + 0.5 * H, 0), 0.352, 0.348, 0.035, "Amber", seg=10)                              # the warm seam round its middle
+    sh.finish()
+    ck = TM("Cracks", root, holder=True)
+    for k, (a, f0, f1) in enumerate(((0.3, 0.3, 0.75), (2.3, 0.2, 0.62), (4.2, 0.35, 0.85), (5.3, 0.25, 0.5))):
+        pts = []
+        for i in range(5):
+            f = f0 + (f1 - f0) * i / 4
+            r = 0.33 * (1.0 - abs(f - 0.4) * 0.55)
+            jig = 0.07 if i % 2 else -0.07
+            pts.append((math.cos(a + jig) * (r + 0.004), 0.06 + f * H, math.sin(a + jig) * (r + 0.004)))
+        for p0, p1 in zip(pts, pts[1:]):
+            ck.bar(p0, p1, 0.022, 0.02, "DinoEye", up=(0, 1, 0))
+    ck.finish()
+    top = TM("ShellTop", root, holder=True)
+    rings(top, "EggShell", lo=0.5)
+    for k in range(9):
+        a = k * math.tau / 9
+        top.box((math.cos(a) * 0.3, 0.06 + 0.5 * H + 0.03, math.sin(a) * 0.3), (0.07, 0.1, 0.05), "EggShell", taper=(0.3, 0.5), rot_y=-a)       # a jagged rim
+    top.finish()
+    bot = TM("ShellBottom", root, holder=True)
+    rings(bot, "EggShell", hi=0.5)
+    bot.cyl((0, 0.06 + 0.2 * H, 0), 0.30, 0.30, 0.06, "EggInner", seg=10)                             # the inside of the shell
+    for k in range(9):
+        a = k * math.tau / 9 + 0.2
+        bot.box((math.cos(a) * 0.3, 0.06 + 0.5 * H + 0.03, math.sin(a) * 0.3), (0.07, 0.1, 0.05), "EggShell", taper=(0.3, 0.5), rot_y=-a)
+    bot.finish()
+    ne = TM("Nest", root, holder=True)
+    ne.cyl((0, 0.03, 0), 0.62, 0.55, 0.08, "StrawDk", seg=12)
+    ne.cyl((0, 0.08, 0), 0.4, 0.4, 0.04, "Wool", seg=10)
+    for k in range(26):                                                                               # straw stems radiating out of the ring
+        a = k * math.tau / 26
+        r0, r1 = 0.36, 0.66 + 0.06 * ((k * 7) % 3)
+        ne.bar((math.cos(a) * r0, 0.1 + 0.02 * (k % 3), math.sin(a) * r0), (math.cos(a + 0.12) * r1, 0.06 + 0.1 * (k % 2), math.sin(a + 0.12) * r1), 0.035, 0.02, "Straw" if k % 2 else "StrawDk", up=(0, 1, 0))
+    ne.finish()
+
+
+def incubator(root):
+    """The egg incubator Dr. Marsh sets up in Grandpa's living room: a little wooden cabinet on legs with a glass lid, a straw and wool bed, a hanging brooder lamp on an arm,
+    a thermometer and a brass plaque. 0.9 m wide, 0.62 deep, 0.95 tall (the bed is at 0.62); faces -Z. Holders: Body, Glass (the lid), Lamp (the bulb and shade: the game pulses
+    its glow) and Gauge (the thermometer's red bar)."""
+    W, WD, TN, BR = "IncWood", "IncWoodDk", "IncTin", "Brass"
+    t = TM("Body", root, holder=True)
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            t.box((sx * 0.38, 0.26, sz * 0.24), (0.07, 0.52, 0.07), WD)                               # legs
+    t.box((0, 0.5, 0), (0.86, 0.06, 0.6), WD)                                                         # the shelf under the cabinet
+    t.box((0, 0.56, 0), (0.88, 0.08, 0.62), W)                                                        # the floor of the cabinet
+    for sx in (-1, 1):
+        t.box((sx * 0.42, 0.8, 0), (0.05, 0.42, 0.6), W)                                              # end walls
+    t.box((0, 0.8, 0.28), (0.8, 0.42, 0.05), W)                                                       # back wall
+    t.box((0, 0.68, -0.28), (0.8, 0.18, 0.05), W)                                                     # low front wall (the glass sits above it)
+    t.box((0, 1.0, 0), (0.92, 0.04, 0.64), WD)                                                        # the top frame rail
+    for sx in (-1, 1):
+        t.box((sx * 0.43, 0.9, -0.28), (0.04, 0.22, 0.05), WD)                                        # front glass posts
+    t.cyl((0, 0.62, 0), 0.34, 0.36, 0.06, "StrawDk", seg=12)                                          # the bed: straw...
+    t.cyl((0, 0.66, 0), 0.22, 0.22, 0.04, "Wool", seg=10)                                             # ...and a wool pad
+    for k in range(16):
+        a = k * math.tau / 16
+        t.bar((math.cos(a) * 0.2, 0.67, math.sin(a) * 0.2), (math.cos(a + 0.2) * 0.36, 0.64 + 0.03 * (k % 2), math.sin(a + 0.2) * 0.36), 0.03, 0.02, "Straw", up=(0, 1, 0))
+    t.box((-0.28, 0.6, -0.1), (0.2, 0.05, 0.14), "IncWater")                                          # a little water tray
+    t.box((-0.28, 0.63, -0.1), (0.22, 0.03, 0.16), TN)
+    t.box((0.36, 0.5, -0.31), (0.12, 0.1, 0.02), BR)                                                  # a brass plaque on the front rail
+    t.box((0.3, 0.76, -0.31), (0.08, 0.14, 0.02), TN)                                                 # the thermometer's tin plate
+    t.box((-0.3, 0.76, -0.31), (0.09, 0.09, 0.03), BR)                                                # a dial
+    t.cyl((-0.3, 0.76, -0.33), 0.03, 0.03, 0.02, "DinoWhite", seg=8, axis='z')
+    t.bar((0.0, 1.0, 0.3), (0.0, 1.5, 0.3), 0.04, 0.04, TN)                                           # the lamp's stand rises behind the cabinet...
+    t.bar((0.0, 1.5, 0.3), (0.0, 1.5, 0.0), 0.04, 0.04, TN)                                           # ...and its arm reaches over the bed
+    t.box((0.0, 1.0, 0.3), (0.16, 0.04, 0.12), TN)
+    t.box((0.4, 0.5, 0.34), (0.2, 0.2, 0.04), "IncRed")                                               # a switch box on the back
+    t.finish()
+    g = TM("Glass", root, holder=True)
+    g.box((0, 0.9, -0.31), (0.8, 0.3, 0.012), "PickGlass")                                            # front pane
+    for sx in (-1, 1):
+        g.box((sx * 0.4, 0.92, 0), (0.012, 0.28, 0.56), "PickGlass")                                  # side panes
+    g.box((0, 1.04, 0), (0.84, 0.012, 0.6), "PickGlass", taper=(1.0, 1.0))                            # and the lid
+    g.finish()
+    lp = TM("Lamp", root, loc=(0, 1.36, 0), holder=True)
+    lp.cyl((0, 1.4, 0), 0.16, 0.07, 0.12, TN, seg=10)                                                 # the shade
+    lp.cyl((0, 1.32, 0), 0.06, 0.06, 0.08, "Amber", seg=8)                                            # the warm bulb
+    lp.finish()
+    gg = TM("Gauge", root, loc=(0.3, 0.76, -0.33), holder=True)
+    gg.box((0.3, 0.74, -0.32), (0.03, 0.1, 0.01), "IncRed")
+    gg.finish()
+
+
+def fossil_nest(root):
+    """The buried fossil: an ankylosaur mother who curled round her nest 68 million years ago, lying in a slab of pale limestone (about 3.4 m long). Skull and club tail are
+    stone-coloured bone, the ribs fan out of the spine, four fossil eggs sit in the hollow between her legs and fifth, sealed in calcite, still glows faintly. Holders: Body
+    (slab, bones, fossil eggs) and Glow (the sealed egg: the game pulses its light)."""
+    B, E, SL, SLL = "FossilBone", "FossilEgg", "Slab", "SlabLt"
+    t = TM("Body", root, holder=True)
+    t.box((0, 0.05, 0), (3.6, 0.1, 2.0), SL, taper=(0.92, 0.9))                                       # the slab she lies in, with chipped edges
+    t.box((-0.9, 0.09, 0.7), (1.5, 0.08, 0.7), SLL, taper=(0.8, 0.8))
+    t.box((1.1, 0.09, -0.6), (1.2, 0.08, 0.6), SLL, taper=(0.8, 0.8))
+    for k in range(10):                                                                               # the spine curls: a row of vertebrae along an arc
+        a = -0.4 + k * 0.17
+        x = -0.4 - 1.5 * math.cos(a * 1.2)
+        z = 0.2 + 1.05 * math.sin(a * 1.2) - 0.5
+        t.box((-1.55 + k * 0.28, 0.24, 0.55 - 0.9 * math.sin(k * 0.34)), (0.2, 0.18, 0.22), B, taper=(0.7, 0.7))
+    for k in range(9):                                                                                # ribs: curved bars fanning from the spine over the nest
+        x = -1.2 + k * 0.28
+        z0 = 0.55 - 0.9 * math.sin((k + 1.5) * 0.34)
+        t.bar((x, 0.28, z0), (x + 0.04, 0.5, z0 - 0.35), 0.08, 0.08, B, up=(1, 0, 0))
+        t.bar((x + 0.04, 0.5, z0 - 0.35), (x + 0.08, 0.2, z0 - 0.62), 0.07, 0.07, B, up=(1, 0, 0))
+    t.hexa([(0.9, 0.1, -0.9), (1.6, 0.1, -0.9), (1.6, 0.1, -0.25), (0.9, 0.1, -0.25), (1.0, 0.45, -0.85), (1.5, 0.42, -0.85), (1.5, 0.4, -0.3), (1.0, 0.4, -0.3)], B)       # the skull, tucked down
+    t.box((1.72, 0.2, -0.58), (0.3, 0.14, 0.3), B, taper=(0.7, 0.7))                                  # the beak
+    t.box((1.2, 0.5, -0.58), (0.5, 0.07, 0.5), B, taper=(0.9, 0.9))                                   # brow armour
+    for sz in (-1, 1):
+        t.box((1.25, 0.28, -0.58 + sz * 0.42), (0.1, 0.12, 0.2), B, taper=(0.5, 0.5))                 # cheek horns
+    for (lx, lz) in ((-0.9, -0.55), (-0.2, -0.85), (-1.5, 0.8), (-0.6, 0.95)):                        # leg bones
+        t.bar((lx, 0.12, lz), (lx + 0.08, 0.32, lz + 0.05), 0.12, 0.12, B)
+    t.bar((-1.55, 0.2, 0.25), (-1.7, 0.18, 1.0), 0.16, 0.14, B, up=(0, 1, 0))                         # the tail along the curve...
+    t.bar((-1.7, 0.18, 1.0), (-1.2, 0.18, 1.45), 0.13, 0.12, B)
+    t.cyl((-0.95, 0.24, 1.6), 0.26, 0.2, 0.34, B, seg=8, axis='x')                                    # ...ending in the club
+    for sz in (-1, 1):
+        t.cyl((-0.95, 0.24, 1.6 + sz * 0.3), 0.05, 0.01, 0.2, B, seg=5, axis='z')
+    for k, (ex, ez) in enumerate(((0.1, -0.2), (-0.25, 0.05), (0.35, 0.18), (-0.15, -0.5))):         # the fossil eggs in the hollow
+        t.cyl((ex, 0.24, ez), 0.17, 0.17, 0.3, E, seg=8)
+        t.cyl((ex, 0.42, ez), 0.17, 0.06, 0.12, E, seg=8)
+        t.cyl((ex, 0.08, ez), 0.1, 0.17, 0.12, E, seg=8)
+    t.finish()
+    gl = TM("Glow", root, loc=(0.55, 0.32, 0.05), holder=True)
+    gl.cyl((0.55, 0.3, 0.05), 0.17, 0.17, 0.3, "EggShell", seg=8)
+    gl.cyl((0.55, 0.48, 0.05), 0.17, 0.06, 0.12, "EggShell", seg=8)
+    gl.cyl((0.55, 0.14, 0.05), 0.1, 0.17, 0.12, "EggShell", seg=8)
+    gl.cyl((0.55, 0.3, 0.05), 0.176, 0.176, 0.04, "Amber", seg=8)
+    for k in range(5):
+        a = k * 1.3
+        gl.box((0.55 + math.cos(a) * 0.17, 0.2 + 0.05 * k, 0.05 + math.sin(a) * 0.17), (0.07, 0.06, 0.06), "EggCrust", taper=(0.7, 0.7))
+    gl.finish()
+
+
 MODELS = {
     "pine_tall": pine_tall, "pine_young": pine_young, "birch": birch, "log": log, "stump": stump, "bush": bush, "fern": fern, "grass": grass, "flowers": flowers,
     "mossy_stone": mossy_stone, "peak_a": peak_a, "peak_b": peak_b, "ridge": ridge, "foothill": foothill, "cliff": cliff, "tunnel_mountain": tunnel_mountain,
-    "tunnel_portal": tunnel_portal, "tunnel_set": tunnel_set, "pickup": pickup, "deer": deer, "rabbit": rabbit,
+    "tunnel_portal": tunnel_portal, "tunnel_set": tunnel_set, "pickup": pickup, "dino": dino, "egg": egg, "incubator": incubator, "fossil_nest": fossil_nest, "deer": deer, "rabbit": rabbit,
 }
 
 

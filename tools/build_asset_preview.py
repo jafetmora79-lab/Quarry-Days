@@ -30,7 +30,10 @@ def main():
              ("2. Forest set", [("pine_tall", "Tall pine"), ("pine_young", "Young pine"), ("birch", "Birch"), ("bush", "Bush"), ("fern", "Fern"), ("grass", "Grass clump"),
                                 ("flowers", "Wildflowers"), ("log", "Fallen log"), ("stump", "Tree stump"), ("mossy_stone", "Mossy stones")]),
              ("3. Mountains", [("peak_a", "Mountain A"), ("peak_b", "Mountain B"), ("ridge", "Long ridge"), ("foothill", "Foothill"), ("cliff", "Cliff wall")]),
-             ("4. Tunnel", [("tunnel_portal", "Tunnel portal (carved entrance)"), ("tunnel_set", "Tunnel lining section")])]
+             ("4. Tunnel", [("tunnel_portal", "Tunnel portal (carved entrance)"), ("tunnel_set", "Tunnel lining section")]),
+             ("5. The dinosaur story", [("dino", "Stonetail, the ankylosaur companion (animated joints)"), ("egg", "The egg: shell, cracks, split halves, straw nest"), ("incubator", "Dr. Marsh's incubator for the living room"),
+                                        ("fossil_nest", "The buried fossil: the mother ankylosaur curled round her nest")]),
+             ("6. Walt's pickup", [("pickup", "Grandpa Walt's pickup (wheels and steering wheel turn)")])]
     for sec, items in world:
         for key, nm in items:
             src = os.path.join(wdir, "WLD_QD_%s.glb" % key)

@@ -1762,7 +1762,7 @@ func _physics_process(delta: float) -> void:
 			"bed": prompt = "E: sleep until morning" if can_sleep() else "Too early to sleep (rest after %02d:00)" % int(prog.cfg.get("home", {}).get("sleep_from_hour", 17.0))
 			"discovery": prompt = "E: open the old lockbox"
 			"fossil": prompt = "E: examine the fossil"
-			"egg": prompt = "E: pick up the egg" if prog.companion_egg_waiting(prog.current_day) else "The egg is warm. It will hatch soon."
+			"egg": prompt = "E: pick up the egg and put it in the incubator" if prog.companion_egg_waiting(prog.current_day) else "The egg is warm under the lamp. It hatches in %d day(s)." % maxi(1, prog.companion_hatch_in(prog.current_day))
 			"walter": prompt = "E: talk to Grandpa Walt" if walter_visit != "" else "Grandpa Walt"
 			"rig":
 				var ri := int(last_target.get_meta("index"))
@@ -6733,6 +6733,25 @@ func _spawn_fossil() -> void:
 	cs.shape = sh
 	cs.position.y = 0.45
 	root.add_child(cs)
+	var fm: Dictionary = WorldModels.animal("fossil_nest") if WorldModels.has("fossil_nest") else {}
+	if not fm.is_empty():
+		var fmodel: Node3D = fm["root"]
+		fmodel.name = "Model"
+		root.add_child(fmodel)
+		sh.size = Vector3(3.6, 0.9, 2.0)
+	else:
+		_fossil_boxes(root)
+	var glow := OmniLight3D.new()
+	glow.light_color = Color(1.0, 0.9, 0.65)
+	glow.light_energy = 0.9
+	glow.omni_range = 4.0
+	glow.position = Vector3(0, 1.2, 0)
+	root.add_child(glow)
+	world.add_child(root)
+	fossil_node = root
+
+## The old box-built skeleton (used only when the Blender fossil cannot load).
+func _fossil_boxes(root: Node3D) -> void:
 	var bone := _mat(Color(0.86, 0.80, 0.66))
 	for i in range(7):                            # ribs and spine along the floor
 		var rib := MeshInstance3D.new()
@@ -6757,14 +6776,6 @@ func _spawn_fossil() -> void:
 	skull.material_override = bone
 	skull.position = Vector3(1.4, 0.25, 0.0)
 	root.add_child(skull)
-	var glow := OmniLight3D.new()
-	glow.light_color = Color(1.0, 0.9, 0.65)
-	glow.light_energy = 0.9
-	glow.omni_range = 4.0
-	glow.position = Vector3(0, 1.2, 0)
-	root.add_child(glow)
-	world.add_child(root)
-	fossil_node = root
 
 func _remove_fossil() -> void:
 	if fossil_node != null and is_instance_valid(fossil_node):
@@ -6874,30 +6885,98 @@ func _build_dino_bed() -> void:
 	bed.add_child(mi)
 	world.add_child(bed)
 
-func _spawn_egg() -> void:
+## Where the egg waits for you (on the porch, in its straw nest) and where it incubates (Grandpa's living room, in the incubator Dr. Marsh sets up).
+func egg_porch_pos() -> Vector3:
+	return HOME_POS + Vector3(-1.9, 0.0, -3.5)
+
+func incubator_pos() -> Vector3:
+	return HOME_POS + Vector3(-5.05, 0.0, -1.85)
+
+var incubator_node: Node3D
+
+## The incubator: a wooden cabinet with a glass lid and a brooder lamp, in the living-room corner. Dr. Marsh brings it with the egg and it stays for good.
+func _ensure_incubator() -> void:
+	if incubator_node != null and is_instance_valid(incubator_node):
+		return
+	var root := StaticBody3D.new()
+	root.name = "Incubator"
+	root.position = incubator_pos()
+	root.rotation.y = -2.36                                       # the cabinet faces the room, out of its corner
+	root.set_meta("kind", "incubator")
+	root.collision_layer = 1
+	var cs := CollisionShape3D.new()
+	var sh := BoxShape3D.new()
+	sh.size = Vector3(0.9, 1.0, 0.64)
+	cs.shape = sh
+	cs.position.y = 0.5
+	root.add_child(cs)
+	var d: Dictionary = WorldModels.animal("incubator") if WorldModels.has("incubator") else {}
+	if not d.is_empty():
+		var m: Node3D = d["root"]
+		m.name = "Model"
+		root.add_child(m)
+		var glow := OmniLight3D.new()
+		glow.name = "Warmth"
+		glow.light_color = Color(1.0, 0.78, 0.45)
+		glow.light_energy = 0.9
+		glow.omni_range = 3.2
+		glow.position = Vector3(0, 1.2, -0.1)
+		root.add_child(glow)
+	else:
+		_solid(root, "Cabinet", Vector3(0, 0.45, 0), Vector3(0.9, 0.9, 0.62), Color(0.5, 0.34, 0.2))
+	world.add_child(root)
+	incubator_node = root
+
+## The egg. `where`: "porch" (waiting in its straw nest) or "incubator" (on the bed under the lamp). Its parts: Shell, Cracks, ShellTop, ShellBottom, Nest (see tools/world_models).
+func _spawn_egg(where := "") -> void:
 	if egg_node != null and is_instance_valid(egg_node):
 		return
-	var p: Array = prog.companion_cfg().get("egg_pos", [-1.0, 0, 9.5])
+	if where == "":
+		where = "porch" if str(prog.companion().get("state", "")) == "pending" else "incubator"
 	var root := StaticBody3D.new()
 	root.name = "DinoEgg"
-	root.position = Vector3(float(p[0]), float(p[1]), float(p[2]))
 	root.set_meta("kind", "egg")
+	root.set_meta("where", where)
 	root.collision_layer = 32
+	if where == "incubator":
+		_ensure_incubator()
+		root.position = incubator_pos() + Vector3(0, 0.64, 0)
+	else:
+		root.position = egg_porch_pos()
 	var cs := CollisionShape3D.new()
 	var sh := SphereShape3D.new()
 	sh.radius = 0.4
 	cs.shape = sh
 	cs.position.y = 0.4
 	root.add_child(cs)
-	var mi := MeshInstance3D.new()
-	var sm := SphereMesh.new()
-	sm.radius = 0.32
-	sm.height = 0.8
-	mi.mesh = sm
-	mi.material_override = _mat(Color(0.82, 0.78, 0.62))
-	mi.position.y = 0.4
-	root.add_child(mi)
-	_solid(root, "Nest", Vector3(0, 0.05, 0), Vector3(1.0, 0.1, 1.0), Color(0.42, 0.30, 0.16))
+	var d: Dictionary = WorldModels.animal("egg") if WorldModels.has("egg") else {}
+	if not d.is_empty():
+		var m: Node3D = d["root"]
+		m.name = "Model"
+		root.add_child(m)
+		var parts: Dictionary = d["parts"]
+		for hidden in ["Cracks", "ShellTop", "ShellBottom"]:
+			if parts.has(hidden):
+				(parts[hidden] as Node3D).visible = false
+		if where == "incubator" and parts.has("Nest"):
+			(parts["Nest"] as Node3D).visible = false           # it lies on the incubator's own straw bed
+		m.scale = Vector3.ONE * (0.62 if where == "incubator" else 1.0)
+		root.set_meta("parts", parts)
+		var glow := OmniLight3D.new()
+		glow.light_color = Color(1.0, 0.78, 0.45)
+		glow.light_energy = 0.5
+		glow.omni_range = 2.0
+		glow.position = Vector3(0, 0.6, 0)
+		root.add_child(glow)
+	else:
+		var mi := MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = 0.32
+		sm.height = 0.8
+		mi.mesh = sm
+		mi.material_override = _mat(Color(0.82, 0.78, 0.62))
+		mi.position.y = 0.4
+		root.add_child(mi)
 	world.add_child(root)
 	egg_node = root
 
@@ -6950,11 +7029,13 @@ func _companion_tick(delta: float) -> void:
 		for jid in prog.check_level_journal():
 			if hud:
 				hud.toast("Walter's journal", str(prog.journal_entry(jid).get("title", "")), "unlock")
+		if (st == "egg" or st == "alive" or (st == "pending" and bool(c.get("marsh_done", false)))) and incubator_node == null:
+			_ensure_incubator()                                       # Dr. Marsh left the incubator in the living room: it stays
 		if prog.companion_egg_waiting(prog.current_day) and egg_node == null and not sleeping:
-			_spawn_egg()
+			_spawn_egg("porch")
 		elif st == "egg":
 			if egg_node == null:
-				_spawn_egg()
+				_spawn_egg("incubator")
 			if prog.companion_stage(prog.current_day) != "egg" and name_dialog == null and not _hatching:
 				_hatch_egg()
 		elif st == "alive":
@@ -6968,6 +7049,8 @@ func _companion_tick(delta: float) -> void:
 					hud.toast("%s grew up" % str(c.get("name", "Your dinosaur")), str(prog.companion_cfg().get(key, "")) % str(c.get("name", "Your dinosaur")), "milestone")
 				if now_stage == "adult":
 					prog.journal_add("companion_adult")
+				if item_tips != null and now_stage in ["juvenile", "adult"]:
+					item_tips.offer("companion:" + now_stage)
 	if companion_node != null and is_instance_valid(companion_node):
 		var h := _hour()
 		var rest := Vector3.INF
@@ -6985,10 +7068,26 @@ func _hatch_egg() -> void:
 		var tw := create_tween()
 		for i in range(8):
 			tw.tween_property(egg_node, "rotation:z", (0.32 if i % 2 == 0 else -0.32) * (0.5 + float(i) * 0.1), 0.16).set_trans(Tween.TRANS_SINE)
-		tw.tween_property(egg_node, "scale", Vector3.ONE * 1.2, 0.12)
+		tw.tween_property(egg_node, "scale", egg_node.scale * 1.15, 0.12)
 		tw.tween_callback(func():
-			_hatching = false
-			_finish_hatch())
+			var parts: Dictionary = egg_node.get_meta("parts", {}) if egg_node != null and is_instance_valid(egg_node) else {}
+			if parts.has("Cracks"):                                  # it cracks open: the shell splits and the top half pops off
+				(parts["Shell"] as Node3D).visible = false
+				(parts["Cracks"] as Node3D).visible = false
+				(parts["ShellBottom"] as Node3D).visible = true
+				(parts["ShellTop"] as Node3D).visible = true
+				var pop := create_tween()
+				pop.tween_property(parts["ShellTop"], "position:y", 0.3, 0.3).set_trans(Tween.TRANS_SINE)
+				pop.parallel().tween_property(parts["ShellTop"], "rotation:z", 0.7, 0.3)
+				pop.tween_interval(0.5)
+				pop.tween_callback(func():
+					_hatching = false
+					_finish_hatch())
+			else:
+				_hatching = false
+				_finish_hatch())
+		if egg_node.has_meta("parts") and (egg_node.get_meta("parts") as Dictionary).has("Cracks"):
+			((egg_node.get_meta("parts") as Dictionary)["Cracks"] as Node3D).visible = true         # the cracks show as it rocks
 		return
 	_finish_hatch()
 
@@ -6996,6 +7095,9 @@ func _finish_hatch() -> void:
 	prog.companion_hatch(prog.current_day, "")
 	_remove_egg()
 	_spawn_companion()
+	if companion_node != null and incubator_node != null and is_instance_valid(incubator_node):
+		var out := incubator_pos() + Vector3(0.1, 0.0, -1.1)       # it climbs out of the incubator into the living room
+		companion_node.global_position = Vector3(out.x, 0.0, out.z)
 	prog.journal_add("companion_born")
 	if hud:
 		hud.show_card("IT HATCHED", str(prog.companion_cfg().get("hatch_text", "")), func(): _open_name_dialog())
@@ -7038,12 +7140,17 @@ func _finish_naming(text: String) -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	if hud:
 		hud.toast(str(prog.companion().get("name", "")), "is part of the family now.", "unlock")
+	if item_tips != null:
+		item_tips.offer("companion:hatchling")
 
 func _take_egg() -> void:
 	if prog.companion_take_egg(prog.current_day):
+		_remove_egg()
+		_ensure_incubator()
+		_spawn_egg("incubator")                                       # carried into the house and settled under the lamp
 		if hud:
 			hud.show_card("A GIFT FROM DR. MARSH", str(prog.companion_cfg().get("arrival_text", "")))
-		_notify("You take care of the egg. It should hatch in a couple of days.")
+		_notify("The egg is settled in the incubator in Grandpa's living room. Check on it each day.")
 
 ## T: the companion walks up to the rock you are looking at and smashes it with its tail.
 func _companion_command() -> void:

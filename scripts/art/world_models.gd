@@ -14,6 +14,12 @@ const COLOURS := {
 	"RabbitFur": Color(0.60, 0.50, 0.40), "RabbitWhite": Color(0.93, 0.91, 0.86), "Pink": Color(0.92, 0.62, 0.62),
 	"PickGreen": Color(0.30, 0.42, 0.31), "PickDark": Color(0.19, 0.28, 0.21), "PickWood": Color(0.45, 0.32, 0.20), "PickSeat": Color(0.44, 0.30, 0.19),
 	"PickDash": Color(0.20, 0.18, 0.16), "PickTrim": Color(0.66, 0.66, 0.62), "PickTyre": Color(0.07, 0.07, 0.07), "PickRed": Color(0.75, 0.12, 0.10), "PickRust": Color(0.45, 0.24, 0.12),
+	"DinoSkin": Color(0.46, 0.40, 0.28), "DinoSkinDk": Color(0.38, 0.33, 0.23), "DinoPlate": Color(0.30, 0.26, 0.19), "DinoPlateLt": Color(0.46, 0.40, 0.28),
+	"DinoBelly": Color(0.76, 0.70, 0.50), "DinoBone": Color(0.88, 0.84, 0.70), "DinoEye": Color(0.05, 0.04, 0.04), "DinoWhite": Color(0.96, 0.95, 0.90),
+	"DinoBlush": Color(0.84, 0.52, 0.42), "DinoMoss": Color(0.34, 0.42, 0.22), "EggShell": Color(0.86, 0.82, 0.66), "EggSpot": Color(0.52, 0.44, 0.30),
+	"EggCrust": Color(0.62, 0.58, 0.50), "EggInner": Color(0.92, 0.70, 0.40), "Straw": Color(0.82, 0.68, 0.34), "StrawDk": Color(0.62, 0.48, 0.24), "Wool": Color(0.88, 0.84, 0.76),
+	"Brass": Color(0.78, 0.60, 0.24), "IncWood": Color(0.50, 0.34, 0.20), "IncWoodDk": Color(0.34, 0.22, 0.13), "IncTin": Color(0.62, 0.64, 0.62), "IncRed": Color(0.78, 0.18, 0.14),
+	"IncWater": Color(0.40, 0.62, 0.78), "FossilBone": Color(0.84, 0.78, 0.62), "FossilEgg": Color(0.66, 0.62, 0.54), "Slab": Color(0.46, 0.42, 0.36), "SlabLt": Color(0.60, 0.55, 0.46),
 	"Timber": Color(0.45, 0.31, 0.18), "Steel": Color(0.38, 0.40, 0.42), "Concrete": Color(0.55, 0.55, 0.53), "Hazard": Color(0.90, 0.72, 0.10), "Paint": Color(0.90, 0.78, 0.20)}
 const FOLIAGE := {
 	"Pine": Color(0.16, 0.33, 0.20), "PineLight": Color(0.25, 0.43, 0.24), "Leaf": Color(0.42, 0.55, 0.20), "LeafWarm": Color(0.68, 0.58, 0.20),
@@ -86,6 +92,8 @@ static func material_for(name: String) -> Material:
 		m = sm
 	elif name == "Lamp":
 		m = MeshKit.flat(Color(1.0, 0.86, 0.55), 1.2)
+	elif name == "Amber":
+		m = MeshKit.flat(Color(1.0, 0.72, 0.30), 1.6)
 	elif name == "PickGlass":
 		var gm := StandardMaterial3D.new()                       # window glass: see-through, both sides
 		gm.albedo_color = Color(0.62, 0.78, 0.82, 0.16)

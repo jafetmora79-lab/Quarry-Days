@@ -33,19 +33,21 @@ CAST = {
         cap=(110, 104, 92),
     ),
     "Marsh": dict(
+        # Dr. Evelyn Marsh, 54: Walter's old friend and a field palaeontologist. Weathered, quick and kind: a sun-tanned face with freckles and laugh lines, a copper-and-silver bun held up by a
+        # red field bandana, round tortoiseshell-gold glasses on a chain, a teal work shirt under a khaki field vest with a trowel and a brush in the belt, a satchel of specimen bags, a watch.
         title="Dr. Evelyn Marsh", age=54, height=1.76, gender="f",
-        body=dict(shoulder=0.94, chest=0.94, waist=0.86, hips=1.02, belly=0.0, bust=0.016, slouch=0.0,
-                  arm=0.96, leg=1.03, hands=0.98, head=1.02, neck=1.02),
-        skin=(234, 196, 168),
-        face=dict(jaw=0.92, chin=0.7, cheek=0.98, nose="long", nose_size=1.10, ears=1.0,
-                  eyes="sharp", iris=(70, 112, 98), brows="thin", brow_col=(150, 146, 140), brow_shape="arch",
-                  mouth="neutral", facial_hair=None, wrinkles=1, blush=0.15, lips=(176, 104, 98)),
-        hair=dict(style="bob", color=(186, 186, 184), hairline=1.675, fringe=True),
-        top=dict(kind="button", base=(64, 110, 116), accent=(52, 92, 98), line=(230, 226, 214), sleeves="rolled"),
-        overlay=dict(kind="fieldvest", color=(140, 124, 88)),
-        pants=dict(kind="cargo", color=(96, 92, 76)),
-        shoes=dict(kind="boots", color=(110, 78, 50)),
-        gear=["glasses_round", "satchel"],
+        body=dict(shoulder=0.96, chest=0.94, waist=0.86, hips=1.02, belly=0.0, bust=0.016, slouch=0.01,
+                  arm=1.0, leg=1.03, hands=1.02, head=1.02, neck=1.02),
+        skin=(216, 168, 134),
+        face=dict(jaw=0.94, chin=0.72, cheek=1.02, nose="long", nose_size=1.08, ears=1.0,
+                  eyes="sharp", iris=(70, 118, 96), brows="medium", brow_col=(150, 96, 64), brow_shape="arch",
+                  mouth="smile", facial_hair=None, wrinkles=2, freckles=True, blush=0.22, lips=(176, 98, 88)),
+        hair=dict(style="bun", color=(170, 104, 66), hairline=1.675, fringe=True),
+        top=dict(kind="button", base=(58, 112, 118), accent=(46, 94, 100), line=(230, 226, 214), sleeves="rolled"),
+        overlay=dict(kind="fieldvest", color=(150, 128, 84)),
+        pants=dict(kind="cargo", color=(104, 94, 70)),
+        shoes=dict(kind="boots", color=(112, 76, 46)),
+        gear=["glasses_round", "glasses_chain", "satchel", "toolbelt", "watch", "bandana"],
     ),
     # ================================================================ miners (hard hats, orange hi-vis)
     "Rosa": dict(

@@ -71,6 +71,13 @@ func info(id: String) -> Dictionary:
 			var mt: Array = MACHINE_TEXT.get(key, ["A new machine for the plant.", "Place it from the order screen or in construction mode."])
 			var titles := {"crusher": "Small jaw crusher", "hopper": "Small hopper", "sorter": "Manual sorting table", "output": "Output storage", "advanced_crusher": "Advanced crusher", "conveyor": "Conveyor"}
 			return {"title": str(titles.get(key, key)), "text": str(mt[0]), "how": str(mt[1]), "model": {"kind": "machine", "id": key}}
+		"companion":
+			var nm := str(prog.companion().get("name", "Your dinosaur"))
+			var texts := {"hatchling": ["%s, a baby ankylosaur, follows you around the quarry and sleeps on its straw bed at night." % nm, "It is too small to break rock yet. Give it a few days: its tail club grows in."],
+				"juvenile": ["%s's tail club has grown in: it can smash soft rock now." % nm, "Look at exposed rock or rubble and press T: it walks up, turns its flank and swings its tail. Press T again to call it off."],
+				"adult": ["%s is fully grown: its club can break hard rock and clear rubble heaps." % nm, "Same as before: look at the rock and press T. It follows the same hardness rules as your tools."]}
+			var ct: Array = texts.get(key, texts["hatchling"])
+			return {"title": nm, "text": str(ct[0]), "how": str(ct[1]), "model": {"kind": "companion", "stage": key}}
 		"rig":
 			var md: Dictionary = prog.machine(key)
 			return {"title": str(md.get("title", key)), "text": "A drilling rig that cuts the rock for you at the face you set it on.", "how": "Place it on the bench and feed it while it works.", "model": {"kind": "rig", "type": key}}
@@ -90,6 +97,11 @@ func _build_model(m: Dictionary) -> Node3D:
 			return ToolModels.load_tool(str(m["id"]))
 		"ramp":
 			return QuarryHotbar.ramp_miniature()
+		"companion":
+			var dc := QuarryCompanion.new()
+			dc.setup(game, str(m.get("stage", "adult")))
+			dc.rotation.y = PI * 0.8
+			return dc
 		"gear":
 			return QuarryPreview.build_model(game, {"kind": "gear", "id": str(m["id"])})
 		"machine":
@@ -162,7 +174,7 @@ func _show(id: String) -> void:
 		if not th.ready_key.is_connected(_on_ready):
 			th.ready_key.connect(_on_ready)
 		var model: Dictionary = d["model"]
-		var tex: Texture2D = th.get_thumb(picture_key, func(): return _build_model(model), "view" if str(model.get("kind", "")) in ["vehicle", "rig", "gear", "machine"] else "tool", 160)
+		var tex: Texture2D = th.get_thumb(picture_key, func(): return _build_model(model), "view" if str(model.get("kind", "")) in ["vehicle", "rig", "gear", "machine", "companion"] else "tool", 160)
 		if tex != null:
 			picture.texture = tex
 

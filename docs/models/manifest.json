@@ -97,6 +97,36 @@
       "file": "models/world/WLD_QD_tunnel_set.glb"
      }
     ]
+   },
+   {
+    "title": "5. The dinosaur story",
+    "items": [
+     {
+      "name": "Stonetail, the ankylosaur companion (animated joints)",
+      "file": "models/world/WLD_QD_dino.glb"
+     },
+     {
+      "name": "The egg: shell, cracks, split halves, straw nest",
+      "file": "models/world/WLD_QD_egg.glb"
+     },
+     {
+      "name": "Dr. Marsh's incubator for the living room",
+      "file": "models/world/WLD_QD_incubator.glb"
+     },
+     {
+      "name": "The buried fossil: the mother ankylosaur curled round her nest",
+      "file": "models/world/WLD_QD_fossil_nest.glb"
+     }
+    ]
+   },
+   {
+    "title": "6. Walt's pickup",
+    "items": [
+     {
+      "name": "Grandpa Walt's pickup (wheels and steering wheel turn)",
+      "file": "models/world/WLD_QD_pickup.glb"
+     }
+    ]
    }
   ]
  },
