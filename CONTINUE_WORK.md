@@ -14,3 +14,11 @@ Built on `feature/blender-production-garage` (excavator fix + Blender equipment 
 - The tunnel is still the existing 20 m dead end the delivery trucks drive into; no through-exit was added.
 - Sky/clouds/day-night are the existing system (only the haze changed).
 - Trees have no collision (as before); animals wander inside an open patch rather than path-finding round trees.
+
+## Overnight intro / world / UI polish (branch feature/intro-world-ui-polish)
+- P1 opening: scripts/opening_scene.gd (QuarryOpeningScene) + scripts/art/pickup_model.gd. First-person drive in Walt's pickup (QuarryOpening road -> tunnel -> yard lanes), exit, deed handoff
+  (readable PROPERTY DEED, once: prog.story["deed_received"]), Walt walks to the excavator (walter_mode "to_post"), Esc skips to the same final state. Lines/timing: data/progression.json walter.cinematic
+  (scene = drive / yard / post; empty text = silent beat). Headless runs start at the yard (intro_shots_enabled=false). Tools: tools/shot_opening.gd, shot_doors.gd, shot_os.gd, shot_hud.gd.
+- P2 tunnel mountain / forest road, P3 door panel/glass fix (scripts/door.gd), P4 OS wallpaper + catalog icon, P5 HUD plates (scripts/ui_plate.gd).
+- Unverified by eye/ear: engine/road/tunnel audio (synthesised, never listened to), distant peaks from the north, the pickup's exterior from outside during a real run beyond the shots taken.
+- Godot for tests: unzip Downloads/Godot_v4.3-stable_win64.exe.zip; run `--headless --path . --import` once after adding a class_name.
