@@ -81,8 +81,11 @@ func build(main_node, centre: Vector3, hinge: float, label: String) -> void:
 	for hy in [0.35, 1.2, 2.0]:
 		MeshKit.box_into(trim, Vector3(-hinge * 0.03, hy, 0.0), Vector3(0.05, 0.14, THICK + 0.05))
 	var inset := MeshKit.Soup.new()
-	for py in [0.55, 1.55]:
-		MeshKit.box_into(inset, Vector3(-hinge * W * 0.5, py, 0.0), Vector3(W * 0.62, 0.5 if py < 1.0 else 0.4, THICK + 0.02))
+	MeshKit.box_into(inset, Vector3(-hinge * W * 0.5, 0.5, 0.0), Vector3(W * 0.62, 0.6, THICK + 0.02))        # the lower raised panel (the upper half of the door is the glass pane)
+	# a muntin cross over the pane, proud of the glass so it never fights it, and a lock rail under the glass
+	MeshKit.box_into(inset, Vector3(-hinge * W * 0.5, H * 0.68, 0.0), Vector3(W * 0.55, 0.04, THICK + 0.05))
+	MeshKit.box_into(inset, Vector3(-hinge * W * 0.5, H * 0.68, 0.0), Vector3(0.04, 0.7, THICK + 0.05))
+	MeshKit.box_into(inset, Vector3(-hinge * W * 0.5, 1.2, 0.0), Vector3(W * 0.55, 0.06, THICK + 0.03))
 	for pair in [[trim, Color(0.2, 0.2, 0.22)], [inset, Color(0.5, 0.35, 0.22)]]:
 		var mi := MeshInstance3D.new()
 		mi.mesh = (pair[0] as MeshKit.Soup).mesh()
