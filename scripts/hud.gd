@@ -916,6 +916,8 @@ func refresh_panels() -> void:
 			if float(r2[1]) < float(r2[2]) - 0.00001:
 				_obj_primary = "%s  (%s)" % [r2[0], _amount(r2)]           # the first thing still to do
 				break
+		if prog.natural_start() and bool(prog.story.get("intro_seen", false)) and not prog.excavator_ready():
+			_obj_primary = "Repair the Excavator (%d/%d parts)" % [prog.repairs_done(), prog.REPAIR_PARTS.size()]     # the opening's first job leads the tracker
 		var frac := frac_sum / float(maxi(1, frac_n))
 		var all_met: bool = prog.requirements_met(next)
 		_obj_target = 1.0 if all_met else minf(frac, 0.99)

@@ -6857,63 +6857,101 @@
   "cinematic": [
    {
     "who": "WALTER",
-    "text": "Well, look who finally decided to show up.",
-    "dur": 5.4,
-    "act": "talk"
+    "text": "",
+    "dur": 2.5,
+    "act": "drive",
+    "scene": "drive"
    },
    {
     "who": "PLAYER",
-    "text": "You said it was important.",
-    "dur": 4.5,
-    "act": "idle"
+    "text": "Grandpa, why are we going to your old workplace? I thought you retired.",
+    "dur": 6.5,
+    "act": "idle",
+    "scene": "drive"
    },
    {
     "who": "WALTER",
-    "text": "It is. I'm retiring.",
-    "dur": 4.5,
-    "act": "talk"
+    "text": "Retired from working for somebody else. That's a different thing, kid.",
+    "dur": 6.5,
+    "act": "talk",
+    "scene": "drive"
+   },
+   {
+    "who": "WALTER",
+    "text": "",
+    "dur": 2.0,
+    "act": "drive",
+    "scene": "drive"
    },
    {
     "who": "PLAYER",
-    "text": "You're what?",
-    "dur": 3.6,
-    "act": "idle"
+    "text": "You seriously brought me all this way to see a hole in a mountain?",
+    "dur": 5.5,
+    "act": "idle",
+    "scene": "drive"
    },
    {
     "who": "WALTER",
-    "text": "Don't sound so surprised. I've only been working since dinosaurs were walking around.",
-    "dur": 8.2,
-    "act": "talk"
+    "text": "That's what everyone sees at first. A hole. I see forty years of work, and a few more years waiting to happen.",
+    "dur": 9.5,
+    "act": "talk",
+    "scene": "drive"
    },
    {
     "who": "WALTER",
-    "text": "Here. The keys. All of them.",
-    "dur": 6.0,
-    "act": "keys"
+    "text": "",
+    "dur": 14.5,
+    "act": "drive",
+    "scene": "drive"
    },
    {
     "who": "WALTER",
-    "text": "Bank wants the place. I told them my grandkid would have it running again in no time.",
-    "dur": 9.0,
-    "act": "talk"
+    "text": "She's a little rough around the edges. But there's good stone beneath all that dirt.",
+    "dur": 8.0,
+    "act": "talk",
+    "scene": "yard"
    },
    {
     "who": "PLAYER",
-    "text": "You told them WHAT?",
-    "dur": 4.5,
-    "act": "idle"
+    "text": "And what exactly am I supposed to do with it?",
+    "dur": 5.0,
+    "act": "idle",
+    "scene": "yard"
    },
    {
     "who": "WALTER",
-    "text": "Relax. You've got my hammer. That's how I started.",
-    "dur": 7.2,
-    "act": "talk"
+    "text": "Whatever you want. It's yours now.",
+    "dur": 7.5,
+    "act": "deed",
+    "scene": "yard"
+   },
+   {
+    "who": "PLAYER",
+    "text": "Wait... you're giving me the quarry?",
+    "dur": 5.5,
+    "act": "deed_read",
+    "scene": "yard"
    },
    {
     "who": "WALTER",
-    "text": "There's more in that hill than anyone thinks. Just gotta keep digging.",
-    "dur": 8.2,
-    "act": "point"
+    "text": "Well, I'm certainly not giving you my good fishing rod.",
+    "dur": 6.5,
+    "act": "talk",
+    "scene": "yard"
+   },
+   {
+    "who": "WALTER",
+    "text": "",
+    "dur": 1.5,
+    "act": "deed_away",
+    "scene": "yard"
+   },
+   {
+    "who": "WALTER",
+    "text": "Get that old machine running, clear the yard, and make your first sale. Then we'll see what kind of quarry boss you are.",
+    "dur": 11.0,
+    "act": "point",
+    "scene": "post"
    }
   ],
   "cinematic_look": [

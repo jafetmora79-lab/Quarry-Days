@@ -38,20 +38,16 @@ func run() -> void:
 		all += str(l["text"]).to_lower() + " "
 		secs += float(l["dur"])
 		player_lines += 1 if str(l["who"]) == "PLAYER" else 0
-	check(all.contains("i'm retiring") and all.contains("dinosaurs were walking around") and all.contains("you've got my hammer") and not all.contains("passed away"), "1 the script has Walter alive and retiring, with the lines from the brief")
-	check(w["cinematic"].size() >= 10 and player_lines >= 3 and secs >= 55.0 and secs <= 95.0, "2 the scene has Walter and the player talking for about a minute (%.0f s, %d player lines)" % [secs, player_lines])
+	check(all.contains("retired from working for somebody else") and all.contains("it's yours now") and all.contains("good fishing rod") and not all.contains("passed away"), "1 the script has Walter alive and handing the quarry over, with the lines from the brief")
+	check(w["cinematic"].size() >= 10 and player_lines >= 3 and secs >= 55.0 and secs <= 150.0, "2 the scene has Walter and the player talking and driving for about a minute and a half (%.0f s, %d player lines)" % [secs, player_lines])
 	check(truck_ok(game) and game.truck_node != null, "2b Walter's old truck is parked at the quarry")
 	# ---- intro scene
 	check(game.walter_node != null and game.walter_dialog != null and game.player.locked, "3 a new game opens with Walter in the yard and the player locked")
-	check(game.walter_node.global_position.distance_to(game.walter_pos()) < 0.1, "4 Walter stands at his spot")
+	check(game.walter_node.global_position.distance_to(game.opening_scene.walt_spot()) < 0.1, "4 Walter stands by the parked pickup")
 	game.walter_dialog.advance()
 	check(game.walter_dialog.index == 1 and game.walter_dialog.timed, "5 Continue moves to the next line and the scene is timed")
-	game.walter_dialog.index = 4
 	game.walter_dialog.advance()
-	check(game.walter_pose == "offer" and game.cine_keys != null, "5b the keys are handed over with a gesture")
-	game.walter_dialog.index = 8
-	game.walter_dialog.advance()
-	check(game.walter_pose == "point", "5c Walter points at the hill")
+	check(game.walter_pose == "offer" and game.opening_scene.deed != null, "5b the deed is handed over with a gesture")
 	game.walter_dialog.skip()
 	await process_frame
 	check(game.walter_dialog == null and game.hud.card_open(), "6 skipping ends the scene and shows the first-day card")

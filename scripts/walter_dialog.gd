@@ -7,6 +7,7 @@ signal finished(skipped: bool)
 signal line_changed(index: int)
 
 var timed := false          ## cinematic mode: lines advance by themselves after their "dur" seconds
+var no_advance := false     ## the keys and the Continue button do not move a timed line on (only Esc skips)
 var _timer := 0.0
 var _done := false
 
@@ -65,7 +66,9 @@ func _show() -> void:
 	face.visible = who.contains("WALT") or who.contains("MARSH")
 	if face.visible:
 		face.texture = UiArt.portrait(_face_for(who))
-	body.text = '"%s"' % str(l.get("text", ""))
+	var said := str(l.get("text", ""))
+	visible = said != ""                                       # a line with no words is a silent beat (the drive): the box is away
+	body.text = '"%s"' % said
 	next_btn.text = "Continue" if index < lines.size() - 1 else "Done"
 	_timer = float(l.get("dur", 4.0))
 	line_changed.emit(index)
@@ -75,9 +78,14 @@ func _process(delta: float) -> void:
 		return
 	_timer -= delta
 	if _timer <= 0.0:
-		advance()
+		_next()
 
 func advance() -> void:
+	if no_advance and timed:
+		return
+	_next()
+
+func _next() -> void:
 	if _done:
 		return
 	if index >= lines.size() - 1:

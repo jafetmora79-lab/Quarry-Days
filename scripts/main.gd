@@ -6236,20 +6236,17 @@ func _build_truck() -> void:
 	root.rotation.y = float(t.get("yaw", 1.5708))
 	var cs := CollisionShape3D.new()
 	var sh := BoxShape3D.new()
-	sh.size = Vector3(2.0, 1.6, 4.4)
+	sh.size = Vector3(2.0, 1.8, 5.4)
 	cs.shape = sh
-	cs.position.y = 0.9
+	cs.position = Vector3(0.0, 0.9, 0.3)
 	root.add_child(cs)
-	# the game's own dump-truck model, small and weathered: cab, tipping bed and six wheels, all properly joined
-	var pv := QuarryPreview.PreviewVehicle.new()
-	pv.paint_cab = "PaintRed"
-	pv.paint_bed = "PaintRed"
-	pv.model_root = Node3D.new()
-	pv.add_child(pv.model_root)
-	pv.model_root.scale = Vector3(1.9 / 2.2, 1.7 / 1.8, 4.0 / 4.6)
-	VehicleModels.truck(pv)
-	truck_wheels = pv.wheels
-	root.add_child(pv)
+	# Walt's pickup (scripts/art/pickup_model.gd): the truck he drives the player in with, parks here, and leaves in
+	var pk := PickupModel.build()
+	(pk["interior"] as Node3D).visible = false
+	(pk["headlights"] as Node3D).visible = false
+	truck_wheels = pk["wheels"]
+	root.set_meta("pickup", pk)
+	root.add_child(pk["root"])
 	world.add_child(root)
 	truck_node = root
 
@@ -6412,7 +6409,12 @@ func _walter_tick(delta: float) -> void:
 			walter_node.get_meta("rig").pose(delta, "wave", 0.0, "miner", false)
 			_walter_look(delta, true)
 		return
-	if walter_mode == "arriving" or walter_mode == "leaving" or walter_mode == "to_truck":
+	if walter_mode == "to_post":
+		walking = _walter_walk(delta)
+		if not walking:
+			walter_mode = "waiting"                      # he has reached the excavator (the opening scene takes it from here)
+			walter_pose = "idle"
+	elif walter_mode == "arriving" or walter_mode == "leaving" or walter_mode == "to_truck":
 		walking = _walter_walk(delta)
 		if not walking:
 			if walter_mode == "to_truck":
@@ -6437,7 +6439,7 @@ func _walter_tick(delta: float) -> void:
 ## when he starts the talk), and the face frames blink, talk and raise the brows. Walking, he looks where he is going.
 func _walter_look(delta: float, waving: bool) -> void:
 	var rig = walter_node.get_meta("rig")
-	var engaged: bool = walter_pose in ["idle", "talk", "offer", "point", "chin", "wave"] and walter_mode != "arriving" and walter_mode != "leaving" and walter_mode != "to_truck"
+	var engaged: bool = walter_pose in ["idle", "talk", "offer", "point", "chin", "wave"] and walter_mode != "arriving" and walter_mode != "leaving" and walter_mode != "to_truck" and walter_mode != "to_post"
 	if player != null and (engaged or waving):
 		var d := player.global_position - walter_node.global_position
 		if d.length() < 10.0:
@@ -6483,6 +6485,7 @@ func _cine_stop() -> void:
 ## Shots 1 and 2 of the opening: a slow look over the mountains and the old quarry, then over the service yard, flown by a temporary camera in the
 ## real world (no video). Esc / Enter / Space / E / a click skips straight to the meeting with Grandpa. Off in headless runs (tests) unless forced.
 var intro_shots_enabled := DisplayServer.get_name() != "headless"
+var opening_scene: QuarryOpeningScene
 var est_running := false
 var est_cam: Camera3D
 var est_tween: Tween
@@ -6491,62 +6494,10 @@ var est_done := Callable()
 func _show_intro() -> void:
 	if not hud or prog.story["intro_seen"]:
 		return
-	if intro_shots_enabled and not est_running:
-		_est_start(Callable(self, "_show_intro_walk"))
+	if opening_scene != null and is_instance_valid(opening_scene):
 		return
-	_show_intro_walk()
-
-func _est_start(on_done: Callable) -> void:
-	est_running = true
-	est_done = on_done
-	player.locked = true
-	var p := player.global_position
-	est_cam = Camera3D.new()
-	est_cam.far = 700
-	world.add_child(est_cam)
-	var s1a := p + Vector3(-18, 16, 34)
-	var s1b := p + Vector3(-6, 12, 22)
-	var l1a := p + Vector3(-12, 9, -45)
-	var l1b := p + Vector3(-8, 6, -40)
-	# shot 2: the family business - the old truck, the broken excavator, the office - in one slow pass over the real objects (falls back to a yard sweep)
-	var stops := []
-	if truck_node != null and is_instance_valid(truck_node):
-		stops.append(truck_node.global_position)
-	var exv := _starter_vehicle()
-	if exv != null:
-		stops.append(exv.global_position)
-	stops.append(OFFICE_POS)
-	if stops.size() < 2:
-		stops = [p + Vector3(-6, 0, 2), p + Vector3(6, 0, 0)]
-	var rig_off := Vector3(7.5, 4.2, 8.5)
-	est_cam.global_position = s1a
-	est_cam.look_at(l1a)
-	est_cam.current = true
-	hud.fade_to(1.0, 0.0)                                    # shot 1 opens from black
-	hud.fade_to(0.0, 2.2)
-	hud.toast("QUARRY DAYS", "A quarry with a long history.", "info")
-	est_tween = create_tween()
-	est_tween.tween_method(func(k: float): _est_pose(s1a, s1b, l1a, l1b, k), 0.0, 1.0, 10.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	est_tween.tween_callback(func(): hud.fade_to(1.0, 0.7))
-	est_tween.tween_interval(0.8)
-	est_tween.tween_callback(func():
-		hud.toast("THE FAMILY BUSINESS", "The old truck, the broken excavator and the office have seen better days.", "info")
-		hud.fade_to(0.0, 0.8))
-	est_tween.tween_method(func(k: float): _est_stops(stops, rig_off, k), 0.0, 1.0, 10.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	est_tween.tween_callback(_est_finish)
-
-## Camera along a list of stops: it arrives at each (lingering a little) and glides to the next, always looking at the current point.
-func _est_stops(stops: Array, off: Vector3, k: float) -> void:
-	if est_cam == null or not is_instance_valid(est_cam):
-		return
-	var n := stops.size()
-	var f := clampf(k, 0.0, 1.0) * float(n - 1)
-	var i := mini(int(floor(f)), n - 2)
-	var u := f - float(i)
-	u = smoothstep(0.25, 0.75, u)                           # hold on each stop, move between them
-	var pt: Vector3 = (stops[i] as Vector3).lerp(stops[i + 1] as Vector3, u)
-	est_cam.global_position = pt + off
-	est_cam.look_at(pt + Vector3(0, 1.2, 0))
+	opening_scene = QuarryOpeningScene.new()
+	opening_scene.start(self, not intro_shots_enabled)       # headless runs start outside, at the yard (no drive)
 
 ## The last shot before control: the camera shows the first job (the broken excavator, then the overgrown site) and settles back into the player's own view.
 func _first_job_shot(done: Callable) -> void:
@@ -6590,11 +6541,6 @@ func _first_job_shot(done: Callable) -> void:
 			est_cam.global_transform = from_t.interpolate_with(player.camera.global_transform, k), 0.0, 1.0, 1.4).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	est_tween.tween_callback(_est_finish)
 
-func _est_pose(a: Vector3, b: Vector3, la: Vector3, lb: Vector3, k: float) -> void:
-	if est_cam and is_instance_valid(est_cam):
-		est_cam.global_position = a.lerp(b, k)
-		est_cam.look_at(la.lerp(lb, k))
-
 func _est_finish() -> void:
 	if not est_running:
 		return
@@ -6613,109 +6559,10 @@ func _est_finish() -> void:
 	if cb.is_valid():
 		cb.call()
 
-func _show_intro_walk() -> void:
-	if not hud or prog.story["intro_seen"]:
-		return
-	player.locked = true
-	walter_intro_running = true
-	_build_truck()
-	_spawn_walter(Vector3.INF, player.global_position)
-	walter_mode = "waiting"
-	var start := Vector3(2.5, 0.2, 9.5)
-	player.global_position = start
-	var cam_look := truck_node.global_position + Vector3(0, 1.2, 0)
-	_face_player_at(cam_look)
-	hud.fade_to(1.0, 0.0)
-	hud.fade_to(0.0, 1.6)
-	# walk up to Walter while the view swings from the truck to him
-	var meet := walter_pos() + Vector3(2.4, 0.2, 1.4)
-	var yaw_to_walter := atan2(-(walter_pos().x - meet.x), -(walter_pos().z - meet.z))
-	var tw := _cine_tween()
-	tw.set_parallel(true)
-	tw.tween_property(player, "global_position", meet, 3.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	tw.tween_property(player, "rotation:y", player.rotation.y + angle_difference(player.rotation.y, yaw_to_walter), 3.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_walter_face_player_to(meet)
-	var lines := []
-	for l in prog.walter_cfg().get("cinematic", []):
-		var e: Dictionary = l.duplicate()
-		e["speaker"] = "YOU" if str(l["who"]) == "PLAYER" else "GRANDPA WALTER"
-		lines.append(e)
-	if not lines.is_empty():
-		lines[0]["dur"] = float(lines[0]["dur"]) + 2.4        # the walk up happens under the first line
-	_open_walter_dialog(lines, _end_walter_intro, true)
-	if walter_dialog:
-		walter_dialog.line_changed.connect(_cine_line)
-		_cine_line(0)
-
 func _walter_face_player_to(p: Vector3) -> void:
 	if walter_node:
 		var d := p - walter_node.global_position
 		walter_node.rotation.y = atan2(-d.x, -d.z)
-
-## Gestures for the line that has just started.
-func _cine_line(i: int) -> void:
-	var cine: Array = prog.walter_cfg().get("cinematic", [])
-	if i < 0 or i >= cine.size() or walter_node == null or not is_instance_valid(walter_node):
-		return
-	var l: Dictionary = cine[i]
-	var act := str(l.get("act", "talk"))
-	var who := str(l.get("who", "WALTER"))
-	walter_pose = "talk" if who == "WALTER" else "idle"
-	match act:
-		"keys":
-			walter_pose = "offer"
-			_cine_keys()
-		"point":
-			walter_pose = "point"
-			var lk: Array = prog.walter_cfg().get("cinematic_look", [-22.3, 1.4, -10.6])
-			var look := Vector3(float(lk[0]), float(lk[1]), float(lk[2]))
-			var wd := look - walter_node.global_position
-			var w_yaw: float = atan2(-wd.x, -wd.z)
-			var pd := look - player.global_position
-			var p_yaw: float = atan2(-pd.x, -pd.z)
-			var tw := _cine_tween()
-			tw.set_parallel(true)
-			tw.tween_property(walter_node, "rotation:y", walter_node.rotation.y + angle_difference(walter_node.rotation.y, w_yaw), 0.9).set_trans(Tween.TRANS_SINE)
-			tw.tween_property(player, "rotation:y", player.rotation.y + angle_difference(player.rotation.y, p_yaw), 1.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-			tw.tween_property(player.camera, "rotation:x", 0.14, 1.6).set_trans(Tween.TRANS_SINE)
-
-## The keys travel from Walter's hand to the camera while the view dips to meet them.
-func _cine_keys() -> void:
-	if cine_keys and is_instance_valid(cine_keys):
-		return
-	var k := Node3D.new()
-	k.name = "Keys"
-	var ring := MeshInstance3D.new()
-	var tm := TorusMesh.new()
-	tm.inner_radius = 0.05
-	tm.outer_radius = 0.09
-	ring.mesh = tm
-	ring.material_override = _mat(Color(0.85, 0.75, 0.3))
-	ring.rotation.x = PI / 2.0
-	k.add_child(ring)
-	var tag := MeshInstance3D.new()
-	var bm := BoxMesh.new()
-	bm.size = Vector3(0.05, 0.16, 0.02)
-	tag.mesh = bm
-	tag.material_override = _mat(Color(0.7, 0.62, 0.28))
-	tag.position = Vector3(0, -0.14, 0)
-	k.add_child(tag)
-	world.add_child(k)
-	var fwd: Vector3 = -walter_node.global_transform.basis.z
-	k.global_position = walter_node.global_position + Vector3(0, 1.15, 0) + fwd * 0.55
-	cine_keys = k
-	var target := player.camera.global_position + (-player.camera.global_transform.basis.z) * 0.45 + Vector3(0, -0.25, 0)
-	var tw := _cine_tween()
-	tw.set_parallel(true)
-	tw.tween_property(k, "global_position", target, 1.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	tw.tween_property(player.camera, "rotation:x", -0.22, 1.2).set_trans(Tween.TRANS_SINE)
-	tw.chain().tween_callback(func():
-		if cine_keys and is_instance_valid(cine_keys):
-			cine_keys.queue_free()
-		cine_keys = null
-		if hud:
-			hud.toast("Keys received", "Walter handed over the quarry.", "unlock"))
-	tw.tween_property(player.camera, "rotation:x", 0.0, 0.9)
 
 func _open_walter_dialog(lines: Array, on_done: Callable, timed := false) -> void:
 	if walter_dialog != null or lines.is_empty():
