@@ -458,26 +458,29 @@ func truck_dump_aim(truck: QuarryVehicle, at_swing := NAN) -> Dictionary:
 	var fwd := (global_transform.basis * (Basis(Vector3.UP, a) * Vector3(0, 0, -1)))
 	fwd.y = 0.0
 	fwd = fwd.normalized()
-	var best := Vector3.INF
-	var best_off := 1e9
 	var c := truck.bed_check(truck.global_position)["top"] as Vector3
-	var s := 1.2
-	while s <= 6.5:
-		var p := global_position + fwd * s
-		var chk := truck.bed_check(p, 0.0)
-		if bool(chk["over"]):
-			var off := Vector2(p.x - c.x, p.z - c.z).length()
-			if off < best_off:
-				best_off = off
-				best = Vector3(p.x, float(chk["rim"]), p.z)
-		s += 0.15
-	if best == Vector3.INF:
+	# Every point of the line the arm sweeps that is over the bed (kept 25 cm inside its edges when the bed allows), nearest the bed's centre first.
+	# The centre itself can be beyond the arm's reach while a point nearer the machine, still well inside the bed, is not: the first REACHABLE one is used
+	# (the bucket lip clears the rim by as much as the arm allows, up to 0.65 m and at least 0.2 m). A truck none of whose bed the arm can reach is out of reach.
+	var any_over := false
+	for inset in [0.25, 0.0]:
+		var cands := []
+		var s := 1.2
+		while s <= 6.5:
+			var p := global_position + fwd * s
+			var chk := truck.bed_check(p, -inset)
+			if bool(chk["over"]):
+				any_over = true
+				cands.append([Vector2(p.x - c.x, p.z - c.z).length(), Vector3(p.x, float(chk["rim"]), p.z)])
+			s += 0.15
+		cands.sort_custom(func(x, y): return float(x[0]) < float(y[0]))
+		for clear in [0.65, 0.5, 0.35, 0.2]:                   # the most clearance the arm can manage anywhere over the bed, then the point nearest the centre
+			for cd in cands:
+				var aim: Vector3 = (cd[1] as Vector3) + Vector3(0, clear, 0)
+				if can_reach(aim):
+					return {"aim": aim}
+	if not any_over:
 		return {"why": "swing"}
-	# the bucket clears the rim by as much as the arm allows (up to 0.65 m, at least 0.2 m); beyond that the truck is out of reach
-	for clear in [0.65, 0.5, 0.35, 0.2]:
-		var aim := best + Vector3(0, clear, 0)
-		if can_reach(aim):
-			return {"aim": aim}
 	return {"why": "reach"}
 
 # ------------------------------------------------------------------ driving
@@ -492,6 +495,18 @@ func rotate_camera(rel: Vector2) -> void:
 ## The model stands on the surface you SEE: the yard's gravel, slabs and asphalt are drawn above the collision ground, so the model is lifted by the height of
 ## the visible layer under the machine's footprint (its highest corner, so no track or tyre is ever buried), eased so it never jumps at a slab's edge.
 var _lift_now := GROUND_LIFT
+var _settle_rise := 0.0        ## how far the body was just pushed UP by ground that appeared under it: the model eases down from there instead of popping
+
+## Soil changed under (or beside) the machine: leave the parked state so the ground is resolved again.
+func wake() -> void:
+	settled_frames = 0
+
+## The soil cells the machine's hull stands on (a little wider than the tracks).
+func support_cells(soil: QuarrySoil) -> Dictionary:
+	if soil == null:
+		return {}
+	return soil.cells_under(global_transform, Vector2(size.x * 0.5 + 0.15, size.z * 0.5 + 0.15))
+
 func _update_ground_lift(delta: float) -> void:
 	if model_root == null or game_art() == null:
 		return
@@ -503,7 +518,8 @@ func _update_ground_lift(delta: float) -> void:
 			var p := global_transform * Vector3(sx * hx, 0.0, sz * hz)
 			best = maxf(best, game_art().visual_ground_y(p.x, p.z))
 	_lift_now = move_toward(_lift_now, GROUND_LIFT + best, delta * 0.4)
-	model_root.position.y = _lift_now
+	_settle_rise = move_toward(_settle_rise, 0.0, delta * 1.2)
+	model_root.position.y = _lift_now - _settle_rise
 
 func game_art():
 	var g = get_parent().get_parent() if get_parent() != null and get_parent().get_parent() != null else null
@@ -551,6 +567,8 @@ func control(delta: float) -> void:
 		return
 	var parked := not live and absf(speed) < 0.01 and is_on_floor() and settled_frames > 5
 	if parked:
+		# A parked machine is not simulated (no gravity, no drift). When the soil under it changes, `wake()` (called from the soil field) puts it back on the normal
+		# path for a moment: soil grown into the tracks pushes it up out of the heap, soil cut away from under it lets it fall until something solid holds it.
 		_animate(delta)
 		return
 	var f := forward()

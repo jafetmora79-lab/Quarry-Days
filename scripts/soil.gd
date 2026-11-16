@@ -95,7 +95,7 @@ func surface_y(p: Vector3) -> float:
 	return height(i) if i >= 0 else 0.0
 
 ## The cell with soil nearest to `p` within `reach` (measured on the ground), or -1.
-func nearest_cell(p: Vector3, reach: float) -> int:
+func nearest_cell(p: Vector3, reach: float, exclude := {}) -> int:
 	var best := -1
 	var best_d := reach
 	var c0 := cell_at(p)
@@ -105,7 +105,7 @@ func nearest_cell(p: Vector3, reach: float) -> int:
 	for cz in range(maxi(0, cz0 - span), mini(rows, cz0 + span + 1)):
 		for cx in range(maxi(0, cx0 - span), mini(cols, cx0 + span + 1)):
 			var i := cz * cols + cx
-			if int(units[i]) <= 0:
+			if int(units[i]) <= 0 or exclude.has(i):
 				continue
 			var c := cell_center(i)
 			var d := Vector2(c.x - p.x, c.z - p.z).length()
@@ -113,6 +113,19 @@ func nearest_cell(p: Vector3, reach: float) -> int:
 				best_d = d
 				best = i
 	return best
+
+## The cells a rectangle lies on (`xf` places it, `half` = half its width and depth): what a machine stands on.
+func cells_under(xf: Transform3D, half: Vector2) -> Dictionary:
+	var out := {}
+	var nx := int(ceil(half.x * 2.0 / (cell * 0.5))) + 1
+	var nz := int(ceil(half.y * 2.0 / (cell * 0.5))) + 1
+	for ix in range(nx + 1):
+		for iz in range(nz + 1):
+			var lp := Vector3(lerpf(-half.x, half.x, float(ix) / float(nx)), 0.0, lerpf(-half.y, half.y, float(iz) / float(nz)))
+			var i := cell_at(xf * lp)
+			if i >= 0:
+				out[i] = true
+	return out
 
 ## Puts up to n units into an active cell (spreading what a bulldozer carries); returns what fitted. Never beyond the full depth.
 func add(i: int, n: int) -> int:
@@ -140,9 +153,12 @@ func remove(i: int, n: int) -> int:
 	_dirty = true
 	return take
 
+signal cells_changed(cells: Array)
+
 func refresh(force := false) -> void:
 	if not _dirty and not force:
 		return
+	var changed := _dirty_cells.keys()
 	for i in range(units.size()):
 		if force or _dirty_cells.has(i):
 			var cs: CollisionShape3D = shapes[i]
@@ -154,6 +170,8 @@ func refresh(force := false) -> void:
 	_dirty_cells.clear()
 	_dirty = false
 	_rebuild_meshes()
+	if not changed.is_empty():
+		cells_changed.emit(changed)
 
 func _noise(gx: int, gz: int, salt: int) -> float:
 	return float(abs(hash(Vector3i(gx, gz, salt))) % 1000) / 1000.0

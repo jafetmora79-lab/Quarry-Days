@@ -72,6 +72,13 @@ func run() -> void:
 	var trec: Dictionary = game.fleet.vehicle(truck.vehicle_id)
 	# ---- the excavator rests on the ground
 	var spot := Vector3(-6.0, 0.3, -16.0)
+	# A parked machine now follows the ground under it (it used to hang where the test put it). The truck must therefore stand on the same level ground as the
+	# excavator, so the loose soil around the work spot is cleared first (as a bulldozer would).
+	if game.soil != null:
+		for i in game.soil.units.size():
+			if game.soil.cell_center(i).distance_to(spot) < 16.0:
+				game.soil.remove(i, int(game.soil.units[i]))
+		game.soil.refresh()
 	ex.global_position = spot
 	ex.rotation.y = 0.0
 	ex.velocity = Vector3.ZERO
@@ -93,7 +100,7 @@ func run() -> void:
 	var cz := bb.get_center().z
 	var d := 2.0
 	while d < 9.0:
-		truck.global_position = ex.global_position + Vector3(0, 0.1, -d - cz)
+		truck.global_position = ex.global_position + Vector3(0, 0.0, -d - cz)
 		truck.rotation.y = 0.0
 		truck.velocity = Vector3.ZERO
 		await frames(4)
@@ -104,7 +111,7 @@ func run() -> void:
 			break
 		d += 0.25
 	check(reach_ok, "there is a truck position the excavator can load from (bed centre %.2f m ahead)" % good_dist)
-	truck.global_position = ex.global_position + Vector3(0, 0.1, -good_dist - cz)
+	truck.global_position = ex.global_position + Vector3(0, 0.0, -good_dist - cz)
 	await frames(6)
 	var aim_level: Vector3 = ex.truck_dump_aim(truck)["aim"]
 	var chk := truck.bed_check(aim_level, 0.0)
@@ -145,7 +152,7 @@ func run() -> void:
 		check(hh["aim"] != Vector3.INF and (hh["aim"] as Vector3).y >= float(hh["rim"]) + 0.19, "a truck %+.1f m from level: the aim follows its bed (%.2f m over a rim at %.2f)" % [dy, ((hh["aim"] as Vector3).y if hh["aim"] != Vector3.INF else NAN), float(hh["rim"])])
 	check(absf((float(heights[0.3]["rim"]) - float(heights[0.0]["rim"])) - 0.3) < 0.05, "and the rim really is 0.3 m higher for the raised truck")
 	check(heights[1.8]["aim"] == Vector3.INF, "a truck 1.8 m higher is beyond the arm's reach: no aim, nothing is loaded")
-	truck.global_position = ex.global_position + Vector3(0, 0.1, -good_dist - cz)
+	truck.global_position = ex.global_position + Vector3(0, 0.0, -good_dist - cz)
 	truck.rotation.y = deg_to_rad(14.0)
 	await frames(6)
 	var ang: Dictionary = ex.truck_dump_aim(truck)

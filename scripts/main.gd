@@ -3127,6 +3127,7 @@ func _build_soil() -> void:
 	soil = QuarrySoil.new()
 	world.add_child(soil)
 	soil.setup(sc, mask, state.soil_units)
+	soil.cells_changed.connect(_wake_vehicles_on)
 	# the spoil heap: a marked patch whose mound grows with what has been dumped there
 	spoil_node = Node3D.new()
 	spoil_node.name = "SpoilHeap"
@@ -5443,9 +5444,23 @@ func excavator_target(v: QuarryVehicle) -> Dictionary:
 func soil_target(v: QuarryVehicle) -> int:
 	if soil == null or not is_instance_valid(soil):
 		return -1
-	return soil.nearest_cell(v.work_point(), float(fleet.spec(v.vtype).get("dig_reach", 4.0)))
+	# a machine never digs the ground it stands on out from under itself (that used to lower an excavator a few centimetres per bucket until it was buried)
+	return soil.nearest_cell(v.work_point(), float(fleet.spec(v.vtype).get("dig_reach", 4.0)), v.support_cells(soil))
 
 var _soil_progress := {}
+
+## Soil changed: parked machines standing on (or touching) those cells are woken so they settle onto the new ground or are lifted out of it.
+func _wake_vehicles_on(cells: Array) -> void:
+	if soil == null:
+		return
+	for v in vehicle_nodes.values():
+		if not is_instance_valid(v):
+			continue
+		var under: Dictionary = soil.cells_under(v.global_transform, Vector2(v.size.x * 0.5 + 0.6, v.size.z * 0.5 + 0.6))
+		for c in cells:
+			if under.has(c):
+				v.wake()
+				break
 
 ## One frame of digging soil: the damage becomes whole units, taken from the cell only as far as the bucket has room. What
 ## the bucket holds is real cargo (it can be dumped into a truck or on the spoil heap).
@@ -5714,7 +5729,7 @@ func _dozer_push(v: QuarryVehicle, delta: float) -> int:
 		var took := 0
 		var i := -1
 		if soil != null and is_instance_valid(soil):
-			i = soil.nearest_cell(p, 2.6)
+			i = soil.nearest_cell(p, 2.6, v.support_cells(soil))
 		if i >= 0:
 			took = soil.remove(i, 1)
 			if took > 0:
