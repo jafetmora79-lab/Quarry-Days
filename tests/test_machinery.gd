@@ -55,7 +55,8 @@ func run() -> void:
 	var jaw = cn.get_meta("jaw") if cn.has_meta("jaw") else null
 	var fly: Array = cn.get_meta("flywheels", [])
 	var meshes := cn.find_children("*", "MeshInstance3D", true, false).size()
-	check(jaw != null and fly.size() == 2 and meshes >= 10, "B the crusher model has a swing jaw, two flywheels, feed hopper, motor and chute (%d parts)" % meshes)
+	# the Blender crusher merges its static parts into one mesh per holder (body, jaw, each flywheel): the parts are counted by the model's named pieces, not by mesh nodes
+	check(jaw != null and fly.size() == 2 and cn.find_child("Equip_crusher", true, false) != null and meshes >= 5, "B the crusher model has a swing jaw, two flywheels and its body (%d mesh nodes)" % meshes)
 	st.inventory["limestone"] = 12
 	var lime0: int = st.total(st.inventory) + int(st.crushers[0]["input"]) + int(st.crushers[0]["output"])
 	st.load_crusher(0, 12)
@@ -82,7 +83,7 @@ func run() -> void:
 	game._create_output(h)
 	await frames(2)
 	var hn: Node3D = game.output_nodes.back()
-	check(str(hn.get_meta("variant")) == "hopper" and hn.find_children("*", "MeshInstance3D", true, false).size() >= 6, "C the hopper is built as a funnel on a frame, with its own model")
+	check(str(hn.get_meta("variant")) == "hopper" and hn.find_child("Equip_hopper", true, false) != null, "C the hopper is the Blender funnel-on-a-frame model")
 	check(biz.output_capacity_of(h) == 60 and biz.output_capacity() == 30, "C it holds 60 units where an output bin holds 30")
 	var plain: int = biz.add_output(Vector3(2.0, 0.0, 17.0), 0.0)
 	game._create_output(plain)
@@ -190,8 +191,8 @@ func verts(n: Node3D) -> int:
 	var v := 0
 	for mi in n.find_children("*", "MeshInstance3D", true, false):
 		var m := (mi as MeshInstance3D).mesh
-		if m and m.get_surface_count() > 0:
-			v += (m.surface_get_arrays(0)[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()
+		for si in (m.get_surface_count() if m else 0):                  # every surface: the Blender models keep one surface per material
+			v += (m.surface_get_arrays(si)[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()
 	return v
 
 func load_json(path: String) -> Dictionary:

@@ -166,7 +166,7 @@ func scene_world() -> void:
 	game.scripted_input = true
 	# 1 startup with the art layer
 	var meshes: Array = game.art.root.find_children("*", "MeshInstance3D", true, false)
-	check(meshes.size() > 80 and game.art.lights.size() >= 4, "1 art layer built (%d meshes, %d practical lights)" % [meshes.size(), game.art.lights.size()])
+	check(meshes.size() > 50 and game.art.lights.size() >= 4, "1 art layer built (%d meshes, %d practical lights)" % [meshes.size(), game.art.lights.size()])
 	var dep_mesh: MeshInstance3D = game.deposit_nodes["coal_mountain"].chunks[0][0]
 	check(dep_mesh.mesh is ArrayMesh and not (dep_mesh.mesh is BoxMesh), "1 deposits are modelled rock formations, not boxes")
 	var floor_body = game.world.get_node("Quarry floor")
