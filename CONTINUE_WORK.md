@@ -2,23 +2,26 @@
 
 Branch: `feature/buildings-sales-production` (built on `feature/office-menus-os-polish`, commit 7f64a12). Nothing here is merged into main.
 
-## Already in the game (do not redo)
-- Blender office (tools/building_models/build_buildings.py -> assets/buildings/BLD_QD_Office.glb, loaded by scripts/art/building_models.gd).
-- Vehicles stand on the visible ground (scripts/vehicle.gd `_update_ground_lift`), hands/arms, HUD, pause/settings/main menu, Quarry OS polish.
-- The production system already exists: crushers, hoppers, sorting tables, output bins (variants), straight / left / right conveyors, a persistent construction inventory
-  (`business.inventory`, saved by `Business.snapshot()`), placement from inventory (`main.gd` `_start_placement`), moving and selling structures.
-  Links are computed in `business.gd` (`compute_links`, `_endpoint_near`, `tick_conveyors`).
+## Done on this branch (do not redo)
+1. **Quick Sell Station**: Blender kiosk (`build_buildings.py sellkiosk`), `main._build_quicksell_station`, `_draw_quicksell`, `quick_sell`, `quick_sell_all`. Test: `tests/test_quick_sell.gd`.
+2. **Equipment Catalog** (Quarry OS app "catalog"): `main.CATALOG`, `catalog_buy` (atomic, quantity 1-99), `machine_lock_reason`, page `management_ui._catalog`. Test: `test_equipment_catalog.gd`.
+3. **Merger (3-way junction)**: `business.conveyor_side_inputs`, round-robin `_merge_turn_ok`, model `quarry_art.conveyor_merger_model`, catalog key `conveyor_merger`. Test: `test_merger_production.gd`.
+4. **Build Mode inventory**: `[` `]` pick, `P` place, `I` store a placed machine back into the Build Inventory (`business.store_structure`). Test: `test_production_acceptance.gd`.
+5. **Production Overview** (Quarry OS Production page): `business.machine_status` / `production_overview`. Test: `test_production_overview.gd`.
+6. **Buildings**: Blender Home (cabin + living-room wing), Workshop, Shed (`build_buildings.py house workshop shed`); wing colliders in `main._home_wing`. Test: `test_yard_buildings.gd`.
+7. **Asset viewer** (`docs/`, three.js): new first group with the buildings and the production machinery. Rebuild with
+   `godot --headless --path . -s tools/export_procedural_models.gd -- docs/models/procedural machinery` then `python tools/build_asset_preview.py`.
 
-## Order of work (commit + push after each)
-1. Quick Sell Station (in-world kiosk + compact panel; reuse `business.sell_material` / `menu_act("sell")`).
-2. Build inventory + EQUIPMENT CATALOG app in Quarry OS (multi-quantity purchases into `business.inventory`).
-3. Merger / junction conveyor (+ short conveyor, incline if budget allows): extend `conveyor_ends`, `_endpoint_near`, `compute_links`, models in tools/.
-4. Snap preview (green / red, direction arrows) in build mode.
-5. Production overview (Quarry OS "production" page): running / idle / blocked + reason.
-6. Buildings: house interior, workshop, storage shed, machinery garage (reuse build_buildings.py helpers).
-7. Save/load regression, full suite, ZIP, mobile 3D viewer (three.js + GLB on GitHub Pages).
+## Known gaps / next steps
+- Production equipment (crushers, hoppers, bins, belts, merger) is still drawn by the game's MeshKit builders, not Blender. Blender versions would go in a new
+  `tools/building_models/build_equipment.py` and be loaded like the buildings (`BuildingModels.load_model`).
+- Not built: short conveyor, incline conveyor, splitter, support legs as separate pieces. A splitter needs a second `dst` per belt link (`links[i]` has one).
+- The machinery garage keeps its existing procedural steel-frame model (delivery door and parking logic depend on it).
+- Snap preview already tints the ghost green/red and prints IN/OUT; direction arrows are on the belt models, not on the ghost.
+- Pages: the repo's GitHub Pages site is served from another branch; this branch's viewer is reachable through raw.githack.com (see the final report).
 
 ## Tips
 - Run the full suite: `GODOT=".../Godot_v4.3-stable_win64.exe" bash tools/run_tests.sh -j 4`.
-- New `class_name` scripts need one editor scan: `godot --path . --editor --quit-after 700`, then `git checkout project.godot` and any tracked `.import` it rewrote.
-- Export: `godot --headless --path . --export-pack "Windows Desktop" build/QuarryDays.pck`, pair with `Downloads/QuarryDays.exe`.
+- New `class_name` scripts need one editor scan: `godot --path . --editor --quit-after 700` (with an isolated APPDATA), then `git checkout project.godot`; do not stage
+  the `.import` files it rewrites (line-ending noise already present in the working tree).
+- Export: `godot --headless --path . --export-pack "Windows Desktop" build/QuarryDays.pck`, pair with `Downloads/QuarryDays.exe`; `.blend` folders need `.gdignore`.

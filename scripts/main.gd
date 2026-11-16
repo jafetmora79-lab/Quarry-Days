@@ -1529,7 +1529,7 @@ func _notify(s: String) -> void:
 ## Interaction highlight (Phase 8.5): a thin warm outline on the one thing you could press E on. Only real interactables get it
 ## (never terrain, rock, loose pieces or weeds), it is removed the moment you look away, open a menu, drive or build, and it is
 ## never used for construction ghosts, which have their own blueprint look.
-const HIGHLIGHT_KINDS := ["repair_part", "cart", "door", "bed", "sell", "quicksell", "upgrades", "storage", "crusher", "output", "shop", "office", "rig", "vehicle", "discovery", "fossil", "egg", "conveyor", "gate"]      # (people are never outlined: it ruins the character art)
+const HIGHLIGHT_KINDS := ["repair_part", "cart", "door", "bed", "sell", "upgrades", "storage", "crusher", "output", "shop", "office", "rig", "vehicle", "discovery", "fossil", "egg", "conveyor", "gate"]      # (people are never outlined: it ruins the character art)
 var highlight_node: Node3D
 var highlight_meshes: Array = []
 var _hl_mat: StandardMaterial3D
@@ -2619,7 +2619,7 @@ func _home_wing() -> void:
 
 ## Where the Quick Sell Station stands: east of the office, in the open, clear of the doorway and the ramp (it faces the yard, -Z).
 func quicksell_pos() -> Vector3:
-	return Vector3(SELL_ANCHOR.x + 5.5, 0.0, SELL_ANCHOR.z + 0.4)
+	return Vector3(OFFICE_POS.x + (5.5 if blueprint else -5.5), 0.0, OFFICE_POS.z - 2.6)
 
 ## The collider and interaction point of the station (the model is drawn by QuarryArt). Aiming at it and pressing E opens the Quick Sell panel.
 func _build_quicksell_station() -> void:
@@ -7253,7 +7253,7 @@ func _hint_text() -> String:
 	if placement:
 		return "Left click place  R rotate  G grid snap  Esc cancel"
 	if construction:
-		return "Left click move a machine  I store it  X sell it  [ ] pick from inventory  P place  Esc leave"
+		return "Left click move a machine (construction mode)  I store it  X sell it  [ ] pick from inventory  P place  Esc leave"
 	return "WASD move  SHIFT sprint  left click mine  E use  M manage  B build  F5 save  ESC pause" + ("  J auto crew" if crew.eligible(crew_candidate()) == "" else "") + ("  K skip delivery" if delivery and not delivery.jobs.is_empty() else "")
 
 ## Small status lines under the clock: deliveries waiting in the construction inventory, vehicles on their way, belts

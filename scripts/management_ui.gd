@@ -7,6 +7,7 @@ const TABS := [["staff", "WORKERS"], ["hire", "HIRE"], ["payroll", "PAYROLL"], [
 const CARDS := [
 	["employees", "EMPLOYEES", "Your crew: who works for you, hiring and wages.", "workers", "staff"],
 	["machinery", "MACHINERY", "Your fleet and rigs, and ordering new machines.", "equipment", "equipment"],
+	["catalog", "EQUIPMENT CATALOG", "Order crushers, belts, a merger and bins into your Build Inventory.", "catalog", "catalog"],
 	["sales", "SALES", "Sell your stone and choose what the clerk may sell.", "payroll", "sales"],
 	["plan", "QUARRY PLAN", "The levels: depth, materials, how each one opens, and their access roads.", "plan", "plan"],
 	["production", "PRODUCTION", "What the quarry made and where it went.", "production", "production"],

@@ -53,7 +53,7 @@ func run() -> void:
 	var m = game.management
 	check(m.tab == "home", "the office computer opens on its desktop")
 	var cards: int = m.os.icons.size()
-	check(cards == 8, "eight cards: employees, machinery, sales, quarry plan, production, upgrades, milestones, stats (%d)" % cards)
+	check(cards == 9, "nine cards: employees, machinery, equipment catalog, sales, quarry plan, production, upgrades, milestones, stats (%d)" % cards)
 	var all_text := ""
 	m._set_tab("staff")
 	await frames(2)

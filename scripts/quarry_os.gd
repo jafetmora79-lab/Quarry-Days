@@ -17,7 +17,7 @@ const GRID_GAP := Vector2(20, 14)
 const APPS := [      ## id, title, icon, first tab of the page, window size, minimum window size. Row 1 runs the quarry, row 2 is money and planning.
 	["employees", "Employees", "employees", "staff", Vector2(640, 410), Vector2(480, 300)],
 	["machinery", "Machinery", "machinery", "equipment", Vector2(700, 430), Vector2(520, 320)],
-	["catalog", "Equipment Catalog", "machinery", "catalog", Vector2(760, 450), Vector2(560, 340)],
+	["catalog", "Equipment Catalog", "catalog", "catalog", Vector2(760, 450), Vector2(560, 340)],
 	["production", "Production", "production", "production", Vector2(640, 410), Vector2(480, 300)],
 	["upgrades", "Upgrades", "upgrades", "upgrades", Vector2(640, 410), Vector2(480, 300)],
 	["sales", "Sales", "sales", "sales", Vector2(620, 390), Vector2(500, 300)],
