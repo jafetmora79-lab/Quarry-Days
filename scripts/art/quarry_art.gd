@@ -1034,9 +1034,40 @@ func _strip(parent: Node3D, keep: Array) -> void:
 		if c is MeshInstance3D and not keep.has(c):
 			c.visible = false
 
+## Blender equipment (scripts/art/equipment_models.gd): crushers keep the hooks main animates (flywheels, jaw, the hopper fill and the output pile).
+func _equip_crusher(parent: Node3D, g: float, key: String) -> bool:
+	var info := EquipModels.attach(parent, key, g)
+	if info.is_empty():
+		return false
+	var parts: Dictionary = info["parts"]
+	if key == "crusher_adv":
+		parent.set_meta("flywheels", [parts["Mantle"]])
+		parent.set_meta("spin_axis", "y")
+		parent.set_meta("jaw", parts["Mantle"])
+		_crusher_fill(parent, g, Vector3(0, 1.55, 0), Vector3(0.9, 0.3, 0.9), Vector3(0, 0.45, -0.95), Vector3(0.9, 0.3, 0.55))
+	else:
+		parent.set_meta("flywheels", [parts["Flywheel_L"], parts["Flywheel_R"]])
+		parent.set_meta("jaw", parts["Jaw"])
+		_crusher_fill(parent, g, Vector3(0, 1.62, 0.28), Vector3(0.62, 0.32, 0.5), Vector3(0, 0.45, -0.8), Vector3(0.7, 0.3, 0.45))
+	return true
+
+## A belt piece from Blender: the running surface (scrolled by main), and the end caps main shows while an end is unconnected.
+func _equip_belt(parent: Node3D, key: String, g: float) -> bool:
+	var info := EquipModels.attach(parent, key, g)
+	if info.is_empty():
+		return false
+	if info["belt"] != null:
+		parent.set_meta("belt", info["belt"])
+	var parts: Dictionary = info["parts"]
+	parent.set_meta("cap_in", parts.get("EndCap_In", null))
+	parent.set_meta("cap_out", parts.get("EndCap_Out", null))
+	return true
+
 func crusher_model(parent: Node3D, g: float, tier := 1) -> void:
 	if tier >= 2:
 		advanced_crusher_model(parent, g)
+		return
+	if _equip_crusher(parent, g, "crusher"):
 		return
 	var p := {"SteelPlate": MeshKit.Soup.new(), "SteelGreen": MeshKit.Soup.new(), "PaintYellow": MeshKit.Soup.new(), "Hazard": MeshKit.Soup.new()}
 	for x in [-0.68, 0.68]:
@@ -1088,6 +1119,8 @@ func _crusher_fill(parent: Node3D, g: float, hop_pos: Vector3, hop_size: Vector3
 
 ## Phase 5 advanced crusher: a cone crusher with a gyrating mantle, belt-driven motor and twin chute.
 func advanced_crusher_model(parent: Node3D, g: float) -> void:
+	if _equip_crusher(parent, g, "crusher_adv"):
+		return
 	var p := {"SteelPlate": MeshKit.Soup.new(), "SteelGreen": MeshKit.Soup.new(), "PaintOrange": MeshKit.Soup.new(), "Hazard": MeshKit.Soup.new()}
 	for x in [-0.82, 0.82]:
 		MeshKit.box_into(p["SteelPlate"], Vector3(x, g + 0.1, 0), Vector3(0.2, 0.2, 2.0))
@@ -1118,6 +1151,8 @@ func dress_crusher(body: StaticBody3D, tier := 1) -> void:
 
 ## Phase 9.6: the Small Hopper. A funnel on a braced frame: open rim, spout, belt port plate and the material heaped in the funnel.
 func hopper_model(parent: Node3D, g: float) -> void:
+	if not EquipModels.attach(parent, "hopper", g).is_empty():
+		return
 	var p := {"SteelPlate": MeshKit.Soup.new(), "SteelGreen": MeshKit.Soup.new(), "Hazard": MeshKit.Soup.new(), "PaintYellow": MeshKit.Soup.new()}
 	for x in [-0.55, 0.55]:
 		for z in [-0.55, 0.55]:
@@ -1193,6 +1228,8 @@ func dress_sorter(body: StaticBody3D) -> void:
 	fill.material_override = _material("RockLimestone")
 
 func output_model(parent: Node3D, g: float) -> void:
+	if not EquipModels.attach(parent, "bin", g).is_empty():
+		return
 	var p := {"SteelGreen": MeshKit.Soup.new(), "SteelPlate": MeshKit.Soup.new(), "Hazard": MeshKit.Soup.new()}
 	for x in [-0.6, 0.6]:
 		for z in [-0.6, 0.6]:
@@ -1217,6 +1254,8 @@ func dress_output(body: StaticBody3D) -> void:
 	fill.material_override = _material("RockLimestone")
 
 func conveyor_model(parent: Node3D, g: float) -> void:
+	if _equip_belt(parent, "belt", g):
+		return
 	var p := {"SteelPlate": MeshKit.Soup.new(), "Belt": MeshKit.Soup.new(), "Hazard": MeshKit.Soup.new(), "SteelGreen": MeshKit.Soup.new()}
 	for x in [-0.42, 0.42]:
 		MeshKit.box_into(p["SteelGreen"], Vector3(x, g + 0.2, 0), Vector3(0.06, 0.14, 2.0))         # side channels
@@ -1236,6 +1275,8 @@ func conveyor_model(parent: Node3D, g: float) -> void:
 ## joined by a centre square, with an outer rail round the bend and an open inner corner, built from the same parts as the
 ## straight belt. Forward is -Z; the exit side is -X for a left corner and +X for a right one.
 func conveyor_corner_model(parent: Node3D, g: float, kind: String) -> void:
+	if _equip_belt(parent, "belt_" + kind, g):
+		return
 	var s := -1.0 if kind == "left" else 1.0
 	var p := {"SteelPlate": MeshKit.Soup.new(), "Belt": MeshKit.Soup.new(), "Hazard": MeshKit.Soup.new(), "SteelGreen": MeshKit.Soup.new()}
 	MeshKit.box_into(p["Belt"], Vector3(0, g + 0.25, 0.5), Vector3(0.74, 0.03, 1.0))              # entry half
@@ -1256,7 +1297,18 @@ func conveyor_corner_model(parent: Node3D, g: float, kind: String) -> void:
 		parent.set_meta("belt", made["Belt"])
 
 ## The merger: a 2 x 2 m junction. Main lane runs back to front (-Z is forward); two side lanes feed into it from -X and +X. Arrows show the flow.
+func conveyor_short_model(parent: Node3D, g: float) -> void:
+	_equip_belt(parent, "belt_short", g)
+
+func conveyor_incline_model(parent: Node3D, g: float) -> void:
+	_equip_belt(parent, "belt_incline", g)
+
+func conveyor_splitter_model(parent: Node3D, g: float) -> void:
+	_equip_belt(parent, "belt_splitter", g)
+
 func conveyor_merger_model(parent: Node3D, g: float) -> void:
+	if _equip_belt(parent, "belt_merger", g):
+		return
 	var p := {"SteelPlate": MeshKit.Soup.new(), "Belt": MeshKit.Soup.new(), "Hazard": MeshKit.Soup.new(), "SteelGreen": MeshKit.Soup.new()}
 	MeshKit.box_into(p["Belt"], Vector3(0, g + 0.25, 0), Vector3(0.74, 0.03, 2.0))                  # main lane, back to front
 	for s in [-1.0, 1.0]:
@@ -1287,6 +1339,12 @@ func dress_conveyor(body: StaticBody3D) -> void:
 		conveyor_model(body, -(body.position.y - float(body.get_meta("ground_y", 0.0))))
 	elif bk == "merger":
 		conveyor_merger_model(body, -(body.position.y - float(body.get_meta("ground_y", 0.0))))
+	elif bk == "short":
+		conveyor_short_model(body, -(body.position.y - float(body.get_meta("ground_y", 0.0))))
+	elif bk == "incline":
+		conveyor_incline_model(body, -(body.position.y - float(body.get_meta("ground_y", 0.0))))
+	elif bk == "splitter":
+		conveyor_splitter_model(body, -(body.position.y - float(body.get_meta("ground_y", 0.0))))
 	else:
 		conveyor_corner_model(body, -(body.position.y - float(body.get_meta("ground_y", 0.0))), bk)
 	if not piece_meshes.has("belt_item"):
@@ -1295,6 +1353,8 @@ func dress_conveyor(body: StaticBody3D) -> void:
 		it.mesh = piece_meshes["belt_item"]
 
 func storage_model(parent: Node3D, g: float) -> void:
+	if not EquipModels.attach(parent, "storage", g).is_empty():
+		return
 	var p := {"SteelPlate": MeshKit.Soup.new(), "SteelGreen": MeshKit.Soup.new(), "Hazard": MeshKit.Soup.new()}
 	MeshKit.box_into(p["SteelPlate"], Vector3(0, g + 0.08, 0), Vector3(2.0, 0.16, 1.6))
 	for side in [[Vector3(0, 0, -0.78), Vector3(2.0, 1.14, 0.06)], [Vector3(0, 0, 0.78), Vector3(2.0, 1.14, 0.06)],

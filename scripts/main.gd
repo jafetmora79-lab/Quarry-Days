@@ -3472,6 +3472,7 @@ func machine_lock_reason(key: String) -> String:
 const CATALOG := [
 	["crusher", "Small Jaw Crusher", "Crushers"], ["advanced_crusher", "Advanced Crusher", "Crushers"],
 	["conveyor", "Straight Conveyor", "Conveyors"], ["conveyor_left", "Left Corner Conveyor", "Conveyors"], ["conveyor_right", "Right Corner Conveyor", "Conveyors"], ["conveyor_merger", "Merger (3-way junction)", "Conveyors"],
+	["conveyor_short", "Short Conveyor (1 m)", "Conveyors"], ["conveyor_incline", "Inclined Conveyor (3 m, lifts 1.1 m)", "Conveyors"], ["conveyor_splitter", "Splitter (T junction)", "Conveyors"],
 	["output", "Output Storage", "Storage"], ["hopper", "Small Hopper", "Storage"],
 	["sorter", "Manual Sorting Table", "Processing"]]
 
@@ -3489,8 +3490,8 @@ func catalog_title(key: String) -> String:
 	return key
 
 func catalog_unit_price(key: String) -> int:
-	if key == "conveyor_merger":
-		return business.belt_price("merger")
+	if key.begins_with("conveyor_"):
+		return business.belt_price(key.substr(9))
 	return _placement_price("conveyor" if key.begins_with("conveyor") else key)
 
 ## "" when `qty` of `key` can be bought now, else the reason (locked, or not enough money).
@@ -3815,7 +3816,8 @@ func _placement_price(kind: String) -> int:
 		"hopper": return int(business.cfg["hopper_price"])
 		"sorter": return int(business.cfg["sorter_price"])
 		"conveyor": return int(business.cfg["conveyor_price"])
-		"conveyor_merger": return business.belt_price("merger")
+	if kind.begins_with("conveyor_"):
+		return business.belt_price(kind.substr(9))
 	return int(state.config["crusher_price"])
 
 ## Key of a placeable in the construction inventory.
@@ -3824,7 +3826,7 @@ func inventory_key(kind: String, belt := "straight") -> String:
 
 func _start_placement(kind: String) -> void:
 	placement_belt = "straight"
-	if kind == "conveyor_left" or kind == "conveyor_right" or kind == "conveyor_merger":
+	if kind.begins_with("conveyor_"):
 		placement_belt = kind.substr(9)
 		kind = "conveyor"
 	if kind in ["hopper", "sorter"] and not prog.unlocked(kind):
@@ -4521,6 +4523,12 @@ func _conveyor_visual(parent: Node3D, transparent := false, belt := "straight") 
 			art.conveyor_model(parent, 0.0)
 		elif belt == "merger":
 			art.conveyor_merger_model(parent, 0.0)
+		elif belt == "short":
+			art.conveyor_short_model(parent, 0.0)
+		elif belt == "incline":
+			art.conveyor_incline_model(parent, 0.0)
+		elif belt == "splitter":
+			art.conveyor_splitter_model(parent, 0.0)
 		else:
 			art.conveyor_corner_model(parent, 0.0, belt)
 		if transparent:
@@ -4566,10 +4574,29 @@ func _create_conveyor(index: int) -> void:
 	body.set_meta("kind","conveyor")
 	body.set_meta("belt_kind", bk)
 	body.set_meta("index",index)
-	if bk == "merger":
+	if bk == "merger" or bk == "splitter":
 		for ch in body.get_children():
 			if ch is CollisionShape3D:
 				(ch.shape as BoxShape3D).size = Vector3(2.0, 0.26, 2.0)         # the junction is 2 x 2 m: belts meet it at its back and both sides
+	elif bk == "short":
+		for ch in body.get_children():
+			if ch is CollisionShape3D:
+				(ch.shape as BoxShape3D).size = Vector3(0.9, 0.26, 1.0)
+	elif bk == "incline":
+		# a ramp people cannot walk through: four steps under the belt, each as tall as the belt is there (solid for everyone, unlike the low belts)
+		for ch in body.get_children():
+			if ch is CollisionShape3D:
+				ch.queue_free()
+		body.collision_layer = 1
+		for k in range(4):
+			var zc := 1.125 - 0.75 * k
+			var hb := 0.25 + 1.1 * (1.5 - zc) / 3.0
+			var cs3 := CollisionShape3D.new()
+			var bx3 := BoxShape3D.new()
+			bx3.size = Vector3(0.9, hb, 0.75)
+			cs3.shape = bx3
+			cs3.position = Vector3(0, hb * 0.5 - 0.13, zc)
+			body.add_child(cs3)
 	elif bk != "straight":
 		# an L: one box under each half (entry half behind the centre, exit half out to the side)
 		var sgn := -1.0 if bk == "left" else 1.0
@@ -4652,13 +4679,30 @@ func _update_structures() -> void:
 		var c: Dictionary = business.conveyors[i]
 		var items: Array = conveyor_nodes[i].get_meta("items")
 		var n := int(c["items"])
+		var lk: Dictionary = business.links[i] if i < business.links.size() else {}
+		var cap_in = conveyor_nodes[i].get_meta("cap_in", null)
+		if cap_in != null and is_instance_valid(cap_in):
+			cap_in.visible = lk.get("src", {}).is_empty()           # an unconnected end is closed with a guard plate
+		var cap_out = conveyor_nodes[i].get_meta("cap_out", null)
+		if cap_out != null and is_instance_valid(cap_out):
+			cap_out.visible = lk.get("dst", {}).is_empty()
 		for k in range(items.size()):
 			var item: MeshInstance3D = items[k]
 			item.visible = k < n
 			if item.visible:
 				var zi := minf(0.75, 0.75 - 1.5 * float(c["progress"]) + 0.55 * k)
 				var bkind := str(c.get("kind", "straight"))
-				if bkind == "straight" or bkind == "merger":
+				if bkind == "short" or bkind == "incline":
+					var z0 := Business.belt_half(bkind) - 0.25
+					var zs := clampf(z0 - 2.0 * z0 * float(c["progress"]) + 0.55 * (z0 / 0.75) * k, -z0, z0)
+					item.position.z = zs
+					item.position.y = 0.28 + (1.1 * (1.5 - zs) / 3.0 if bkind == "incline" else 0.0)
+				elif bkind == "splitter":
+					var tt := clampf(float(c["progress"]) + 0.18 * k, 0.0, 1.0)
+					var side := -1.0 if int(c.get("sr", 0)) == 1 else 1.0
+					item.position.z = 0.9 - 1.8 * tt if tt < 0.5 else 0.0
+					item.position.x = 0.0 if tt < 0.5 else side * (tt - 0.5) * 1.8
+				elif bkind == "straight" or bkind == "merger":
 					item.position.z = zi
 				else:
 					# along the L: back edge -> centre (1 m), then centre -> the exit side (1 m)
@@ -4763,6 +4807,7 @@ func conveyor_snap(at: Vector3, kind := "straight") -> Dictionary:
 	# Port based candidates (all belt kinds): a new piece starts where a source port leaves, or ends where a destination
 	# port takes material in. Corners turn 90 degrees to the right or left of the flow, so a corner snapped onto a
 	# straight belt, a crusher, a storage or another corner always lines up end to end.
+	var half := Business.belt_half(kind)
 	for port in belt_ports():
 		if kind == "straight" and str(port.get("src", "")) in ["crusher", "output"]:
 			continue   # straight belts keep their established machine snap spots (below)
@@ -4770,10 +4815,10 @@ func conveyor_snap(at: Vector3, kind := "straight") -> Dictionary:
 		var pp: Vector3 = port["pos"]
 		var yd := atan2(-pd.x, -pd.z)
 		if str(port["io"]) == "out":
-			cands.append({"pos": pp + pd, "yaw": yd})
+			cands.append({"pos": pp + pd * (half if kind in ["straight", "merger", "short", "incline", "splitter"] else 1.0), "yaw": yd})
 		else:
-			if kind == "straight" or kind == "merger":
-				cands.append({"pos": pp - pd, "yaw": yd})
+			if kind in ["straight", "merger", "short", "incline", "splitter"]:
+				cands.append({"pos": pp - pd * half, "yaw": yd})
 			elif kind == "left":
 				cands.append({"pos": pp - pd, "yaw": yd - PI * 0.5})
 			else:
@@ -4794,8 +4839,9 @@ func conveyor_snap(at: Vector3, kind := "straight") -> Dictionary:
 			cands.append({"pos": op - Business.forward(yk) * 1.75, "yaw": yk})
 	for k in range(4):
 		var yk := float(k) * PI * 0.5
-		cands.append({"pos": business.storage_pos * Vector3(1, 0, 1) - Business.forward(yk) * 2.0, "yaw": yk})   # delivers into the storage crate
-		cands.append({"pos": business.storage_pos * Vector3(1, 0, 1) + Business.forward(yk) * 2.0, "yaw": yk})   # carries away from it
+		var sreach := 1.9 if k % 2 == 0 else 2.1
+		cands.append({"pos": business.storage_pos * Vector3(1, 0, 1) - Business.forward(yk) * sreach, "yaw": yk})   # delivers into the storage crate
+		cands.append({"pos": business.storage_pos * Vector3(1, 0, 1) + Business.forward(yk) * sreach, "yaw": yk})   # carries away from it
 		for ri in range(prog.rigs.size()):
 			cands.append({"pos": prog.rig_bin_pos(prog.rigs[ri]) * Vector3(1, 0, 1) + Business.forward(yk) * 1.0, "yaw": yk})   # takes from a rig's bin
 	for j in range(business.conveyors.size()):
@@ -4823,18 +4869,20 @@ func belt_ports() -> Array:
 	for i in range(state.crushers.size()):
 		var c: Vector3 = Business.v3(state.crushers[i]["position"]) * Vector3(1, 0, 1)
 		var f := Business.forward(float(state.crushers[i]["yaw"]))
-		ports.append({"pos": c + f * 1.15, "dir": f, "io": "out", "src": "crusher"})
-		ports.append({"pos": c - f * 1.15, "dir": f, "io": "in", "src": "crusher"})
+		var cadv := int(state.crushers[i].get("tier", 1)) >= 2
+		ports.append({"pos": c + f * (1.25 if cadv else 1.05), "dir": f, "io": "out", "src": "crusher"})       # the chute tip
+		ports.append({"pos": c - f * (1.25 if cadv else 0.85), "dir": f, "io": "in", "src": "crusher"})        # the feed trough's lip
 	for o in business.outputs:
 		var op: Vector3 = Business.v3(o["position"]) * Vector3(1, 0, 1)
 		for k in range(4):
 			var d := Business.forward(float(k) * PI * 0.5)
-			ports.append({"pos": op - d * 0.9, "dir": d, "io": "in", "src": "output"})
+			ports.append({"pos": op - d * 0.75, "dir": d, "io": "in", "src": "output"})
 	var sp: Vector3 = business.storage_pos * Vector3(1, 0, 1)
 	for k in range(4):
 		var d2 := Business.forward(float(k) * PI * 0.5)
-		ports.append({"pos": sp - d2 * 1.2, "dir": d2, "io": "in"})
-		ports.append({"pos": sp + d2 * 1.2, "dir": d2, "io": "out"})
+		var reach := 0.9 if k % 2 == 0 else 1.1                      # the crate is 1.6 m across (z) and 2.0 m long (x); its inlet spouts stand 0.1 m out
+		ports.append({"pos": sp - d2 * reach, "dir": d2, "io": "in"})
+		ports.append({"pos": sp + d2 * reach, "dir": d2, "io": "out"})
 	for r in prog.rigs:
 		for k in range(4):
 			var d3 := Business.forward(float(k) * PI * 0.5)
@@ -4846,6 +4894,8 @@ func belt_ports() -> Array:
 		var link: Dictionary = business.links[j] if j < business.links.size() else {}
 		if link.get("dst", {}).is_empty():
 			ports.append({"pos": ends[1], "dir": Business.belt_out_dir(float(cj["yaw"]), kj), "io": "out"})
+		if kj == "splitter" and link.get("dst2", {}).is_empty():
+			ports.append({"pos": business.conveyor_outputs(Business.v3(cj["position"]), float(cj["yaw"]), kj)[1], "dir": Business.forward(float(cj["yaw"]) - PI * 0.5), "io": "out"})
 		if link.get("src", {}).is_empty():
 			ports.append({"pos": ends[0], "dir": Business.forward(float(cj["yaw"])), "io": "in"})
 		for side_pt in business.conveyor_side_inputs(Business.v3(cj["position"]), float(cj["yaw"]), kj):     # a merger also takes belts at both sides
@@ -4864,14 +4914,15 @@ func machine_snap(kind: String, at: Vector3) -> Dictionary:
 		var yj := float(business.conveyors[j]["yaw"])
 		var fj := Business.forward(yj)
 		var link: Dictionary = business.links[j] if j < business.links.size() else {}
+		var hj := Business.belt_half(str(business.conveyors[j].get("kind", "straight")))
 		if kind == "output":
 			if link.get("dst", {}).is_empty():
-				cands.append({"pos": cp + fj * 1.75, "yaw": yj, "note": "end of conveyor #%d" % (j + 1)})
+				cands.append({"pos": cp + fj * (hj + 0.75), "yaw": yj, "note": "end of conveyor #%d" % (j + 1)})
 		else:
 			if link.get("dst", {}).is_empty():
-				cands.append({"pos": cp + fj * (2.2 if adv else 2.0), "yaw": yj, "note": "feeds from conveyor #%d" % (j + 1)})
+				cands.append({"pos": cp + fj * (hj + (1.2 if adv else 1.0)), "yaw": yj, "note": "feeds from conveyor #%d" % (j + 1)})
 			if link.get("src", {}).is_empty():
-				cands.append({"pos": cp - fj * (2.2 if adv else 2.0), "yaw": yj, "note": "its chute starts conveyor #%d" % (j + 1)})
+				cands.append({"pos": cp - fj * (hj + (1.2 if adv else 1.0)), "yaw": yj, "note": "its chute starts conveyor #%d" % (j + 1)})
 	if kind == "output":
 		for i in range(state.crushers.size()):
 			var c: Vector3 = Business.v3(state.crushers[i]["position"]) * Vector3(1, 0, 1)
@@ -4901,8 +4952,12 @@ func conveyor_valid(pos: Vector3, yaw: float, kind := "straight") -> bool:
 	var fwd := Business.forward(yaw)
 	var side := Vector3(fwd.z, 0, -fwd.x)
 	var points := [pos, pos + fwd * 0.85, pos - fwd * 0.85, pos + side * 0.4, pos - side * 0.4]
-	if kind == "merger":
+	if kind == "merger" or kind == "splitter":
 		points = [pos, pos + fwd * 0.85, pos - fwd * 0.85, pos + side * 0.85, pos - side * 0.85]
+	elif kind == "short":
+		points = [pos, pos + fwd * 0.35, pos - fwd * 0.35, pos + side * 0.4, pos - side * 0.4]
+	elif kind == "incline":
+		points = [pos, pos + fwd * 1.4, pos - fwd * 1.4, pos + fwd * 0.7, pos - fwd * 0.7, pos + side * 0.4, pos - side * 0.4]
 	elif kind != "straight":
 		var od := Business.belt_out_dir(yaw, kind)
 		points = [pos, pos - fwd * 0.85, pos + od * 0.85, pos - fwd * 0.4 + od * 0.4]

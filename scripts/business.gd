@@ -762,13 +762,32 @@ func crusher_input_port(i: int) -> Vector3:
 	var c: Dictionary = state.crushers[i]
 	return v3(c["position"]) * Vector3(1, 0, 1) - forward(float(c["yaw"])) * 1.15
 
+## Half the length of a belt piece (centre to end face): 2 m belts, the 1 m short belt, the 3 m incline. Mergers and splitters are 2 x 2 m.
+static func belt_half(kind: String) -> float:
+	match kind:
+		"short": return 0.5
+		"incline": return 1.5
+	return 1.0
+
+const BELT_KINDS := ["straight", "left", "right", "merger", "short", "incline", "splitter"]
+
 func conveyor_ends(pos: Vector3, yaw: float, kind := "straight") -> Array:
 	var p := pos * Vector3(1, 0, 1)
 	if kind == "left":
 		return [p - forward(yaw), p + forward(yaw + PI * 0.5)]
 	if kind == "right":
 		return [p - forward(yaw), p + forward(yaw - PI * 0.5)]
-	return [p - forward(yaw), p + forward(yaw)]
+	if kind == "splitter":
+		return [p - forward(yaw), p + forward(yaw + PI * 0.5)]            # the input at the back, the first exit at the left side
+	var h := belt_half(kind)
+	return [p - forward(yaw) * h, p + forward(yaw) * h]
+
+## Where material leaves a piece: its far end, or BOTH sides of a splitter.
+func conveyor_outputs(pos: Vector3, yaw: float, kind: String) -> Array:
+	var p := pos * Vector3(1, 0, 1)
+	if kind == "splitter":
+		return [p + forward(yaw + PI * 0.5), p + forward(yaw - PI * 0.5)]
+	return [conveyor_ends(pos, yaw, kind)[1]]
 
 ## The merger (a 3-way junction): material comes in at the back and at BOTH sides, and leaves through the front. Its two side inlets sit 1 m from its centre.
 func conveyor_side_inputs(pos: Vector3, yaw: float, kind: String) -> Array:
@@ -778,13 +797,17 @@ func conveyor_side_inputs(pos: Vector3, yaw: float, kind: String) -> Array:
 	return [p + forward(yaw - PI * 0.5), p + forward(yaw + PI * 0.5)]
 
 func belt_price(kind: String) -> int:
-	if kind == "merger":
-		return int(cfg.get("merger_price", int(cfg["conveyor_price"]) * 2))
-	return int(cfg["conveyor_price"])
+	var base := int(cfg["conveyor_price"])
+	match kind:
+		"merger": return int(cfg.get("merger_price", base * 2))
+		"short": return int(cfg.get("short_price", int(base * 0.55)))
+		"incline": return int(cfg.get("incline_price", int(base * 1.6)))
+		"splitter": return int(cfg.get("splitter_price", int(base * 2.4)))
+	return base
 
 ## Direction material travels as it leaves a belt piece through its far end.
 static func belt_out_dir(yaw: float, kind: String) -> Vector3:
-	if kind == "left":
+	if kind == "left" or kind == "splitter":
 		return forward(yaw + PI * 0.5)
 	if kind == "right":
 		return forward(yaw - PI * 0.5)
@@ -801,8 +824,12 @@ func _endpoint_near(point: Vector3, as_source: bool, skip_conveyor: int, level :
 		if j == skip_conveyor:
 			continue
 		var ends := conveyor_ends(v3(conveyors[j]["position"]), float(conveyors[j]["yaw"]), str(conveyors[j].get("kind", "straight")))
-		var e: Vector3 = ends[1] if as_source else ends[0]
-		if _flat(point, e) < 0.75 and absf(level - v3(conveyors[j]["position"]).y) <= LEVEL_TOL:
+		var cands: Array = conveyor_outputs(v3(conveyors[j]["position"]), float(conveyors[j]["yaw"]), str(conveyors[j].get("kind", "straight"))) if as_source else [ends[0]]
+		var hit := false
+		for e in cands:
+			if _flat(point, e) < 0.75 and absf(level - v3(conveyors[j]["position"]).y) <= LEVEL_TOL:
+				hit = true
+		if hit:
 			return {"type": "conveyor", "index": j}
 		if not as_source:
 			for sp in conveyor_side_inputs(v3(conveyors[j]["position"]), float(conveyors[j]["yaw"]), str(conveyors[j].get("kind", "straight"))):
@@ -827,7 +854,10 @@ const LEVEL_TOL := 0.75
 ## Link description for a conveyor at pos/yaw (also used for the placement preview).
 func link_for(pos: Vector3, yaw: float, skip_conveyor := -1, kind := "straight") -> Dictionary:
 	var ends := conveyor_ends(pos, yaw, kind)
-	return {"src": _endpoint_near(ends[0], true, skip_conveyor, pos.y), "dst": _endpoint_near(ends[1], false, skip_conveyor, pos.y), "resource": ""}
+	var out := {"src": _endpoint_near(ends[0], true, skip_conveyor, pos.y), "dst": _endpoint_near(ends[1], false, skip_conveyor, pos.y), "resource": ""}
+	if kind == "splitter":
+		out["dst2"] = _endpoint_near(conveyor_outputs(pos, yaw, kind)[1], false, skip_conveyor, pos.y)      # the second exit
+	return out
 
 func compute_links() -> void:
 	links.clear()
@@ -853,6 +883,8 @@ func _chain_resource(i: int) -> String:
 	while not seen.has(cursor):
 		seen[cursor] = true
 		var dst: Dictionary = links[cursor]["dst"]
+		if dst.is_empty() and links[cursor].has("dst2"):
+			dst = links[cursor]["dst2"]                         # a splitter: either exit leads to the same kind of terminal
 		if dst.is_empty():
 			return ""
 		if str(dst["type"]) == "conveyor":
@@ -900,15 +932,24 @@ func tick_conveyors(seconds: float) -> void:
 		if int(c["items"]) > 0:
 			c["progress"] = minf(1.0, float(c["progress"]) + rate * seconds)
 			var dst: Dictionary = link["dst"]
-			if float(c["progress"]) >= 1.0 and not dst.is_empty() and _merge_turn_ok(dst, i) and ep_put(dst, str(c["resource"]), 1) == 1:
-				if str(dst["type"]) == "conveyor" and str(conveyors[int(dst["index"])].get("kind", "straight")) == "merger":
-					conveyors[int(dst["index"])]["rr"] = i              # a merger remembers who fed it last, so the other feeder goes next
-				c["items"] = int(c["items"]) - 1
-				c["progress"] = 0.0
-				if str(dst["type"]) != "conveyor":
-					_add_daily("conveyed", 1)
-				if int(c["items"]) <= 0:
-					c["resource"] = ""
+			var order := [dst]
+			if link.has("dst2"):                                        # a splitter alternates between its two exits; a blocked exit is skipped
+				order = [link["dst2"], dst] if int(c.get("sr", 0)) == 1 else [dst, link["dst2"]]
+			if float(c["progress"]) >= 1.0:
+				for target in order:
+					if target.is_empty() or not _merge_turn_ok(target, i) or ep_put(target, str(c["resource"]), 1) != 1:
+						continue
+					if str(target["type"]) == "conveyor" and str(conveyors[int(target["index"])].get("kind", "straight")) == "merger":
+						conveyors[int(target["index"])]["rr"] = i      # a merger remembers who fed it last, so the other feeder goes next
+					if link.has("dst2"):
+						c["sr"] = 1 if target == dst else 0             # the splitter's next piece goes out the other side
+					c["items"] = int(c["items"]) - 1
+					c["progress"] = 0.0
+					if str(target["type"]) != "conveyor":
+						_add_daily("conveyed", 1)
+					if int(c["items"]) <= 0:
+						c["resource"] = ""
+					break
 		var res := str(link["resource"])
 		var src: Dictionary = link["src"]
 		if res != "" and int(c["items"]) < capacity and (int(c["items"]) == 0 or str(c["resource"]) == res):
@@ -933,10 +974,14 @@ func belt_status(i: int) -> String:
 	var c: Dictionary = conveyors[i]
 	if int(c["items"]) > 0:
 		# material really slides along until it reaches the end; it is blocked there when nothing can take it (no next piece, or it is full)
-		if float(c["progress"]) >= 1.0 and (link["dst"].is_empty() or ep_space(link["dst"], str(c["resource"])) < 1):
+		var space := ep_space(link["dst"], str(c["resource"])) if not link["dst"].is_empty() else 0
+		if link.has("dst2") and not link["dst2"].is_empty():
+			space += ep_space(link["dst2"], str(c["resource"]))
+		if float(c["progress"]) >= 1.0 and space < 1:
 			return "blocked"
 		return "active"
-	if link["src"].is_empty() or link["dst"].is_empty():
+	var no_exit: bool = link["dst"].is_empty() and (not link.has("dst2") or link["dst2"].is_empty())
+	if link["src"].is_empty() or no_exit:
 		return "disconnected"
 	if float(c["pull"]) > 0.0:
 		return "active"
@@ -1003,7 +1048,7 @@ func production_overview() -> Array:
 		rows.append({"kind": "crusher", "index": i, "name": ("Advanced crusher #%d" if int(state.crushers[i].get("tier", 1)) >= 2 else "Crusher #%d") % (i + 1), "state": s["state"], "reason": s["reason"]})
 	for i in range(conveyors.size()):
 		var s := machine_status("conveyor", i)
-		rows.append({"kind": "conveyor", "index": i, "name": ("Merger #%d" if str(conveyors[i].get("kind", "straight")) == "merger" else "Conveyor #%d") % (i + 1), "state": s["state"], "reason": s["reason"]})
+		rows.append({"kind": "conveyor", "index": i, "name": ({"merger": "Merger #%d", "splitter": "Splitter #%d", "short": "Short conveyor #%d", "incline": "Incline conveyor #%d"}.get(str(conveyors[i].get("kind", "straight")), "Conveyor #%d")) % (i + 1), "state": s["state"], "reason": s["reason"]})
 	for i in range(outputs.size()):
 		var s := machine_status("output", i)
 		rows.append({"kind": "output", "index": i, "name": "%s #%d" % [{"output": "Output storage", "hopper": "Small hopper", "sorter": "Sorting table"}.get(variant_of(i), "Storage"), i + 1], "state": s["state"], "reason": s["reason"]})
@@ -1127,6 +1172,8 @@ func restore(data: Dictionary) -> void:
 		var rec := {"position": c["position"].duplicate(), "yaw": float(c.get("yaw", 0.0)), "resource": str(c.get("resource", "")), "items": maxi(0, int(c.get("items", 0))), "progress": float(c.get("progress", 0.0)), "pull": float(c.get("pull", 0.0)), "kind": str(c.get("kind", "straight"))}
 		if c.has("rr"):
 			rec["rr"] = int(c["rr"])                        # a merger's turn marker
+		if c.has("sr"):
+			rec["sr"] = int(c["sr"])                        # a splitter's next exit
 		conveyors.append(rec)
 	for k in authorized:
 		authorized[k] = bool(data.get("authorized", {}).get(k, false))
