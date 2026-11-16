@@ -129,6 +129,23 @@ ICONS = {
 "....kkkkkkkk....",
 "................",
 "................"],
+"catalog": [
+"................",
+"..kkkkkkkkkkkk..",
+".kBBBBBBBBBBBBk.",
+".kBwwwwwwwwwwBk.",
+".kBwyyyywwwwwBk.",
+".kBwyyyyywwwwBk.",
+".kBwkkkkkkkwwBk.",
+".kBwkGkkGkkwwBk.",
+".kBwwwwwwwwwwBk.",
+".kBwrrrrrrrwwBk.",
+".kBwwwwwwwwwwBk.",
+".kBwbbbbbbwwwBk.",
+".kBBBBBBBBBBBBk.",
+"..kkkkkkkkkkkk..",
+"................",
+"................"],
 "stats": [
 "................",
 "................",
@@ -160,13 +177,13 @@ for name, rows in ICONS.items():
     img.resize((32, 32), Image.NEAREST).save(os.path.join(OUT, "icon_%s.png" % name))
 
 # wallpaper: a 16x16 repeating stone-course pattern in teal
-W = Image.new("RGB", (16, 16), (0, 128, 128))
+W = Image.new("RGB", (16, 16), (30, 112, 112))
 for y in range(16):
     for x in range(16):
         row = y // 8
         off = 8 if row else 0
         edge = (y % 8 == 0) or ((x + off) % 16 == 0)
-        W.putpixel((x, y), (0, 112, 116) if edge else ((0, 132, 132) if (x + y) % 7 else (0, 138, 136)))
+        W.putpixel((x, y), (20, 96, 100) if edge else ((30, 112, 112) if (x + y) % 7 else (34, 117, 115)))      # calm teal: low contrast so it never competes with the icons
 W.save(os.path.join(OUT, "wallpaper_tile.png"))
 
 # bevelled 9-patch pieces (8x8, 2 px edge): raised, sunken, title bar
