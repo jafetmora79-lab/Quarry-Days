@@ -84,6 +84,12 @@ func run() -> void:
 	var hit: Dictionary = game.get_world_3d().direct_space_state.intersect_ray(q)
 	check(hit.is_empty() or float(hit["position"].z) > 45.0, "a line of sight runs from the garage mouth to the far end of the tunnel (first blocked at z %.1f)" % (float(hit["position"].z) if not hit.is_empty() else 99.0))
 	var tun: Node = game.world.get_node_or_null("ServiceTunnel")
-	check(tun != null and tun.get_child_count() > 40, "the tunnel has its road, arch ribs, braces, wall lights and exit sign (%d parts)" % (tun.get_child_count() if tun else 0))
+	# the ribs, braces and lamps are now one Blender timber-set mesh per 3.2 m section (plus real lights), so fewer separate parts than the old boxes
+	var sets := 0
+	if tun != null:
+		for c in tun.get_children():
+			if c is MeshInstance3D and (c as MeshInstance3D).mesh == WorldModels.mesh("tunnel_set"):
+				sets += 1
+	check(tun != null and tun.get_child_count() > 25 and sets >= 5, "the tunnel has its road, walls, %d Blender timber sets (posts, beams, braces, gutters, lamps) and exit sign (%d parts)" % [sets, tun.get_child_count() if tun else 0])
 	print("RESULT: %d checks, %d failures" % [checks, failures.size()])
 	quit(1 if failures.size() > 0 else 0)
