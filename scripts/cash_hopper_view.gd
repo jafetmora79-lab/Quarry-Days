@@ -78,8 +78,8 @@ func setup(g, i: int) -> void:
 		_build_placeholder()
 	display = Label3D.new()
 	display.name = "Display"
-	display.pixel_size = 0.006
-	display.font_size = 40
+	display.pixel_size = 0.0027
+	display.font_size = 36
 	display.outline_size = 6
 	display.modulate = Color(0.75, 1.0, 0.7)
 	display.outline_modulate = Color(0.04, 0.08, 0.04)

@@ -2413,19 +2413,21 @@ func _draw_cash_hopper(p: QuarryStationUI, idx: int) -> void:
 			[QuarryTheme.money_text(state.payout(k, have)) if have > 0 else "-", QuarryTheme.MONEY, 64, R, true], [str(queued) if queued > 0 else "-", QuarryTheme.GOOD if queued > 0 else QuarryTheme.DIM, 66, R]],
 			[["ch_pick_" + k, "PICKED" if picked else "PICK", have > 0, func(): cash_sel[k] = not bool(cash_sel.get(k, false)), 76, "toggle"]],
 			QuarryTheme.RES_COLORS.get(k, Color.WHITE), false, k)
-	var bar := [["ch_all", "DEPOSIT ALL", bag_total > 0, func(): cash_deposit(idx, []), 170, "primary"],
-		["ch_selected", "DEPOSIT SELECTED", pick_total > 0, func(): cash_deposit(idx, cash_sel.keys().filter(func(q): return bool(cash_sel[q]))), 210, "primary"]]
+	var bar := [["ch_all", "DEPOSIT ALL", bag_total > 0, func(): cash_deposit(idx, []), 150, "primary"],
+		["ch_selected", "DEPOSIT SELECTED", pick_total > 0, func(): cash_deposit(idx, cash_sel.keys().filter(func(q): return bool(cash_sel[q]))), 190, "primary"]]
 	if crate_total > 0:
-		bar.append(["ch_crate", "FROM CRATE (%d)" % crate_total, true, func(): cash_deposit(idx, [], true), 190])
-	bar.append(["ch_close", "CLOSE", true, func(): _close_menu(), 110])
-	p.button_bar(bar)
+		bar.append(["ch_crate", "CRATE (%d)" % crate_total, true, func(): cash_deposit(idx, [], true), 120])
 	var up := business.cash_upgrade_cost(idx)
-	var nxt: Dictionary = business.cash_tiers()[mini(business.cash_tier_index(idx) + 1, business.cash_tiers().size() - 1)]
 	if up >= 0:
-		p.button_bar([["ch_upgrade", "UPGRADE  %s  >  %s  (%.0f / s)" % [QuarryTheme.money_text(up), str(nxt.get("name", "")).to_upper(), float(nxt.get("rate", 1.0))], state.money >= up, func(): _cash_upgrade(idx), 420, "primary"]])
+		bar.append(["ch_upgrade", "UPGRADE  %s" % QuarryTheme.money_text(up), state.money >= up, func(): _cash_upgrade(idx), 150])
+	bar.append(["ch_close", "CLOSE", true, func(): _close_menu(), 90])
+	p.button_bar(bar)
+	var nxt: Dictionary = business.cash_tiers()[mini(business.cash_tier_index(idx) + 1, business.cash_tiers().size() - 1)]
 	var cur: String = business.cash_current(idx)
-	p.text("%s   -   speed %.0f units / s   -   today %s   -   %s" % [str(tier.get("name", "Hopper")), business.cash_rate(idx), QuarryTheme.money_text(business.cash_today(idx)),
+	p.text("%s  -  %.0f units / s  -  today %s  -  %s" % [str(tier.get("name", "Hopper")), business.cash_rate(idx), QuarryTheme.money_text(business.cash_today(idx)),
 		("selling " + prog.display(cur).to_lower() if cur != "" else "idle")], QuarryTheme.DIM)
+	if up >= 0:
+		p.text("Upgrade: %s, %.0f units / s. CRATE moves the storage crate's stock in too." % [str(nxt.get("name", "")), float(nxt.get("rate", 1.0))], QuarryTheme.DIM)
 
 func _cash_upgrade(idx: int) -> void:
 	if business.cash_upgrade(idx):
