@@ -55,8 +55,7 @@ func ray(shell: Node3D, from: Vector3, to: Vector3) -> Dictionary:
 					continue
 				var d := e2.dot(qv) * inv
 				if d > 0.0 and d <= maxd and d < float(best["dist"]):
-					var src := m.mesh.surface_get_material(s)
-					best = {"dist": d, "mat": src.resource_name if src != null else "", "name": str(m.name)}
+					best = {"dist": d, "mat": m.mesh.surface_get_name(s), "name": str(m.name)}
 	return best
 
 func run() -> void:
@@ -86,7 +85,7 @@ func run() -> void:
 	for mi in shell.find_children("*", "MeshInstance3D", true, false):
 		var m := mi as MeshInstance3D
 		for s in m.mesh.get_surface_count():
-			if m.mesh.surface_get_material(s) != null and m.mesh.surface_get_material(s).resource_name == "Glass":
+			if m.mesh.surface_get_name(s) == "Glass":
 				glass += 1
 	check(glass >= 1, "it has glass")
 	# windows: a ray through each opening hits glass before any wall

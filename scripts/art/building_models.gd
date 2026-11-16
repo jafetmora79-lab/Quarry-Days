@@ -32,15 +32,42 @@ static func load_model(name: String, roof_key := "CorrugatedRed") -> Node3D:
 		return null
 	var n := ps.instantiate() as Node3D
 	n.name = "Building_" + name
+	# one mesh node with one surface per material (the game's mesh-node budget counts nodes, not surfaces)
+	var merged := ArrayMesh.new()
+	var olds: Array = []
 	for mi in n.find_children("*", "MeshInstance3D", true, false):
 		var m := mi as MeshInstance3D
 		if m.mesh == null:
 			continue
-		for s in m.mesh.get_surface_count():
-			var src := m.mesh.surface_get_material(s)
+		var xf := Transform3D.IDENTITY
+		var cur: Node = m
+		while cur != null and cur != n:
+			xf = (cur as Node3D).transform * xf
+			cur = cur.get_parent()
+		for si in m.mesh.get_surface_count():
+			var src := m.mesh.surface_get_material(si)
 			var mat := material_for(src.resource_name, roof_key) if src != null else null
+			var arr := m.mesh.surface_get_arrays(si)
+			var verts: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+			var norms: PackedVector3Array = arr[Mesh.ARRAY_NORMAL]
+			for i in verts.size():
+				verts[i] = xf * verts[i]
+			for i in norms.size():
+				norms[i] = (xf.basis * norms[i]).normalized()
+			arr[Mesh.ARRAY_VERTEX] = verts
+			arr[Mesh.ARRAY_NORMAL] = norms
+			merged.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+			var idx := merged.get_surface_count() - 1
 			if mat != null:
-				m.set_surface_override_material(s, mat)
-		m.set_meta("art", true)
-		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+				merged.surface_set_material(idx, mat)
+			merged.surface_set_name(idx, src.resource_name if src != null else "")
+		olds.append(m)
+	for m in olds:
+		m.get_parent().remove_child(m)
+		m.free()
+	var body := MeshInstance3D.new()
+	body.name = "Shell"
+	body.mesh = merged
+	body.set_meta("art", true)
+	n.add_child(body)
 	return n

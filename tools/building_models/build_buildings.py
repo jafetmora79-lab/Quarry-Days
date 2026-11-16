@@ -160,10 +160,10 @@ def office(root):
         for sz in (-1, 1):                                                                   # rake boards up the gable edges
             mid_z = sz * D / 4
             ln = math.hypot(D / 2, RISE)
-            t.bar((sx * (W / 2 - 0.02), H + 0.0, sz * (D / 2 - 0.02)), (sx * (W / 2 - 0.02), H + RISE + 0.02, 0.0), 0.05, 0.14, "Trim", up=(1, 0, 0))
+            t.bar((sx * (W / 2 - 0.02), H + 0.0, sz * (D / 2 - 0.02)), (sx * (W / 2 - 0.02), H + RISE - 0.04, 0.0), 0.05, 0.14, "Trim", up=(1, 0, 0))
     t.box((0, H + RISE + TH, 0), (W + 0.06, 0.08, 0.26), "Trim")                             # ridge cap
-    t.cyl((1.7, H + 1.0, 1.3), 0.11, 0.11, 0.7, "Roof2", seg=8)                              # a stovepipe
-    t.cyl((1.7, H + 1.4, 1.3), 0.16, 0.14, 0.06, "Roof2", seg=8)
+    t.cyl((1.7, H + 0.75, 1.3), 0.11, 0.11, 0.8, "Roof2", seg=8)                              # a stovepipe (stays below the ridge)
+    t.cyl((1.7, H + 1.15, 1.3), 0.16, 0.14, 0.05, "Roof2", seg=8)
     # ceiling and beams inside
     t.box((0, H - 0.03, 0), (4.56, 0.06, 4.56), "Plaster")
     for z in (-1.3, 0.0, 1.3):
