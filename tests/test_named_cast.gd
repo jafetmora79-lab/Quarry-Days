@@ -22,7 +22,7 @@ func _initialize() -> void:
 	var ids: Array = ["walter", "marsh"]
 	for c in cfg["candidates"]:
 		ids.append(str(c["id"]))
-	check(ids.size() == 14, "14 people: Walter, Dr. Marsh and twelve candidates (%d)" % ids.size())
+	check(ids.size() == 12, "12 people: Walter, Dr. Marsh and ten candidates (the sales clerks were retired) (%d)" % ids.size())
 	for id in ids:
 		var cap := str(id).substr(0, 1).to_upper() + str(id).substr(1)
 		var path := "res://assets/characters/CHR_QD_%s.glb" % cap

@@ -51,7 +51,7 @@ func run() -> void:
 			f += 1
 		else:
 			m += 1
-	check(cands.size() == 12 and f >= 5 and m >= 5, "1 twelve candidates, both feminine and masculine (%d f, %d m)" % [f, m])
+	check(cands.size() == 10 and f >= 4 and m >= 4, "1 ten candidates (the sales clerks were retired), both feminine and masculine (%d f, %d m)" % [f, m])
 	prog.stage = prog.stage_index("deep")
 	game.state.clock_minutes = 600.0
 	biz.payroll_minute = 600

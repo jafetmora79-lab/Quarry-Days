@@ -108,7 +108,7 @@ func run() -> void:
 	check(joined.contains("NOW CUTTING") and active_tags == 1, "Quarry Plan names the level being cut, once")
 	check(joined.contains("[ NEXT ]") or joined.contains("[ LOCKED ]") or game.prog.quarry_level >= game.prog.levels().size(), "Quarry Plan says which level is next or locked")
 	check(plan.find_children("*", "ProgressBar", true, false).size() >= 1, "Quarry Plan shows progress bars")
-	# ---- Sales: only owned materials, bag / bin / output separate, totals from the game's price table
+	# ---- Sales: statistics only (the Cash Hopper does the selling): nothing to press, numbers from the game's own records and price table
 	for k in game.RESOURCE_ORDER:
 		game.state.inventory[k] = 0
 		game.state.storage[k] = 0
@@ -116,25 +116,19 @@ func run() -> void:
 	sales._set_tab("sales")
 	pt.clear()
 	texts(sales, pt)
-	var rows_empty := 0
-	for r in game.RESOURCE_ORDER:
-		if " ".join(pt).contains(game.prog.display(r)) and false:
-			rows_empty += 1
-	check(" ".join(pt).contains("Nothing to sell yet") and sales.find_children("*", "Button", true, false).filter(func(b): return str(b.text) == "SELL").is_empty(), "with nothing owned the Sales list is empty (no rows for undiscovered resources)")
+	var no_sell := func(): return sales.find_children("*", "Button", true, false).filter(func(b): return str(b.text) == "SELL").is_empty()
+	check(" ".join(pt).contains("Nothing sold yet") and no_sell.call(), "with nothing sold the Sales page says so and has no selling buttons")
+	var hop_i: int = game.business.add_output(game.cash_hopper_pos(), 0.0, "cash_hopper")
+	game._create_output(hop_i)
 	game.state.inventory["limestone"] = 4
-	game.state.storage["limestone"] = 3
+	game.cash_deposit(hop_i, [])
+	game.business.tick(5.0)
 	sales.refresh()
 	pt.clear()
 	texts(sales, pt)
-	var sell_btns: Array = sales.find_children("*", "Button", true, false).filter(func(b): return str(b.text) == "SELL")
-	check(sell_btns.size() == 1, "exactly the one owned material gets a row (%d)" % sell_btns.size())
-	var want := QuarryTheme.money_text(game.state.payout("limestone", 7))
-	check(pt.has(want) and pt.has("4") and pt.has("3"), "the row shows 4 in the bag, 3 in the bin and the total %s from the game's prices" % want)
-	var money0: int = game.state.money
-	sell_btns[0].pressed.emit()
-	await frames(3)
-	check(game.state.money == money0 + game.state.payout("limestone", 7) - 0 or game.state.money > money0, "SELL pays through the existing sales logic (+%d)" % (game.state.money - money0))
-	check(int(game.state.inventory["limestone"]) == 0 and int(game.state.storage["limestone"]) == 0, "bag first, then the bin: both are emptied")
+	var want := QuarryTheme.money_text(game.state.payout("limestone", 4))
+	check(pt.has(want) and pt.has("4 units"), "after the hopper sold 4 limestone the page shows 4 units and the total %s from the game's prices" % want)
+	check(no_sell.call() and " ".join(pt).contains("CASH HOPPER") and " ".join(pt).contains("Total revenue"), "the page shows the hopper's status and total revenue, still with no selling buttons")
 	# ---- no gameplay keys leak through the open desktop
 	var before := [game.construction, game.survey_on, game.state.tool_tier, game.placement, game.held_cart, game.state.money, game.state.clock_minutes > 0.0]
 	for code in [KEY_B, KEY_N, KEY_Q, KEY_T, KEY_J, KEY_K, KEY_F, KEY_U, KEY_G, KEY_R, KEY_X, KEY_E, KEY_1, KEY_2, KEY_3, KEY_SPACE, KEY_TAB]:
