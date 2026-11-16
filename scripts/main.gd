@@ -3406,17 +3406,9 @@ func order_machine(key: String) -> bool:
 	var kind := key
 	if key.begins_with("conveyor"):
 		kind = "conveyor"
-	if kind in ["hopper", "sorter"] and not prog.unlocked(kind):
-		_notify("The %s unlocks at the %s stage." % [("small hopper" if kind == "hopper" else "sorting table"), prog.feature_stage_title(kind)])
-		return false
-	if kind in ["crusher", "output", "advanced_crusher"] and not prog.unlocked("crusher"):
-		_notify("Machinery unlocks at the %s stage." % prog.feature_stage_title("crusher"))
-		return false
-	if kind == "advanced_crusher" and not prog.unlocked("advanced_crusher"):
-		_notify("The advanced crusher unlocks at the %s stage." % prog.feature_stage_title("advanced_crusher"))
-		return false
-	if kind == "conveyor" and not business.conveyors_unlocked():
-		_notify("Conveyors unlock with the Mechanized Quarry milestone.")
+	var locked := machine_lock_reason(key)
+	if locked != "":
+		_notify(locked)
 		return false
 	var price := _placement_price(kind)
 	if not business.buy(price):
@@ -3430,6 +3422,81 @@ func order_machine(key: String) -> bool:
 		delivery.start_crate(key)                  # cosmetic flatbed with the crate; the inventory above is already final
 	_sfx_unlock()
 	return true
+
+## Why a placeable machine cannot be ordered yet ("" when it can): the stage gates of the machinery shop.
+func machine_lock_reason(key: String) -> String:
+	var kind := key
+	if key.begins_with("conveyor"):
+		kind = "conveyor"
+	if kind in ["hopper", "sorter"] and not prog.unlocked(kind):
+		return "The %s unlocks at the %s stage." % [("small hopper" if kind == "hopper" else "sorting table"), prog.feature_stage_title(kind)]
+	if kind in ["crusher", "output", "advanced_crusher"] and not prog.unlocked("crusher"):
+		return "Machinery unlocks at the %s stage." % prog.feature_stage_title("crusher")
+	if kind == "advanced_crusher" and not prog.unlocked("advanced_crusher"):
+		return "The advanced crusher unlocks at the %s stage." % prog.feature_stage_title("advanced_crusher")
+	if kind == "conveyor" and not business.conveyors_unlocked():
+		return "Conveyors unlock with the Mechanized Quarry milestone."
+	return ""
+
+# ------------------------------------------------------------------ the Equipment Catalog (Quarry OS) and the Build Inventory
+
+## The catalog: [key, title, category]. The key is also the Build Inventory key. Everything bought here lands in `business.inventory` (the Build Inventory),
+## which is separate from the bag and the storage bin, and is placed from Build Mode.
+const CATALOG := [
+	["crusher", "Small Jaw Crusher", "Crushers"], ["advanced_crusher", "Advanced Crusher", "Crushers"],
+	["conveyor", "Straight Conveyor", "Conveyors"], ["conveyor_left", "Left Corner Conveyor", "Conveyors"], ["conveyor_right", "Right Corner Conveyor", "Conveyors"],
+	["output", "Output Storage", "Storage"], ["hopper", "Small Hopper", "Storage"],
+	["sorter", "Manual Sorting Table", "Processing"]]
+
+func catalog_categories() -> Array:
+	var out := []
+	for e in CATALOG:
+		if not out.has(str(e[2])):
+			out.append(str(e[2]))
+	return out
+
+func catalog_title(key: String) -> String:
+	for e in CATALOG:
+		if str(e[0]) == key:
+			return str(e[1])
+	return key
+
+func catalog_unit_price(key: String) -> int:
+	return _placement_price("conveyor" if key.begins_with("conveyor") else key)
+
+## "" when `qty` of `key` can be bought now, else the reason (locked, or not enough money).
+func catalog_reason(key: String, qty := 1) -> String:
+	var locked := machine_lock_reason(key)
+	if locked != "":
+		return locked
+	var total := catalog_unit_price(key) * maxi(qty, 1)
+	if state.money < total:
+		return "Need %s more" % QuarryTheme.money_text(total - state.money)
+	return ""
+
+## Buys `qty` of an item in ONE transaction: it is paid in full or not at all, and the items arrive in the Build Inventory. Returns a message.
+func catalog_buy(key: String, qty: int) -> String:
+	qty = clampi(qty, 1, 99)
+	var title := catalog_title(key)
+	var why := catalog_reason(key, qty)
+	if why != "":
+		return why
+	var total := catalog_unit_price(key) * qty
+	if not business.buy(total):
+		return "Need %s" % QuarryTheme.money_text(total)
+	business.inventory[key] = int(business.inventory.get(key, 0)) + qty
+	hud.toast("Delivery confirmed", "%d x %s now in your Build Inventory. Place them in Build Mode (B)." % [qty, title], "unlock")
+	if delivery:
+		delivery.start_crate(key)
+	_sfx_unlock()
+	return "Bought %d x %s for %s" % [qty, title, QuarryTheme.money_text(total)]
+
+## Units of everything waiting in the Build Inventory.
+func build_inventory_units() -> int:
+	var n := 0
+	for k in business.inventory:
+		n += int(business.inventory[k])
+	return n
 
 func _shop_pick(key: String) -> void:
 	if int(business.inventory.get(key, 0)) > 0:

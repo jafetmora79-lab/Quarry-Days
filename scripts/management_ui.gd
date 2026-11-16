@@ -248,7 +248,7 @@ func _set_tab(id: String) -> void:
 	if not embedded:                              # the shell: go to the application that holds this tab
 		open_tab(id)
 		return
-	if id in ["staff", "hire", "payroll", "production", "equipment", "upgrades", "milestones", "stats", "plan", "sales"]:
+	if id in ["staff", "hire", "payroll", "production", "equipment", "catalog", "upgrades", "milestones", "stats", "plan", "sales"]:
 		tab = id
 		confirm_fire = -1
 		status.text = ""
@@ -281,6 +281,7 @@ func refresh() -> void:
 		"payroll": _payroll(b)
 		"production": _production(b)
 		"equipment": _equipment()
+		"catalog": _catalog()
 		"milestones": _milestones(b)
 		"upgrades": _upgrades()
 		"stats": _stats(b)
@@ -822,6 +823,82 @@ func _milestones(b: QuarryBusiness) -> void:
 
 const WARN_COLOR := Color(1.0, 0.5, 0.38)
 static var equip_sel := ""
+static var catalog_sel := "crusher"
+static var catalog_qty := 1
+
+## The Equipment Catalog: every placeable machine by category, a turning 3D preview of the selected one, a quantity, one BUY for the whole quantity into the
+## Build Inventory, and the inventory itself below.
+func _catalog() -> void:
+	content.add_child(_label("Order machines in any quantity. They are delivered to your Build Inventory (separate from your bag); place them with Build Mode (B).", DIM))
+	var keys := []
+	for e in game.CATALOG:
+		keys.append(str(e[0]))
+	if not keys.has(catalog_sel):
+		catalog_sel = keys[0]
+	var sel: String = catalog_sel
+	var hb := HBoxContainer.new()
+	hb.add_theme_constant_override("separation", 12)
+	content.add_child(hb)
+	var left := VBoxContainer.new()
+	left.add_theme_constant_override("separation", 6)
+	hb.add_child(left)
+	var pane := QuarryOfferPane.new()
+	pane.fit_text = true
+	pane.setup(game)
+	pane.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	left.add_child(pane)
+	var qty: int = clampi(catalog_qty, 1, 99)
+	var offer: Dictionary = PurchaseOffers.machine(game, sel, func(): return game.catalog_buy(sel, qty))
+	if offer.is_empty():
+		offer = {"title": game.catalog_title(sel), "price": game.catalog_unit_price(sel), "model": {"kind": "output"}, "stats": [], "compare": [], "reason": "", "on_buy": Callable(), "owned": 0}
+	var unit: int = game.catalog_unit_price(sel)
+	offer["reason"] = game.catalog_reason(sel, qty)
+	offer["buy_text"] = "BUY  %d x   %s" % [qty, QuarryTheme.money_text(unit * qty)]
+	offer["owned"] = int(game.business.inventory.get(sel, 0))
+	pane.show_offer("cat_" + sel, offer)
+	pane.bought.connect(func(result): _say(str(result)))
+	var qrow := _row()
+	left.add_child(qrow)
+	qrow.add_child(_label("Quantity", DIM))
+	qrow.add_child(_button("-", func(): catalog_qty = maxi(1, qty - 1); refresh(), qty > 1))
+	qrow.add_child(_label(str(qty), INK))
+	qrow.add_child(_button("+", func(): catalog_qty = mini(99, qty + 1); refresh(), qty < 99))
+	qrow.add_child(_button("x5", func(): catalog_qty = 5; refresh()))
+	qrow.add_child(_button("x10", func(): catalog_qty = 10; refresh()))
+	var list := VBoxContainer.new()
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list.add_theme_constant_override("separation", 4)
+	hb.add_child(list)
+	for cat in game.catalog_categories():
+		list.add_child(_label(str(cat).to_upper(), ACCENT))
+		for e in game.CATALOG:
+			if str(e[2]) != str(cat):
+				continue
+			var key: String = str(e[0])
+			var card := _card()
+			list.add_child(card)
+			var row := _row()
+			card.add_child(row)
+			var have := int(game.business.inventory.get(key, 0))
+			var is_sel: bool = key == sel
+			var head := _label("%s%s   %s%s" % ["> " if is_sel else "", e[1], QuarryTheme.money_text(game.catalog_unit_price(key)), ("   in inventory: %d" % have) if have > 0 else ""], ACCENT if is_sel else INK)
+			head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			row.add_child(head)
+			row.add_child(_button("Showing" if is_sel else "View", func(): catalog_sel = key; refresh(), not is_sel))
+			var lock: String = game.machine_lock_reason(key)
+			if lock != "":
+				card.add_child(_label(lock, WARN_COLOR, QuarryTheme.BODY))
+	var inv := _card()
+	content.add_child(inv)
+	inv.add_child(_label("BUILD INVENTORY  (%d waiting to be placed)" % game.build_inventory_units(), ACCENT))
+	var any := false
+	for e in game.CATALOG:
+		var n := int(game.business.inventory.get(str(e[0]), 0))
+		if n > 0:
+			any = true
+			inv.add_child(_label("%d x %s" % [n, e[1]], INK, QuarryTheme.BODY))
+	if not any:
+		inv.add_child(_label("Empty. Buy machines above; they wait here until you place them.", DIM, QuarryTheme.BODY))
 
 func _equipment() -> void:
 	var f: QuarryFleet = game.fleet

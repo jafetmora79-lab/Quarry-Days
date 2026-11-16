@@ -91,7 +91,7 @@ func run() -> void:
 	check(at_pc.origin.distance_to(game.pc_screen_pos) < 0.6, "the camera is at the monitor (%.2f m)" % at_pc.origin.distance_to(game.pc_screen_pos))
 	var os: QuarryOS = game.management.os
 	# --- the desktop: eight application shortcuts, a taskbar, the in-game clock
-	check(os.icons.size() == 8, "eight desktop shortcuts")
+	check(os.icons.size() == 9, "nine desktop shortcuts")
 	check(os.clock_label.text == "DAY %d  %s" % [int(game.state.clock_minutes) / 1440 + 1, game.fmt_time(int(game.state.clock_minutes))], "the taskbar clock shows the game clock: " + os.clock_label.text)
 	game.state.clock_minutes += 95.0
 	game.management.refresh()
@@ -104,7 +104,7 @@ func run() -> void:
 		ev.double_click = true
 		os._icon_input(ev, id)
 	await frames(2)
-	check(os.windows.size() == 8 and os.task_buttons.size() == 8, "double-clicking each shortcut opens its own window (8 windows, 8 taskbar buttons)")
+	check(os.windows.size() == 9 and os.task_buttons.size() == 9, "double-clicking each shortcut opens its own window (9 windows, 9 taskbar buttons)")
 	var empty := 0
 	for w in os.windows:
 		if w.page.content.get_child_count() == 0:
@@ -126,7 +126,7 @@ func run() -> void:
 	os.task_buttons[w2].pressed.emit()
 	check(not w2.visible, "the active window's taskbar button minimises it")
 	os.close_window(w2)
-	check(os.window_of("sales") == null and os.windows.size() == 7, "close removes the window and its taskbar button")
+	check(os.window_of("sales") == null and os.windows.size() == 8, "close removes the window and its taskbar button")
 	# --- the Sales application sells through the game's own economy
 	os.open_app("sales")
 	game.state.inventory["limestone"] = 6

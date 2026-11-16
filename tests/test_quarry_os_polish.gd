@@ -51,7 +51,7 @@ func run() -> void:
 		var p: Vector2 = os.icons[id].position
 		xs[snappedf(p.x, 0.5)] = true
 		ys[snappedf(p.y, 0.5)] = true
-	check(xs.size() == 4 and ys.size() == 2, "the eight shortcuts form a 4 x 2 grid (%d columns, %d rows)" % [xs.size(), ys.size()])
+	check(xs.size() == 4 and ys.size() == 3, "the nine shortcuts form a 4 x 3 grid (%d columns, %d rows)" % [xs.size(), ys.size()])
 	var xl: Array = xs.keys()
 	xl.sort()
 	var even := true
