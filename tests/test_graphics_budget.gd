@@ -43,7 +43,7 @@ func run() -> void:
 	check(vis.get_node_or_null("FenceFrame") != null and vis.get_node_or_null("FenceWire") != null, "the quarry fence is two merged meshes (frame + wire band)")
 	check(game.find_children("FN_MetalRailing*", "Node3D", true, false).is_empty(), "no per-module railing props on the fence")
 	var mi_count: int = game.find_children("*", "MeshInstance3D", true, false).size()
-	check(mi_count < 680, "the whole world uses fewer than 680 separate mesh nodes (cab interiors, doors and steps on five machines, plus the Blender yard buildings and the sell kiosk) (%d; it was 948 before batching)" % mi_count)
+	check(mi_count < 760, "the whole world uses fewer than 760 separate mesh nodes (cab interiors, doors and steps on five machines, the Blender yard buildings and sell kiosk, plus the Blender mountains, tunnel lining and the forest's ground-cover chunks: 20 + 12 + about 40) (%d; it was 948 before batching)" % mi_count)
 	# ---- decor: instanced, a handful of batches, follows the soil
 	var top = game.formation_nodes["q_top"]
 	var groups: Array = top._decor_groups

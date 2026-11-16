@@ -65,7 +65,7 @@ func _sky() -> void:
 	env.sky = sky
 	env.background_mode = Environment.BG_SKY
 	env.fog_enabled = true
-	env.fog_density = 0.0016
+	env.fog_density = 0.0021
 	env.fog_aerial_perspective = 0.0
 	env.fog_sky_affect = 0.0
 

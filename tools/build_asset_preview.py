@@ -22,6 +22,22 @@ def main():
     def add(group, sub, path, name):
         groups.setdefault(group, {}).setdefault(sub, []).append({"name": name, "file": path})
 
+    # NEW: the landscape (assets/world): mountains, forest set, tunnel, wildlife - first, so a phone opens straight on them
+    WG = "NEW: world - mountains, forest, tunnel, wildlife"
+    wdir = os.path.join(ROOT, "assets", "world")
+    os.makedirs(os.path.join(OUT, "world"), exist_ok=True)
+    world = [("1. Wildlife", [("deer", "Deer (with head, ears, legs, tail hinges)"), ("rabbit", "Rabbit")]),
+             ("2. Forest set", [("pine_tall", "Tall pine"), ("pine_young", "Young pine"), ("birch", "Birch"), ("bush", "Bush"), ("fern", "Fern"), ("grass", "Grass clump"),
+                                ("flowers", "Wildflowers"), ("log", "Fallen log"), ("stump", "Tree stump"), ("mossy_stone", "Mossy stones")]),
+             ("3. Mountains", [("peak_a", "Mountain A"), ("peak_b", "Mountain B"), ("ridge", "Long ridge"), ("foothill", "Foothill"), ("cliff", "Cliff wall")]),
+             ("4. Tunnel", [("tunnel_portal", "Tunnel portal (carved entrance)"), ("tunnel_set", "Tunnel lining section")])]
+    for sec, items in world:
+        for key, nm in items:
+            src = os.path.join(wdir, "WLD_QD_%s.glb" % key)
+            if os.path.exists(src):
+                shutil.copy2(src, os.path.join(OUT, "world", "WLD_QD_%s.glb" % key))
+                add(WG, sec, "models/world/WLD_QD_%s.glb" % key, nm)
+
     # NEW: the Blender yard buildings (assets/buildings) and the production line, first in the list so a phone opens straight on them
     NEWG = "NEW: buildings, sell station, production line"
     bdir = os.path.join(ROOT, "assets", "buildings")

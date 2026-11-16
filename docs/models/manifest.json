@@ -1,5 +1,106 @@
 [
  {
+  "group": "NEW: world - mountains, forest, tunnel, wildlife",
+  "sections": [
+   {
+    "title": "1. Wildlife",
+    "items": [
+     {
+      "name": "Deer (with head, ears, legs, tail hinges)",
+      "file": "models/world/WLD_QD_deer.glb"
+     },
+     {
+      "name": "Rabbit",
+      "file": "models/world/WLD_QD_rabbit.glb"
+     }
+    ]
+   },
+   {
+    "title": "2. Forest set",
+    "items": [
+     {
+      "name": "Tall pine",
+      "file": "models/world/WLD_QD_pine_tall.glb"
+     },
+     {
+      "name": "Young pine",
+      "file": "models/world/WLD_QD_pine_young.glb"
+     },
+     {
+      "name": "Birch",
+      "file": "models/world/WLD_QD_birch.glb"
+     },
+     {
+      "name": "Bush",
+      "file": "models/world/WLD_QD_bush.glb"
+     },
+     {
+      "name": "Fern",
+      "file": "models/world/WLD_QD_fern.glb"
+     },
+     {
+      "name": "Grass clump",
+      "file": "models/world/WLD_QD_grass.glb"
+     },
+     {
+      "name": "Wildflowers",
+      "file": "models/world/WLD_QD_flowers.glb"
+     },
+     {
+      "name": "Fallen log",
+      "file": "models/world/WLD_QD_log.glb"
+     },
+     {
+      "name": "Tree stump",
+      "file": "models/world/WLD_QD_stump.glb"
+     },
+     {
+      "name": "Mossy stones",
+      "file": "models/world/WLD_QD_mossy_stone.glb"
+     }
+    ]
+   },
+   {
+    "title": "3. Mountains",
+    "items": [
+     {
+      "name": "Mountain A",
+      "file": "models/world/WLD_QD_peak_a.glb"
+     },
+     {
+      "name": "Mountain B",
+      "file": "models/world/WLD_QD_peak_b.glb"
+     },
+     {
+      "name": "Long ridge",
+      "file": "models/world/WLD_QD_ridge.glb"
+     },
+     {
+      "name": "Foothill",
+      "file": "models/world/WLD_QD_foothill.glb"
+     },
+     {
+      "name": "Cliff wall",
+      "file": "models/world/WLD_QD_cliff.glb"
+     }
+    ]
+   },
+   {
+    "title": "4. Tunnel",
+    "items": [
+     {
+      "name": "Tunnel portal (carved entrance)",
+      "file": "models/world/WLD_QD_tunnel_portal.glb"
+     },
+     {
+      "name": "Tunnel lining section",
+      "file": "models/world/WLD_QD_tunnel_set.glb"
+     }
+    ]
+   }
+  ]
+ },
+ {
   "group": "NEW: buildings, sell station, production line",
   "sections": [
    {

@@ -217,7 +217,7 @@ Promise.all([fetch("models/manifest.json").then((r) => r.json()), fetch("audit/a
   const nbad = all.filter((a) => a.bad).length;
   $("tally").textContent = `${all.length} models · ${nbad} with known defects (⚠)`;
   const want = decodeURIComponent(location.hash.slice(1));
-  const first = all.find((a) => a.it.file === want) || all.find((a) => a.it.file.includes("BLD_QD_Home")) || all[0];
+  const first = all.find((a) => a.it.file === want) || all.find((a) => a.it.file.includes("WLD_QD_deer")) || all[0];
   if (first) show(first.it, false);
 });
 

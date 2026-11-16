@@ -27,7 +27,24 @@ func run() -> void:
 	game.hud.visible = false
 	if args.size() > 1:
 		game.state.clock_minutes = float(args[1]) * 60.0
-	var views := [["north", Vector3(0, 3.0, 8.0), Vector3(0, 14.0, -160.0)], ["portal", Vector3(-9.0, 2.2, 25.4), Vector3(-30.0, 2.5, 25.4)],
+	game._update_light()
+	var wl = game.wildlife
+	wl.enabled = false
+	var d = wl.animals[0]
+	d.root.visible = true
+	d.root.global_position = d.anchor
+	d.root.rotation.y = 2.2
+	d.state = "graze"
+	d.timer = 100.0
+	var rb = wl.animals[2]
+	rb.root.visible = true
+	rb.root.global_position = rb.anchor + Vector3(1.5, 0, 1.0)
+	rb.state = "idle"
+	rb.timer = 100.0
+	print("DEER AT ", d.anchor, " RABBIT ", rb.anchor)
+	for i in 40:
+		wl.step(0.05)
+	var views := [["wild", d.anchor + Vector3(-5.5, 3.8, 3.0), d.anchor + Vector3(0, 0.9, 0)], ["north", Vector3(0, 3.0, 8.0), Vector3(0, 14.0, -160.0)], ["portal", Vector3(-9.0, 2.2, 25.4), Vector3(-30.0, 2.5, 25.4)],
 		["east", Vector3(120.0, 5.0, 10.0), Vector3(190.0, 10.0, -30.0)], ["west", Vector3(-124.0, 5.0, 10.0), Vector3(-190.0, 8.0, -40.0)]]
 	var cam := Camera3D.new()
 	cam.fov = 70.0

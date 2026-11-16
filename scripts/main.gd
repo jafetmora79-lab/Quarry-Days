@@ -109,6 +109,8 @@ var sleeping := false
 var sleep_timer := 0.0
 var _late_day := -1             # day on which the "go home to sleep" hint was shown
 var landscape: QuarryLandscape  # sky, clouds, distant mountains and forest (no collision)
+var wildlife: QuarryWildlife    # a few deer and rabbits at the forest edges (atmosphere only)
+var ambience: QuarryAmbience    # wind, forest rustle, crickets at night, distant birds by day
 var curfew_enabled := true                      ## tests switch it off when they run the clock past the curfew
 var introductions_enabled := DisplayServer.get_name() != "headless"   ## headless tests hire workers without the conversation
 var autosave_enabled := DisplayServer.get_name() != "headless"   ## tests run headless and never touch the player's save
@@ -206,6 +208,10 @@ func _ready() -> void:
 	delivery.build(self)
 	landscape = LandscapeScript.new()
 	landscape.build(self)
+	wildlife = QuarryWildlife.new()
+	wildlife.setup(self)
+	ambience = QuarryAmbience.new()
+	ambience.setup(self)
 	_spawn_cleanup()
 	art.dress_storage(storage_body)
 	for kind in deposit_nodes:

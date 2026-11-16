@@ -2,19 +2,19 @@
   "crusher tier 1": [
     {
       "check": "moving part 1 -> housing",
-      "gap_m": 0.04,
+      "gap_m": 0.005,
       "note": "",
       "ok": true
     },
     {
       "check": "moving part 2 -> housing",
-      "gap_m": 0.04,
+      "gap_m": 0.035,
       "note": "",
       "ok": true
     },
     {
       "check": "moving part 3 -> housing",
-      "gap_m": 0.014,
+      "gap_m": 0.005,
       "note": "",
       "ok": true
     }
@@ -22,13 +22,13 @@
   "crusher tier 2": [
     {
       "check": "moving part 1 -> housing",
-      "gap_m": 0.03,
+      "gap_m": 0.01,
       "note": "",
       "ok": true
     },
     {
       "check": "moving part 2 -> housing",
-      "gap_m": 0.03,
+      "gap_m": 0.01,
       "note": "",
       "ok": true
     }
