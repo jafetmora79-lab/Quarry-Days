@@ -141,7 +141,7 @@ def office(root):
         if abs(xx) < 2.3 and clear('x', xx, front_ops):
             t.box((xx, FLOOR + H / 2, -2.495), (0.07, H, 0.03), "Trim")
     # --- gable roof, ridge along X: two sheets with generous eaves (the front one shelters the porch), gables in siding, fascia and ridge cap
-    D, W, RISE, TH = 6.2, 5.9, 1.25, 0.10
+    D, W, RISE, TH = 6.2, 5.9, 1.1, 0.10
     sheet = [(-D / 2, 0.0), (0.0, RISE), (D / 2, 0.0), (D / 2, TH), (0.0, RISE + TH), (-D / 2, TH)]
     t.prism(sheet, W, (0, H, 0), "Roof")
     zb = 2.51
