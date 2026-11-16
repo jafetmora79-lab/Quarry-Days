@@ -566,7 +566,8 @@ func set_message(text: String, seconds := 3.0) -> void:
 func on_income(amount: int, source := "", anchor := Vector2.INF) -> void:
 	income_log.append([_now, amount])
 	money_pulse = 1.0
-	popup_money(amount, anchor)
+	if source != "hopper":                        # the Cash Hopper shows its own "+$5" over the machine, so the HUD only counts up
+		popup_money(amount, anchor)
 
 ## "+3 STONE" near the crosshair. Pop-ups of the same material within a short window merge.
 func popup_resource(res: String, n: int, text: String) -> void:

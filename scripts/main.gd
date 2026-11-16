@@ -83,6 +83,10 @@ var nav_dirty := false
 var workers_root: Node3D
 var worker_nodes := {}
 var output_nodes := []
+const CashHopperViewScript := preload("res://scripts/cash_hopper_view.gd")
+var cash_hopper_enabled := DisplayServer.get_name() != "headless"    ## Grandpa's old Cash Hopper stands in the yard from the start (headless tests skip it unless they ask for it)
+var cash_sel := {}                      ## material -> picked for DEPOSIT SELECTED
+var cash_menu_t := 0.0
 var conveyor_nodes := []
 var expansion_gate := []
 var management: Control
@@ -183,6 +187,7 @@ func _ready() -> void:
 	business.prog = prog
 	state.money = int(pcfg.get("new_game_money", state.money))
 	state.money_earned.connect(_on_income)
+	business.cash_sold.connect(_on_cash_sold)
 	prog.stage_reached.connect(_on_stage)
 	prog.formation_cleared.connect(_on_formation_cleared)
 	prog.site_cleared.connect(_on_site_cleared)
@@ -275,6 +280,7 @@ func _ready() -> void:
 	_refresh_stage_hud()
 	if autosave_enabled and FileAccess.file_exists(SAVE_PATH):
 		_load(true)                                  # continue where you left off: a launch never starts from scratch over a save
+	_ensure_cash_hopper(true)
 	_ensure_opening()
 	if title_enabled and not Engine.has_meta("qd_skip_title"):
 		call_deferred("_show_title")
@@ -417,7 +423,6 @@ func _build_quarry() -> void:
 	sell.visible = false
 	sell.set_meta("kind","sell_anchor")
 	sell_body = sell
-	_build_quicksell_station()
 	_build_workbench()
 	var storage := _solid(world,"Storage crate",STORAGE_POS,Vector3(2,1.3,1.6),Color(0.33,0.23,0.13))
 	storage.set_meta("kind","storage")
@@ -1711,6 +1716,11 @@ func _physics_process(delta: float) -> void:
 			_save(true)
 	state.tick(delta)
 	business.tick(delta)
+	if _cash_menu_open():
+		cash_menu_t += delta
+		if cash_menu_t >= 0.5:
+			cash_menu_t = 0.0
+			_draw_menu()
 	fleet.tick()
 	if nav_dirty:
 		_rebake_nav()
@@ -1772,11 +1782,13 @@ func _physics_process(delta: float) -> void:
 			"piece": prompt = "E: collect "+str(last_target.get_meta("resource"))
 			"crusher": prompt = "E: use crusher"
 			"sell": prompt = "E: sell materials"
-			"quicksell": prompt = "E: quick sell  (%d units to sell)" % quicksell_total_units()
 			"shop": prompt = "E: order machinery"
 			"output":
 				var ov := str(last_target.get_meta("variant", "output"))
-				prompt = {"output": "E: output storage", "hopper": "E: small hopper", "sorter": "E: sorting table"}[ov]
+				if ov == "cash_hopper":
+					prompt = "E: Cash Hopper  (%d waiting)" % business.cash_queue(int(last_target.get_meta("index", -1)))
+				else:
+					prompt = {"output": "E: output storage", "hopper": "E: small hopper", "sorter": "E: sorting table"}[ov]
 			"conveyor":
 				var ci := int(last_target.get_meta("index"))
 				var link: Dictionary = business.links[ci] if ci < business.links.size() else {}
@@ -2012,10 +2024,11 @@ func _interact(target: Node3D) -> void:
 			else:
 				_notify("Backpack full")
 		"sell", "upgrades", "storage", "crusher", "output", "shop":
-			_open_menu(str(target.get_meta("kind")),int(target.get_meta("index",-1)))
-		"quicksell":
-			quicksell_qty.clear()
-			_open_menu("quicksell")
+			if str(target.get_meta("kind")) == "output" and str(target.get_meta("variant", "")) == "cash_hopper" and not bool(prog.story.get("hopper_intro", false)):
+				prog.story["hopper_intro"] = true
+				_hopper_intro(int(target.get_meta("index", -1)))
+			else:
+				_open_menu(str(target.get_meta("kind")),int(target.get_meta("index",-1)))
 		"cart":
 			_open_menu("cart", state.carts.find(str(target.get_meta("cart"))))
 		"office":
@@ -2224,8 +2237,6 @@ func _draw_menu() -> void:
 						_save(true)
 					get_tree().quit(), "danger")
 				p.text("The game saves itself every minute and when you close it.", QuarryTheme.DIM, true)
-		"sell": _draw_sell(p)
-		"quicksell": _draw_quicksell(p)
 		"upgrades": _draw_upgrades(p)
 		"cart": _draw_cart(p, idx)
 		"storage":
@@ -2336,8 +2347,92 @@ func sorter_sell_now(idx: int) -> int:
 		_notify("Sorted rock sold for %s (%d%% of the full price)" % [QuarryTheme.money_text(pay), int(round(float(business.cfg.get("sort_bonus", 1.3)) * 100.0))])
 	return pay
 
+## ------------------------------------------------------------------ the Cash Hopper panel
+
+## One action puts material in the hopper, however much it is; the hopper then sells it by itself at its own speed (see Business.tick_cash_hoppers).
+## `keys` empty = everything the bag holds. `from_crate` takes from the storage crate instead (an explicit choice: the crate never sells by itself).
+func cash_deposit(idx: int, keys: Array, from_crate := false) -> int:
+	var moved: Dictionary = business.cash_deposit_crate(idx, keys) if from_crate else business.cash_deposit_bag(idx, keys)
+	var n := 0
+	for k in moved:
+		n += int(moved[k])
+	if n > 0:
+		pickup_audio.play()
+		hud.toast("Into the hopper: %d units" % n, "It sells them one by one", "sale")
+		cash_sel.clear()
+	else:
+		var space := business.output_capacity_of(idx) - business.output_total(idx)
+		_notify("The hopper is full: let it work a bit." if space <= 0 else "Nothing to deposit.")
+	return n
+
+## The first time you use the old hopper, Grandpa tells you in two breaths what it is for.
+func _hopper_intro(idx: int) -> void:
+	hud.show_card("GRANDPA WALT", "That's my old hopper. Older than my truck and twice as stubborn.\n\nTip your rocks in the top and she'll chew through them, one by one, and pay you a few coins for every piece. Put a belt on her later and she'll do it all day without you.", func(): _open_menu("output", idx))
+
+func _draw_cash_hopper(p: QuarryStationUI, idx: int) -> void:
+	var items: Dictionary = business.outputs[idx]["items"]
+	var cap := business.output_capacity_of(idx)
+	var tier: Dictionary = business.cash_tier(idx)
+	p.begin("CASH HOPPER   %d / %d waiting" % [business.cash_queue(idx), cap], state.money,
+		"Put your material in once: the hopper sells it by itself, one unit at a time, even while you work elsewhere.")
+	var R := HORIZONTAL_ALIGNMENT_RIGHT
+	var bag_total := 0
+	var pick_total := 0
+	var crate_total := 0
+	var any := false
+	for key in RESOURCE_ORDER:
+		any = any or int(state.inventory[key]) > 0 or int(state.storage.get(key, 0)) > 0 or int(items.get(key, 0)) > 0
+	if not any:
+		p.text("Nothing to deposit. Mine some rock, or push a cart here: whatever you carry shows up in this list.", QuarryTheme.DIM)
+	else:
+		p.row([["MATERIAL", QuarryTheme.DIM, 96], ["CARRIED", QuarryTheme.DIM, 56, R], ["EACH", QuarryTheme.DIM, 44, R], ["VALUE", QuarryTheme.DIM, 64, R], ["IN HOPPER", QuarryTheme.DIM, 66, R]], [], Color(0, 0, 0, 0), true, "_")
+	for key in RESOURCE_ORDER:
+		var k: String = key
+		var have := int(state.inventory[k])
+		var in_crate := int(state.storage.get(k, 0))
+		var queued := int(items.get(k, 0))
+		bag_total += have
+		crate_total += in_crate
+		if have <= 0 and in_crate <= 0 and queued <= 0:
+			continue
+		var picked: bool = bool(cash_sel.get(k, false)) and have > 0
+		if picked:
+			pick_total += have
+		p.row([[prog.display(k), QuarryTheme.INK, 96, HORIZONTAL_ALIGNMENT_LEFT, true], [str(have), QuarryTheme.INK if have > 0 else QuarryTheme.DIM, 56, R], ["$%s" % _price_text(state.unit_price(k)), QuarryTheme.DIM, 44, R],
+			[QuarryTheme.money_text(state.payout(k, have)) if have > 0 else "-", QuarryTheme.MONEY, 64, R, true], [str(queued) if queued > 0 else "-", QuarryTheme.GOOD if queued > 0 else QuarryTheme.DIM, 66, R]],
+			[["ch_pick_" + k, "PICKED" if picked else "PICK", have > 0, func(): cash_sel[k] = not bool(cash_sel.get(k, false)), 76, "toggle"]],
+			QuarryTheme.RES_COLORS.get(k, Color.WHITE), false, k)
+	var bar := [["ch_all", "DEPOSIT ALL", bag_total > 0, func(): cash_deposit(idx, []), 170, "primary"],
+		["ch_selected", "DEPOSIT SELECTED", pick_total > 0, func(): cash_deposit(idx, cash_sel.keys().filter(func(q): return bool(cash_sel[q]))), 210, "primary"]]
+	if crate_total > 0:
+		bar.append(["ch_crate", "FROM CRATE (%d)" % crate_total, true, func(): cash_deposit(idx, [], true), 190])
+	bar.append(["ch_close", "CLOSE", true, func(): _close_menu(), 110])
+	p.button_bar(bar)
+	var up := business.cash_upgrade_cost(idx)
+	var nxt: Dictionary = business.cash_tiers()[mini(business.cash_tier_index(idx) + 1, business.cash_tiers().size() - 1)]
+	if up >= 0:
+		p.button_bar([["ch_upgrade", "UPGRADE  %s  >  %s  (%.0f / s)" % [QuarryTheme.money_text(up), str(nxt.get("name", "")).to_upper(), float(nxt.get("rate", 1.0))], state.money >= up, func(): _cash_upgrade(idx), 420, "primary"]])
+	var cur: String = business.cash_current(idx)
+	p.text("%s   -   speed %.0f units / s   -   today %s   -   %s" % [str(tier.get("name", "Hopper")), business.cash_rate(idx), QuarryTheme.money_text(business.cash_today(idx)),
+		("selling " + prog.display(cur).to_lower() if cur != "" else "idle")], QuarryTheme.DIM)
+
+func _cash_upgrade(idx: int) -> void:
+	if business.cash_upgrade(idx):
+		sfx["unlock"].play()
+		hud.toast("Hopper upgraded", str(business.cash_tier(idx).get("name", "")), "unlock")
+
+## True while a Cash Hopper's panel is open (it refreshes by itself so you watch the queue shrink and the cash grow).
+func _cash_menu_open() -> bool:
+	if menu != "output" or panel == null or not panel.has_meta("crusher_index"):
+		return false
+	var oi: int = int(panel.get_meta("crusher_index"))
+	return oi >= 0 and oi < business.outputs.size() and business.is_cash_hopper(oi)
+
 func _draw_variant_output(p: QuarryStationUI, idx: int) -> void:
 	var v := business.variant_of(idx)
+	if v == "cash_hopper":
+		_draw_cash_hopper(p, idx)
+		return
 	var items: Dictionary = business.outputs[idx]["items"]
 	var cap := business.output_capacity_of(idx)
 	if v == "hopper":
@@ -2366,8 +2461,9 @@ func _draw_cart(p: QuarryStationUI, idx: int) -> void:
 	var id := str(state.carts[idx])
 	var title := str(prog.gear_def(id).get("title", id)).to_upper()
 	var near_store := cart_near(id, storage_body)
-	var near_sell := cart_near(id, sell_body)
-	p.begin("%s   %d / %d" % [title, state.cart_total(id), state.cart_cap(id)], state.money, "Load it from your bag, push it (E to let go), unload at the storage crate or sell from it at the office (beside its door).")
+	var hop := _cash_hopper_body()
+	var near_sell := hop != null and cart_near(id, hop)
+	p.begin("%s   %d / %d" % [title, state.cart_total(id), state.cart_cap(id)], state.money, "Load it from your bag, push it (E to let go), unload at the storage crate or tip it into the Cash Hopper by the office.")
 	for i in range(RESOURCE_ORDER.size()):
 		var key: String = RESOURCE_ORDER[i]
 		var buttons := [["cl_" + key, "LOAD", int(state.inventory[key]) > 0 and state.cart_space(id) > 0, func(): cart_move("load", id, key)],
@@ -2376,7 +2472,7 @@ func _draw_cart(p: QuarryStationUI, idx: int) -> void:
 			buttons.append(["cs_" + key, "TO CRATE", state.cart_units(id, key) > 0, func(): cart_move("store", id, key)])
 			buttons.append(["ct_" + key, "FROM CRATE", int(state.storage[key]) > 0 and state.cart_space(id) > 0, func(): cart_move("take", id, key)])
 		if near_sell:
-			buttons.append(["cx_" + key, "SELL", state.cart_units(id, key) > 0, func(): cart_move("sell", id, key)])
+			buttons.append(["cx_" + key, "TO HOPPER", state.cart_units(id, key) > 0, func(): cart_move("sell", id, key)])
 		p.row([[prog.display(key), QuarryTheme.INK, 110], ["cart %d" % state.cart_units(id, key), QuarryTheme.DIM, 80], ["bag %d" % int(state.inventory[key]), QuarryTheme.DIM, 70]], buttons, QuarryTheme.RES_COLORS.get(key, Color.WHITE))
 	var held := held_cart != null and held_cart.cart_id == id
 	var bar := [["grab", ("LET GO" if held else ("PULL IT" if QuarryCart.mode_of(id) == "pull" else "PUSH IT")), true, func():
@@ -2385,135 +2481,11 @@ func _draw_cart(p: QuarryStationUI, idx: int) -> void:
 		else:
 			hold_cart(id)]]
 	if near_sell:
-		bar.append(["sell_all", "SELL ALL", state.cart_total(id) > 0, func(): cart_move_all("sell", id)])
+		bar.append(["sell_all", "ALL TO HOPPER", state.cart_total(id) > 0, func(): cart_move_all("sell", id)])
 	if near_store:
 		bar.append(["store_all", "STORE ALL", state.cart_total(id) > 0, func(): cart_move_all("store", id)])
 	p.button_bar(bar)
-	p.text("The crate and the office are %s." % ("in reach of this cart" if (near_store or near_sell) else "too far away: push the cart close to one"), QuarryTheme.DIM)
-
-# ------------------------------------------------------------------ the Quick Sell Station
-
-var quicksell_qty := {}                ## material -> how many are picked to sell (absent = all of it)
-
-## Units of everything the station can take: the bag, the storage bin and the output storages (the same stock the sales desk sells).
-func quicksell_total_units() -> int:
-	var n := 0
-	for key in RESOURCE_ORDER:
-		n += business.sellable_units(key)
-	return n
-
-func _qs_picked(key: String) -> int:
-	return clampi(int(quicksell_qty.get(key, business.sellable_units(key))), 0, business.sellable_units(key))
-
-func _qs_set(key: String, v: int) -> void:
-	quicksell_qty[key] = clampi(v, 0, business.sellable_units(key))
-	_draw_menu()
-
-## One transaction: sells the picked quantity of each material (Business.sell_material: bag first, then the bin, then the output storages; one sale and one
-## payment per material), clamped to what is really there, so nothing is sold twice or below zero. One coin sound and one earnings pop-up for the whole sale.
-## `selection`: material -> units. Returns the money paid.
-func quick_sell(selection: Dictionary) -> int:
-	var total := 0
-	var parts := []
-	for key in RESOURCE_ORDER:
-		if not selection.has(key):
-			continue
-		var want := mini(int(selection[key]), business.sellable_units(key))
-		if want <= 0:
-			continue
-		var r: Dictionary = business.sell_material(str(key), want)
-		if int(r["units"]) <= 0:
-			continue
-		total += int(r["money"])
-		parts.append("%d %s" % [int(r["units"]), prog.display(key).to_upper()])
-	if total > 0:
-		sfx["coin"].play()
-		hud.popup_money(total)
-		hud.toast("Sold " + ", ".join(parts), "+" + QuarryTheme.money_text(total), "sale")
-		quicksell_qty.clear()
-	else:
-		_notify("Nothing to sell.")
-	return total
-
-func _draw_quicksell(p: QuarryStationUI) -> void:
-	p.begin("QUICK SELL", state.money, "Pick how many to sell, then SELL SELECTED, or sell everything with SELL ALL.")
-	var R := HORIZONTAL_ALIGNMENT_RIGHT
-	var sel_total := 0
-	var all_total := 0
-	var sel := {}
-	var any := false
-	for key in RESOURCE_ORDER:
-		var have := business.sellable_units(key)
-		if have <= 0:
-			continue
-		any = true
-		var picked := _qs_picked(key)
-		sel[key] = picked
-		sel_total += state.payout(key, picked) if picked > 0 else 0
-		all_total += state.payout(key, have)
-	if not any:
-		p.text("Nothing to sell yet. Mine some rock, or bring it from the storage bin: whatever you own shows up here.", QuarryTheme.DIM)
-	else:
-		p.row([["MATERIAL", QuarryTheme.DIM, 96], ["AVAILABLE", QuarryTheme.DIM, 66, R], ["EACH", QuarryTheme.DIM, 50, R], ["SELLING", QuarryTheme.DIM, 56, R], ["TOTAL", QuarryTheme.DIM, 70, R]], [], Color(0, 0, 0, 0), true, "_")
-	for key in RESOURCE_ORDER:
-		var have := business.sellable_units(key)
-		if have <= 0:
-			continue
-		var picked := _qs_picked(key)
-		var k: String = key
-		var step := maxi(1, have / 10)
-		p.row([[prog.display(key), QuarryTheme.INK, 96, HORIZONTAL_ALIGNMENT_LEFT, true], [str(have), QuarryTheme.INK, 66, R], ["$%s" % _price_text(state.unit_price(key)), QuarryTheme.DIM, 50, R],
-			["x %d" % picked, QuarryTheme.INK if picked > 0 else QuarryTheme.DIM, 56, R, true], [QuarryTheme.money_text(state.payout(key, picked)) if picked > 0 else "-", QuarryTheme.MONEY, 70, R, true]],
-			[["qs_minus_" + k, "-", picked > 0, func(): _qs_set(k, _qs_picked(k) - step), 34], ["qs_plus_" + k, "+", picked < have, func(): _qs_set(k, _qs_picked(k) + step), 34],
-			["qs_all_" + k, "ALL", picked < have, func(): _qs_set(k, have), 50], ["qs_sell_" + k, "SELL", picked > 0, func(): quick_sell({k: _qs_picked(k)}); _draw_menu(), 64, "primary"]],
-			QuarryTheme.RES_COLORS.get(key, Color.WHITE), false, key)
-	var bar := [["qs_sell_selected", "SELL SELECTED   %s" % QuarryTheme.money_text(sel_total), sel_total > 0, func(): quick_sell(sel); _draw_menu(), 260, "primary"],
-		["qs_sell_all", "SELL ALL   %s" % QuarryTheme.money_text(all_total), all_total > 0, func(): quick_sell_all(); _draw_menu(), 220, "primary"]]
-	p.button_bar(bar)
-	p.text("The office computer's Sales application keeps the history, lifetime earnings and the clerk's permissions.", QuarryTheme.DIM)
-
-## Sells every unit of everything the station takes, in one transaction.
-func quick_sell_all() -> int:
-	var everything := {}
-	for kk in RESOURCE_ORDER:
-		everything[kk] = business.sellable_units(kk)
-	return quick_sell(everything)
-
-func _draw_sell(p: QuarryStationUI) -> void:
-	var total_value := 0
-	var any := false
-	for key in RESOURCE_ORDER:
-		var n := business.sellable_units(key)
-		if n > 0:
-			any = true
-			total_value += state.payout(key, n)
-	p.begin("SALES", state.money, "Sells from your bag, the storage bin and the output storages. Shift+1-8 clerk on/off")
-	var R := HORIZONTAL_ALIGNMENT_RIGHT
-	if not any:
-		p.text("Nothing to sell yet. Mine some rock, or collect it from storage: whatever you own shows up here.", QuarryTheme.DIM)
-	else:
-		p.row([["MATERIAL", QuarryTheme.DIM, 100], ["IN BAG", QuarryTheme.DIM, 48, R], ["IN BIN", QuarryTheme.DIM, 48, R], ["OUTPUT", QuarryTheme.DIM, 54, R], ["EACH", QuarryTheme.DIM, 56, R], ["TOTAL", QuarryTheme.DIM, 76, R]], [], Color(0, 0, 0, 0), true, "_")
-	for i in range(RESOURCE_ORDER.size()):
-		var key: String = RESOURCE_ORDER[i]
-		var nb := int(state.inventory[key])
-		var nbin := int(state.storage.get(key, 0))
-		var nout := business.output_units(key)
-		var ns := nbin + nout
-		var n := nb + ns
-		if n <= 0:
-			continue                              # only what you actually own: no empty rows for materials you have not found
-		var ok: bool = business.authorized[key]
-		p.row([[prog.display(key), QuarryTheme.INK, 100, HORIZONTAL_ALIGNMENT_LEFT, true], [str(nb), QuarryTheme.INK if nb > 0 else QuarryTheme.DIM, 48, R], [str(nbin), QuarryTheme.INK if nbin > 0 else QuarryTheme.DIM, 48, R], [str(nout), QuarryTheme.INK if nout > 0 else QuarryTheme.DIM, 54, R], ["$%s" % _price_text(state.unit_price(key)), QuarryTheme.DIM, 56, R], [QuarryTheme.money_text(state.payout(key, n)), QuarryTheme.MONEY, 76, R, true]],
-			[["clerk_" + key, "Clerk: " + ("on" if ok else "off"), true, func(): menu_act("sell", i, true), 84, "toggle"], ["sell_" + key, "SELL", true, func(): menu_act("sell", i, false), 80, "primary"]], QuarryTheme.RES_COLORS.get(key, Color.WHITE), false, key)
-	p.button_bar([["sell_all", "SELL ALL   %s" % QuarryTheme.money_text(total_value), total_value > 0, func(): menu_act("sell", RESOURCE_ORDER.size(), false), 260, "primary"], ["office", "OFFICE COMPUTER", true, func(): _open_menu("manage"), 200]])
-	# sales history: what the game really records (lifetime revenue, units sold, today); it keeps no list of single transactions
-	var units_sold := 0
-	for k in state.lifetime["sold"]:
-		units_sold += int(state.lifetime["sold"][k])
-	var today := business.day_stats(business.current_day())
-	p.text("SALES HISTORY", QuarryTheme.ACCENT)
-	p.text("Lifetime sales revenue: %s     Units sold: %d     Sold today: %d units, %s" % [QuarryTheme.money_text(state.earned), units_sold, int(today.get("sold", 0)), QuarryTheme.money_text(int(today.get("revenue", 0)))], QuarryTheme.INK)
-	p.text("Prices are the same at every stage. A sale never pays less than $1. 'Clerk' chooses what the sales clerk may sell for you automatically; you can always sell by hand.", QuarryTheme.DIM)
+	p.text("The crate and the Cash Hopper are %s." % ("in reach of this cart" if (near_store or near_sell) else "too far away: push the cart close to one"), QuarryTheme.DIM)
 
 func _storage_all(store: bool) -> void:
 	for key in RESOURCE_ORDER:
@@ -2624,23 +2596,6 @@ func _home_wing() -> void:
 	_solid(world, "Home wing front", HOME_POS + Vector3(-4.1, 1.4, -2.35), Vector3(3.4, 2.8, 0.22), col)
 	_solid(world, "Home wing back", HOME_POS + Vector3(-4.1, 1.4, 2.35), Vector3(3.4, 2.8, 0.22), col)
 	_solid(world, "Home wing roof", HOME_POS + Vector3(-4.1, 2.92, 0), Vector3(3.8, 0.27, 5.2), Color(0.24, 0.25, 0.26))
-
-## Where the Quick Sell Station stands: east of the office, in the open, clear of the doorway and the ramp (it faces the yard, -Z).
-func quicksell_pos() -> Vector3:
-	return Vector3(OFFICE_POS.x + 5.5, 0.0, OFFICE_POS.z - 2.6) if blueprint else Vector3(OFFICE_POS.x - 6.0, 0.0, OFFICE_POS.z - 5.5)
-
-## The collider and interaction point of the station (the model is drawn by QuarryArt). Aiming at it and pressing E opens the Quick Sell panel.
-func _build_quicksell_station() -> void:
-	var body := StaticBody3D.new()
-	body.name = "Quick sell station"
-	body.position = quicksell_pos() + Vector3(0, 1.3, 0)
-	var shape := CollisionShape3D.new()
-	var box := BoxShape3D.new()
-	box.size = Vector3(2.8, 2.6, 2.0)
-	shape.shape = box
-	body.add_child(shape)
-	body.set_meta("kind", "quicksell")
-	world.add_child(body)
 
 func _build_workbench() -> void:
 	# On the office's front wall, left of the door: clear wall, nothing in the way, in view as you walk in.
@@ -2903,15 +2858,16 @@ func cart_move(op: String, id: String, key: String, n := 9999) -> int:
 		"take":
 			if cart_near(id, storage_body):
 				moved = state.cart_take(id, key, n)
-		"sell":
-			if cart_near(id, sell_body):
-				var before := state.money
-				moved = state.cart_sell(id, key, n)
+		"sell":                                                                # tip the cart into the Cash Hopper: it sells the load by itself
+			var hb := _cash_hopper_body()
+			if hb != null and cart_near(id, hb):
+				var hi: int = business.cash_hopper_indices()[0]
+				moved = business.cash_deposit_cart(hi, id, key, n)
 				if moved > 0 and cart_nodes.has(id):
 					cart_nodes[id].tip()
 				if moved > 0:
-					sfx["coin"].play()
-					_notify("Sold %d %s for %s" % [moved, prog.display(key).to_lower(), QuarryTheme.money_text(state.money - before)])
+					pickup_audio.play()
+					_notify("Into the hopper: %d %s" % [moved, prog.display(key).to_lower()])
 	_update_cart_load()
 	return moved
 
@@ -3560,13 +3516,6 @@ func _menu_key(event: InputEventKey) -> void:
 ## One menu action. Buttons and the optional number keys both end up here (digit = 0-based slot).
 func menu_act(kind: String, digit: int, shift: bool) -> void:
 	match kind:
-		"sell":
-			if digit < RESOURCE_ORDER.size() and shift:
-				business.authorized[RESOURCE_ORDER[digit]] = not business.authorized[RESOURCE_ORDER[digit]]
-			elif digit < RESOURCE_ORDER.size():
-				sell_from_bag([RESOURCE_ORDER[digit]])
-			elif digit == RESOURCE_ORDER.size():
-				sell_from_bag(RESOURCE_ORDER)
 		"upgrades":
 			if digit == 0:
 				buy_next_tool()
@@ -3589,7 +3538,7 @@ func menu_act(kind: String, digit: int, shift: bool) -> void:
 						pass
 		"output":
 			var oi: int = int(panel.get_meta("crusher_index"))
-			if digit < RESOURCE_ORDER.size() and oi >= 0 and oi < business.outputs.size():
+			if digit < RESOURCE_ORDER.size() and oi >= 0 and oi < business.outputs.size() and not business.is_cash_hopper(oi):
 				var key: String = RESOURCE_ORDER[digit]
 				var items: Dictionary = business.outputs[oi]["items"]
 				if shift:
@@ -4171,6 +4120,7 @@ func _load(quiet := false) -> void:
 	_refresh_workbench()
 	for i in range(state.crushers.size()):
 		_create_crusher(i)
+	_ensure_cash_hopper(false)                       # an older save gains Grandpa's hopper
 	for i in range(business.outputs.size()):
 		_create_output(i)
 	for i in range(business.conveyors.size()):
@@ -4557,6 +4507,9 @@ func _create_output(index: int) -> void:
 	var data: Dictionary = business.outputs[index]
 	var p := Business.v3(data["position"])
 	var variant := str(data.get("variant", "output"))
+	if variant == "cash_hopper":
+		_create_cash_hopper(index)
+		return
 	var size := Vector3(1.4, 1.1, 1.4) if variant == "output" else (Vector3(1.4, 1.2, 1.4) if variant == "hopper" else Vector3(1.55, 1.0, 0.95))
 	var body := _solid(world,{"output": "Output storage", "hopper": "Small hopper", "sorter": "Sorting table"}[variant],Vector3(p.x,p.y+size.y*0.5,p.z),size,Color(0.24,0.30,0.22),float(data["yaw"]))
 	body.set_meta("ground_y", p.y)
@@ -4572,6 +4525,50 @@ func _create_output(index: int) -> void:
 			"sorter": art.dress_sorter(body)
 			_: art.dress_output(body)
 	output_nodes.append(body)
+
+## Grandpa's old Cash Hopper: a collider (so you can bump it and press E) with a CashHopperView on it. The view owns the look and the feedback.
+func _create_cash_hopper(index: int) -> void:
+	var data: Dictionary = business.outputs[index]
+	var p := Business.v3(data["position"])
+	var size := Vector3(1.9, 1.5, 1.9)
+	var body := _solid(world, "Cash hopper", Vector3(p.x, p.y + size.y * 0.5, p.z), size, Color(0.34, 0.40, 0.36), float(data["yaw"]))
+	body.set_meta("ground_y", p.y)
+	body.set_meta("kind", "output")
+	body.set_meta("variant", "cash_hopper")
+	body.set_meta("index", index)
+	for ch in body.get_children():
+		if ch is MeshInstance3D:
+			ch.visible = false                                   # the collider's plain box is replaced by the view's own parts
+	var view = CashHopperViewScript.new()
+	view.setup(self, index)
+	view.position = Vector3(0, -size.y * 0.5, 0)
+	body.add_child(view)
+	output_nodes.append(body)
+
+## Where the old hopper stands: east of the office in the open, clear of the doorway and ramp (it faces the yard, -Z). (It took the place of the Quick Sell kiosk.)
+func cash_hopper_pos() -> Vector3:
+	return Vector3(OFFICE_POS.x + 5.5, 0.0, OFFICE_POS.z - 2.6) if blueprint else Vector3(OFFICE_POS.x - 6.0, 0.0, OFFICE_POS.z - 5.5)
+
+## Every game owns the old hopper. Adds its record (and, in a running game, its machine) when it is missing: new games and saves from before it existed.
+func _ensure_cash_hopper(create_node: bool) -> void:
+	if not cash_hopper_enabled or not business.cash_hopper_indices().is_empty():
+		return
+	var idx := business.add_output(cash_hopper_pos(), 0.0, "cash_hopper")
+	if create_node:
+		_create_output(idx)
+
+## Business.cash_sold -> the hopper's feedback (rocks, clunk, coin, "+$5"). The money is already booked; this is only the show.
+func _on_cash_sold(index: int, res: String, units: int, money: int) -> void:
+	if index >= 0 and index < output_nodes.size():
+		var v = output_nodes[index].get_node_or_null("CashHopperView")
+		if v != null:
+			v.on_sold(res, units, money)
+
+func _cash_hopper_body() -> Node3D:
+	for i in business.cash_hopper_indices():
+		if i < output_nodes.size():
+			return output_nodes[i]
+	return null
 
 func _create_conveyor(index: int) -> void:
 	var data: Dictionary = business.conveyors[index]
@@ -4730,6 +4727,8 @@ func _update_structures() -> void:
 		sf.scale.y = maxf(0.08, sratio)
 		sf.position.y = -0.5                           # on the crate floor, heaping up inside the walls
 	for i in range(mini(output_nodes.size(), business.outputs.size())):
+		if business.variant_of(i) == "cash_hopper":
+			continue                                   # it draws its own queue (CashHopperView)
 		if business.variant_of(i) == "sorter":
 			_sort_visuals(i, output_nodes[i])
 		var fill: MeshInstance3D = output_nodes[i].get_meta("fill")
@@ -7498,24 +7497,6 @@ func _crew_strike_formation(kind: String, hits: int, extra: int, w: Node3D) -> v
 		_sfx_at("hit_pick", at, -4.0)
 
 # ------------------------------------------------------------------ Phase 5: selling and buying
-
-## Sells the listed materials from the bag with one combined confirmation. Returns money earned.
-func sell_from_bag(keys: Array) -> int:
-	var total := 0
-	var parts := []
-	for key in keys:
-		var r := business.sell_material(str(key))          # bag, then storage bin, then output storages: one sale, one rounding
-		if int(r["units"]) <= 0:
-			continue
-		total += int(r["money"])
-		parts.append("%d %s" % [int(r["units"]), prog.display(key).to_upper()])
-	if total > 0:
-		sfx["coin"].play()
-		hud.toast("Sold " + ", ".join(parts), "+" + QuarryTheme.money_text(total), "sale")
-		_notify("Sold %s for %s" % [", ".join(parts), QuarryTheme.money_text(total)])
-	else:
-		_notify("Nothing of that in your bag, the storage bin or the output storages.")
-	return total
 
 func buy_next_tool() -> bool:
 	var from := state.tool_tier
