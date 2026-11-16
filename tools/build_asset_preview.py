@@ -32,13 +32,17 @@ def main():
         if os.path.exists(src):
             shutil.copy2(src, os.path.join(OUT, "blender", "BLD_QD_%s.glb" % key))
             add(NEWG, "1. Buildings (modelled in Blender)", "models/blender/BLD_QD_%s.glb" % key, nice[key])
-    prod = [("jaw_crusher", "Jaw crusher"), ("cone_crusher", "Advanced crusher"), ("small_hopper", "Hopper"), ("output_storage", "Output storage bin"),
-            ("sorting_table", "Sorting table"), ("storage_crate", "Storage crate"), ("conveyor", "Conveyor, straight"),
-            ("conveyor_corner_left", "Conveyor, left corner"), ("conveyor_corner_right", "Conveyor, right corner"), ("conveyor_merger", "Conveyor merger (3-way junction)")]
+    eq = os.path.join(ROOT, "assets", "equipment")
+    os.makedirs(os.path.join(OUT, "equipment"), exist_ok=True)
+    prod = [("crusher", "Jaw crusher"), ("crusher_adv", "Advanced (cone) crusher"), ("hopper", "Input hopper"), ("bin", "Output storage bin"), ("storage", "Large storage container"),
+            ("belt", "Conveyor, straight (2 m)"), ("belt_short", "Conveyor, short (1 m)"), ("belt_incline", "Conveyor, inclined (3 m)"),
+            ("belt_left", "Conveyor, left corner"), ("belt_right", "Conveyor, right corner"), ("belt_merger", "Conveyor merger"), ("belt_splitter", "Conveyor splitter"),
+            ("support", "Conveyor supports and end cap")]
     for key, nm in prod:
-        f = os.path.join(OUT, "procedural", "machinery__%s.glb" % key)
-        if os.path.exists(f):
-            add(NEWG, "2. Production machinery (the game's own builders)", "models/procedural/machinery__%s.glb" % key, nm)
+        src = os.path.join(eq, "EQP_QD_%s.glb" % key)
+        if os.path.exists(src):
+            shutil.copy2(src, os.path.join(OUT, "equipment", "EQP_QD_%s.glb" % key))
+            add(NEWG, "2. Production machinery (modelled in Blender, the models the game uses)", "models/equipment/EQP_QD_%s.glb" % key, nm)
 
     # Veil asset pack
     veil_root = os.path.join(ROOT, "assets", "veil_qd")           # the repaired Quarry Days copies (tools/repair_glb.py)
@@ -72,6 +76,8 @@ def main():
     for f in sorted(glob.glob(os.path.join(OUT, "procedural", "*.glb"))):
         base = os.path.splitext(os.path.basename(f))[0]
         cat, name = base.split("__", 1)
+        if cat == "machinery" and name in ("jaw_crusher", "cone_crusher", "small_hopper", "output_storage", "storage_crate", "conveyor", "conveyor_corner_left", "conveyor_corner_right", "conveyor_merger"):
+            continue                                  # replaced by the Blender models above
         add("Quarry Days", pretty(cat), "models/procedural/" + os.path.basename(f), pretty(name))
 
     manifest = []

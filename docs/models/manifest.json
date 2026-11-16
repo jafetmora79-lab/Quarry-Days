@@ -28,47 +28,59 @@
     ]
    },
    {
-    "title": "2. Production machinery (the game's own builders)",
+    "title": "2. Production machinery (modelled in Blender, the models the game uses)",
     "items": [
      {
       "name": "Jaw crusher",
-      "file": "models/procedural/machinery__jaw_crusher.glb"
+      "file": "models/equipment/EQP_QD_crusher.glb"
      },
      {
-      "name": "Advanced crusher",
-      "file": "models/procedural/machinery__cone_crusher.glb"
+      "name": "Advanced (cone) crusher",
+      "file": "models/equipment/EQP_QD_crusher_adv.glb"
      },
      {
-      "name": "Hopper",
-      "file": "models/procedural/machinery__small_hopper.glb"
+      "name": "Input hopper",
+      "file": "models/equipment/EQP_QD_hopper.glb"
      },
      {
       "name": "Output storage bin",
-      "file": "models/procedural/machinery__output_storage.glb"
+      "file": "models/equipment/EQP_QD_bin.glb"
      },
      {
-      "name": "Sorting table",
-      "file": "models/procedural/machinery__sorting_table.glb"
+      "name": "Large storage container",
+      "file": "models/equipment/EQP_QD_storage.glb"
      },
      {
-      "name": "Storage crate",
-      "file": "models/procedural/machinery__storage_crate.glb"
+      "name": "Conveyor, straight (2 m)",
+      "file": "models/equipment/EQP_QD_belt.glb"
      },
      {
-      "name": "Conveyor, straight",
-      "file": "models/procedural/machinery__conveyor.glb"
+      "name": "Conveyor, short (1 m)",
+      "file": "models/equipment/EQP_QD_belt_short.glb"
+     },
+     {
+      "name": "Conveyor, inclined (3 m)",
+      "file": "models/equipment/EQP_QD_belt_incline.glb"
      },
      {
       "name": "Conveyor, left corner",
-      "file": "models/procedural/machinery__conveyor_corner_left.glb"
+      "file": "models/equipment/EQP_QD_belt_left.glb"
      },
      {
       "name": "Conveyor, right corner",
-      "file": "models/procedural/machinery__conveyor_corner_right.glb"
+      "file": "models/equipment/EQP_QD_belt_right.glb"
      },
      {
-      "name": "Conveyor merger (3-way junction)",
-      "file": "models/procedural/machinery__conveyor_merger.glb"
+      "name": "Conveyor merger",
+      "file": "models/equipment/EQP_QD_belt_merger.glb"
+     },
+     {
+      "name": "Conveyor splitter",
+      "file": "models/equipment/EQP_QD_belt_splitter.glb"
+     },
+     {
+      "name": "Conveyor supports and end cap",
+      "file": "models/equipment/EQP_QD_support.glb"
      }
     ]
    }
@@ -380,26 +392,6 @@
     "title": "Machinery",
     "items": [
      {
-      "name": "Cone Crusher",
-      "file": "models/procedural/machinery__cone_crusher.glb"
-     },
-     {
-      "name": "Conveyor",
-      "file": "models/procedural/machinery__conveyor.glb"
-     },
-     {
-      "name": "Conveyor Corner Left",
-      "file": "models/procedural/machinery__conveyor_corner_left.glb"
-     },
-     {
-      "name": "Conveyor Corner Right",
-      "file": "models/procedural/machinery__conveyor_corner_right.glb"
-     },
-     {
-      "name": "Conveyor Merger",
-      "file": "models/procedural/machinery__conveyor_merger.glb"
-     },
-     {
       "name": "Drill Rig",
       "file": "models/procedural/machinery__drill_rig.glb"
      },
@@ -412,28 +404,12 @@
       "file": "models/procedural/machinery__improved_rig.glb"
      },
      {
-      "name": "Jaw Crusher",
-      "file": "models/procedural/machinery__jaw_crusher.glb"
-     },
-     {
-      "name": "Output Storage",
-      "file": "models/procedural/machinery__output_storage.glb"
-     },
-     {
       "name": "Rock Breaker",
       "file": "models/procedural/machinery__rock_breaker.glb"
      },
      {
-      "name": "Small Hopper",
-      "file": "models/procedural/machinery__small_hopper.glb"
-     },
-     {
       "name": "Sorting Table",
       "file": "models/procedural/machinery__sorting_table.glb"
-     },
-     {
-      "name": "Storage Crate",
-      "file": "models/procedural/machinery__storage_crate.glb"
      }
     ]
    },
