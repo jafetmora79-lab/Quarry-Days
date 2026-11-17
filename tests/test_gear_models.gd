@@ -134,10 +134,12 @@ func run() -> void:
 			good_clip = false
 			detail += " clip(%d:%.2f)" % [t, nearest_z]
 		# hands sit on the tool: every grip point is inside or next to some part of the model
-		var hlist: Array = def["hands"] if def.has("hands") else tv.HANDS[t]
+		var hlist: Array = FPTools.grips(ToolModels.key_of(t))
 		var mb := bounds(mdl)
 		for h in hlist:
-			var pt: Vector3 = h[1]
+			var pt: Vector3 = h["at"]
+			if h.has("node"):
+				continue                                      # a grip on a moving part (the splitter lever) is checked with that part
 			var inflated := (AABB(mb.position / float(def.get("scale", 1.0)), mb.size / float(def.get("scale", 1.0)))).grow(0.16)
 			if not inflated.has_point(pt):
 				good_hands = false

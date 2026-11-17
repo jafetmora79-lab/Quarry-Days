@@ -19,22 +19,21 @@ const POSE := {
 		"hands": [["L", Vector3(0, 0.12, 0)]]},
 	"flat_chisel": {"grip": Vector3(0.28, -0.40, -0.52), "scale": 1.0, "rest": -0.95, "yaw": 0.12, "wind": -0.8, "strike": -1.12, "tip": Vector3(0, 0.43, 0),
 		"hands": [["L", Vector3(0, 0.12, 0)]]},
-	"repaired_pickaxe": {"rest_roll": -0.3, "grip": Vector3(0.14, -0.42, -0.55), "scale": 0.8, "rest": -0.75, "yaw": 0.2, "wind": 0.1, "strike": -1.35, "tip": Vector3(0, 0.5, -0.28),
+	"repaired_pickaxe": {"pause": 0.035, "rest_roll": -0.25, "grip": Vector3(0.2, -0.42, -0.5), "scale": 0.8, "rest": -1.2, "yaw": 0.55, "wind": 0.1, "strike": -1.35, "tip": Vector3(0, 0.5, -0.28),
 		"hands": [["L", Vector3(0, 0.15, 0)], ["R", Vector3(0, 0.36, 0)]]},
-	"sledgehammer": {"rest_roll": -0.3, "grip": Vector3(0.14, -0.46, -0.64), "scale": 0.82, "rest": -0.55, "yaw": 0.15, "wind": 0.75, "strike": -1.5, "tip": Vector3(0, 0.74, -0.15), "lift": 0.1,
+	"sledgehammer": {"pause": 0.07, "rest_roll": -0.25, "grip": Vector3(0.2, -0.46, -0.58), "scale": 0.82, "rest": -1.1, "yaw": 0.5, "wind": 0.75, "strike": -1.5, "tip": Vector3(0, 0.74, -0.15), "lift": 0.1,
 		"hands": [["L", Vector3(0, 0.12, 0)], ["R", Vector3(0, 0.4, 0)]]},
-	"steel_pickaxe": {"rest_roll": -0.3, "grip": Vector3(0.14, -0.42, -0.55), "scale": 0.78, "rest": -0.75, "yaw": 0.2, "wind": 0.1, "strike": -1.35, "tip": Vector3(0, 0.55, -0.31),
+	"steel_pickaxe": {"pause": 0.035, "rest_roll": -0.25, "grip": Vector3(0.2, -0.42, -0.5), "scale": 0.78, "rest": -1.2, "yaw": 0.55, "wind": 0.1, "strike": -1.35, "tip": Vector3(0, 0.55, -0.31),
 		"hands": [["L", Vector3(0, 0.14, 0)], ["R", Vector3(0, 0.4, 0)]]},
-	"hardened_pickaxe": {"rest_roll": -0.3, "grip": Vector3(0.14, -0.42, -0.55), "scale": 0.76, "rest": -0.75, "yaw": 0.2, "wind": 0.12, "strike": -1.38, "tip": Vector3(0, 0.57, -0.33),
+	"hardened_pickaxe": {"pause": 0.035, "rest_roll": -0.25, "grip": Vector3(0.2, -0.42, -0.5), "scale": 0.76, "rest": -1.2, "yaw": 0.55, "wind": 0.12, "strike": -1.38, "tip": Vector3(0, 0.57, -0.33),
 		"hands": [["L", Vector3(0, 0.15, 0)], ["R", Vector3(0, 0.42, 0)]]},
-	"hand_splitter": {"grip": Vector3(0.28, -0.40, -0.5), "scale": 0.85, "rest": -0.95, "yaw": 0.1, "wind": -0.55, "strike": -1.2, "tip": Vector3(0, 0.46, -0.02), "lever": true,
+	"hand_splitter": {"pause": 0.05, "grip": Vector3(0.3, -0.34, -0.7), "scale": 0.85, "rest": -0.95, "yaw": 0.1, "wind": -0.55, "strike": -1.2, "tip": Vector3(0, 0.46, -0.02), "lever": true,
 		"hands": [["R", Vector3(0, 0.05, 0)], ["L", Vector3(0, 0.3, 0.26), Vector3(0, 0, 1)]]},          # the off hand rides the lever arm (its axis is Z)
 	"powered_hammer": {"grip": Vector3(0.28, -0.32, -0.5), "scale": 0.75, "power": true, "rest_rot": Vector3(0.1, 0.2, 0.0), "tip": Vector3(0, 0.12, -0.5), "spin": "pump_z", "amp": 0.012,
 		"hands": [["R", Vector3(0, 0.0, 0.08)], ["L", Vector3(-0.12, 0.12, -0.17), Vector3.RIGHT]]},   # pistol grip, and the side grip on the clamp (axis X)
-	"shovel": {"grip": Vector3(-0.06, -0.34, -0.46), "scale": 1.0, "rest": -0.6, "rest_roll": -0.5, "twist": 0.0, "yaw": 0.0, "wind": -0.35, "strike": -1.15, "tip": Vector3(0, 0.84, -0.04), "style": "scoop", "impact_p": 0.5,
-		"hands": [["L", Vector3(0, 0.1, 0)], ["R", Vector3(0, 0.32, 0)]]},                 # the reference pose: the left fist low on the handle, the right fist higher, the blade up and to the right
-	"bucket": {"grip": Vector3(0.22, -0.30, -0.55), "scale": 1.0, "rest": -0.05, "yaw": 0.0, "wind": 0.0, "strike": -0.35, "tip": Vector3(0, 0.0, 0), "hands": [["R", Vector3(0, 0.0, 0), Vector3.RIGHT]]},
-	"ramp_plan": {"grip": Vector3(0.28, -0.40, -0.52), "scale": 0.9, "rest": -0.45, "yaw": 0.15, "wind": -0.45, "strike": -0.5, "tip": Vector3(0, 0.5, -0.05), "hands": [["R", Vector3(0, 0.1, 0)]]},
+	"shovel": {"grip": Vector3(0.3, -0.18, -0.4), "scale": 1.1, "rest": -1.75, "rest_roll": 0.0, "twist": PI, "yaw": 0.42, "wind": -0.35, "strike": -1.15, "tip": Vector3(0, 0.98, -0.07), "style": "scoop", "engage_cap": 0.55, "impact_p": 0.34, "visual_scale": 1.6, "slide": 0.08},       # ready: the blade forward and down, the handle toward the chest, hands apart
+	"bucket": {"style": "carry", "grip": Vector3(0.1, 0.02, -0.52), "scale": 0.85, "rest": 0.3, "yaw": 0.0, "wind": 0.0, "strike": -0.35, "tip": Vector3(0, 0.0, 0), "hands": [["R", Vector3(0, 0.0, 0), Vector3.RIGHT]]},
+	"ramp_plan": {"grip": Vector3(0.3, -0.3, -0.62), "scale": 0.9, "rest": -0.45, "yaw": 0.3, "wind": -0.45, "strike": -0.5, "tip": Vector3(0, 0.5, -0.05), "hands": [["R", Vector3(0, 0.1, 0)]]},
 	"pneumatic_chisel": {"grip": Vector3(0.3, -0.14, -0.5), "scale": 0.75, "power": true, "rest_rot": Vector3(0.0, 0.3, 0.0), "model_pitch": 0.8, "tip": Vector3(0, -0.62, 0), "spin": "pump_y", "amp": 0.012,
 		"hands": [["R", Vector3(0.15, 0.04, 0), Vector3.RIGHT], ["L", Vector3(-0.15, 0.04, 0), Vector3.RIGHT]]},   # the T-handle grips (axis X)
 }

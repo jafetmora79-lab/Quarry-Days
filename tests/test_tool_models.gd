@@ -103,31 +103,36 @@ func run() -> void:
 		var gm := tv.model
 		check(gm != null and gm.name.begins_with("Tool_"), "tier %d is the Blender model in the tool view" % t)
 		var def: Dictionary = tv._def(t)
-		var want: int = (def["hands"] if def.has("hands") else QuarryToolView.HANDS[t]).size()
-		check((gm.get_meta("hand_nodes") as Array).size() == want, "tier %d: %d gloved hand(s)" % [t, want])
+		var want: int = FPTools.grips(ToolModels.key_of(t)).size()
+		var vis := 0
+		for side in tv.hands_rig.hands:
+			if (tv.hands_rig.hands[side]["root"] as Node3D).visible:
+				vis += 1
+		check(want >= 1, "tier %d: the tool has %d grip(s) for the shared hand rig" % [t, want])
 		var fired := [0]
 		for i in 20:
 			tv._process(1.0 / 60.0)
+		vis = 0
+		for side in tv.hands_rig.hands:
+			if (tv.hands_rig.hands[side]["root"] as Node3D).visible:
+				vis += 1
+		check(vis == want, "tier %d: %d gloved hand(s) on it" % [t, vis])
 		if not bool(def.get("power", false)):
 			tv.swing(0.5, func(): fired[0] += 1)
 			var min_slide := 0.0
-			var two := (gm.get_meta("hand_nodes") as Array).size() >= 2
-			var lh: Node3D = null
-			var base := Vector3.ZERO
-			for h in gm.get_meta("hand_nodes"):
-				if not bool(h["right"]) and Vector3(h["axis"]) == Vector3.UP:
-					lh = h["node"]
-					base = h["base"]
+			var slides := false
+			for g in FPTools.grips(ToolModels.key_of(t)):
+				if str(g["hand"]) == "L" and float(g.get("slide", 0.0)) > 0.0:
+					slides = true
 			for i in 60:
 				tv._process(1.0 / 60.0)
-				if lh:
-					min_slide = minf(min_slide, lh.position.y - base.y)
+				min_slide = minf(min_slide, tv._slide)
 			check(fired[0] == 1, "tier %d: the blow lands exactly once" % t)
-			if two and lh:
+			if slides:
 				check(min_slide < -0.02, "tier %d: the off hand slides down the shaft in the wind-up (%.3f)" % [t, min_slide])
-				for i in 40:
+				for i in 60:
 					tv._process(1.0 / 60.0)
-				check(absf(lh.position.y - base.y) < 0.005, "tier %d: and settles back to its grip" % t)
+				check(absf(tv._slide) < 0.005, "tier %d: and settles back to its grip" % t)
 		else:
 			tv.operating = true
 			for i in 30:

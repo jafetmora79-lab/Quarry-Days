@@ -31,21 +31,36 @@ var _obs := 0.0
 var shock := 0.0            ## 1 at the moment of a blow, decays: the tool shudders in the hands
 var _slide := 0.0           ## how far the off hand has slid along the shaft (m, model space)
 var suppressed := false     ## the game keeps the tool out of sight (at the computer): other code that shows or hides it respects this
+var hands_rig: FPHands      ## the shared hands (see FPHands / FPTools): the tool decides where they close
+var key := ""               ## model key of the tool in hand (ToolModels.key_of)
+var _grips: Array = []
+var payload: Node3D         ## the soil on the shovel's blade (ShovelPayload); null for other tools
+var payload_res := ""       ## what is on the blade right now (set when a strike really collected something)
+var _prev_rot := Vector3.ZERO
+var _prev_off := Vector3.ZERO
+var _from_rot := Vector3.ZERO
+var _from_off := Vector3.ZERO
+var _blend := 1.0           ## 0..1 blend from the pose we were in when a swing began (no snapping)
+var _pause := 0.0           ## the short hold at the moment of a heavy impact
+var tip_t := -1.0           ## the bucket tipping out (0..1), -1 idle
+var carry_load := 0.0       ## 0..1: how full the carried bucket is (its weight sags the pose)
+var _clods: Array = []      ## soil leaving the blade: [{node, vel, life}]
+signal payload_dumped(res: String)
 
 ## Per-tool first-person pose. Camera space: -Z is forward, +X right, +Y up. Swing tools hold their handle along +Y
 ## from the grip; `rest`/`wind`/`strike` are pitch angles (rad) about the grip (negative = working end forward).
 ## `tip` is the working point in model space: the pick point, the hammer face, the bit or chisel end.
 ## Power tools use `rest_rot` (euler) to aim their working end at the crosshair, and `model_pitch` leans the whole model.
 const TOOL := {
-	0: {"rest_roll": -0.25, "grip": Vector3(0.18, -0.42, -0.55), "scale": 0.8, "rest": -0.75, "yaw": 0.2, "wind": 0.0, "strike": -1.35, "follow": 0.025, "roll": 0.06, "lunge": 0.55, "kick": 0.5, "tip": Vector3(0, 0.36, -0.1)},        # the hammer: a short, compact, controlled blow
-	1: {"rest_roll": -0.3, "grip": Vector3(0.14, -0.42, -0.55), "scale": 0.8, "rest": -0.75, "yaw": 0.2, "wind": 0.2, "lift": 0.03, "strike": -1.35, "follow": 0.11, "roll": 0.24, "lunge": 1.15, "kick": 1.0, "tip": Vector3(0, 0.48, -0.27)},    # the pickaxe: a higher overhead arc with a follow-through
-	2: {"rest_roll": -0.3, "grip": Vector3(0.14, -0.42, -0.55), "scale": 0.75, "rest": -0.75, "yaw": 0.2, "wind": 0.3, "lift": 0.05, "strike": -1.35, "follow": 0.13, "roll": 0.26, "lunge": 1.2, "kick": 1.15, "tip": Vector3(0, 0.52, -0.32)},    # reinforced: the heaviest wind-up
+	0: {"pause": 0.04, "rest_roll": -0.3, "grip": Vector3(0.22, -0.4, -0.5), "scale": 0.8, "rest": -0.95, "yaw": -0.2, "wind": 0.0, "strike": -1.35, "follow": 0.025, "roll": 0.06, "lunge": 0.55, "kick": 0.5, "tip": Vector3(0, 0.36, -0.1)},        # the hammer: a short, compact, controlled blow
+	1: {"pause": 0.035, "rest_roll": -0.25, "grip": Vector3(0.2, -0.42, -0.5), "scale": 0.8, "rest": -1.2, "yaw": 0.55, "wind": 0.2, "lift": 0.03, "strike": -1.35, "follow": 0.11, "roll": 0.24, "lunge": 1.15, "kick": 1.0, "tip": Vector3(0, 0.48, -0.27)},    # the pickaxe: a higher overhead arc with a follow-through
+	2: {"pause": 0.035, "rest_roll": -0.25, "grip": Vector3(0.2, -0.42, -0.5), "scale": 0.75, "rest": -1.2, "yaw": 0.55, "wind": 0.3, "lift": 0.05, "strike": -1.35, "follow": 0.13, "roll": 0.26, "lunge": 1.2, "kick": 1.15, "tip": Vector3(0, 0.52, -0.32)},    # reinforced: the heaviest wind-up
 	3: {"grip": Vector3(0.28, -0.3, -0.5), "scale": 0.7, "power": true, "spin": "rotate", "amp": 0.006, "rest_rot": Vector3(0.12, 0.2, 0.0), "tip": Vector3(0, 0.12, -0.54)},
 	4: {"grip": Vector3(0.3, -0.12, -0.5), "scale": 0.7, "power": true, "spin": "pump_y", "amp": 0.014, "rest_rot": Vector3(0.0, 0.3, 0.0), "model_pitch": 0.8, "tip": Vector3(0, -0.61, 0)},
 }
 const REACH_MIN := 0.85      # the working end meets the rock this far in front of the camera, at least...
 const REACH_MAX := 1.6       # ...and at most (mining reach in main.gd is just beyond this)
-const MAX_CORRECTION := 0.55
+const MAX_CORRECTION := 0.34
 
 var target_dist := 1.2       # distance to the rock under the crosshair (set by the game when engaged)
 var tip_cam := Vector3.ZERO  # working end in camera space after the last update (for tests)
@@ -54,6 +69,8 @@ var engage := 0.0            # 0..1 how much the working end is pulled onto the 
 func _ready() -> void:
 	pivot = Node3D.new()
 	add_child(pivot)
+	hands_rig = FPHands.new()
+	pivot.add_child(hands_rig)
 
 ## The pose definition of a tool tier: the five ladder tools, or one of the Phase 9 tools (tier >= GearModels.TIER_BASE).
 func _def(t: int) -> Dictionary:
@@ -87,6 +104,12 @@ func _show(t: int) -> void:
 	model = models[t]
 	model.scale = Vector3.ONE * float(_def(t).get("scale", 1.0))
 	model.visible = true
+	key = ToolModels.key_of(t)
+	_grips = FPTools.grips(key)
+	payload = null
+	payload_res = ""
+	if key == "shovel":
+		payload = model.get_meta("payload") if model.has_meta("payload") else ShovelPayload.attach(model)
 	spinner = model.get_meta("spinner") if model.has_meta("spinner") else null
 	lever = model.get_meta("lever") if model.has_meta("lever") else null
 	phase = -1.0
@@ -97,10 +120,51 @@ func is_busy() -> bool:
 
 ## Starts one swing lasting `d` seconds; `impact` fires at the strike moment.
 func swing(d: float, impact: Callable) -> void:
-	duration = maxf(0.2, d)
+	duration = maxf(0.2, d * float(_def(tier).get("visual_scale", 1.0)))
+	_from_rot = _prev_rot
+	_from_off = _prev_off
+	_blend = 0.0                                   # the new swing grows out of whatever pose the last one left (no snapping)
+	if payload_res != "":
+		_dump_payload(false)                       # a new dig starts: whatever was still on the blade falls off
 	phase = 0.0
 	impact_done = false
 	on_impact = impact
+
+## The strike really collected `res`: it sits on the blade from the moment the blade leaves the ground until it is tipped off. Only the shovel shows a payload.
+func set_payload(res: String) -> void:
+	if payload == null or res == "":
+		return
+	payload_res = res
+	ShovelPayload.fill(payload, res)
+	payload.visible = false
+
+func has_payload() -> bool:
+	return payload_res != ""
+
+## The load leaves the blade: a few clods fall away from it (`animated`), the heap disappears.
+func _dump_payload(animated: bool) -> void:
+	var res := payload_res
+	payload_res = ""
+	if payload != null:
+		if animated and payload.visible:
+			var from := to_local(payload.global_position)
+			var rng := RandomNumberGenerator.new()
+			rng.randomize()
+			var mat := MeshKit.mat(BucketView.MATS.get(res, "ExcavatedDirt"))
+			for i in range(7):
+				var m := MeshInstance3D.new()
+				m.mesh = MeshKit.box(Vector3.ONE * rng.randf_range(0.018, 0.034))
+				m.material_override = mat
+				m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				add_child(m)
+				m.position = from + Vector3(rng.randf_range(-0.05, 0.05), rng.randf_range(0.0, 0.04), rng.randf_range(-0.05, 0.02))
+				_clods.append({"node": m, "vel": Vector3(rng.randf_range(-0.25, 0.25), rng.randf_range(-0.2, 0.1), rng.randf_range(-0.7, -0.25)), "life": 0.5})
+		payload.visible = false
+	payload_dumped.emit(res)
+
+## The bucket in hand tips out (called when its load goes into the box or the hopper): it rotates about the hand on the bail and comes back.
+func tip_bucket() -> void:
+	tip_t = 0.0
 
 ## Tool bounces off rock that is too hard.
 func deflect() -> void:
@@ -135,37 +199,28 @@ func _process(delta: float) -> void:
 		rot.y = float(def.get("yaw", 0.0))
 		rot.z = float(def.get("rest_roll", 0.0))                      # the handle leans toward the middle of the screen (the reference pose)
 		if phase >= 0.0:
-			phase += delta / duration
+			if _pause > 0.0:
+				_pause -= delta                                  # the hold at the moment of a heavy impact
+			else:
+				phase += delta / duration
 			var p := phase
 			strike_p = p
 			var wind: float = def["wind"]
 			var strike: float = def["strike"]
 			var ang := rest
 			var scoop: bool = str(def.get("style", "")) == "scoop"
+			var scoop_roll := 0.0
 			var lg := float(def.get("lunge", 1.0))            # how far the head lunges forward into the blow
 			if scoop:
-				# a shovel: lower the blade toward the soil, drive it in, lift the load, bring it back to rest
-				var mid := lerpf(rest, strike, 0.45)
-				if p < 0.3:
-					var a := p / 0.3
-					ang = lerpf(rest, mid, 1.0 - pow(1.0 - a, 2.0))
-					off = Vector3(0.0, -0.1, -0.04) * a
-				elif p < 0.52:
-					var a2 := (p - 0.3) / 0.22
-					ang = lerpf(mid, strike, a2 * a2)
-					off = Vector3(0.0, lerpf(-0.1, -0.16, a2), lerpf(-0.04, -0.16, a2))
-					weight = a2 * a2
-				elif p < 0.8:
-					var a3 := (p - 0.52) / 0.28
-					var e3 := 1.0 - pow(1.0 - a3, 3.0)
-					ang = lerpf(strike, wind, e3)
-					off = Vector3(0.0, lerpf(-0.16, 0.07, e3), lerpf(-0.16, -0.05, e3))
-					weight = 1.0 - clampf(a3 * 2.0, 0.0, 1.0)
-				else:
-					var a4 := (p - 0.8) / 0.2
-					var e4 := 1.0 - pow(1.0 - a4, 3.0)
-					ang = lerpf(wind, rest, e4)
-					off = Vector3(0.0, 0.07, -0.05).lerp(Vector3.ZERO, e4)
+				var sp := _scoop_pose(p, rest)
+				ang = sp["ang"]
+				off = sp["off"]
+				weight = sp["weight"]
+				scoop_roll = sp["roll"]
+				if payload_res != "" and payload != null:
+					payload.visible = p >= 0.38 and p < 0.8                           # on the blade from the moment it leaves the soil, until it is tipped off
+					if p >= 0.8:
+						_dump_payload(true)
 			elif p < 0.42:                                  # wind-up: ease out, working end goes up and back
 				var a := p / 0.42
 				ang = lerpf(rest, wind, 1.0 - pow(1.0 - a, 3.0))
@@ -184,25 +239,50 @@ func _process(delta: float) -> void:
 			if p >= float(def.get("impact_p", 0.58)) and not impact_done:
 				impact_done = true
 				shock = 1.0
+				_pause = float(def.get("pause", 0.0))
 				if on_impact.is_valid():
 					on_impact.call()
 			rot.x = ang
 			rot.y = float(def.get("yaw", 0.0)) * (1.0 - 0.7 * weight)
-			rot.z = float(def.get("rest_roll", 0.0)) + float(def.get("roll", 0.2)) * sin(clampf(p, 0.0, 1.0) * PI)
+			rot.z = float(def.get("rest_roll", 0.0)) + (scoop_roll if scoop else float(def.get("roll", 0.2)) * sin(clampf(p, 0.0, 1.0) * PI))
 			if phase >= 1.0:
 				phase = -1.0
+				if payload_res != "":
+					_dump_payload(false)
 	else:
 		var rr: Vector3 = def["rest_rot"]
 		rot = rr
 	# equip / unequip: the tool tips toward the player as it drops out of view and comes back up level; a slow breath of sway while it is held;
 	# a short shudder through the handle after every blow
+	if _blend < 1.0:                                      # grow out of the previous pose
+		_blend = minf(1.0, _blend + delta / 0.16)
+		var bk := _blend * _blend * (3.0 - 2.0 * _blend)
+		rot = _from_rot.lerp(rot, bk)
+		off = _from_off.lerp(off, bk)
+	if str(def.get("style", "")) == "carry":
+		var sag := carry_load
+		off.y -= 0.035 * sag
+		rot.z += 0.06 * sag + sin(bob_t * 0.5) * 0.05 * moving * (0.4 + sag)             # a heavy bucket hangs lower and swings with the steps
+		if tip_t >= 0.0:
+			tip_t += delta / 0.9
+			var tp := sin(clampf(tip_t, 0.0, 1.0) * PI)
+			rot.z += -1.9 * tp * tp                                                       # tips about the hand on the bail
+			off += Vector3(-0.04, 0.04, -0.06) * tp
+			if tip_t >= 1.0:
+				tip_t = -1.0
+	_prev_rot = rot
+	_prev_off = off
 	rot.x += lower * 1.0
 	rot.z += lower * 0.35
 	shock = maxf(0.0, shock - delta * 5.0)
 	if not is_power:
 		rot.z += sin(_t * 1.3) * 0.012 * (1.0 - moving) * (1.0 if phase < 0.0 else 0.0)
-		off.y += sin(_t * 1.7) * 0.003 * (1.0 - moving)
+		off.y += sin(_t * 1.7) * 0.003 * (1.0 - moving)                                   # breathing
+		rot.x += sin(_t * 1.7 + 0.6) * 0.004 * (1.0 - moving)
 		rot.x += sin(_t * 75.0) * 0.03 * shock * shock
+		off += Vector3(0.0, 0.01, 0.03) * shock * shock                                   # the blow's recoil comes back through the hands
+	else:
+		off.y += sin(_t * 1.7) * 0.002 * (1.0 - op_blend)
 	_pose_hands(def, strike_p, delta)
 	_obs = move_toward(_obs, obstruct, delta * 5.0)          # eased both ways: no pop when a wall comes or goes
 	if _obs > 0.0:
@@ -254,12 +334,14 @@ func _process(delta: float) -> void:
 	var tip_now := placed + pivot.transform.basis * (model.transform * tip_local) if model else placed
 	var contact := Vector3(0, 0, -clampf(target_dist, REACH_MIN, REACH_MAX))
 	var corr := (contact - tip_now)
-	var cap := MAX_CORRECTION if not is_power else 0.1 # power tools stay in the hands: only a small nudge toward the rock
+	var cap := float(def.get("engage_cap", MAX_CORRECTION)) if not is_power else 0.1 # power tools stay in the hands: only a small nudge toward the rock
 	if corr.length() > cap:
 		corr = corr.normalized() * cap
 	engage = weight
 	position = placed + corr * weight
 	tip_cam = tip_now + corr * weight
+	_update_clods(delta)
+	_pose_rig(def)
 
 # ------------------------------------------------------------------ models (handle along +Y from the grip)
 
@@ -384,7 +466,10 @@ func _hand_frame(t: int) -> Array:
 	var model_b := Basis.from_euler(Vector3(float(def.get("model_pitch", 0.0)), float(def.get("twist", 0.0)), 0.0))
 	return [(pivot_b * model_b).inverse(), 1.0 / float(def.get("scale", 1.0))]
 
-func _add_hands(n: Node3D, t: int) -> void:
+func _add_hands(_n: Node3D, _t: int) -> void:
+	return                                           # the hands are the shared rig (FPHands), not part of any tool model
+
+func _add_hands_old(n: Node3D, t: int) -> void:
 	var def: Dictionary = _def(t)
 	var fr := _hand_frame(t)
 	var list := []
@@ -397,10 +482,7 @@ func _add_hands(n: Node3D, t: int) -> void:
 
 ## The off hand works along the shaft while swinging: it slides down toward the other hand as the head goes back, then rides out again through the blow.
 func _pose_hands(def: Dictionary, p: float, delta: float) -> void:
-	if model == null or not model.has_meta("hand_nodes") or bool(def.get("power", false)):
-		return
-	var list: Array = model.get_meta("hand_nodes")
-	if list.size() < 2:
+	if model == null or bool(def.get("power", false)) or _grips.size() < 2:
 		return
 	var reach := float(def.get("slide", 0.06))
 	var want := 0.0
@@ -414,10 +496,94 @@ func _pose_hands(def: Dictionary, p: float, delta: float) -> void:
 		else:
 			want = lerpf(reach * 0.35, 0.0, clampf((p - 0.58) / 0.3, 0.0, 1.0))
 	_slide = lerpf(_slide, want, clampf(delta * 18.0, 0.0, 1.0))
-	for h in list:
-		if not bool(h["right"]) and Vector3(h["axis"]) == Vector3.UP:
-			var nd: Node3D = h["node"]
-			nd.position = Vector3(h["base"]) + Vector3.UP * _slide
+
+## The shared hands for this frame: grips from FPTools, the forearms' anchors from the camera corners, all in the pivot's space.
+func _pose_rig(def: Dictionary) -> void:
+	if hands_rig == null or model == null or not model.visible or _grips.is_empty():
+		if hands_rig != null:
+			hands_rig.hide_all()
+		return
+	var inv := pivot.basis.inverse()
+	var anchors := {"R": inv * (FPTools.ANCHOR_R - position), "L": inv * (FPTools.ANCHOR_L - position), "pole_R": (inv * Vector3(0.6, -1.0, 0.3)).normalized(), "pole_L": (inv * Vector3(-0.6, -1.0, 0.3)).normalized()}
+	var toward_cam := (inv * (-position)).normalized()
+	var grips: Array = []
+	for g in _grips:
+		var gg: Dictionary = g.duplicate()
+		var xf := model.transform
+		if g.has("node"):
+			var nd := model.find_child(str(g["node"]), true, false) as Node3D
+			if nd != null:
+				xf = model.transform * nd.transform
+		gg["xf"] = xf
+		var sl := float(g.get("slide", 0.0))
+		gg["slide_k"] = sl
+		grips.append(gg)
+	var slide := {"L": _slide, "R": 0.0}
+	hands_rig.pose(grips, model.transform, anchors, toward_cam, clampf(shock, 0.0, 1.0), slide)
+
+func _update_clods(delta: float) -> void:
+	for i in range(_clods.size() - 1, -1, -1):
+		var c: Dictionary = _clods[i]
+		c["life"] = float(c["life"]) - delta
+		var v: Vector3 = c["vel"]
+		v.y -= 3.0 * delta
+		c["vel"] = v
+		var n: Node3D = c["node"]
+		n.position += v * delta
+		if float(c["life"]) <= 0.0:
+			n.queue_free()
+			_clods.remove_at(i)
+		else:
+			n.scale = Vector3.ONE * clampf(float(c["life"]) / 0.3, 0.2, 1.0)
+
+## The shovel's digging cycle, as pitch about the grip (rest = the ready pose with the blade forward and down): anticipation (the blade lowers toward the soil), insertion (driven in with resistance:
+## slow at first, then it bites at the impact moment), lever (the handle goes forward and down, the blade heaves up under the load), lift (blade level, load on it), carry (steady, a sway),
+## dump (the blade tips forward and rolls, the load leaves), recovery (back to ready with a small settle). Returns ang, off, weight (contact with the ground) and roll.
+func _scoop_pose(p: float, rest: float) -> Dictionary:
+	var ang := rest
+	var off := Vector3.ZERO
+	var weight := 0.0
+	var roll := 0.0
+	if p < 0.16:                                                                   # anticipation
+		var a := _ease_io(p / 0.16)
+		ang = rest - 0.30 * a
+		off = Vector3(0.0, -0.05, -0.08) * a
+	elif p < 0.34:                                                                 # insertion: resistance, then the bite
+		var a2 := pow((p - 0.16) / 0.18, 1.8)
+		ang = rest - 0.30 - 0.14 * a2
+		off = Vector3(0.0, lerpf(-0.05, -0.2, a2), lerpf(-0.08, -0.22, a2))
+		weight = a2
+	elif p < 0.52:                                                                 # lever: heavy, slow at the start
+		var a3 := _ease_io((p - 0.34) / 0.18)
+		ang = lerpf(rest - 0.44, rest + 0.1, a3)
+		off = Vector3(0.0, lerpf(-0.2, -0.02, a3), lerpf(-0.22, -0.12, a3))
+		weight = 1.0 - 0.45 * a3
+	elif p < 0.68:                                                                 # lift
+		var a4 := _ease_io((p - 0.52) / 0.16)
+		ang = lerpf(rest + 0.1, rest + 0.5, a4)
+		off = Vector3(0.0, lerpf(-0.02, 0.07, a4), lerpf(-0.12, -0.05, a4))
+		weight = 0.55 * (1.0 - a4)
+	elif p < 0.78:                                                                 # carry
+		var a5 := (p - 0.68) / 0.1
+		ang = rest + 0.5 + sin(a5 * PI) * 0.02
+		off = Vector3(0.0, 0.07, -0.05)
+		roll = sin(a5 * PI * 2.0) * 0.03
+	elif p < 0.9:                                                                  # dump: forward and a roll
+		var a6 := _ease_io((p - 0.78) / 0.12)
+		ang = lerpf(rest + 0.5, rest - 0.2, a6)
+		off = Vector3(0.0, lerpf(0.07, 0.06, a6), lerpf(-0.05, -0.1, a6))
+		roll = 0.45 * a6
+	else:                                                                          # recovery
+		var a7 := (p - 0.9) / 0.1
+		var e7 := 1.0 - pow(1.0 - a7, 3.0)
+		ang = lerpf(rest - 0.2, rest, e7) + sin(a7 * PI) * 0.03
+		off = Vector3(0.0, 0.06, -0.1).lerp(Vector3.ZERO, e7)
+		roll = 0.45 * (1.0 - e7)
+	return {"ang": ang, "off": off, "weight": weight, "roll": roll}
+
+static func _ease_io(t: float) -> float:
+	var x := clampf(t, 0.0, 1.0)
+	return x * x * (3.0 - 2.0 * x)
 
 ## One gloved fist with its cuff band and jacket sleeve, closed at `at` (model space) of `parent`; the sleeve runs toward the screen edge.
 func _hand(n: Node3D, right: bool, at: Vector3, inv: Basis, inv_s: float, cam_dir := Vector3.ZERO, axis := Vector3.UP, procedural := false) -> Node3D:

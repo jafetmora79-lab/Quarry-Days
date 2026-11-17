@@ -211,17 +211,17 @@ func run() -> void:
 	for tier in range(5):
 		tv.equip(tier, true)
 		await process_frame
-		var mdl: Node3D = tv.model
 		var fists := 0
 		var nearest := 9.0
-		for mi in mdl.find_children("*", "MeshInstance3D", true, false):
-			var sm := (mi as MeshInstance3D).material_override as StandardMaterial3D        # the forearm is the orange sleeve
-			if sm != null and sm.albedo_color.is_equal_approx(QuarryToolView.SLEEVE):
-				if true:
-					fists += 1
-					var cam_local: Vector3 = game.player.camera.global_transform.affine_inverse() * (mi as MeshInstance3D).global_position
-					nearest = minf(nearest, -cam_local.z)
-		var want_hands: int = tv.HANDS[tier].size()
+		var frig: FPHands = tv.hands_rig                        # the shared rig: one visible hand per grip of the tool, each with its forearm (the slate sleeve)
+		for side in frig.hands:
+			var hh: Dictionary = frig.hands[side]
+			if (hh["root"] as Node3D).visible:
+				fists += 1
+				var sl: Node3D = hh["sleeve"]
+				var cam_local: Vector3 = game.player.camera.global_transform.affine_inverse() * sl.global_position
+				nearest = minf(nearest, -cam_local.z)
+		var want_hands: int = FPTools.grips(ToolModels.key_of(tier)).size()
 		check(fists == want_hands and nearest > 0.2, "H tier %d is held by %d hand(s) with forearms in view (found %d, nearest %.2f m in front of the camera)" % [tier, want_hands, fists, nearest])
 	tv.equip(game.state.tool_tier, true)
 	# the strike frame carries the full impact pose

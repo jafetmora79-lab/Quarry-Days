@@ -17,6 +17,8 @@ func nearest_z(tv: QuarryToolView) -> float:
 	# the nearest point (largest z, camera space; the camera looks down -Z) of every mesh of the tool in the view's parent space
 	var zmax := -1e9
 	for mi in tv.find_children("*", "MeshInstance3D", true, false):
+		if not (mi as MeshInstance3D).is_visible_in_tree():
+			continue                                     # the hand that this tool does not use is hidden
 		var bb: AABB = (mi as MeshInstance3D).get_aabb()
 		var xf: Transform3D = tv.global_transform.affine_inverse() * (mi as MeshInstance3D).global_transform
 		xf = tv.transform * (tv.global_transform.affine_inverse() * (mi as MeshInstance3D).global_transform)

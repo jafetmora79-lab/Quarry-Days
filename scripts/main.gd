@@ -1585,6 +1585,7 @@ func deliver_hand_to_storage() -> int:
 	if moved > 0:
 		pickup_audio.play()
 		_notify("Tipped the bucket into the box: %d (%d / %d)." % [moved, state.total(state.storage), state.storage_capacity()])
+		player.tool_view.tip_bucket()
 	return moved
 
 ## Tips the bucket in the hands into the Cash Hopper, which sells it by itself.
@@ -1595,6 +1596,7 @@ func deliver_hand_to_hopper(idx: int) -> int:
 		n += int(moved[k])
 	if n > 0:
 		pickup_audio.play()
+		player.tool_view.tip_bucket()
 		hud.toast("Into the hopper: %d units" % n, "It sells them one by one", "sale")
 	else:
 		_notify("The hopper is full: let it work a bit." if state.hand_bucket.size() > 0 else "The bucket is empty.")
@@ -1610,6 +1612,8 @@ func _player_yield(res: String, n: int, at: Vector3) -> int:
 			state.note_lifetime("mined", res, put)
 	if put < n:
 		put += state.add_item(res, n - put)
+	if put > 0 and player != null and player.tool_view != null and player.tool_view.phase >= 0.0:
+		player.tool_view.set_payload(res)                 # the strike really collected something: it sits on the shovel's blade until it is tipped off
 	return put
 
 ## The bucket in hand tipped over the ground: one bucket's load (up to the bucket size, the biggest heap of it first) is poured where you aim, as loose material on the terrain (units -> m3 at
@@ -2301,6 +2305,7 @@ func _bucket_tick(delta: float) -> void:
 	var cap := state.bucket_capacity()
 	if player.tool_view != null and player.tool_view.model != null and player.tool_view.model.has_meta("bucket_model"):           # the bucket is in hand: it shows what it really holds
 		BucketView.set_load(player.tool_view.model.get_meta("bucket_model"), state.hand_bucket, cap)
+		player.tool_view.carry_load = clampf(float(state.total(state.hand_bucket)) / float(maxi(1, cap)), 0.0, 1.0)      # its weight hangs in the pose
 	player.load_mult = 1.0 - minf(0.35, 0.035 * float(maxi(0, BucketView.count_of(total, cap) - 1))) - 0.25 * minf(1.0, float(state.total(state.hand_bucket)) / float(maxi(1, cap)))
 	if Input.is_action_pressed("interact") and last_target != null and is_instance_valid(last_target) and str(last_target.get_meta("kind", "")) == "storage" and total > 0:
 		_dump_hold += delta
