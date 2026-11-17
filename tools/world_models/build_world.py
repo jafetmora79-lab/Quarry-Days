@@ -92,6 +92,19 @@ Q.MATERIALS.update({
     "FossilEgg": (None, (0.66, 0.62, 0.54), 1.0, 0.0, {}),
     "Slab":      (None, (0.46, 0.42, 0.36), 1.0, 0.0, {}),
     "SlabLt":    (None, (0.60, 0.55, 0.46), 1.0, 0.0, {}),
+    "HopSteel":  (None, (0.31, 0.39, 0.34), 0.75, 0.3, {}),
+    "HopSteelDk": (None, (0.20, 0.26, 0.23), 0.8, 0.3, {}),
+    "HopRust":   (None, (0.49, 0.27, 0.13), 1.0, 0.1, {}),
+    "HopRustDk": (None, (0.33, 0.18, 0.09), 1.0, 0.1, {}),
+    "HopYellow": (None, (0.90, 0.69, 0.13), 0.8, 0.0, {}),
+    "HopIron":   (None, (0.15, 0.15, 0.16), 0.7, 0.5, {}),
+    "HopBrass":  (None, (0.80, 0.61, 0.24), 0.45, 0.6, {}),
+    "HopConcrete": (None, (0.50, 0.50, 0.47), 1.0, 0.0, {}),
+    "HopStain":  (None, (0.22, 0.2, 0.17), 1.0, 0.0, {}),
+    "HopScreen": (None, (0.10, 0.18, 0.12), 0.3, 0.0, {}),
+    "HopLamp":   (None, (0.9, 0.2, 0.12), 0.4, 0.0, {"emit": 1.2}),
+    "HopWood":   (None, (0.42, 0.29, 0.17), 1.0, 0.0, {}),
+    "HopRock":   (None, (0.70, 0.68, 0.62), 1.0, 0.0, {}),
 })
 
 
@@ -1039,10 +1052,163 @@ def fossil_nest(root):
     gl.finish()
 
 
+def cash_hopper(root):
+    """Grandpa Walt's old Cash Hopper: a riveted, rusting steel hopper on a concrete plinth. Footprint 1.9 x 1.9 m, front (the display) faces -Z, a belt reaches it from any side. A wide
+    octagonal funnel with a hazard rim on top of a riveted housing, a spoked cast flywheel on the +X side, a hinged flap on top, a piston ram, a status lamp, a blank sign board, a coin tray
+    and a chute at the back. Named nodes for the game (scripts/cash_hopper_view.gd): Attach_Body, Attach_InputFunnel, Attach_Processor, Attach_ConveyorIn, Attach_RockSpawn, Attach_Audio,
+    Attach_FloatText, Attach_Display, Pivot_Flywheel (spins about X), Pivot_Flap (hinge about X), Pivot_Piston (slides in Y), Pivot_Funnel (shakes while it works), Lamp_Status (its
+    material is recoloured), Fill (the heap of rock waiting in the funnel: the game scales it)."""
+    ST, SD, RU, RD, YE, IR, BR, CO, SN = "HopSteel", "HopSteelDk", "HopRust", "HopRustDk", "HopYellow", "HopIron", "HopBrass", "HopConcrete", "HopStain"
+    r = rnd(23)
+    t = TM("Body", root, holder=True)
+    # ---- plinth, anchor bolts, oil stains
+    t.box((0, 0.09, 0), (1.9, 0.18, 1.9), CO, taper=(0.97, 0.97))
+    t.box((0, 0.19, 0), (1.76, 0.03, 1.76), CO)
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            t.cyl((sx * 0.8, 0.22, sz * 0.8), 0.05, 0.05, 0.08, IR, seg=6)
+            t.box((sx * 0.8, 0.185, sz * 0.8), (0.16, 0.012, 0.16), IR)
+    for k in range(6):
+        t.box((r.uniform(-0.8, 0.8), 0.195, r.uniform(-0.8, 0.8)), (r.uniform(0.15, 0.4), 0.004, r.uniform(0.1, 0.3)), SN, rot_y=r.uniform(0, 3))
+    # ---- corner posts (steel angle), cross bracing
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            t.box((sx * 0.78, 0.82, sz * 0.78), (0.14, 1.28, 0.14), SD)
+            t.box((sx * 0.78, 0.22, sz * 0.78), (0.2, 0.06, 0.2), IR)
+    for sz in (-1, 1):
+        t.bar((-0.78, 0.3, sz * 0.84), (0.78, 1.1, sz * 0.84), 0.06, 0.05, SD, up=(0, 0, 1))
+        t.bar((0.78, 0.3, sz * 0.84), (-0.78, 1.1, sz * 0.84), 0.06, 0.05, SD, up=(0, 0, 1))
+    # ---- the housing: riveted panels with seams, vents, a service hatch at the back
+    t.box((0, 0.86, 0), (1.62, 1.0, 1.62), ST, taper=(0.99, 0.99))
+    for k in range(5):                                                                              # horizontal panel seams on all four faces
+        y = 0.45 + k * 0.2
+        t.box((0, y, -0.815), (1.64, 0.015, 0.01), SD)
+        t.box((0, y, 0.815), (1.64, 0.015, 0.01), SD)
+        t.box((-0.815, y, 0), (0.01, 0.015, 1.64), SD)
+        t.box((0.815, y, 0), (0.01, 0.015, 1.64), SD)
+    for k in range(9):                                                                              # rivet rows along the seams
+        x = -0.7 + k * 0.175
+        for y in (0.45, 0.85, 1.25):
+            t.box((x, y + 0.02, -0.82), (0.03, 0.03, 0.02), IR)
+            t.box((x, y + 0.02, 0.82), (0.03, 0.03, 0.02), IR)
+    for k in range(6):                                                                              # rust blooms and scrapes
+        sx = r.choice((-1, 1))
+        t.box((sx * 0.815, r.uniform(0.5, 1.3), r.uniform(-0.6, 0.6)), (0.012, r.uniform(0.1, 0.3), r.uniform(0.15, 0.4)), RU if k % 2 else RD)
+        t.box((r.uniform(-0.6, 0.6), r.uniform(0.5, 1.3), -0.82 if k % 2 else 0.82), (r.uniform(0.15, 0.4), r.uniform(0.1, 0.25), 0.012), RU if k % 3 else RD)
+    for k in range(5):                                                                              # louvred vents on the -X side
+        t.box((-0.83, 0.62 + k * 0.07, 0.0), (0.03, 0.03, 0.5), SD, taper=(1.0, 1.0))
+    t.box((0, 0.75, 0.83), (0.8, 0.6, 0.03), SD)                                                    # the service hatch at the back, with hinges and a latch
+    for sy in (0.55, 0.95):
+        t.cyl((-0.4, sy, 0.855), 0.03, 0.03, 0.12, IR, seg=6, axis='z')
+    t.box((0.3, 0.75, 0.86), (0.1, 0.05, 0.03), BR)
+    # ---- the front: display bezel and screen housing, a brass plaque and a blank sign board hung on chains
+    t.box((0, 1.0, -0.84), (1.34, 0.62, 0.08), IR)
+    t.box((0, 1.0, -0.88), (1.2, 0.5, 0.03), "HopScreen")
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            t.cyl((sx * 0.6, 1.0 + sy * 0.25, -0.89), 0.018, 0.018, 0.015, BR, seg=6, axis='z')
+    t.box((0.5, 0.52, -0.83), (0.3, 0.1, 0.02), BR)                                                 # a brass plaque (blank)
+    t.box((0, 0.48, -0.9), (0.9, 0.08, 0.1), SD)                                                    # the coin tray lip and its tray
+    t.box((0, 0.42, -0.95), (0.8, 0.04, 0.2), BR)
+    t.box((0, 0.46, -1.04), (0.8, 0.08, 0.02), BR)
+    for sx in (-1, 1):
+        t.bar((sx * 0.55, 1.62, -0.7), (sx * 0.55, 1.35, -0.86), 0.015, 0.015, IR, up=(1, 0, 0))   # the sign's chains
+    t.box((0, 1.28, -0.9), (1.2, 0.2, 0.05), "HopWood")
+    t.box((0, 1.28, -0.93), (1.12, 0.16, 0.01), "HopYellow")
+    # ---- the top plate the funnel stands on, the funnel's four brackets, the rim
+    t.box((0, 1.4, 0), (1.75, 0.12, 1.75), SD, taper=(0.98, 0.98))
+    t.box((0, 1.47, 0), (1.62, 0.03, 1.62), RD)
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            t.bar((sx * 0.65, 1.46, sz * 0.65), (sx * 0.42, 1.95, sz * 0.42), 0.09, 0.05, SD, up=(0, 1, 0))
+    # ---- coin chute at the back (where belts meet it: the game links them by distance), and a drain pipe
+    t.box((0, 0.55, 0.98), (0.7, 0.14, 0.3), IR)
+    t.bar((0, 0.62, 0.84), (0, 0.5, 1.12), 0.64, 0.05, SD, up=(0, 1, 0))
+    for sx in (-1, 1):
+        t.box((sx * 0.35, 0.6, 1.05), (0.04, 0.2, 0.34), SD)
+    t.cyl((-0.7, 0.5, 0.86), 0.05, 0.05, 1.0, IR, seg=6)
+    # ---- the motor with its belt guard, next to the flywheel's axle
+    t.box((0.9, 0.5, 0.4), (0.3, 0.3, 0.4), SD)
+    t.cyl((0.9, 0.55, 0.4), 0.12, 0.12, 0.34, RU, seg=8, axis='x')
+    t.box((0.9, 0.82, 0.22), (0.26, 0.16, 0.06), IR)
+    t.finish()
+
+    # ---- funnel: a wide octagonal frustum with ribs, a hazard rim, a dark throat
+    fn = TM("Pivot_Funnel", root, loc=(0, 1.45, 0), holder=True)
+    fn.cyl((0, 1.78, 0), 0.5, 0.98, 0.66, RU, seg=8)
+    fn.cyl((0, 1.78, 0), 0.47, 0.94, 0.68, SN, seg=8)                                               # the inside, dark
+    fn.cyl((0, 2.13, 0), 1.02, 1.02, 0.06, YE, seg=8)                                               # the hazard rim
+    for k in range(8):
+        a = math.tau * (k + 0.5) / 8
+        fn.box((math.cos(a) * 0.74, 2.14, math.sin(a) * 0.74), (0.2, 0.05, 0.07), IR, rot_y=-a)       # black hazard segments on the rim
+        fn.bar((math.cos(a) * 0.52, 1.5, math.sin(a) * 0.52), (math.cos(a) * 0.99, 2.1, math.sin(a) * 0.99), 0.07, 0.035, SD, up=(0, 1, 0))     # ribs
+    for k in range(6):
+        a = k * 1.1
+        fn.box((math.cos(a) * 0.8, 1.9 + 0.05 * (k % 3), math.sin(a) * 0.8), (0.18, 0.12, 0.012), RD, rot_y=-a)                                # rust patches
+    fn.finish()
+    fl = TM("Fill", root, loc=(0, 1.9, 0), holder=True)                                             # the heap of rock waiting in the funnel
+    for k in range(14):
+        a = k * 2.4
+        rr = 0.32 * math.sqrt(k / 14.0)
+        fl.box((math.cos(a) * rr, 1.95 + 0.07 * (k % 4), math.sin(a) * rr), (r.uniform(0.2, 0.34), r.uniform(0.14, 0.26), r.uniform(0.2, 0.34)), "HopRock", taper=(0.7, 0.7), rot_y=r.uniform(0, 3))
+    fl.finish()
+
+    # ---- flywheel (+X side): rim, spokes, hub, bolts, axle and bearing blocks
+    fw = TM("Pivot_Flywheel", root, loc=(0.97, 0.85, 0.0), holder=True)
+    fw.cyl((1.0, 0.85, 0), 0.43, 0.43, 0.13, IR, seg=14, axis='x')
+    fw.cyl((1.0, 0.85, 0), 0.34, 0.34, 0.145, SD, seg=14, axis='x')
+    fw.cyl((1.0, 0.85, 0), 0.12, 0.12, 0.2, YE, seg=8, axis='x')
+    for k in range(6):
+        a = k * math.tau / 6
+        fw.bar((1.0, 0.85, 0), (1.0, 0.85 + math.sin(a) * 0.36, math.cos(a) * 0.36), 0.07, 0.06, IR, up=(1, 0, 0))
+        fw.box((1.065, 0.85 + math.sin(a) * 0.4, math.cos(a) * 0.4), (0.02, 0.05, 0.05), BR)
+    fw.box((1.09, 0.85, 0), (0.02, 0.2, 0.05), YE)                                                  # a painted mark so the spin reads
+    fw.finish()
+    ax = TM("Axle", root, holder=True)
+    ax.cyl((0.9, 0.85, 0), 0.05, 0.05, 0.3, IR, seg=8, axis='x')
+    for sz in (-1, 1):
+        ax.box((0.86, 0.72, sz * 0.2), (0.12, 0.2, 0.1), SD)
+    ax.finish()
+
+    # ---- flap: a hinged steel lid over the chute side of the top plate (kicks on every sale)
+    fp = TM("Pivot_Flap", root, loc=(0, 1.5, 0.8), holder=True)
+    fp.box((0, 1.52, 0.55), (1.2, 0.05, 0.5), YE)
+    fp.box((0, 1.555, 0.55), (1.1, 0.012, 0.4), IR, taper=(0.9, 0.9))
+    for sx in (-1, 1):
+        fp.cyl((sx * 0.5, 1.5, 0.8), 0.035, 0.035, 0.14, IR, seg=6, axis='x')
+    fp.finish()
+
+    # ---- the piston ram (slides in Y while it works) on the front-left corner
+    ps = TM("Pivot_Piston", root, loc=(-0.55, 1.2, -0.95), holder=True)
+    ps.cyl((-0.55, 1.2, -0.95), 0.045, 0.045, 0.42, BR, seg=8)
+    ps.cyl((-0.55, 1.43, -0.95), 0.07, 0.07, 0.05, IR, seg=8)
+    ps.finish()
+    cyl = TM("Cylinder", root, holder=True)
+    cyl.cyl((-0.55, 0.95, -0.95), 0.09, 0.09, 0.5, SD, seg=10)
+    cyl.cyl((-0.55, 0.7, -0.95), 0.11, 0.11, 0.06, IR, seg=10)
+    cyl.finish()
+
+    # ---- the status lamp: a caged dome on the corner of the top plate
+    lm = TM("Lamp_Status", root, loc=(0.6, 1.5, -0.6), holder=True)
+    lm.cyl((0.6, 1.55, -0.6), 0.07, 0.06, 0.1, "HopLamp", seg=8)
+    lm.finish()
+    cg = TM("LampCage", root, holder=True)
+    cg.cyl((0.6, 1.5, -0.6), 0.1, 0.1, 0.04, IR, seg=8)
+    for k in range(4):
+        a = k * math.pi / 2
+        cg.bar((0.6 + math.cos(a) * 0.08, 1.5, -0.6 + math.sin(a) * 0.08), (0.6 + math.cos(a) * 0.05, 1.63, -0.6 + math.sin(a) * 0.05), 0.012, 0.012, IR, up=(0, 1, 0))
+    cg.finish()
+
+    # ---- attachment points (empties) the game reads
+    for nm, loc in (("Attach_Body", (0, 0, 0)), ("Attach_InputFunnel", (0, 1.45, 0)), ("Attach_Processor", (0, 0.55, 0)), ("Attach_ConveyorIn", (0, 0.55, 1.1)),
+                    ("Attach_RockSpawn", (0, 2.35, 0)), ("Attach_Audio", (0, 1.2, 0)), ("Attach_FloatText", (0, 2.6, 0)), ("Attach_Display", (0, 0.95, -0.97))):
+        TM(nm, root, loc=loc, holder=True).finish()
+
+
 MODELS = {
     "pine_tall": pine_tall, "pine_young": pine_young, "birch": birch, "log": log, "stump": stump, "bush": bush, "fern": fern, "grass": grass, "flowers": flowers,
     "mossy_stone": mossy_stone, "peak_a": peak_a, "peak_b": peak_b, "ridge": ridge, "foothill": foothill, "cliff": cliff, "tunnel_mountain": tunnel_mountain,
-    "tunnel_portal": tunnel_portal, "tunnel_set": tunnel_set, "pine_far": pine_far, "pickup": pickup, "dino": dino, "egg": egg, "incubator": incubator, "fossil_nest": fossil_nest, "deer": deer, "rabbit": rabbit,
+    "tunnel_portal": tunnel_portal, "tunnel_set": tunnel_set, "cash_hopper": cash_hopper, "pine_far": pine_far, "pickup": pickup, "dino": dino, "egg": egg, "incubator": incubator, "fossil_nest": fossil_nest, "deer": deer, "rabbit": rabbit,
 }
 
 

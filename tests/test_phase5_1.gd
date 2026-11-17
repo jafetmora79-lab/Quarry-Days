@@ -359,7 +359,16 @@ func tool_extent(tv: QuarryToolView, cam: Camera3D) -> Dictionary:
 ## Extent of the pickaxe head (the part wider than the handle) along camera x and z at rest.
 func tool_head_axes(tv: QuarryToolView) -> Vector3:
 	var best := Vector3.ZERO
+	var hands: Array = []
+	for h in (tv.model.get_meta("hand_nodes") if tv.model.has_meta("hand_nodes") else []):
+		hands.append(h["node"])                                   # the gloves and sleeves are not the tool head
 	for mi in tv.model.find_children("*", "MeshInstance3D", true, false):
+		var on_hand := false
+		for hn in hands:
+			if (hn as Node).is_ancestor_of(mi):
+				on_hand = true
+		if on_hand:
+			continue
 		var aabb: AABB = (mi as MeshInstance3D).get_aabb()
 		var gt: Transform3D = tv.pivot.global_transform.affine_inverse() * (mi as MeshInstance3D).global_transform
 		var lo := Vector3(99, 99, 99)

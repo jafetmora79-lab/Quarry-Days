@@ -45,6 +45,13 @@ var _live_floats := 0
 var _rock_mats := {}
 var _rng := RandomNumberGenerator.new()
 var _last_current := ""
+var piston: Node3D                       ## the ram on the front corner: pumps while it works (the Blender model)
+var funnel_node: Node3D                  ## the funnel: it shivers while rock goes through
+var lamp: MeshInstance3D                 ## the status lamp: green while selling, amber when idle
+var _t := 0.0
+var _work := 0.0                         ## 0..1 how hard the machine is working (eased: it winds up and down)
+var _fw_speed := 0.0
+var _lamp_on := -1
 
 func setup(g, i: int) -> void:
 	game = g
@@ -65,7 +72,24 @@ func setup(g, i: int) -> void:
 	points["Attach_Audio"].add_child(audio)
 	clunk_streams = [load("res://audio/breaker_hit.wav"), load("res://audio/hit_hammer.wav"), load("res://audio/rock_break.wav")]
 	coin_stream = load("res://audio/coin.wav")
-	if ResourceLoader.exists(MODEL_PATH):
+	if WorldModels.has("cash_hopper"):
+		var hm: Dictionary = WorldModels.animal("cash_hopper")            # the Blender hopper (tools/world_models/build_world.py), the game's own materials swapped in
+		if not hm.is_empty():
+			model = hm["root"]
+			points["Attach_Body"].add_child(model)
+			for k in MARKERS:
+				var n := model.find_child(k, true, false) as Node3D
+				if n != null:
+					points[k].global_transform = n.global_transform
+					if k.begins_with("Pivot_"):
+						points[k] = n
+			piston = model.find_child("Pivot_Piston", true, false) as Node3D
+			funnel_node = model.find_child("Pivot_Funnel", true, false) as Node3D
+			lamp = model.find_child("Lamp_Status", true, false).get_node_or_null("Mesh") as MeshInstance3D
+			fill = model.find_child("Fill", true, false).get_node_or_null("Mesh") as MeshInstance3D
+			if fill != null:
+				fill.visible = false
+	elif ResourceLoader.exists(MODEL_PATH):
 		var ps = load(MODEL_PATH)
 		if ps is PackedScene:
 			model = ps.instantiate() as Node3D
@@ -74,6 +98,14 @@ func setup(g, i: int) -> void:
 				var n := model.find_child(k, true, false) as Node3D
 				if n != null:
 					points[k].global_transform = n.global_transform      # the model decides where its own parts are
+					if k.begins_with("Pivot_"):
+						points[k] = n                                   # the pivots hold the model's own meshes: those are the nodes that turn
+			piston = model.find_child("Pivot_Piston", true, false) as Node3D
+			funnel_node = model.find_child("Pivot_Funnel", true, false) as Node3D
+			lamp = model.find_child("Lamp_Status", true, false) as MeshInstance3D
+			fill = model.find_child("Fill", true, false) as MeshInstance3D
+			if fill != null:
+				fill.visible = false
 	if model == null:
 		_build_placeholder()
 	display = Label3D.new()
@@ -182,8 +214,24 @@ func _process(delta: float) -> void:
 		return
 	var b = game.business
 	var working: bool = b.cash_current(index) != ""
+	_t += delta
+	_work = move_toward(_work, 1.0 if working else 0.0, delta * (4.0 if working else 1.6))               # it spins up quickly and coasts down
 	var fw: Node3D = points["Pivot_Flywheel"]
-	fw.rotation.x += delta * (7.0 + 3.0 * b.cash_rate(index)) * (1.0 if working else 0.0)
+	_fw_speed = move_toward(_fw_speed, (7.0 + 0.5 * minf(b.cash_rate(index), 40.0)) * (1.0 if working else 0.0), delta * (30.0 if working else 7.0))
+	fw.rotation.x += delta * _fw_speed
+	if piston != null:
+		piston.position.y = sin(_t * (9.0 + 0.15 * minf(b.cash_rate(index), 60.0))) * 0.05 * _work         # the ram pumps
+	if funnel_node != null:
+		funnel_node.rotation.z = sin(_t * 41.0) * 0.006 * _work                                                # the funnel shivers
+		funnel_node.position.y = absf(sin(_t * 33.0)) * 0.004 * _work
+	if lamp != null and _lamp_on != int(working):
+		_lamp_on = int(working)
+		var lm := StandardMaterial3D.new()
+		lm.albedo_color = Color(0.35, 0.9, 0.35) if working else Color(0.9, 0.55, 0.15)
+		lm.emission_enabled = true
+		lm.emission = lm.albedo_color
+		lm.emission_energy_multiplier = 1.6 if working else 0.8
+		lamp.material_override = lm
 	_flap_kick = maxf(0.0, _flap_kick - delta * 6.0)
 	(points["Pivot_Flap"] as Node3D).rotation.x = -_flap_kick * 0.35
 	_burst_t -= delta
@@ -223,6 +271,41 @@ func _flush() -> void:
 		audio.play()
 		get_tree().create_timer(0.09 + _rng.randf() * 0.05).timeout.connect(_coin_sound.bind(units))
 	_float_text(money, units)
+	_coin_burst(units)
+
+## A few gold coins pop out of the front tray and settle on it (never one per unit).
+func _coin_burst(units: int) -> void:
+	if model == null:
+		return
+	var n := mini(units, 6)
+	for k in range(n):
+		var coin := MeshInstance3D.new()
+		var cm := CylinderMesh.new()
+		cm.top_radius = 0.055
+		cm.bottom_radius = 0.055
+		cm.height = 0.012
+		cm.radial_segments = 8
+		coin.mesh = cm
+		var m := StandardMaterial3D.new()
+		m.albedo_color = Color(1.0, 0.82, 0.25)
+		m.emission_enabled = true
+		m.emission = Color(1.0, 0.75, 0.2)
+		m.emission_energy_multiplier = 0.5
+		coin.material_override = m
+		var x0 := _rng.randf_range(-0.3, 0.3)
+		coin.position = Vector3(x0, 0.5, -1.0)
+		coin.rotation = Vector3(_rng.randf() * 3.0, 0.0, _rng.randf() * 3.0)
+		add_child(coin)
+		var land := Vector3(x0 + _rng.randf_range(-0.15, 0.15), 0.45, -1.0 - _rng.randf_range(0.0, 0.08))
+		var apex := Vector3((coin.position.x + land.x) * 0.5, 0.95 + _rng.randf() * 0.25, -1.1)
+		var tw := create_tween()
+		tw.tween_interval(0.03 * float(k))
+		tw.tween_property(coin, "position", apex, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tw.tween_property(coin, "position", land, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tw.parallel().tween_property(coin, "rotation", coin.rotation + Vector3(6.0, 0.0, 4.0), 0.34)
+		tw.tween_interval(0.5)
+		tw.tween_property(coin, "scale", Vector3.ZERO, 0.2)
+		tw.tween_callback(coin.queue_free)
 
 func _coin_sound(units: int) -> void:
 	if audio == null or not is_inside_tree():

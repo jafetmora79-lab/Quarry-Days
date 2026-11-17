@@ -20,6 +20,9 @@ const COLOURS := {
 	"EggCrust": Color(0.62, 0.58, 0.50), "EggInner": Color(0.92, 0.70, 0.40), "Straw": Color(0.82, 0.68, 0.34), "StrawDk": Color(0.62, 0.48, 0.24), "Wool": Color(0.88, 0.84, 0.76),
 	"Brass": Color(0.78, 0.60, 0.24), "IncWood": Color(0.50, 0.34, 0.20), "IncWoodDk": Color(0.34, 0.22, 0.13), "IncTin": Color(0.62, 0.64, 0.62), "IncRed": Color(0.78, 0.18, 0.14),
 	"IncWater": Color(0.40, 0.62, 0.78), "FossilBone": Color(0.84, 0.78, 0.62), "FossilEgg": Color(0.66, 0.62, 0.54), "Slab": Color(0.46, 0.42, 0.36), "SlabLt": Color(0.60, 0.55, 0.46),
+	"HopSteel": Color(0.31, 0.39, 0.34), "HopSteelDk": Color(0.20, 0.26, 0.23), "HopRust": Color(0.49, 0.27, 0.13), "HopRustDk": Color(0.33, 0.18, 0.09),
+	"HopYellow": Color(0.90, 0.69, 0.13), "HopIron": Color(0.15, 0.15, 0.16), "HopBrass": Color(0.80, 0.61, 0.24), "HopConcrete": Color(0.50, 0.50, 0.47), "HopStain": Color(0.22, 0.20, 0.17),
+	"HopScreen": Color(0.10, 0.18, 0.12), "HopWood": Color(0.42, 0.29, 0.17), "HopRock": Color(0.70, 0.68, 0.62),
 	"Timber": Color(0.45, 0.31, 0.18), "Steel": Color(0.38, 0.40, 0.42), "Concrete": Color(0.55, 0.55, 0.53), "Hazard": Color(0.90, 0.72, 0.10), "Paint": Color(0.90, 0.78, 0.20)}
 const FOLIAGE := {
 	"Pine": Color(0.16, 0.33, 0.20), "PineLight": Color(0.25, 0.43, 0.24), "Leaf": Color(0.42, 0.55, 0.20), "LeafWarm": Color(0.68, 0.58, 0.20),
@@ -92,6 +95,8 @@ static func material_for(name: String) -> Material:
 		m = sm
 	elif name == "Lamp":
 		m = MeshKit.flat(Color(1.0, 0.86, 0.55), 1.2)
+	elif name == "HopLamp":
+		m = MeshKit.flat(Color(0.9, 0.2, 0.12), 1.2)
 	elif name == "Amber":
 		m = MeshKit.flat(Color(1.0, 0.72, 0.30), 1.6)
 	elif name == "PickGlass":
