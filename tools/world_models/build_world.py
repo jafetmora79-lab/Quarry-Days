@@ -58,16 +58,22 @@ Q.MATERIALS.update({
     "PickGlass": (None, (0.62, 0.78, 0.82), 0.2, 0.0, {}),
     "PickRed":   (None, (0.75, 0.12, 0.10), 0.6, 0.0, {"emit": 0.6}),
     "PickRust":  (None, (0.45, 0.24, 0.12), 1.0, 0.0, {}),
-    "DinoSkin":  (None, (0.46, 0.40, 0.28), 0.95, 0.0, {}),
-    "DinoSkinDk": (None, (0.38, 0.33, 0.23), 0.95, 0.0, {}),
-    "DinoPlate": (None, (0.30, 0.26, 0.19), 0.9, 0.0, {}),
-    "DinoPlateLt": (None, (0.46, 0.40, 0.28), 0.9, 0.0, {}),
-    "DinoBelly": (None, (0.76, 0.70, 0.50), 0.95, 0.0, {}),
+    "DinoSkin":  (None, (0.41, 0.36, 0.26), 0.95, 0.0, {}),
+    "DinoSkinDk": (None, (0.30, 0.26, 0.19), 0.95, 0.0, {}),
+    "DinoPlate": (None, (0.25, 0.22, 0.17), 0.85, 0.0, {}),
+    "DinoPlateLt": (None, (0.43, 0.37, 0.27), 0.85, 0.0, {}),
+    "DinoBelly": (None, (0.66, 0.60, 0.45), 0.95, 0.0, {}),
     "DinoBone":  (None, (0.88, 0.84, 0.70), 0.9, 0.0, {}),
     "DinoEye":   (None, (0.05, 0.04, 0.04), 0.4, 0.0, {}),
     "DinoWhite": (None, (0.96, 0.95, 0.90), 0.6, 0.0, {}),
     "DinoBlush": (None, (0.84, 0.52, 0.42), 1.0, 0.0, {}),
     "DinoMoss":  (None, (0.34, 0.42, 0.22), 1.0, 0.0, {}),
+    "DinoHide2": (None, (0.52, 0.45, 0.33), 0.97, 0.0, {}),
+    "DinoHide3": (None, (0.33, 0.30, 0.22), 0.97, 0.0, {}),
+    "DinoClaw":  (None, (0.20, 0.17, 0.13), 0.8, 0.0, {}),
+    "DinoIris":  (None, (0.74, 0.50, 0.14), 0.4, 0.0, {}),
+    "DinoHorn":  (None, (0.64, 0.57, 0.42), 0.7, 0.0, {}),
+    "DinoHornDk": (None, (0.42, 0.36, 0.26), 0.75, 0.0, {}),
     "EggShell":  (None, (0.86, 0.82, 0.66), 0.9, 0.0, {}),
     "EggSpot":   (None, (0.52, 0.44, 0.30), 1.0, 0.0, {}),
     "EggCrust":  (None, (0.62, 0.58, 0.50), 1.0, 0.0, {}),
@@ -679,92 +685,191 @@ def _bump(t, c, r, h, mat, seg=5):
     t.cyl(c, r, r * 0.25, h, mat, seg=seg)
 
 
+def _lerp(a, b, k):
+    return a + (b - a) * k
+
+
+def _sec(secs, z):
+    """Interpolated (halfwidth, ytop, ybot) of a list of (z, hw, ytop, ybot) sections at z."""
+    if z <= secs[0][0]:
+        return secs[0][1:]
+    for (z0, *a), (z1, *b) in zip(secs, secs[1:]):
+        if z0 <= z <= z1:
+            k = (z - z0) / (z1 - z0)
+            return tuple(_lerp(x, y, k) for x, y in zip(a, b))
+    return secs[-1][1:]
+
+
+def _ring(z, hw, ytop, ybot, n=16, p=2.5, xc=0.0):
+    """One superellipse cross-section ring (godot space) at z: half-width hw, top ytop, bottom ybot; angle runs from +X toward +Y like TM.cyl."""
+    ym, hh = (ytop + ybot) / 2, (ytop - ybot) / 2
+    out = []
+    for i in range(n):
+        a = math.tau * i / n
+        c, s_ = math.cos(a), math.sin(a)
+        out.append((xc + hw * math.copysign(abs(c) ** (2 / p), c), ym + hh * math.copysign(abs(s_) ** (2 / p), s_), z))
+    return out
+
+
+def loft(t, secs, mat, n=16, p=2.5, caps=True):
+    """A smooth organic solid through cross-sections [(z, hw, ytop, ybot), ...] (z ascending)."""
+    return t._skin([_ring(z, hw, yt, yb, n, p) for (z, hw, yt, yb) in secs], mat, caps)
+
+
+def _top(secs, z, f, p=2.5):
+    """Height of the loft's surface at z, lateral fraction f (-1..1 of the half width): (x, y)."""
+    hw, yt, yb = _sec(secs, z)
+    f = max(-0.999, min(0.999, f))
+    ym, hh = (yt + yb) / 2, (yt - yb) / 2
+    return f * hw, ym + hh * (1 - abs(f) ** p) ** (1 / p)
+
+
+def _scute(t, x, y, z, w, ln, h, tilt_x, mat, keel=True):
+    """An osteoderm: a keeled, slightly pointed scute sitting on the hide at (x, y, z), w wide, ln long, h tall, leaning outward by tilt_x (0..1 of its height)."""
+    t.hexa([(x - w / 2, y - 0.01, z + ln / 2), (x + w / 2, y - 0.01, z + ln / 2), (x + w / 2, y - 0.01, z - ln / 2), (x - w / 2, y - 0.01, z - ln / 2),
+            (x - w * 0.12 + tilt_x * h, y + h * 0.7, z + ln * 0.2), (x + w * 0.12 + tilt_x * h, y + h * 0.7, z + ln * 0.2), (x + w * 0.12 + tilt_x * h, y + h * 0.7, z - ln * 0.2),
+            (x - w * 0.12 + tilt_x * h, y + h * 0.7, z - ln * 0.2)], mat)
+    if keel:
+        t.hexa([(x - w * 0.1, y + h * 0.55, z + ln * 0.25), (x + w * 0.1, y + h * 0.55, z + ln * 0.25), (x + w * 0.1, y + h * 0.55, z - ln * 0.35), (x - w * 0.1, y + h * 0.55, z - ln * 0.35),
+                (x + tilt_x * h, y + h * 1.05, z + ln * 0.05), (x + tilt_x * h, y + h * 1.05, z + ln * 0.05), (x + tilt_x * h, y + h * 1.05, z - ln * 0.28), (x + tilt_x * h, y + h * 1.05, z - ln * 0.28)], "DinoPlateLt")
+
+
+BODY = [(-0.96, 0.34, 0.90, 0.56), (-0.80, 0.56, 0.99, 0.42), (-0.55, 0.70, 1.04, 0.36), (-0.2, 0.78, 1.07, 0.34), (0.2, 0.79, 1.07, 0.34), (0.55, 0.73, 1.04, 0.36),
+        (0.8, 0.60, 0.99, 0.43), (0.98, 0.38, 0.91, 0.55)]
+
+
 def dino(root):
-    """The companion: a small, round, friendly ANKYLOSAUR ('Stonetail') - low wide barrel body, rows of armour studs, a big-eyed wedge head with a beak and cheek horns, four
-    stubby legs with three claws, and a thick tail ending in a bone club. Facing -Z, ground at y = 0, about 1.4 m long without the tail (the game scales it by growth stage).
-    Holders (flat, each pivoting where the game's animation expects it): Body, Plates (0,1.07,0), Neck (0,0.84,-0.9), Head (0,0.82,-1.24), EyeL/EyeR, HipFL/FR/BL/BR (hip),
-    ShinFL.. (hip - 0.3), FootFL.. (shin - 0.28), Tail1 (0,0.8,0.85), Tail2 (+0.7), Tail3 (+0.7), Club (+0.68)."""
-    S, SD, PL, PLL, BE, BO = "DinoSkin", "DinoSkinDk", "DinoPlate", "DinoPlateLt", "DinoBelly", "DinoBone"
+    """The companion, drawn as a real ANKYLOSAUR (an armoured, club-tailed dinosaur of the late Cretaceous) in the same hard-surface, weathered style as the machines: a low,
+    very wide barrel body lofted from cross-sections, a flat dorsal shield of keeled scutes in transverse bands and longitudinal rows, a row of spikes along each flank, a broad
+    triangular skull with a horny beak, brow and cheek osteoderms and two big squamosal horns, columnar legs with blunt hoof claws, and a stiffened tail ending in a heavy bone club.
+    Facing -Z, ground at y = 0, about 1.9 m long without the tail (the game scales it by growth stage). Holders (flat, each pivoting where the game's animation expects it): Body,
+    Plates (0,1.07,0), Neck (0,0.84,-0.9), Head (0,0.82,-1.24), EyeL/EyeR, HipFL/FR/BL/BR (hip), ShinFL.. (hip - 0.3), FootFL.. (shin - 0.28), Tail1 (0,0.8,0.85), Tail2 (+0.7), Tail3 (+0.7), Club (+0.68)."""
+    S, SD, H2, H3, PL, PLL, BE, HN, HND, CL = "DinoSkin", "DinoSkinDk", "DinoHide2", "DinoHide3", "DinoPlate", "DinoPlateLt", "DinoBelly", "DinoHorn", "DinoHornDk", "DinoClaw"
+    r = rnd(7)
+    # ---------------------------------------------------------------- body: the barrel, the belly, hide folds and mottling
     t = TM("Body", root, holder=True)
-    # barrel body: a cream belly slab, the skin shell (wider in the middle), a darker crown and mossy patches
-    t.box((0, 0.56, 0.0), (1.0, 0.3, 1.8), BE, taper=(0.9, 0.96))
-    t.hexa([(-0.52, 0.66, -0.9), (0.52, 0.66, -0.9), (0.62, 0.66, 0.0), (-0.62, 0.66, 0.0), (-0.38, 1.04, -0.84), (0.38, 1.04, -0.84), (0.46, 1.06, 0.0), (-0.46, 1.06, 0.0)], S)
-    t.hexa([(-0.62, 0.66, 0.0), (0.62, 0.66, 0.0), (0.54, 0.66, 0.9), (-0.54, 0.66, 0.9), (-0.46, 1.06, 0.0), (0.46, 1.06, 0.0), (0.38, 1.02, 0.84), (-0.38, 1.02, 0.84)], S)
-    t.box((0, 1.07, 0.0), (0.86, 0.1, 1.64), PL, taper=(0.92, 0.96))                                  # the armoured crown
-    for sx in (-1, 1):
-        t.box((sx * 0.55, 0.78, 0.0), (0.1, 0.26, 1.5), SD, taper=(1.0, 0.9))                         # darker flank band
-        for k in range(4):
-            t.box((sx * 0.3, 1.13, -0.55 + k * 0.4), (0.18, 0.04, 0.2), "DinoMoss")                  # tufts of moss, it is an old dinosaur
-    # a mossy patch and a big friendly belly line
-    t.box((0, 0.7, -0.2), (0.7, 0.03, 0.9), BE, taper=(0.9, 0.9))
+    loft(t, BODY, S, n=18, p=2.4)
+    t.box((0, 0.36, 0.0), (0.9, 0.05, 1.8), BE, taper=(0.85, 0.9))                                    # the pale belly
+    for k in range(9):                                                                                # skin folds: dark creases across the flanks
+        z = -0.78 + k * 0.2
+        for sx in (-1, 1):
+            hw, yt, yb = _sec(BODY, z)
+            t.hexa([(sx * (hw - 0.02), yb + 0.1, z - 0.012), (sx * (hw + 0.012), yb + 0.14, z - 0.012), (sx * (hw + 0.012), yb + 0.14, z + 0.012), (sx * (hw - 0.02), yb + 0.1, z + 0.012),
+                    (sx * (hw - 0.02), yt - 0.18, z - 0.012), (sx * (hw + 0.012), yt - 0.2, z - 0.012), (sx * (hw + 0.012), yt - 0.2, z + 0.012), (sx * (hw - 0.02), yt - 0.18, z + 0.012)], H3)
+    for k in range(14):                                                                               # lighter mottled patches of hide on the flanks and shoulders
+        z = -0.75 + r.uniform(0, 1.5)
+        sx = -1 if k % 2 else 1
+        hw, yt, yb = _sec(BODY, z)
+        y = r.uniform(yb + 0.18, yt - 0.14)
+        t.box((sx * (hw - 0.01), y, z), (0.03, r.uniform(0.07, 0.16), r.uniform(0.1, 0.24)), H2 if k % 3 else H3, taper=(1.0, 0.8))
     t.finish()
 
+    # ---------------------------------------------------------------- the dorsal shield (Plates holder: the game flattens it on hatchlings)
     pl = TM("Plates", root, loc=(0, 1.07, 0), holder=True)
-    for row in range(7):                                                                              # studs: three rows down the back, the middle tallest
-        z = -0.78 + row * 0.26
-        for col in (-1, 0, 1):
-            h = 0.2 if col == 0 else 0.13
-            r = 0.13 if col == 0 else 0.09
-            _bump(pl, (col * 0.33, 1.13 + h / 2, z + (0.05 if col else 0.0)), r, h, PLL if col == 0 else PL, seg=5)
-    for sx in (-1, 1):                                                                                # flank spikes, bigger at the shoulders
-        for k in range(6):
-            big = 1.0 + (0.5 if k < 2 else 0.0)
-            pl.cyl((sx * (0.66 + 0.1 * big), 0.92, -0.7 + k * 0.3), 0.07 * big, 0.012, 0.3 * big, BO, seg=5, axis='x') if sx > 0 else \
-                pl.cyl((sx * (0.66 + 0.1 * big), 0.92, -0.7 + k * 0.3), 0.012, 0.07 * big, 0.3 * big, BO, seg=5, axis='x')
+    for k, z in enumerate([-0.82 + 0.135 * i for i in range(14)]):                                    # longitudinal rows of keeled scutes
+        for f, big in ((0.0, 1.0), (-0.42, 0.85), (0.42, 0.85), (-0.74, 0.7), (0.74, 0.7)):
+            ff = f + (0.03 if (k % 2) else -0.03) * (1 if f else 0)
+            x, y = _top(BODY, z, ff)
+            _scute(pl, x, y, z, 0.17 * big, 0.12, 0.05 + 0.05 * big, 0.25 * ff, PL if (k + int(f * 10)) % 3 else PLL)
+    for z in (-0.95, -0.82, -0.69):                                                                   # the nuchal bands: thick transverse plates over the shoulders
+        for f in [i / 3.0 for i in range(-3, 4)]:
+            x, y = _top(BODY, z, f * 0.92)
+            _scute(pl, x, y, z, 0.2, 0.1, 0.065, 0.3 * f, PL, keel=False)
+    for sx in (-1, 1):                                                                                # flank spikes: a row of big triangular horns along each side, biggest at the shoulder
+        for k in range(8):
+            z = -0.78 + k * 0.215
+            hw, yt, yb = _sec(BODY, z)
+            big = 1.55 - 0.095 * k
+            y = (yt + yb) / 2 + 0.05
+            pl.hexa([(sx * (hw - 0.02), y - 0.05 * big, z + 0.07), (sx * (hw - 0.02), y - 0.05 * big, z - 0.07), (sx * (hw - 0.02), y + 0.05 * big, z - 0.07), (sx * (hw - 0.02), y + 0.05 * big, z + 0.07),
+                     (sx * (hw + 0.25 * big), y + 0.01, z + 0.0), (sx * (hw + 0.25 * big), y + 0.01, z + 0.0), (sx * (hw + 0.25 * big), y + 0.01, z + 0.0), (sx * (hw + 0.25 * big), y + 0.01, z + 0.0)], HN)
+            pl.box((sx * (hw + 0.01), y + 0.07 * big, z), (0.06, 0.05, 0.14), HND)                    # a bony skirt above each spike
     pl.finish()
 
+    # ---------------------------------------------------------------- neck and head
     nk = TM("Neck", root, loc=(0, 0.84, -0.9), holder=True)
-    nk.box((0, 0.84, -1.0), (0.46, 0.36, 0.42), S, taper=(0.9, 0.9))
-    nk.box((0, 0.72, -1.0), (0.4, 0.1, 0.36), BE)                                                     # a cream throat
+    loft(nk, [(-1.32, 0.2, 0.9, 0.7), (-1.18, 0.26, 0.96, 0.66), (-1.02, 0.3, 0.97, 0.62)], S, n=14, p=2.3)
+    for z in (-1.1, -1.18, -1.26):                                                                    # cervical half-rings
+        for f in (-0.6, -0.2, 0.2, 0.6):
+            hw, yt, yb = _sec([(-1.32, 0.2, 0.9, 0.7), (-1.18, 0.26, 0.96, 0.66), (-1.02, 0.3, 0.97, 0.62)], z)
+            x, y = _top([(-1.32, 0.2, 0.9, 0.7), (-1.18, 0.26, 0.96, 0.66), (-1.02, 0.3, 0.97, 0.62)], z, f)
+            _scute(nk, x, y, z, 0.1, 0.07, 0.05, 0.2 * f, PL, keel=False)
     nk.finish()
     hd = TM("Head", root, loc=(0, 0.82, -1.24), holder=True)
-    hd.hexa([(-0.25, 0.68, -1.12), (0.25, 0.68, -1.12), (0.22, 0.68, -1.58), (-0.22, 0.68, -1.58), (-0.27, 0.98, -1.1), (0.27, 0.98, -1.1), (0.2, 0.92, -1.56), (-0.2, 0.92, -1.56)], S)   # skull
-    hd.hexa([(-0.17, 0.7, -1.56), (0.17, 0.7, -1.56), (0.12, 0.7, -1.82), (-0.12, 0.7, -1.82), (-0.17, 0.88, -1.56), (0.17, 0.88, -1.56), (0.1, 0.84, -1.82), (-0.1, 0.84, -1.82)], S)    # snout
-    hd.box((0, 0.74, -1.8), (0.24, 0.07, 0.16), BO, taper=(0.8, 0.8))                                 # the beak
-    hd.box((0, 0.96, -1.38), (0.5, 0.07, 0.42), PL, taper=(0.95, 0.9))                                # brow armour
-    hd.box((0, 0.99, -1.3), (0.2, 0.06, 0.2), PLL)
+    SK = [(-1.14, 0.31, 1.0, 0.70), (-1.28, 0.32, 0.98, 0.68), (-1.46, 0.27, 0.93, 0.68), (-1.64, 0.19, 0.87, 0.69), (-1.8, 0.11, 0.82, 0.71)]
+    loft(hd, SK, S, n=12, p=2.3)                                                                      # the skull: broad at the back, a tapering muzzle
+    hd.hexa([(-0.1, 0.7, -1.8), (0.1, 0.7, -1.8), (0.07, 0.7, -1.9), (-0.07, 0.7, -1.9), (-0.09, 0.8, -1.8), (0.09, 0.8, -1.8), (0.06, 0.77, -1.9), (-0.06, 0.77, -1.9)], HN)        # the horny beak
+    hd.hexa([(-0.07, 0.74, -1.9), (0.07, 0.74, -1.9), (0.03, 0.74, -1.94), (-0.03, 0.74, -1.94), (-0.06, 0.78, -1.9), (0.06, 0.78, -1.9), (0.02, 0.75, -1.94), (-0.02, 0.75, -1.94)], HND)  # its hooked tip
+    hd.box((0, 0.99, -1.4), (0.52, 0.05, 0.36), PL, taper=(0.9, 0.85))                                # the frontal shield
+    for k in range(3):
+        for f in (-0.6, 0.0, 0.6):
+            x, y = _top(SK, -1.28 - k * 0.12, f)
+            _scute(hd, x * 0.95, y, -1.28 - k * 0.12, 0.1, 0.09, 0.05, 0.2 * f, PL if k else PLL)
     for sx in (-1, 1):
-        hd.cyl((sx * 0.3, 0.9, -1.12), 0.07, 0.012, 0.28, BO, seg=5, axis='x') if sx > 0 else hd.cyl((sx * 0.3, 0.9, -1.12), 0.012, 0.07, 0.28, BO, seg=5, axis='x')   # cheek horns
-        hd.box((sx * 0.2, 0.76, -1.66), (0.1, 0.07, 0.06), "DinoBlush")                              # rosy cheeks
-        hd.box((sx * 0.06, 0.8, -1.84), (0.04, 0.04, 0.03), "DinoEye")                               # nostrils
-    hd.box((0, 0.7, -1.76), (0.2, 0.02, 0.12), "DinoEye")                                             # a small smile
+        # squamosal horns: two big triangular horns sweeping back and out from the rear corners of the skull; small jugal horns below
+        hd.hexa([(sx * 0.2, 0.9, -1.16), (sx * 0.28, 0.9, -1.16), (sx * 0.28, 0.9, -1.3), (sx * 0.2, 0.9, -1.3), (sx * 0.2, 1.0, -1.14), (sx * 0.28, 1.0, -1.14), (sx * 0.28, 0.99, -1.28), (sx * 0.2, 0.99, -1.28)], HND)
+        hd.hexa([(sx * 0.24, 0.9, -1.12), (sx * 0.3, 0.9, -1.12), (sx * 0.3, 0.97, -1.12), (sx * 0.24, 0.97, -1.12), (sx * 0.52, 0.97, -0.99), (sx * 0.54, 0.97, -0.99), (sx * 0.54, 1.0, -0.99), (sx * 0.52, 1.0, -0.99)], HN)
+        hd.hexa([(sx * 0.27, 0.74, -1.2), (sx * 0.27, 0.8, -1.2), (sx * 0.27, 0.8, -1.32), (sx * 0.27, 0.74, -1.32), (sx * 0.4, 0.7, -1.28), (sx * 0.4, 0.72, -1.28), (sx * 0.4, 0.72, -1.3), (sx * 0.4, 0.7, -1.3)], HN)
+        hd.box((sx * 0.2, 0.96, -1.58), (0.14, 0.05, 0.12), PL, taper=(0.8, 0.8), rot_y=sx * 0.3)  # the brow osteoderm over each eye
+        hd.box((sx * 0.06, 0.8, -1.86), (0.03, 0.025, 0.03), "DinoEye")                               # nostrils
+        hd.box((sx * 0.13, 0.76, -1.62), (0.012, 0.012, 0.18), H3)                                    # the line of the mouth
     hd.finish()
-    for sx, nm in ((-1, "EyeL"), (1, "EyeR")):
+    for sx, nm in ((-1, "EyeL"), (1, "EyeR")):                                                        # small, deep-set reptile eyes
         e = TM(nm, root, loc=(sx * 0.2, 0.89, -1.58), holder=True)
-        e.box((sx * 0.2, 0.89, -1.58), (0.1, 0.11, 0.07), "DinoWhite")
-        e.box((sx * 0.21, 0.885, -1.615), (0.07, 0.08, 0.03), "DinoEye")
-        e.box((sx * 0.225, 0.915, -1.63), (0.025, 0.025, 0.012), "DinoWhite")                         # the sparkle
+        e.box((sx * 0.2, 0.89, -1.58), (0.07, 0.06, 0.07), H3)                                        # the socket rim
+        e.box((sx * 0.215, 0.89, -1.585), (0.04, 0.045, 0.05), "DinoIris")
+        e.box((sx * 0.232, 0.89, -1.59), (0.012, 0.04, 0.02), "DinoEye")                              # a vertical pupil
         e.finish()
 
+    # ---------------------------------------------------------------- legs: columnar, with hide folds, knee scutes and blunt hoof claws
     for (nm, x, z) in (("FL", -0.5, -0.6), ("FR", 0.5, -0.6), ("BL", -0.5, 0.58), ("BR", 0.5, 0.58)):
+        sx = 1 if x > 0 else -1
+        front = z < 0
         hp = TM("Hip" + nm, root, loc=(x, 0.62, z), holder=True)
-        hp.box((x, 0.48, z), (0.34, 0.34, 0.36), S, taper=(0.86, 0.86))                               # thigh
-        hp.box((x + (0.1 if x > 0 else -0.1), 0.62, z), (0.12, 0.2, 0.34), SD)                        # outer muscle
+        hp.tube([(x * 1.16, 0.74, z), (x * 1.06, 0.55, z + (0.02 if front else -0.02)), (x, 0.36, z)], [0.23, 0.205, 0.17], S, seg=10, squash=1.05)
+        for k in range(3):
+            hp.box((x + sx * 0.17, 0.62 - k * 0.1, z), (0.04, 0.05, 0.16), H3, taper=(0.8, 0.8))      # hide folds down the thigh
+        _scute(hp, x + sx * 0.17, 0.66, z, 0.11, 0.1, 0.07, sx * 0.5, PL)
         hp.finish()
         sh = TM("Shin" + nm, root, loc=(x, 0.32, z), holder=True)
-        sh.box((x, 0.2, z + 0.01), (0.26, 0.3, 0.28), SD, taper=(1.0, 1.0))
-        sh.box((x, 0.28, z - 0.12), (0.2, 0.1, 0.04), BE)                                             # a pale knee patch
+        sh.tube([(x, 0.36, z), (x, 0.2, z - 0.01), (x, 0.08, z - 0.02)], [0.17, 0.15, 0.155], S, seg=10)
+        _scute(sh, x, 0.3, z - 0.15, 0.1, 0.09, 0.06, 0.0, PL, keel=False)                            # a knee scute
+        for k in range(3):
+            sh.cyl((x, 0.28 - k * 0.07, z), 0.16 - 0.004 * k, 0.16 - 0.004 * k, 0.012, H3, seg=10)    # wrinkle rings
         sh.finish()
         ft = TM("Foot" + nm, root, loc=(x, 0.04, z - 0.02), holder=True)
-        ft.box((x, 0.04, z - 0.06), (0.34, 0.1, 0.3), SD, taper=(0.9, 0.92))
-        for tx in (-0.1, 0.0, 0.1):
-            ft.box((x + tx, 0.04, z - 0.24), (0.07, 0.07, 0.1), BO, taper=(0.6, 0.5))                 # three claws
+        ft.box((x, 0.04, z - 0.05), (0.3, 0.07, 0.3), SD, taper=(0.92, 0.9))
+        for k, tx in enumerate((-0.095, 0.0, 0.095)):
+            ft.hexa([(x + tx - 0.04, 0.0, z - 0.2), (x + tx + 0.04, 0.0, z - 0.2), (x + tx + 0.035, 0.0, z - 0.27), (x + tx - 0.035, 0.0, z - 0.27),
+                     (x + tx - 0.04, 0.07, z - 0.2), (x + tx + 0.04, 0.07, z - 0.2), (x + tx + 0.03, 0.05, z - 0.26), (x + tx - 0.03, 0.05, z - 0.26)], CL)     # blunt hoof-like claws
         ft.finish()
 
-    tails = [("Tail1", (0, 0.8, 0.85), (0.52, 0.36, 0.72), 0.34), ("Tail2", (0, 0.8, 1.55), (0.38, 0.28, 0.72), 0.34), ("Tail3", (0, 0.8, 2.25), (0.26, 0.2, 0.5), 0.22)]
-    for nm, loc, size, zc in tails:
+    # ---------------------------------------------------------------- tail: three stiffening segments with scutes, then the club
+    tails = [("Tail1", (0, 0.8, 0.85), 0.32, 0.24, 0.7), ("Tail2", (0, 0.8, 1.55), 0.24, 0.18, 0.7), ("Tail3", (0, 0.8, 2.25), 0.18, 0.14, 0.68)]
+    for nm, loc, r0, r1, ln in tails:
         tt = TM(nm, root, loc=loc, holder=True)
-        tt.box((loc[0], loc[1], loc[2] + zc), size, S, taper=(0.82, 0.86))
-        tt.box((loc[0], loc[1] - size[1] * 0.42, loc[2] + zc), (size[0] * 0.7, size[1] * 0.3, size[2] * 0.9), BE)          # lighter underside
-        for k in range(2):
-            _bump(tt, (0, loc[1] + size[1] * 0.5 + 0.05, loc[2] + zc - 0.16 + k * 0.32), 0.07 if nm != "Tail3" else 0.05, 0.14, PL, seg=5)   # little studs along the tail
+        z0 = loc[2]
+        tt.tube([(0, 0.8, z0), (0, 0.79, z0 + ln * 0.5), (0, 0.78, z0 + ln)], [r0, (r0 + r1) / 2, r1], S, seg=10, squash=0.85)
+        tt.box((0, 0.78 - r0 * 0.55, z0 + ln / 2), (r0 * 1.1, r0 * 0.3, ln * 0.9), BE, taper=(0.8, 0.8))
+        for k in range(4):
+            zz = z0 + 0.08 + k * ln / 4.3
+            rr = _lerp(r0, r1, k / 4.0)
+            _scute(tt, 0, 0.8 + rr * 0.78, zz, rr * 0.7, 0.1, 0.06 + rr * 0.3, 0.0, PL)               # the dorsal row
+            for sx in (-1, 1):
+                tt.hexa([(sx * rr * 0.85, 0.82, zz - 0.04), (sx * rr * 0.85, 0.82, zz + 0.04), (sx * rr * 0.85, 0.74, zz + 0.04), (sx * rr * 0.85, 0.74, zz - 0.04),
+                         (sx * (rr + 0.16), 0.78, zz), (sx * (rr + 0.16), 0.78, zz), (sx * (rr + 0.16), 0.78, zz), (sx * (rr + 0.16), 0.78, zz)], HN)          # lateral tail spikes
         tt.finish()
     cl = TM("Club", root, loc=(0, 0.8, 2.93), holder=True)
-    cl.cyl((0, 0.8, 2.93), 0.2, 0.3, 0.2, BO, seg=8, axis='z')                                         # the knob grows out of the tail
-    cl.cyl((0, 0.8, 3.1), 0.3, 0.26, 0.22, BO, seg=8, axis='z', squash=0.85)                           # the heavy mace
-    cl.cyl((0, 0.8, 3.25), 0.26, 0.16, 0.12, BO, seg=8, axis='z', squash=0.85)
-    for sx in (-1, 1):
-        cl.cyl((sx * 0.34, 0.8, 3.0), 0.07, 0.012, 0.22, PL, seg=5, axis='x') if sx > 0 else cl.cyl((sx * 0.34, 0.8, 3.0), 0.012, 0.07, 0.22, PL, seg=5, axis='x')   # side spikes
+    prof = [(2.93, 0.14), (3.02, 0.22), (3.14, 0.34), (3.28, 0.42), (3.42, 0.38), (3.54, 0.22), (3.6, 0.1)]
+    cl._skin([_ring(z, rr, 0.8 + rr * 0.78, 0.8 - rr * 0.78, n=14, p=2.2) for (z, rr) in prof], HN)   # the bone knob: a heavy, slightly flattened mace
+    cl.box((0, 0.8, 3.28), (0.1, 0.7, 0.22), HND, taper=(1.0, 1.0))                                   # sutures where the fused plates meet
+    for sx in (-1, 1):                                                                                # the two big lateral lobes and smaller knobs of the club
+        cl.hexa([(sx * 0.26, 0.74, 3.12), (sx * 0.26, 0.86, 3.12), (sx * 0.26, 0.86, 3.4), (sx * 0.26, 0.74, 3.4), (sx * 0.5, 0.78, 3.2), (sx * 0.5, 0.82, 3.2), (sx * 0.5, 0.82, 3.34), (sx * 0.5, 0.78, 3.34)], HN)
+        for k in range(3):
+            _scute(cl, sx * (0.2 + 0.02 * k), 0.8 + 0.18 * (k - 1), 3.2 + 0.06 * k, 0.1, 0.1, 0.07, sx * 0.9, HND, keel=False)
+    for k in range(5):
+        a = k * 1.26
+        cl.cyl((math.cos(a) * 0.2, 0.8 + math.sin(a) * 0.22, 3.4), 0.05, 0.02, 0.07, HND, seg=5, axis='z')    # studs on the face of the club
     cl.finish()
 
 
