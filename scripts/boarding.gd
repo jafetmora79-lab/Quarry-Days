@@ -5,6 +5,7 @@ class_name QuarryBoarding
 ## Everything is eased with Tween sine curves between keyframes (positions and orientations are interpolated, never snapped). Every vehicle with a
 ## cab (the meta "cab" built by CabInterior) uses the same sequence; the keyframes are computed from that vehicle's own door, steps and seat.
 
+static var active := 0                  ## boarding / alighting moves running right now
 const EYE := 1.65                       ## a standing person's eye height above the ground
 
 static func cab(v) -> Dictionary:
@@ -52,8 +53,9 @@ static func poses_out(v, ground_pose: Transform3D) -> Array:
 static func play(game, camera: Camera3D, frames: Array, events: Dictionary, finished: Callable) -> Tween:
 	var tool = game.player.tool_view
 	game.player.scripted_camera = true
+	active += 1                                       # (the game hides the tool and the hands for as long as a boarding move runs, and while a machine is driven)
 	if tool != null:
-		tool.visible = false                          # hands are busy with the door and the rail: the tool is out of view
+		tool.hidden_by_vehicle = true
 	var tw: Tween = game.create_tween()
 	camera.global_transform = frames[0][0]
 	for i in range(1, frames.size()):
@@ -65,8 +67,7 @@ static func play(game, camera: Camera3D, frames: Array, events: Dictionary, fini
 		tw.tween_method(func(w: float): camera.global_transform = a.interpolate_with(b, w), 0.0, 1.0, float(frames[i][1])).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	tw.tween_callback(func():
 		game.player.scripted_camera = false
-		if tool != null:
-			tool.visible = true
+		active = maxi(0, active - 1)
 		finished.call())
 	return tw
 

@@ -1516,6 +1516,13 @@ func _make_player_body() -> void:
 		player_body = null
 
 func _player_body_tick(delta: float) -> void:
+	var in_machine := driving != null or QuarryBoarding.active > 0          # in a machine, or on the way in / out of its cab: no tool and no hands in the view
+	var tvh: QuarryToolView = player.tool_view
+	if tvh != null and tvh.hidden_by_vehicle != in_machine:
+		tvh.hidden_by_vehicle = in_machine
+		tvh.visible = not in_machine and not tvh.suppressed          # (the player node is switched off while driving, so the view cannot hide itself: it is done here)
+		if in_machine and tvh.hands_rig != null:
+			tvh.hands_rig.hide_all()
 	if player_body == null or not is_instance_valid(player_body):
 		return
 	player_body.visible = not driving

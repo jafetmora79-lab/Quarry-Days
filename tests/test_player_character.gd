@@ -151,5 +151,25 @@ func run() -> void:
 		d_bag = d_bag or (d.body.bags[k] as Node3D).visible
 	check(d.rig.seated and not d_bag, "seated in the cab with the satchel off the seat")
 	d.show_driver(false)
+	# ---- no first-person tool or hands while in a machine, back when out
+	var tv: QuarryToolView = game.player.tool_view
+	await frames(3)
+	check(tv.visible and not tv.hidden_by_vehicle, "on foot the tool and hands are in view")
+	for part in ["battery", "hose", "fuel"]:
+		game.prog.story["excavator"][part] = true
+	game.enter_vehicle(v)
+	await frames(4)
+	var hands_shown := 0
+	for side in tv.hands_rig.hands:
+		if (tv.hands_rig.hands[side]["root"] as Node3D).visible:
+			hands_shown += 1
+	check(game.driving == v and not tv.visible and tv.hidden_by_vehicle and hands_shown == 0, "in the machine no tool and no hands show through the glass (driving %s, visible %s, hidden %s, hands %d)" % [str(game.driving == v), str(tv.visible), str(tv.hidden_by_vehicle), hands_shown])
+	QuarryBoarding.active = 1                                   # a boarding / start-up move is running
+	game.exit_vehicle()
+	await frames(4)
+	check(not tv.visible, "and none during the climb-free boarding and the engine start moves")
+	QuarryBoarding.active = 0
+	await frames(4)
+	check(tv.visible and not tv.hidden_by_vehicle, "back in the hands once out")
 	print("RESULT: %d checks, %d failures" % [checks, failures.size()])
 	quit(1 if failures.size() > 0 else 0)

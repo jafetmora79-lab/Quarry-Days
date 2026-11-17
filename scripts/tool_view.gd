@@ -30,6 +30,7 @@ var obstruct := 0.0         ## 0..1 set by the game: something solid (a wall, a 
 var _obs := 0.0
 var shock := 0.0            ## 1 at the moment of a blow, decays: the tool shudders in the hands
 var _slide := 0.0           ## how far the off hand has slid along the shaft (m, model space)
+var hidden_by_vehicle := false  ## in a machine (or on the way in / out of its cab): no tool and no hands in the view, whatever else asks to show them
 var suppressed := false     ## the game keeps the tool out of sight (at the computer): other code that shows or hides it respects this
 var hands_rig: FPHands      ## the shared hands (see FPHands / FPTools): the tool decides where they close
 var key := ""               ## model key of the tool in hand (ToolModels.key_of)
@@ -176,6 +177,11 @@ func deflect() -> void:
 	deflect_t = 0.3
 
 func _process(delta: float) -> void:
+	if hidden_by_vehicle:
+		visible = false
+		if hands_rig != null:
+			hands_rig.hide_all()
+		return
 	_t += delta
 	var target := 1.0 if operating else 0.0
 	op_blend = move_toward(op_blend, target, delta * (6.0 if operating else 3.0))
