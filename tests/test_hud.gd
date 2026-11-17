@@ -39,11 +39,11 @@ func run() -> void:
 	game.state.clock_minutes = 10.0 * 60.0
 	await frames(3)
 	await process_frame
-	check(hud.time_label.text.contains("MORNING"), "A the clock names the part of the day (%s)" % hud.time_label.text)
+	check(hud.phase_label.text == "MORNING" and hud.time_label.text.contains("10:00"), "A the clock shows the time and names the part of the day (%s, %s)" % [hud.time_label.text, hud.phase_label.text])
 	game.state.clock_minutes = 20.5 * 60.0
 	await frames(3)
 	await process_frame
-	check(hud.time_label.text.contains("EVENING") or hud.time_label.text.contains("NIGHT"), "A in the evening it says so")
+	check(hud.phase_label.text == "EVENING" or hud.phase_label.text == "NIGHT", "A in the evening it says so")
 	check(hud.income_label.text.contains("22:00"), "A and warns that the day ends at 22:00 (%s)" % hud.income_label.text)
 	game.state.clock_minutes = 9.0 * 60.0
 	await frames(3)

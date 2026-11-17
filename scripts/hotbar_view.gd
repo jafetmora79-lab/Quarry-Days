@@ -37,10 +37,12 @@ func set_slots(slots: Array, cur: int) -> void:
 		p.custom_minimum_size = SLOT
 		p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color(0.22, 0.16, 0.06, 0.78) if on else Color(0.045, 0.04, 0.035, 0.6)
-		sb.border_color = Color(1.0, 0.82, 0.36) if on else Color(0.95, 0.74, 0.32, 0.28)
+		sb.bg_color = Color(0.25, 0.165, 0.06, 0.96) if on else Color(0.055, 0.04, 0.03, 0.95)             # dark recessed wells; the one in hand glows warm amber
+		sb.border_color = Color(1.0, 0.8, 0.32) if on else Color(0.55, 0.40, 0.21)
 		sb.set_border_width_all(2 if on else 1)
-		sb.set_corner_radius_all(3)
+		sb.set_corner_radius_all(4)
+		sb.corner_detail = 1                                                                                    # bevelled corners like the plates
+		sb.anti_aliasing = false
 		sb.set_content_margin_all(2)
 		p.add_theme_stylebox_override("panel", sb)
 		var holder := Control.new()

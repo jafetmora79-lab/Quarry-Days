@@ -158,7 +158,7 @@ func run() -> void:
 	var texts_hud := []
 	texts(game.hud, texts_hud)
 	var hj := " | ".join(texts_hud)
-	check(hj.contains("Mining power") and hj.contains("BAG"), "7c the tool shows its mining power and the bag its capacity")
+	check(hj.contains("Mining power") and hj.contains(game.hud.bag_label.text) and game.hud.bag_label.text.contains(" / "), "7c the tool shows its mining power and the bag badge its quantity and capacity (%s)" % game.hud.bag_label.text)
 	# ---- 8: build mode: blueprint plate and hands
 	check(not game.hud.build_plate.visible and not game.player.blueprint.visible, "8 no blueprint while mining")
 	game.state.money = 10000

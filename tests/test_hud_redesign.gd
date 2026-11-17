@@ -110,7 +110,7 @@ func run() -> void:
 	check(((snap2["player"] as Vector2) - mm.size * 0.5).length() < 1.0, "and stays in the middle when the player moves")
 	# ---- controls are hints that come and go
 	check(not hud.hints.visible, "there is no permanent row of key hints on screen (they live in Settings)")
-	check(not hud.bag_bar.visible and hud.bag_label.text.begins_with("BAG "), "the bag is a number (%s), not a bar" % hud.bag_label.text)
+	check(not hud.bag_bar.visible and hud.bag_label.text.contains(" / ") and not hud.bag_label.text.contains("BAG"), "the bag is a compact number badge (%s), not a bar" % hud.bag_label.text)
 	check(not hud.income_label.text.contains("no sales"), "no 'no sales yet' text")
 	var strip_free := true
 	for pn in ["TimeMoneyPlate", "ObjectivePlate"]:

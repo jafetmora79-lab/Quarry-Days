@@ -47,6 +47,8 @@ var objective_bar: ProgressBar
 var objective_detail: Label
 var objective_rows: VBoxContainer     ## the same lines as objective_detail, drawn with the checkbox art (the label keeps the text)
 var objective_pct: Label
+var phase_label: Label                 ## "AFTERNOON" on the time row (right aligned)
+var objective_arrow: TextureRect       ## the little arrow after "All objectives"
 var objective_hint: Label              ## "O  all objectives" under the compact tracker
 var _tool_flash := 4.0
 var _hint_tool_seen := ""
@@ -216,26 +218,30 @@ func _build() -> void:
 	tl.name = "TimeMoneyPlate"
 	tl.set_anchor(SIDE_LEFT, 1.0)
 	tl.set_anchor(SIDE_RIGHT, 1.0)
-	tl.offset_left = -214
+	tl.offset_left = -232
 	tl.offset_right = -10
 	tl.offset_top = 10
 	tl.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	tl.custom_minimum_size = Vector2(204, 0)
-	tl.pivot_offset = Vector2(102, 20)
-	var v := _vbox(tl, 1)
+	tl.custom_minimum_size = Vector2(222, 0)
+	tl.pivot_offset = Vector2(111, 20)
+	var v := _vbox(tl, 2)
 	var trow := HBoxContainer.new()
-	trow.add_theme_constant_override("separation", 5)
+	trow.add_theme_constant_override("separation", 6)
 	trow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(trow)
-	time_icon = HudIcon.new("sun", 13)
+	time_icon = HudIcon.new("sun", 15)
 	trow.add_child(time_icon)
-	time_label = QuarryTheme.hud_label("DAY 1  08:00", QuarryTheme.HUD + 1, QuarryTheme.DIM)
+	time_label = QuarryTheme.hud_label("DAY 1 | 08:00", QuarryTheme.HUD + 3, QuarryTheme.INK)
 	trow.add_child(time_label)
+	phase_label = QuarryTheme.hud_label("MORNING", QuarryTheme.HUD + 3, QuarryTheme.DIM)
+	phase_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	phase_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	trow.add_child(phase_label)
 	var mrow := HBoxContainer.new()
-	mrow.add_theme_constant_override("separation", 5)
+	mrow.add_theme_constant_override("separation", 6)
 	mrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(mrow)
-	mrow.add_child(HudIcon.new("coin", 16))
+	mrow.add_child(HudIcon.new("coin", 22))
 	money_label = QuarryTheme.fixed_label("$0", QuarryTheme.HERO, QuarryTheme.MONEY, false, true)
 	mrow.add_child(money_label)
 	income_label = QuarryTheme.fixed_label("", QuarryTheme.BODY, QuarryTheme.GOOD)
@@ -248,6 +254,7 @@ func _build() -> void:
 	map_plate.name = "MapPlate"
 	add_child(map_plate)
 	map_plate.add_theme_stylebox_override("panel", StyleBoxEmpty.new())          # the round map is its own shape: no frame around it
+	map_plate.decorate = false                                                   # ...and no rivets: the minimap is untouched by the HUD redesign
 	map_plate.set_anchor(SIDE_LEFT, 0.0)
 	map_plate.set_anchor(SIDE_RIGHT, 0.0)
 	map_plate.set_anchor(SIDE_TOP, 1.0)
@@ -309,11 +316,11 @@ func _build() -> void:
 	# ---- top-right: objective
 	var tr := _panel(Control.PRESET_TOP_RIGHT, QuarryTheme.GOOD)
 	tr.name = "ObjectivePlate"
-	tr.custom_minimum_size = Vector2(250, 0)
+	tr.custom_minimum_size = Vector2(228, 0)
 	tr.set_anchor(SIDE_LEFT, 0.0)
 	tr.set_anchor(SIDE_RIGHT, 0.0)
 	tr.offset_left = 10
-	tr.offset_right = 262
+	tr.offset_right = 238
 	tr.offset_top = 10
 	var v2 := _vbox(tr, 3)
 	var srow := HBoxContainer.new()
@@ -328,15 +335,28 @@ func _build() -> void:
 	v2.add_child(nrow)
 	objective_label = QuarryTheme.fixed_label("", QuarryTheme.BODY)
 	objective_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	objective_label.custom_minimum_size = Vector2(170, 0)
+	objective_label.custom_minimum_size = Vector2(150, 0)
 	objective_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	nrow.add_child(objective_label)
 	objective_pct = QuarryTheme.fixed_label("", QuarryTheme.BODY, QuarryTheme.ACCENT, false, true)
 	objective_pct.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	nrow.add_child(objective_pct)
 	objective_bar = _bar(v2, 5, QuarryTheme.ACCENT)
-	objective_hint = QuarryTheme.fixed_label("O  all objectives", QuarryTheme.SMALL, Color(0.8, 0.72, 0.55, 0.75))
-	v2.add_child(objective_hint)
+	var hrow := HBoxContainer.new()                             # "All objectives" and a little arrow (the O key still opens the list)
+	hrow.add_theme_constant_override("separation", 4)
+	hrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v2.add_child(hrow)
+	objective_hint = QuarryTheme.fixed_label("All objectives", QuarryTheme.SMALL, Color(0.86, 0.78, 0.6, 0.9))
+	objective_hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hrow.add_child(objective_hint)
+	objective_arrow = TextureRect.new()
+	objective_arrow.texture = load("res://assets/ui/hud/arrow_down.png")
+	objective_arrow.custom_minimum_size = Vector2(10, 10)
+	objective_arrow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	objective_arrow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	objective_arrow.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	objective_arrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hrow.add_child(objective_arrow)
 	objective_detail = QuarryTheme.fixed_label("", QuarryTheme.SMALL, QuarryTheme.DIM)
 	objective_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	objective_detail.custom_minimum_size = Vector2(226, 0)
@@ -360,14 +380,14 @@ func _build() -> void:
 	bottom.add_theme_constant_override("separation", 8)
 	add_child(bottom)
 	bottom.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	bottom.custom_minimum_size = Vector2(298, 48)
+	bottom.custom_minimum_size = Vector2(278, 30)
 	bottom.set_anchor(SIDE_LEFT, 1.0)
 	bottom.set_anchor(SIDE_RIGHT, 1.0)
 	bottom.set_anchor(SIDE_TOP, 1.0)
 	bottom.set_anchor(SIDE_BOTTOM, 1.0)
-	bottom.offset_left = -308
+	bottom.offset_left = -288
 	bottom.offset_right = -10
-	bottom.offset_top = -80
+	bottom.offset_top = -62
 	bottom.offset_bottom = -26
 	bottom.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	var tp := QuarryPlate.new(8, QuarryTheme.ACCENT)
@@ -391,16 +411,17 @@ func _build() -> void:
 	tv.add_child(tool_pips)
 	var bp := QuarryPlate.new(8, QuarryTheme.GOOD)
 	bp.name = "BagPlate"
-	bp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	bp.custom_minimum_size = Vector2(118, 0)
+	bp.size_flags_horizontal = Control.SIZE_SHRINK_END                    # a compact badge, not a wide box
+	bp.custom_minimum_size = Vector2(92, 0)
 	bottom.add_child(bp)
 	var bv := _vbox(bp, 2)
 	var brow := HBoxContainer.new()
-	brow.add_theme_constant_override("separation", 5)
+	brow.add_theme_constant_override("separation", 7)
+	brow.alignment = BoxContainer.ALIGNMENT_CENTER
 	brow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bv.add_child(brow)
-	brow.add_child(HudIcon.new("bag", 14))
-	bag_label = QuarryTheme.hud_label("BAG 0/18", QuarryTheme.HUD + 1, QuarryTheme.ACCENT)
+	brow.add_child(HudIcon.new("bag", 17))
+	bag_label = QuarryTheme.hud_label("0 / 18", QuarryTheme.HUD + 2, QuarryTheme.INK)
 	brow.add_child(bag_label)
 	bag_bar = _bar(bv, 6, QuarryTheme.GOOD)
 	bag_bar.visible = false                                  # the bag is a number (BAG 4/18), not a bar
@@ -746,8 +767,10 @@ func _process(delta: float) -> void:
 	var clock := int(st.clock_minutes)
 	var hr := (clock / 60) % 24
 	var phase_name := "NIGHT" if hr < 5 or hr >= 21 else "DAWN" if hr < 7 else "MORNING" if hr < 12 else "AFTERNOON" if hr < 17 else "EVENING"
-	time_label.text = "DAY %d   %02d:%02d   %s" % [clock / 1440 + 1, hr, clock % 60, phase_name]
-	time_label.add_theme_color_override("font_color", QuarryTheme.WARN if hr >= 20 or hr < 5 else QuarryTheme.DIM)
+	time_label.text = "DAY %d | %02d:%02d" % [clock / 1440 + 1, hr, clock % 60]
+	phase_label.text = phase_name
+	time_label.add_theme_color_override("font_color", QuarryTheme.WARN if hr >= 20 or hr < 5 else QuarryTheme.INK)
+	phase_label.add_theme_color_override("font_color", QuarryTheme.WARN if hr >= 20 or hr < 5 else QuarryTheme.DIM)
 	time_icon.set_kind("moon" if hr < 6 or hr >= 19 else "sun")
 	while not income_log.is_empty() and _now - float(income_log[0][0]) > 60.0:
 		income_log.pop_front()
@@ -760,6 +783,7 @@ func _process(delta: float) -> void:
 	else:
 		income_label.text = ("+%s / min" % QuarryTheme.money_text(per_min)) if per_min > 0 else ""
 		income_label.add_theme_color_override("font_color", QuarryTheme.GOOD)
+	income_label.visible = income_label.text != ""                # no empty row under the cash
 	# message fade
 	message_timer = maxf(0.0, message_timer - delta)
 	message_label.modulate.a = clampf(message_timer / 0.4, 0.0, 1.0)
@@ -877,7 +901,8 @@ func refresh_panels() -> void:
 	_set_hotbar(prog)
 	var used := st.total(st.inventory)
 	var cap := st.capacity()
-	bag_label.text = "BAG %d/%d" % [used, cap]
+	bag_label.text = "%d / %d" % [used, cap]
+	bag_label.add_theme_color_override("font_color", QuarryTheme.WARN if used >= cap else QuarryTheme.INK)
 	_bag_target = float(used) / float(maxi(1, cap))
 	set_bar_color(bag_bar, QuarryTheme.WARN if used >= cap else QuarryTheme.GOOD)
 	var items := []
@@ -975,7 +1000,9 @@ func _apply_objective_mode() -> void:
 	objective_rows.visible = objectives_expanded
 	progress_box.visible = objectives_expanded
 	status_label.visible = objectives_expanded and status_label.text != ""
-	objective_hint.text = "O  hide the list" if objectives_expanded else "O  all objectives"
+	objective_hint.text = "Hide objectives" if objectives_expanded else "All objectives"
+	if objective_arrow != null:
+		objective_arrow.texture = load("res://assets/ui/hud/%s.png" % ("arrow_up" if objectives_expanded else "arrow_down"))
 
 func _amount(r: Array) -> String:
 	if str(r[0]).begins_with("Earn"):
