@@ -43,6 +43,11 @@ func run() -> void:
 	check(vis.get_node_or_null("FenceFrame") != null and vis.get_node_or_null("FenceWire") != null, "the quarry fence is two merged meshes (frame + wire band)")
 	check(game.find_children("FN_MetalRailing*", "Node3D", true, false).is_empty(), "no per-module railing props on the fence")
 	var mi_count: int = game.find_children("*", "MeshInstance3D", true, false).size()
+	var terrain_chunks := 0
+	if game.live_terrain != null:
+		terrain_chunks = game.live_terrain.terrain.chunk_nodes.size()
+		mi_count -= terrain_chunks                         # the heightfield's 16 m chunks are budgeted on their own below (frustum-culled, one draw call each when visible)
+		check(terrain_chunks <= 400, "the live terrain is at most 400 culled 8 m chunks (%d)" % terrain_chunks)
 	check(mi_count < 760, "the whole world uses fewer than 760 separate mesh nodes (cab interiors, doors and steps on five machines, the Blender yard buildings and sell kiosk, plus the Blender mountains, tunnel lining and the forest's ground-cover chunks: 20 + 12 + about 40) (%d; it was 948 before batching)" % mi_count)
 	# ---- decor: instanced, a handful of batches, follows the soil
 	var top = game.formation_nodes["q_top"]

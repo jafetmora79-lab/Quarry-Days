@@ -60,7 +60,7 @@ func run() -> void:
 			continue
 		var bb: AABB = m.global_transform * m.mesh.get_aabb()
 		var is_sheet: bool = bb.size.x > 300.0 and bb.size.y < 0.2 and absf(bb.position.y) < 0.2
-		var is_skin: bool = m.name == "RockSkin" and m.get_parent().name == "q_top"
+		var is_skin: bool = (m.name == "RockSkin" and m.get_parent().name == "q_top") or m.get_parent().name == "Terrain"
 		if is_sheet or is_skin:
 			var tt: Array = up_tris(m)
 			print("DBG ", m.get_parent().name, "/", m.name, " tris=", tt.size(), " z=[%.1f,%.1f]" % [bb.position.z, bb.end.z])

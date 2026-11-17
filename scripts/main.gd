@@ -945,6 +945,10 @@ func _build_pit_zone() -> void:
 	for id in prog.formation_ids():
 		if prog.formation_active(id) and str(prog.fdef(id).get("frame", "")) == "pit":
 			_build_formation(id)
+	if live_terrain_enabled and blueprint and pit_zone != null and prog.filled_world() and live_terrain == null:
+		live_terrain = LiveTerrain.new()
+		world.add_child(live_terrain)
+		live_terrain.attach(self)
 
 ## The gate opens with the cleanup tutorial (saves from before it are already open).
 func _sync_pit_gate() -> void:
@@ -1285,6 +1289,8 @@ func _mining_ray() -> Dictionary:
 	var end := start - player.camera.global_transform.basis.z * MINE_REACH
 	var query := PhysicsRayQueryParameters3D.create(start, end)
 	query.exclude = [player.get_rid()]
+	if live_terrain != null and live_terrain.terrain != null:
+		query.exclude.append(live_terrain.terrain.body.get_rid())          # the formation columns underneath are what a swing hits (for now)
 	var hit := get_world_3d().direct_space_state.intersect_ray(query)
 	if hit.is_empty() or not hit["collider"] is Node3D:
 		return {}
@@ -2768,6 +2774,8 @@ var gear_props := {}          ## the compressor (a fixed prop)
 var cart_nodes := {}          ## cart id -> QuarryCart
 var natural_start_enabled := true      ## Phase 10: false keeps the three old starting piles (legacy layouts and older tests)
 var soil: QuarrySoil
+var live_terrain: LiveTerrain                      ## the heightfield ground of the filled quarry (scripts/terrain/live_terrain.gd)
+var live_terrain_enabled := true
 var spoil_node: Node3D
 var held_cart: QuarryCart
 var _cart_save_t := 0.0

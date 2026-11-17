@@ -170,3 +170,42 @@ def dirt_clods(root):
         s = r.uniform(0.04, 0.08)
         chunk(t, (math.cos(a) * d, 0.0, math.sin(a) * d), (s, s * 0.6, s), "ClodStone" if k % 3 == 0 else "ClodDark", r, 0.3, sub=0, base_clip=0.3)
     t.finish()
+
+
+# ---------------------------------------------------------------------------------------------- the bucket
+_mat("BucketSteel", (0.46, 0.49, 0.51), 0.7); _mat("BucketRim", (0.30, 0.32, 0.35), 0.7); _mat("BucketRust", (0.50, 0.28, 0.14))
+_mat("BucketBand", (0.36, 0.38, 0.40), 0.7); _mat("BucketHandle", (0.16, 0.16, 0.17), 0.6); _mat("BucketDirt", (0.40, 0.28, 0.18))
+_mat("BucketInner", (0.12, 0.11, 0.10))
+
+
+def bucket(root):
+    """Grandpa's old steel pail: a tapered body with a rolled rim, two ribs, a base ring, a wire bail handle on two ears, a few rust streaks and the load as a heap
+    in a separate holder named "Fill" (the game scales and colours it by how full the bucket is). Origin on the ground at the centre of the base, 0.36 m tall."""
+    import math
+    t = TM("Body", root, holder=True)
+    t.cyl((0, 0.17, 0), 0.175, 0.225, 0.34, "BucketSteel", seg=12)
+    t.cyl((0, 0.335, 0), 0.215, 0.215, 0.012, "BucketInner", seg=12)                      # the dark inside, seen over the lip when empty
+    t.cyl((0, 0.345, 0), 0.235, 0.235, 0.035, "BucketRim", seg=12)                         # the rolled rim
+    t.cyl((0, 0.012, 0), 0.185, 0.185, 0.03, "BucketRim", seg=12)                          # the base ring
+    for y, r in ((0.12, 0.198), (0.23, 0.214)):                                            # two pressed ribs
+        t.cyl((0, y, 0), r, r, 0.022, "BucketBand", seg=12)
+    r = random.Random(4)
+    for k in range(5):                                                                     # rust streaks running down the body
+        a = r.uniform(0, 6.28)
+        rr = 0.21 + 0.004
+        t.box((math.cos(a) * rr * 0.9, 0.2 - r.uniform(0, 0.08), math.sin(a) * rr * 0.9), (0.03, r.uniform(0.06, 0.16), 0.012), "BucketRust", rot_y=-a)
+    for sx in (-1, 1):                                                                     # the ears the bail hangs from
+        t.box((sx * 0.232, 0.325, 0), (0.03, 0.04, 0.05), "BucketRim")
+    pts = []
+    for i in range(0, 13):
+        a = math.pi * i / 12
+        pts.append((math.cos(a) * 0.235, 0.33 + math.sin(a) * 0.19, 0.0))
+    t.tube(pts, 0.011, "BucketHandle", seg=5)
+    t.finish()
+    fl = TM("Fill", root, loc=(0, 0.3, 0), holder=True)                                    # the load: a heap that rises out of the pail
+    rr = random.Random(9)
+    chunk(fl, (0, 0.3, 0), (0.205, 0.14, 0.205), "BucketDirt", rr, 0.16, sub=1, base_clip=0.5)
+    for k in range(4):
+        a = k * 1.7
+        chunk(fl, (math.cos(a) * 0.09, 0.36, math.sin(a) * 0.09), (0.07, 0.05, 0.07), "BucketDirt", rr, 0.3, sub=0, base_clip=0.5)
+    fl.finish()

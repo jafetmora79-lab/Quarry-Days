@@ -360,6 +360,7 @@ func _refresh_decor() -> void:
 ## Re-reads the column counts. `instant` skips crumble animations (building, loading).
 func refresh(instant := false) -> void:
 	var nav_changed := false
+	var changed_cols := []
 	var top_y := 0.0
 	var sig := []
 	for i in range(chunks.size()):
@@ -384,6 +385,8 @@ func refresh(instant := false) -> void:
 					_crumble(mi)
 		if (shown[i] > 0) != (want > 0):
 			nav_changed = true
+		if int(shown[i]) != want:
+			changed_cols.append(i)
 		shown[i] = want
 		var cs: CollisionShape3D = shapes[i]
 		var h := float(want) * tier_h
@@ -405,6 +408,9 @@ func refresh(instant := false) -> void:
 			game.soil_follow_topsoil()   # loose soil never floats over a column that was just dug
 	elif not skin:
 		_refresh_decor()
+	if game != null and game.get("live_terrain") != null and not changed_cols.is_empty():
+		for ci in changed_cols:
+			game.live_terrain.refresh_column(fid, int(ci))         # the ground under a cut column follows it
 	label.position = Vector3(0, top_y + 0.7, 0)
 	update_label()
 	if nav_changed and not instant and game:

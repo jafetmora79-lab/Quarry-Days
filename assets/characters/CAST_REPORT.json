@@ -35,16 +35,16 @@
   "name": "Marsh",
   "title": "Dr. Evelyn Marsh",
   "glb": "assets/characters/CHR_QD_Marsh.glb",
-  "triangles": 2994,
+  "triangles": 3422,
   "parts": {
    "QD_Marsh_Body": 1714,
    "QD_Marsh_Head": 352,
-   "QD_Marsh_Hair": 360,
+   "QD_Marsh_Hair": 460,
    "QD_Marsh_Shoes": 248,
-   "QD_Marsh_GearExtras": 320
+   "QD_Marsh_GearExtras": 648
   },
   "materials": 12,
-  "height_m": 1.744,
+  "height_m": 1.727,
   "empty_material_slots": 0
  },
  "Dmitri": {
