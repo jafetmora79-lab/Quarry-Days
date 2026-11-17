@@ -3485,11 +3485,9 @@ func _engine_struggle(v: QuarryVehicle) -> void:
 	v.add_child(_engine_audio)
 	_engine_audio.position = Vector3(0, 1.4, 0)
 	if boarding_enabled and QuarryBoarding.has_cab(v):
-		# the person climbs up through the cab door and sits down (door, step, doorway, seat), then turns the key
+		# the camera moves to the driver's seat (no climbing), then the key turns
 		var frames := QuarryBoarding.poses_in(v, player.camera.global_transform)
-		QuarryBoarding.play(self, player.camera, frames, {
-			"look at the step": func(): QuarryBoarding.swing_door(self, v, true),
-			"sit": func(): QuarryBoarding.swing_door(self, v, false, 0.6)},
+		QuarryBoarding.play(self, player.camera, frames, {"approach": func(): _driver_show(v, true, true)},
 			func(): _engine_ignition(v, base, exhaust))
 	else:
 		var tw0 := create_tween()
@@ -3547,12 +3545,11 @@ func _after_start() -> void:
 		var ground := player.global_transform * Transform3D(Basis(), _cam_home)
 		var frames := QuarryBoarding.poses_out(sv, ground)
 		frames[0][0] = cam.global_transform
-		QuarryBoarding.play(self, cam, frames, {
-			"turn to the door": func(): QuarryBoarding.swing_door(self, sv, true),
-			"ground": func(): QuarryBoarding.swing_door(self, sv, false, 0.55)},
+		QuarryBoarding.play(self, cam, frames, {"ground": func(): _driver_show(sv, false, false)},
 			func():
 				cam.position = _cam_home
 				cam.rotation = Vector3.ZERO
+				_driver_show(sv, false, false)
 				_finish_after_start())
 	else:
 		var back := create_tween()
@@ -5364,15 +5361,23 @@ func enter_vehicle(v: QuarryVehicle) -> void:
 var boarding_enabled := DisplayServer.get_name() != "headless"      ## off in headless runs (tests drive vehicles directly)
 var cab_view_pref := false                                         ## Tab: drive from inside the cab instead of the chase camera
 
+## The person in the seat (SeatedDriver, built on first use): shown while the machine is driven; `inside` hides just the head (camera in the cab).
+func _driver_show(v: QuarryVehicle, on: bool, inside: bool) -> void:
+	if v == null or not is_instance_valid(v) or not QuarryBoarding.has_cab(v):
+		return
+	var d := SeatedDriver.attach_to(v)
+	if d == null:
+		return
+	d.first_person = inside
+	d.show_driver(on)
+
 func _board_vehicle(v: QuarryVehicle) -> void:
 	repair_busy = true
 	player.locked = true
 	var cam := player.camera
 	var home := cam.position
 	var frames := QuarryBoarding.poses_in(v, cam.global_transform)
-	QuarryBoarding.play(self, cam, frames, {
-		"look at the step": func(): QuarryBoarding.swing_door(self, v, true),
-		"sit": func(): QuarryBoarding.swing_door(self, v, false, 0.6)},
+	QuarryBoarding.play(self, cam, frames, {"approach": func(): _driver_show(v, true, true)},
 		func(): _board_done(v, home))
 
 func _board_done(v: QuarryVehicle, home: Vector3) -> void:
@@ -5384,6 +5389,7 @@ func _board_done(v: QuarryVehicle, home: Vector3) -> void:
 	player.locked = false
 	_enter_now(v)
 	if not v.cab_view:                           # ease from the seat out to the chase camera instead of cutting
+		_driver_show(v, true, true)
 		v.camera.current = false
 		cam.current = true
 		cam.global_transform = seat_xf
@@ -5395,6 +5401,7 @@ func _board_done(v: QuarryVehicle, home: Vector3) -> void:
 			cam.rotation = Vector3.ZERO
 			repair_busy = false
 			if driving == v:
+				_driver_show(v, true, false)
 				v.camera.current = true)
 
 func _enter_now(v: QuarryVehicle) -> void:
@@ -5404,6 +5411,7 @@ func _enter_now(v: QuarryVehicle) -> void:
 	v.settled_frames = 0
 	fleet.driving_id = v.vehicle_id
 	v.camera.current = true
+	_driver_show(v, true, v.cab_view)
 	player.visible = false
 	player.process_mode = Node.PROCESS_MODE_DISABLED
 	player.collision_layer = 0
@@ -5429,6 +5437,7 @@ func exit_vehicle() -> bool:
 	player.global_position = spot
 	player.rotation.y = v.rotation.y
 	if boarding_enabled and QuarryBoarding.has_cab(v):
+		_driver_show(v, true, true)              # still in the seat while the camera leaves it
 		_alight_vehicle(v, chase)
 	return true
 
@@ -5443,19 +5452,19 @@ func _alight_vehicle(v: QuarryVehicle, chase: Transform3D) -> void:
 	frames.push_front([v.camera.global_transform if v.cab_view else chase, 0.0, "start"])
 	frames[1][1] = 0.4
 	frames[1][2] = "pull in"
-	QuarryBoarding.play(self, cam, frames, {
-		"turn to the door": func(): QuarryBoarding.swing_door(self, v, true),
-		"ground": func(): QuarryBoarding.swing_door(self, v, false, 0.55)},
+	QuarryBoarding.play(self, cam, frames, {"ground": func(): _driver_show(v, false, false)},
 		func():
 			cam.position = home
 			cam.rotation = Vector3.ZERO
 			repair_busy = false
 			player.locked = false
+			_driver_show(v, false, false)
 			QuarryBoarding.lamps(v, false))
 
 ## Returns control to the on-foot player without moving them (used by exit and load).
 func _reset_driving() -> void:
 	if driving:
+		_driver_show(driving, false, false)
 		driving.driven = false
 		driving.input = {"throttle": 0.0, "steer": 0.0, "brake": true}
 	driving = null
@@ -5586,6 +5595,7 @@ func _driving_input(event: InputEvent) -> bool:
 			driving.cab_view = not driving.cab_view
 			cab_view_pref = driving.cab_view
 			driving.cam_pitch = 0.0 if driving.cab_view else -0.32
+			_driver_show(driving, true, driving.cab_view)
 			_notify("Cab view." if driving.cab_view else "Chase camera.")
 			return true
 		if event.physical_keycode == KEY_B:

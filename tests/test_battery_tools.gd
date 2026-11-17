@@ -32,20 +32,17 @@ func run() -> void:
 	var v: QuarryVehicle = game._starter_vehicle()
 	prog.story["excavator"]["battery"] = true
 	game._decorate_starter()
-	var n: Node3D = v.turret.get_node("OpeningParts")
-	var inside := false
-	for mi in n.find_children("*", "MeshInstance3D", true, false):
-		var bb: AABB = (mi as MeshInstance3D).mesh.get_aabb()
-		if bb.position.y < OpeningModels.POCKET_FLOOR + 0.02 and bb.end.y > 1.55:
-			inside = true
-	check(inside, "the fitted battery stands down in the pocket (its bottom on the pocket floor, its top above the hood)")
-	check(OpeningModels.BATTERY_SIZE.x < OpeningModels.POCKET.size.x and OpeningModels.BATTERY_SIZE.z < OpeningModels.POCKET.size.y and OpeningModels.POCKET_FLOOR + OpeningModels.BATTERY_SIZE.y > 1.55, "it fits the opening with room to spare and stands proud of the hood")
-	check(RepairSequence.SOCKET["battery"].x > 0.34 and RepairSequence.SOCKET["battery"].x < 0.78, "the repair lowers it into that pocket")
+	var kit: RepairKit = v.repair_kit
+	check(kit != null and kit.m("BatteryTray") != null, "the excavator model has a real battery tray (marker BatteryTray)")
+	var bat := kit.battery_node as Node3D
+	var tray := kit.m("BatteryTray") as Node3D
+	check(bat.visible and bat.global_position.distance_to(tray.global_position) < 0.25, "the fitted battery sits in the tray")
+	check(absf(kit.cover.rotation.x) < 0.05, "and the tray cover is shut over it")
 	# a bought excavator already has one
 	var rec: Dictionary = game.fleet.give("compact_excavator", Vector3(0, 0, 50), 0.0)
 	game._sync_vehicles()
 	var ex: QuarryVehicle = game.vehicle_nodes[int(rec["id"])]
-	check(ex.turret.get_node_or_null("OpeningParts") != null, "a bought excavator has its battery in the pocket from the start")
+	check(ex.repair_kit != null and (ex.repair_kit.battery_node as Node3D).visible, "a bought excavator has its battery in the tray from the start")
 	# ---- no back window on the office
 	var back_glass := 0
 	for mi in game.find_children("*", "MeshInstance3D", true, false):

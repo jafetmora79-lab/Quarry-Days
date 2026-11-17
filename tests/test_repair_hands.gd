@@ -66,7 +66,7 @@ func run() -> void:
 			return game.repair_seq == null)
 		var max_gloves: int = st["max"]
 		var seen_parented: bool = st["parented"]
-		check(max_gloves >= 2, "%s: the player's gloved hands are on screen working (%d glove models)" % [part, max_gloves])
+		check(max_gloves == 0, "%s: no player hands on screen - the parts move on their own (%d glove models)" % [part, max_gloves])
 		check(seen_parented, "%s: every hand is attached to something it holds or touches" % part)
 		check(prog.repair_done(part) and prog.carried_part() == "", "%s: fitted and consumed once, at the end" % part)
 		var secs := float(f) / 60.0

@@ -3,7 +3,7 @@ class_name RepairKit
 ## The excavator's repair kit as it stands on the machine (Blender: tools/world_models/repair_kit.py -> assets/world/WLD_QD_excavator_kit.glb and WLD_QD_repair_parts.glb).
 ##
 ## Kit_Turret is attached to the excavator's Turret node and Kit_Boom to its Boom node with identity transforms, so every marker is the REAL place on the machine whichever way it faces and
-## whatever the ground: FuelFiller / FuelPourTarget / FuelCapRest / FuelTether, BatteryTray / BatteryPositive / BatteryNegative / LeadStud*, HoseStart (on the turret) and HoseEnd (on the boom).
+## whatever the ground: FuelFiller / FuelPourTarget / FuelCapRest / FuelTether, BatteryTray / BatteryPositive / BatteryNegative / LeadStud*, HydraulicHoseStart (on the turret) and HydraulicHoseEnd (on the boom).
 ## Nothing here uses world coordinates: every pose is computed from marker transforms (kit.m("FuelFiller")), so a rotated turret, a lifted boom or a machine parked on a slope all work.
 ##
 ## Three live parts are drawn each frame from the markers, so they stay attached when the boom, stick and bucket move:
@@ -206,9 +206,9 @@ func _update_geometry() -> void:
 		return
 	if hose_live and hose_a != null and hose_a.visible:
 		if hose_a.get_meta("follow", true):
-			hose_a.global_transform = fitting_xf("HoseStart")
+			hose_a.global_transform = fitting_xf("HydraulicHoseStart")
 		if hose_b.get_meta("follow", true):
-			hose_b.global_transform = fitting_xf("HoseEnd")
+			hose_b.global_transform = fitting_xf("HydraulicHoseEnd")
 	_hose_geometry()
 	_leads_geometry()
 	_tether_geometry()
@@ -227,7 +227,7 @@ func _hose_geometry() -> void:
 			_hose_sig = sig
 			hose_mesh.mesh = hose_between(ea[0], ea[1], eb[0], eb[1], hose_slack)
 	if stub_mesh.visible:
-		var pm := m("HoseStart")
+		var pm := m("HydraulicHoseStart")
 		var d: Vector3 = pm.global_basis.x.normalized()
 		var p0 := pm.global_position + d * 0.02
 		# a split hose hanging limp from the port: out, then down, ending in a frayed cut

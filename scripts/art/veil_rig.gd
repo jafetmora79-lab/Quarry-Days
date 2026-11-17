@@ -511,6 +511,9 @@ func _carry_arms(cen: Vector3, cf: Transform3D) -> void:
 ## Both hands on a steering wheel (the opening's drive): the wheel's centre sits 1.14 up and 0.32 ahead of the rig origin, 0.17 m radius, its plane tilted back 70 degrees.
 ## `wheel_hands` turns it on; `wheel_angle` (radians, + = turning to the right) takes the hands round the rim. Works over any FK state (talking, idle).
 var wheel_hands := false
+var seated := false                           ## sitting in a cab (see SeatedDriver): legs bent, hands on the controls
+const SEAT_THIGH := 86.0
+const SEAT_DROP := 0.47
 var wheel_angle := 0.0
 var _wheel_w := 0.0
 
@@ -635,12 +638,19 @@ func pose(delta: float, state: String, speed: float, work_kind: String, carrying
 		_pose_bone(side + "Foot", _q(R, -(th - kn) * 0.85 + a * 0.6 + step * 0.6 - toe))
 	var drop := _leg * (1.0 - cos(deg_to_rad(a))) + _leg * (1.0 - cos(deg_to_rad(0.6 * a)))
 	skel.position.y = 0.022 * cos(2.0 * (ph - 0.29 * TAU)) * w - drop
+	if seated:
+		# sitting: thighs forward (level), shins straight down, feet flat; the pelvis drops so the shins reach the floor; the torso stays upright
+		for side in ["Left", "Right"]:
+			_pose_bone(side + "UpperLeg", _q(R, SEAT_THIGH))
+			_pose_bone(side + "LowerLeg", _q(R, -SEAT_THIGH))
+			_pose_bone(side + "Foot", _q(R, 0.0))
+		skel.position.y = -SEAT_DROP
 	# IK layers over the FK pose: pickaxe swing, load carried in both arms, hands on a control panel / the ground ----
 	var cfm := _chest_frame()
 	var pick := tool_named("pickaxe")
 	var swinging := state == "work" and work_kind == "miner" and not pick.is_empty()
 	_swing_w = move_toward(_swing_w, 1.0 if swinging else 0.0, delta * 7.0)
-	var reach_on := wheel_hands or state in ["interact"] or (state == "pickup" and work_kind == "hauler")
+	var reach_on := wheel_hands or seated or state in ["interact"] or (state == "pickup" and work_kind == "hauler")
 	var rt := clampf(sin(clampf(p, 0.0, 1.0) * PI) * 1.6, 0.0, 1.0) if state == "pickup" and not wheel_hands else 1.0
 	_reach_w = move_toward(_reach_w, rt if reach_on else 0.0, delta * 6.0)
 	if swinging:

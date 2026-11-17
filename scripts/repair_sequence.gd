@@ -2,7 +2,7 @@ extends RefCounted
 class_name RepairSequence
 ## The excavator's three repairs, each a short first-person inspection at the part's REAL place on the machine. No hands are shown: the parts move by themselves, as if the person were
 ## working just outside the camera. Every position is computed from the markers of the machine's repair kit (scripts/repair_kit.gd: FuelFiller, FuelCapRest, FuelPourTarget, BatteryTray,
-## BatteryPositive/Negative, HoseStart/HoseEnd ...), so it works however the machine is turned, whatever the ground, and the parts end exactly where they stay.
+## BatteryPositive/Negative, HydraulicHoseStart/HydraulicHoseEnd ...), so it works however the machine is turned, whatever the ground, and the parts end exactly where they stay.
 ##
 ##   fuel     the cap unscrews (counter-clockwise, rising as the thread lets go) and swings to its rest on the tether; the jerry can comes up from below the view, its spout lines up over the
 ##            filler, it tilts about the spout tip and holds; the stream runs only while the spout is over the opening and ends inside the neck; the stream stops, the can rights itself and
@@ -80,7 +80,7 @@ func _vantage() -> Transform3D:
 			focus = kit.m("BatteryTray").global_position + tb * Vector3(0.0, 0.1, 0.0)
 			off = Vector3(-1.0, 1.0, 0.3)
 		_:
-			focus = (kit.m("HoseStart").global_position + kit.m("HoseEnd").global_position) * 0.5
+			focus = (kit.m("HydraulicHoseStart").global_position + kit.m("HydraulicHoseEnd").global_position) * 0.5
 			off = Vector3(1.7, 0.35, 0.4)
 	var pos := focus + tb * off
 	pos.y = maxf(pos.y, v.global_position.y + 1.2)                 # never lower than a standing person's chest
@@ -222,26 +222,26 @@ func _fuel() -> void:
 			_stream.visible = false
 	var tw := _chain()
 	tw.tween_callback(func(): _snd("repair_unscrew", -3.0))
-	tw.tween_method(unscrew, 0.0, 1.0, 1.1)
-	tw.tween_method(to_rest, 0.0, 1.0, 0.45)
+	tw.tween_method(unscrew, 0.0, 1.0, 0.7)
+	tw.tween_method(to_rest, 0.0, 1.0, 0.35)
 	tw.tween_callback(func(): _snd("repair_clank", -8.0))
-	tw.tween_interval(0.1)
+	tw.tween_interval(0.05)
 	# the can arrives from below the frame, up and over, tilting a little as it goes
-	tw.tween_method(func(w: float): can_pose.call(start_tip.lerp(hover_tip, _ease(w)), deg_to_rad(8.0) * _ease(w)), 0.0, 1.0, 0.8)
-	tw.tween_method(func(w: float): can_pose.call(hover_tip.lerp(pour_tip + tb.y * 0.06, _ease(w)), deg_to_rad(8.0 + 30.0 * _ease(w))), 0.0, 1.0, 0.55)
+	tw.tween_method(func(w: float): can_pose.call(start_tip.lerp(hover_tip, _ease(w)), deg_to_rad(8.0) * _ease(w)), 0.0, 1.0, 0.6)
+	tw.tween_method(func(w: float): can_pose.call(hover_tip.lerp(pour_tip + tb.y * 0.06, _ease(w)), deg_to_rad(8.0 + 30.0 * _ease(w))), 0.0, 1.0, 0.4)
 	# tip over the opening about the spout tip: aligned first, then tilting to the pouring angle
-	tw.tween_method(func(w: float): can_pose.call((pour_tip + tb.y * 0.06).lerp(pour_tip, _ease(w)), deg_to_rad(38.0 + 67.0 * _ease(w))), 0.0, 1.0, 0.85)
+	tw.tween_method(func(w: float): can_pose.call((pour_tip + tb.y * 0.06).lerp(pour_tip, _ease(w)), deg_to_rad(38.0 + 67.0 * _ease(w))), 0.0, 1.0, 0.6)
 	tw.tween_callback(func():
 		_stream_on = true
 		_snd("repair_glug", -3.0))
-	tw.tween_method(func(w: float): can_pose.call(pour_tip, deg_to_rad(105.0 + 2.0 * sin(w * 9.0))), 0.0, 1.0, 1.5)           # holds the pouring angle
+	tw.tween_method(func(w: float): can_pose.call(pour_tip, deg_to_rad(105.0 + 2.0 * sin(w * 9.0))), 0.0, 1.0, 0.8)           # holds the pouring angle
 	tw.tween_callback(func():
 		_stream_on = false
 		_stream.visible = false)                                                                                           # the flow stops BEFORE the can rights itself
-	tw.tween_interval(0.15)
-	tw.tween_method(func(w: float): can_pose.call(pour_tip.lerp(pour_tip + tb.y * 0.06, _ease(w)), deg_to_rad(105.0 - 67.0 * _ease(w))), 0.0, 1.0, 0.6)
-	tw.tween_method(func(w: float): can_pose.call((pour_tip + tb.y * 0.06).lerp(hover_tip, _ease(w)), deg_to_rad(38.0 - 30.0 * _ease(w))), 0.0, 1.0, 0.5)
-	tw.tween_method(func(w: float): can_pose.call(hover_tip.lerp(start_tip, _ease(w)), deg_to_rad(8.0) * (1.0 - _ease(w))), 0.0, 1.0, 0.7)
+	tw.tween_interval(0.1)
+	tw.tween_method(func(w: float): can_pose.call(pour_tip.lerp(pour_tip + tb.y * 0.06, _ease(w)), deg_to_rad(105.0 - 67.0 * _ease(w))), 0.0, 1.0, 0.4)
+	tw.tween_method(func(w: float): can_pose.call((pour_tip + tb.y * 0.06).lerp(hover_tip, _ease(w)), deg_to_rad(38.0 - 30.0 * _ease(w))), 0.0, 1.0, 0.35)
+	tw.tween_method(func(w: float): can_pose.call(hover_tip.lerp(start_tip, _ease(w)), deg_to_rad(8.0) * (1.0 - _ease(w))), 0.0, 1.0, 0.5)
 	tw.tween_callback(func(): _can.visible = false)
 	# the cap comes back: over the filler, then screwed on clockwise, lowering as it tightens
 	var back := func(w: float):
@@ -253,14 +253,14 @@ func _fuel() -> void:
 		xf.basis = seat.basis.rotated(seat.basis.y, TAU * 1.25 * (1.0 - e))
 		xf.origin = seat.origin + seat.basis.y * (0.022 * (1.0 - e))
 		cap.global_transform = xf
-	tw.tween_method(back, 0.0, 1.0, 0.45)
+	tw.tween_method(back, 0.0, 1.0, 0.35)
 	tw.tween_callback(func(): _snd("repair_screw", -3.0))
-	tw.tween_method(screw, 0.0, 1.0, 1.0)
+	tw.tween_method(screw, 0.0, 1.0, 0.6)
 	tw.tween_callback(func():
 		_snd("repair_click", -3.0)
 		kit.tether_free = false)
 	tw.tween_callback(_commit)                                  # fitted only now that the cap is on
-	tw.tween_interval(0.3)
+	tw.tween_interval(0.15)
 	tw.tween_callback(func(): _end(true))
 	_final = func():
 		cap.global_transform = seat
@@ -283,7 +283,7 @@ func _hose() -> void:
 	fb.set_meta("follow", false)
 	kit.hose_slack = 0.16
 	var cam: Camera3D = game.player.camera
-	var seat_b := kit.fitting_xf("HoseEnd")
+	var seat_b := kit.fitting_xf("HydraulicHoseEnd")
 	var nut_a: Node3D = fa.get_node_or_null("Nut") as Node3D
 	var nut_b: Node3D = fb.get_node_or_null("Nut") as Node3D
 	# the two ends start low in front of the view, held up toward the ports
@@ -291,8 +291,8 @@ func _hose() -> void:
 	var free_b := Transform3D(Basis(Vector3.RIGHT, deg_to_rad(-30.0)) * cam.global_basis, cam.global_position + cam.global_basis * Vector3(0.30, -0.55, -0.75))
 	fa.global_transform = free_a
 	fb.global_transform = free_b
-	var appr_a := kit.fitting_xf("HoseStart", 0.20)
-	var appr_b := kit.fitting_xf("HoseEnd", 0.20)
+	var appr_a := kit.fitting_xf("HydraulicHoseStart", 0.20)
+	var appr_b := kit.fitting_xf("HydraulicHoseEnd", 0.20)
 	var hang_b := Transform3D(seat_b.basis, seat_b.origin + Vector3(0, -0.30, 0.18) + kit.turret_part.global_basis * Vector3(0.12, 0, 0))
 	var tw := _chain()
 	# 1 both ends rise into view; the pump end is lifted toward its port, the boom end hangs lower
@@ -304,17 +304,17 @@ func _hose() -> void:
 	tw.tween_callback(func(): _snd("repair_tighten", -4.0))
 	tw.tween_method(func(w: float):
 		var e := _ease(w)
-		fa.global_transform = kit.fitting_xf("HoseStart", 0.20 * (1.0 - e))
+		fa.global_transform = kit.fitting_xf("HydraulicHoseStart", 0.20 * (1.0 - e))
 		if nut_a != null:
 			nut_a.rotation.y = TAU * 0.9 * e, 0.0, 1.0, 0.9)
 	tw.tween_callback(func(): _snd("repair_click", -2.0))
 	tw.tween_interval(0.2)
 	# 3 the hose bends as the boom end is lifted to its port (it leaves the fitting along its own axis, so there is no sharp bend)
-	tw.tween_method(func(w: float): fb.global_transform = hang_b.interpolate_with(kit.fitting_xf("HoseEnd", 0.20), _ease(w)), 0.0, 1.0, 0.9)
+	tw.tween_method(func(w: float): fb.global_transform = hang_b.interpolate_with(kit.fitting_xf("HydraulicHoseEnd", 0.20), _ease(w)), 0.0, 1.0, 0.9)
 	tw.tween_callback(func(): _snd("repair_tighten", -4.0))
 	tw.tween_method(func(w: float):
 		var e := _ease(w)
-		fb.global_transform = kit.fitting_xf("HoseEnd", 0.20 * (1.0 - e))
+		fb.global_transform = kit.fitting_xf("HydraulicHoseEnd", 0.20 * (1.0 - e))
 		if nut_b != null:
 			nut_b.rotation.y = TAU * 0.9 * e, 0.0, 1.0, 0.8)
 	tw.tween_callback(func(): _snd("repair_click", -2.0))

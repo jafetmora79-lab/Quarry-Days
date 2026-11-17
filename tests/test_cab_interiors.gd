@@ -40,20 +40,20 @@ func run() -> void:
 		(c["door"] as Node3D).rotation.y = float(c["open"])
 		check(absf((c["door"] as Node3D).rotation.y) > 1.2, "%s: the door opens about 80 degrees" % types[0])
 		(c["door"] as Node3D).rotation.y = 0.0
-		# climbing in: from the ground by the door to the seat
+		# getting in: a short camera move from the ground to the seat (no climbing)
 		var ground := Transform3D(Basis(), v.global_position + v.global_transform.basis * Vector3(-3.0, QuarryBoarding.EYE, 0.0))
 		var frames := QuarryBoarding.poses_in(v, ground)
 		var seat_world: Vector3 = (c["ref"] as Node3D).to_global(c["eye"])
 		var last: Transform3D = frames[frames.size() - 1][0]
-		check(frames.size() >= 5 and last.origin.distance_to(seat_world) < 0.01, "%s: the climb ends in the seat (%d keyframes)" % [types[0], frames.size()])
+		check(frames.size() >= 3 and last.origin.distance_to(seat_world) < 0.01, "%s: the move ends in the seat (%d keyframes)" % [types[0], frames.size()])
 		var finite := true
 		var total := 0.0
 		for fr in frames:
 			finite = finite and fr[0].origin.is_finite() and fr[0].basis.determinant() > 0.5
 			total += float(fr[1])
-		check(finite and total > 2.0 and total < 5.0, "%s: every keyframe is a valid pose and the climb takes %.1f s" % [types[0], total])
+		check(finite and total > 0.2 and total < 1.5, "%s: every keyframe is a valid pose and getting in takes %.1f s" % [types[0], total])
 		var out := QuarryBoarding.poses_out(v, ground)
-		check(out[out.size() - 1][0].origin.distance_to(ground.origin) < 0.01 and out[0][0].origin.distance_to(seat_world) < 0.01, "%s: climbing out is the reverse, ending on the ground" % types[0])
+		check(out[out.size() - 1][0].origin.distance_to(ground.origin) < 0.01 and out[0][0].origin.distance_to(seat_world) < 0.01, "%s: getting out ends on the ground" % types[0])
 		# the cab view
 		v.cab_view = true
 		v.driven = true
@@ -71,8 +71,8 @@ func run() -> void:
 	# the hose runs along the boom, in the boom's own frame, so it follows it
 	game.prog.story["excavator"]["hose"] = true
 	game._decorate_starter()
-	var hose: Node = sv.arm.get_node_or_null("BoomHose")
-	check(hose != null and hose.get_child_count() >= 2, "a fitted hose is attached to the boom")
-	check(absf(RepairSequence.HOSE_B.x - 0.72) < 0.01 and RepairSequence.HOSE_A.z > RepairSequence.HOSE_B.z, "the repair lays it from the pump port on the pedestal out along the boom's side")
+	var kit: RepairKit = sv.repair_kit
+	check(kit != null and kit.hose_live and kit.hose_mesh.visible, "a fitted hose is a live hose between the pump port and the boom port")
+	check(kit.m("HydraulicHoseStart") != null and kit.m("HydraulicHoseEnd") != null, "the model carries HydraulicHoseStart / HydraulicHoseEnd markers")
 	print("RESULT: %d checks, %d failures" % [checks, failures.size()])
 	quit(1 if failures.size() > 0 else 0)

@@ -91,7 +91,7 @@ def excavator_kit(root):
     marker(h, "Marker_BatteryNegative", (bx - 0.11, DECK + 0.02 + 0.20 + 0.03, bz - 0.05))
     marker(h, "Marker_LeadStudPositive", (bx + 0.11, DECK + 0.13, bz + 0.085))
     marker(h, "Marker_LeadStudNegative", (bx - 0.11, DECK + 0.13, bz + 0.085))
-    marker(h, "Marker_HoseStart", (px + 0.125, py, pz))
+    marker(h, "Marker_HydraulicHoseStart", (px + 0.125, py, pz))
     kt.finish()
     # ---- the threaded filler cap (its own object; origin = the middle of the filler mouth, +Y up)
     cap = TM("Fuel_Cap", h, loc=(tx, mouth, nz))
@@ -120,7 +120,7 @@ def excavator_kit(root):
     kb.cyl((ex + 0.095, ey, ez), 0.017, 0.017, 0.04, "RkBrass", seg=8, axis='x')
     for k in range(3):
         kb.cyl((ex + 0.085 + 0.012 * k, ey, ez), 0.019, 0.019, 0.004, "RkBrass", seg=8, axis='x')
-    marker(kb.holder, "Marker_HoseEnd", (ex + 0.115, ey, ez))
+    marker(kb.holder, "Marker_HydraulicHoseEnd", (ex + 0.115, ey, ez))
     kb.finish()
 
 

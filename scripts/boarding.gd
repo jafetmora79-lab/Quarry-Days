@@ -1,9 +1,7 @@
 extends RefCounted
 class_name QuarryBoarding
 ## Climbing into and out of a machine, the way a person does it, in first person. The camera is the person's head:
-##   in   walk up to the cab door (looking at the handle) -> the door swings open -> look down at the step, a foot goes up, the head rises ->
-##        duck through the doorway -> sit down and look out through the windscreen -> the door pulls shut with a thunk
-##   out  the door opens -> stand up and turn to the doorway -> step down onto the foot step -> down to the ground and look back along the machine
+##   (no climbing animation any more: a short eased camera move to the driver's seat and back out to the ground beside the machine)
 ## Everything is eased with Tween sine curves between keyframes (positions and orientations are interpolated, never snapped). Every vehicle with a
 ## cab (the meta "cab" built by CabInterior) uses the same sequence; the keyframes are computed from that vehicle's own door, steps and seat.
 
@@ -21,59 +19,33 @@ static func _pose(pos: Vector3, look_at: Vector3) -> Transform3D:
 		d = Vector3.FORWARD
 	return Transform3D(Basis.looking_at(d.normalized(), Vector3.UP), pos)
 
-## Keyframes of climbing in: [[pose, seconds, label], ...] starting from `from`. World space.
+## No climbing: entering is a short camera move from where the person stands to the driver's viewpoint (the DriverCamera marker: the cab's eye), a
+## little arc over the sill so it never cuts through the body of the machine. [[pose, seconds, label], ...] in world space.
 static func poses_in(v, from: Transform3D) -> Array:
 	var c := cab(v)
 	var ref: Node3D = c["ref"]
-	var side: float = c["side"]
-	var dc: Vector3 = c["door_c"]
-	var step: Vector3 = c["step"]
-	var out := Vector3(side, 0, 0)                                            # cab space: away from the door
-	var ground: float = v.global_position.y
-	var door_w := ref.to_global(dc)
-	var approach := ref.to_global(dc + out * 1.3)
-	approach.y = ground + EYE
-	var handle := ref.to_global(dc + Vector3(0, 0.15, 0.12))
-	var foot := ref.to_global(Vector3(step.x + side * 0.55, step.y, step.z))     # in front of the step
-	foot.y = ground + EYE + (step.y - ground) * 0.15
-	var step_top := ref.to_global(step + Vector3(side * 0.12, 0, 0))
-	var sill := ref.to_global(Vector3(dc.x + side * 0.28, dc.y, dc.z))
-	sill.y = ref.to_global(Vector3(0, dc.y, 0)).y + 0.5
 	var eye: Vector3 = ref.to_global(c["eye"])
 	var fwd := -ref.global_transform.basis.z
-	var in_door := ref.to_global(Vector3(dc.x - side * 0.05, c["eye"].y - 0.04, dc.z))
+	var mid := from.origin.lerp(eye, 0.55)
+	mid.y = maxf(from.origin.y, eye.y) + 0.12
 	return [
 		[from, 0.0, "start"],
-		[_pose(approach, handle), 0.75, "approach"],
-		[_pose(foot, step_top + Vector3(0, -0.15, 0)), 0.55, "look at the step"],
-		[_pose(sill + Vector3(0, 0.0, 0), door_w + Vector3(0, 0.2, 0)), 0.5, "foot up"],
-		[_pose(in_door, eye + fwd * 1.0), 0.45, "through the doorway"],
-		[_pose(eye, eye + fwd * 2.0 + Vector3(0, -0.12, 0)), 0.6, "sit"],
+		[_pose(mid, eye + fwd * 1.5), 0.3, "approach"],
+		[_pose(eye, eye + fwd * 2.0 + Vector3(0, -0.12, 0)), 0.3, "sit"],
 	]
 
-## Climbing out: the reverse, ending at `ground_pose` (the person's normal standing eye).
+## Getting out: from the seat to the safe spot beside the machine (VehicleExitPoint = where the person's standing eye ends up).
 static func poses_out(v, ground_pose: Transform3D) -> Array:
 	var c := cab(v)
 	var ref: Node3D = c["ref"]
-	var side: float = c["side"]
-	var dc: Vector3 = c["door_c"]
-	var step: Vector3 = c["step"]
 	var eye: Vector3 = ref.to_global(c["eye"])
 	var fwd := -ref.global_transform.basis.z
-	var door_w := ref.to_global(dc)
-	var ground: float = v.global_position.y
-	var in_door := ref.to_global(Vector3(dc.x - side * 0.05, c["eye"].y - 0.04, dc.z))
-	var sill := ref.to_global(Vector3(dc.x + side * 0.28, dc.y, dc.z))
-	sill.y = ref.to_global(Vector3(0, dc.y, 0)).y + 0.5
-	var step_top := ref.to_global(step + Vector3(side * 0.12, 0, 0))
-	var foot := ref.to_global(Vector3(step.x + side * 0.55, step.y, step.z))
-	foot.y = ground + EYE + (step.y - ground) * 0.15
+	var mid := eye.lerp(ground_pose.origin, 0.5)
+	mid.y = maxf(eye.y, ground_pose.origin.y) + 0.1
 	return [
 		[_pose(eye, eye + fwd * 2.0), 0.0, "start"],
-		[_pose(in_door, door_w + Vector3(side * 1.0, 0.1, 0)), 0.5, "turn to the door"],
-		[_pose(sill, step_top + Vector3(side * 0.3, -0.5, 0)), 0.5, "out onto the sill"],
-		[_pose(foot, step_top + Vector3(side * 0.2, -0.45, 0)), 0.5, "down the step"],
-		[ground_pose, 0.55, "ground"],
+		[_pose(mid, ground_pose.origin + ground_pose.basis * Vector3(0, 0, -2.0)), 0.3, "turn to the door"],
+		[ground_pose, 0.3, "ground"],
 	]
 
 ## Plays keyframes on `camera`. `events` maps a keyframe label to a Callable run when that keyframe starts. Returns the tween.
