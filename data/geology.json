@@ -1,0 +1,48 @@
+{
+ "_comment": "Geology of the diggable quarry ground. Materials are listed in shader slot order (0..7): the terrain mesh passes eight weights per vertex. hardness uses the game's own scale (progression.json materials): 0 loose ground, 1 limestone and coal, 2 iron, 3 copper, 4 gold. A tool digs a material only if its max_hardness >= the material's hardness. repose is the angle of repose in degrees when the material lies loose. units_per_m3 converts volume to the game's integer units ONLY where it enters a unit container (bag, crate, crusher, truck bed); the carrier keeps the fractional remainder.",
+ "bed_y": -17.0,
+ "natural_top": 0.0,
+ "clay_below": 0.4,
+ "materials": [
+  {"id": "topsoil", "title": "Topsoil", "resource": "topsoil", "hardness": 0, "dig_rate": 1.0, "repose": 36, "units_per_m3": 5.0, "texture": "T_QD_ExcavatedDirt", "particle": [0.42, 0.29, 0.18], "sound": "soil", "unit_value": 1},
+  {"id": "clay", "title": "Clay", "resource": "topsoil", "hardness": 0, "dig_rate": 0.8, "repose": 32, "units_per_m3": 5.0, "texture": "T_QD_Clay", "particle": [0.55, 0.34, 0.2], "sound": "clay", "unit_value": 1},
+  {"id": "gravel", "title": "Gravel", "resource": "gravel", "hardness": 0, "dig_rate": 0.7, "repose": 38, "units_per_m3": 5.0, "texture": "T_QD_RockGravel", "particle": [0.55, 0.52, 0.47], "sound": "gravel", "unit_value": 1},
+  {"id": "limestone", "title": "Limestone", "resource": "limestone", "hardness": 1, "dig_rate": 0.5, "repose": 49, "units_per_m3": 3.0, "texture": "T_QD_RockLimestone", "particle": [0.78, 0.74, 0.66], "sound": "rock", "unit_value": 2},
+  {"id": "coal", "title": "Coal", "resource": "coal", "hardness": 1, "dig_rate": 0.5, "repose": 45, "units_per_m3": 3.0, "texture": "T_QD_RockCoal", "particle": [0.12, 0.12, 0.14], "sound": "rock", "unit_value": 3},
+  {"id": "iron_ore", "title": "Iron ore", "resource": "iron_ore", "hardness": 2, "dig_rate": 0.4, "repose": 48, "units_per_m3": 3.0, "texture": "T_QD_RockIron", "particle": [0.55, 0.28, 0.14], "sound": "ore", "unit_value": 4},
+  {"id": "copper_ore", "title": "Copper ore", "resource": "copper_ore", "hardness": 3, "dig_rate": 0.35, "repose": 48, "units_per_m3": 3.0, "texture": "T_QD_RockCopper", "particle": [0.3, 0.55, 0.4], "sound": "ore", "unit_value": 6},
+  {"id": "gold_ore", "title": "Gold ore", "resource": "gold_ore", "hardness": 4, "dig_rate": 0.3, "repose": 48, "units_per_m3": 2.0, "texture": "T_QD_RockGold", "particle": [0.85, 0.7, 0.2], "sound": "ore", "unit_value": 12}
+ ],
+ "default_strata": [
+  {"material": "topsoil", "thickness": 0.8},
+  {"material": "clay", "thickness": 0.4},
+  {"material": "gravel", "thickness": 1.2},
+  {"material": "limestone", "thickness": 4.0},
+  {"material": "coal", "thickness": 2.4},
+  {"material": "iron_ore", "thickness": 3.0},
+  {"material": "copper_ore", "thickness": 2.4},
+  {"material": "gold_ore", "thickness": 3.2}
+ ],
+ "tools": {
+  "shovel": {"max_hardness": 0, "mode": "scoop", "radius": 0.38, "depth": 0.28, "capacity": 0.09, "cooldown": 0.42},
+  "pickaxe": {"max_hardness": 2, "mode": "break", "radius": 0.45, "depth": 0.22, "capacity": 0.0, "cooldown": 0.5},
+  "hammer": {"max_hardness": 4, "mode": "break", "radius": 0.5, "depth": 0.3, "capacity": 0.0, "cooldown": 0.6},
+  "loader_bucket": {"max_hardness": 0, "mode": "scoop"},
+  "excavator_bucket": {"max_hardness": 1, "mode": "scoop"}
+ },
+ "sound_sets": {
+  "soil": {"dig": ["thud_soil_0", "thud_soil_1", "thud_soil_2"], "pour": ["pour_dirt"], "drop": ["thud_soil_0"]},
+  "clay": {"dig": ["squelch_clay_0", "squelch_clay_1", "squelch_clay_2"], "pour": ["pour_dirt"], "drop": ["squelch_clay_1"]},
+  "gravel": {"dig": ["crunch_gravel_0", "crunch_gravel_1", "crunch_gravel_2"], "pour": ["pour_rock"], "drop": ["crunch_gravel_2"]},
+  "rock": {"dig": ["crack_rock_0", "crack_rock_1", "crack_rock_2"], "pour": ["pour_rock"], "drop": ["crack_rock_1"]},
+  "ore": {"dig": ["crack_rock_0", "crack_rock_1", "crack_rock_2"], "pour": ["pour_rock"], "drop": ["crack_rock_2"]}
+ },
+ "blocked_sounds": ["chink_0", "chink_1", "chink_2"],
+ "events": {
+  "blocked": {"cooldown": 0.12, "volume_db": 0.0},
+  "dig": {"cooldown": 0.12, "volume_db": -2.0},
+  "pour": {"cooldown": 0.2, "volume_db": -6.0},
+  "drop": {"cooldown": 0.12, "volume_db": -2.0},
+  "scrape": {"cooldown": 0.2, "volume_db": -8.0}
+ }
+}

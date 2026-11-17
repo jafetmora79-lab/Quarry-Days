@@ -55,6 +55,30 @@ def earth(size, seed):
     return a
 
 
+def clay(size, seed):
+    """wet-packed clay: a smoother, redder earth with sparse small clods and a few shiny drag marks"""
+    soil, stone = Q.ramp("soil"), Q.ramp("stone_warm")
+    r = [soil[1], soil[2], soil[3], soil[4], stone[2], stone[3]]
+    rng = np.random.default_rng(seed)
+    a = Q.canvas(size, size)
+    big = Q.pnoise(size, size, 3, seed)
+    mid = Q.pnoise(size, size, 9, seed + 1)
+    for y in range(size):
+        for x in range(size):
+            lv = 2.3 + (big[y, x] - 0.5) * 0.9 + (mid[y, x] - 0.5) * 0.7
+            if rng.random() < 0.03:
+                lv += rng.choice([-1, 1])
+            a[y, x] = r[int(np.clip(round(lv), 1, 3))]
+    for _ in range((size // 12) ** 2):
+        cx, cy = int(rng.integers(0, size)), int(rng.integers(0, size))
+        disc(a, cx, cy, int(rng.integers(2, 4)), r[2], r[3], r[1])
+    for _ in range(size // 20):
+        x, y = int(rng.integers(0, size)), int(rng.integers(0, size))
+        for k in range(int(rng.integers(6, 12))):
+            a[(y + (k // 5)) % size, (x + k) % size] = r[4]
+    return a
+
+
 def gravel(size, seed):
     conc, stone, soil = Q.ramp("concrete"), Q.ramp("stone_warm"), Q.ramp("soil")
     warm = [soil[1], soil[2], stone[1], stone[2], stone[3], stone[4]]
@@ -75,4 +99,5 @@ def gravel(size, seed):
 if __name__ == "__main__":
     Q.save("T_QD_ExcavatedDirt", earth(128, 22))
     Q.save("T_QD_RockGravel", gravel(128, 17))
+    Q.save("T_QD_Clay", clay(128, 31))
     print("ok")
