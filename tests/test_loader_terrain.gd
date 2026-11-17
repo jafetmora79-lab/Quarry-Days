@@ -27,7 +27,7 @@ func cargo_volume(game, rec: Dictionary, vid: int) -> float:
 		var mid: String = game.live_terrain.geo.material_of_resource(res)
 		v += float(rec["cargo"][r]) / float(game.live_terrain.geo.props(mid)["units_per_m3"])
 	for r in game._veh_rem.get(vid, {}):
-		var mid2: String = game.live_terrain.geo.material_of_resource(str(r))
+		var mid2: String = game.live_terrain.geo.material_of_resource("topsoil" if str(r) == "soil" else str(r))
 		v += float(game._veh_rem[vid][r]) / float(game.live_terrain.geo.props(mid2)["units_per_m3"])
 	return v
 
@@ -95,7 +95,7 @@ func run() -> void:
 	for i in range(30):
 		pushed += game._dozer_push(dz, 0.1)
 	var tot_d1: float = t.total_volume() + cargo_volume(game, rd, dz.vehicle_id)
-	check(pushed > 0 and game.fleet.cargo_total(rd) > 0, "driving with the blade down pushes %d units of gravel into the blade" % pushed)
+	check(pushed > 0 and int(rd["cargo"].get("soil", 0)) > 0, "driving with the blade down pushes %d units of loose gravel into the blade as soil" % pushed)
 	check(absf(tot_d1 - tot_d0) < 0.02, "and the blade holds exactly what left the ground (%.5f m3 apart)" % absf(tot_d1 - tot_d0))
 	print("RESULT: %d checks, %d failures" % [checks, failures.size()])
 	quit(1 if failures.size() > 0 else 0)

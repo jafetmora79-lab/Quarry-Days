@@ -295,7 +295,7 @@ func dig(p: Vector3, radius: float, depth: float, budget: float, max_hardness: i
 	return res
 
 ## A loader bucket: cuts everything inside a rectangle in front of the lip down to the lip's height (never deeper), at most `budget` m3.
-func cut_box(lip: Vector3, right: Vector3, fwd: Vector3, half_width: float, back: float, ahead: float, budget: float, max_hardness: int) -> Dictionary:
+func cut_box(lip: Vector3, right: Vector3, fwd: Vector3, half_width: float, back: float, ahead: float, budget: float, max_hardness: int, loose_only := false) -> Dictionary:
 	var res := _result()
 	if budget <= 0.0:
 		return res
@@ -322,7 +322,7 @@ func cut_box(lip: Vector3, right: Vector3, fwd: Vector3, half_width: float, back
 			var mats := {}
 			var want := minf(h - target, left)
 			var took := _take_loose(k, want, mats)
-			if took < want - 0.000001:
+			if not loose_only and took < want - 0.000001:
 				took += _take_natural(k, want - took, max_hardness, mats, blocked)
 			_add_taken(res, mats)
 			left -= took

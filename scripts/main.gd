@@ -5788,12 +5788,12 @@ var _veh_rem := {}                 ## vehicle id -> {resource -> fractional unit
 
 ## Volume -> cargo units for a machine: whole units go into its bucket or blade (as far as it has room), the fraction stays with the vehicle (`_veh_rem`), and what does not fit
 ## waits there too. Returns the units added.
-func _cargo_from_taken(rec: Dictionary, vid: int, taken: Dictionary, area: String) -> int:
+func _cargo_from_taken(rec: Dictionary, vid: int, taken: Dictionary, area: String, as_soil := false) -> int:
 	var rem: Dictionary = _veh_rem.get(vid, {})
 	var total := 0
 	for id in taken:
 		var pr: Dictionary = live_terrain.geo.props(str(id))
-		var r := str(pr["resource"])
+		var r := "soil" if as_soil else str(pr["resource"])                 # a blade pile is "soil" (what the spoil heap and the spread logic know)
 		var f := float(taken[id]) * float(pr.get("units_per_m3", 5.0)) + float(rem.get(r, 0.0))
 		var n := int(floor(f))
 		rem[r] = f - float(n)
@@ -6005,7 +6005,7 @@ func vehicle_dump(v: QuarryVehicle, quiet := false) -> int:
 	if t.is_empty() and v.vkind == "excavator" and v.rig != null and truck_hint(v) != "":
 		if not quiet: _notify(truck_hint(v))
 		return 0
-	if t.is_empty() and v.vkind != "truck" and live_terrain != null:
+	if t.is_empty() and v.vkind == "loader" and live_terrain != null:
 		var ground := _dump_cargo_on_ground(rec, v.vehicle_id, v.work_point())
 		if ground > 0:
 			v.dump_timer = 1.0
@@ -6085,8 +6085,8 @@ func _dozer_push(v: QuarryVehicle, delta: float) -> int:
 			var right2 := v.global_transform.basis.x
 			var mid1 := lt2.terrain.material_at_point(p)
 			var upm1 := float(lt2.geo.props(mid1).get("units_per_m3", 5.0))
-			var tr1: Dictionary = lt2.terrain.cut_box(Vector3(p.x, gy2 - 0.12, p.z), Vector3(right2.x, 0.0, right2.z).normalized(), Vector3(fwd2.x, 0.0, fwd2.z).normalized(), 1.4, 0.1, 0.6, 1.0 / upm1, 0)
-			took = _cargo_from_taken(rec, v.vehicle_id, tr1["taken"], "")
+			var tr1: Dictionary = lt2.terrain.cut_box(Vector3(p.x, gy2 - 0.12, p.z), Vector3(right2.x, 0.0, right2.z).normalized(), Vector3(fwd2.x, 0.0, fwd2.z).normalized(), 1.4, 0.1, 0.6, 1.0 / upm1, 0, true)
+			took = _cargo_from_taken(rec, v.vehicle_id, tr1["taken"], "", true)
 			if took > 0:
 				lt2.settle_columns(p, 1.5)
 				nav_dirty = true

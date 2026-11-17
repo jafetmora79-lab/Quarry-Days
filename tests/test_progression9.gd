@@ -293,6 +293,7 @@ func run() -> void:
 	check(nb2 == nb3, "H a normal pickaxe leaves the neighbours alone")
 	game.state.gear.erase("shovel")                 # (the starter tools sit first in the swap order: take them out for this check)
 	game.state.gear.erase("ramp_plan")
+	game.state.gear.erase("bucket")
 	game.state.equipped = ""
 	game.cycle_tool()
 	check(game.state.equipped == "repaired_pickaxe", "H the swap key takes the next owned tool into your hand")
