@@ -517,7 +517,7 @@ func _pose_rig(def: Dictionary) -> void:
 			hands_rig.hide_all()
 		return
 	var inv := pivot.basis.inverse()
-	var anchors := {"R": inv * (FPTools.ANCHOR_R - position), "L": inv * (FPTools.ANCHOR_L - position), "pole_R": (inv * Vector3(0.6, -1.0, 0.3)).normalized(), "pole_L": (inv * Vector3(-0.6, -1.0, 0.3)).normalized()}
+	var anchors := {"R": inv * (FPTools.ANCHOR_R - position), "L": inv * (FPTools.ANCHOR_L - position), "pole_R": (inv * Vector3(0.6, -1.0, -0.2)).normalized(), "pole_L": (inv * Vector3(-0.6, -1.0, -0.2)).normalized(), "cam_o": inv * (-position), "cam_back": inv * Vector3(0, 0, 1)}
 	var toward_cam := (inv * (-position)).normalized()
 	var grips: Array = []
 	for g in _grips:

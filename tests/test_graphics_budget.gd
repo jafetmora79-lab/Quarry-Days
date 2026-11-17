@@ -48,7 +48,7 @@ func run() -> void:
 		terrain_chunks = game.live_terrain.terrain.chunk_nodes.size()
 		mi_count -= terrain_chunks                         # the heightfield's 16 m chunks are budgeted on their own below (frustum-culled, one draw call each when visible)
 		check(terrain_chunks <= 400, "the live terrain is at most 400 culled 8 m chunks (%d)" % terrain_chunks)
-	check(mi_count < 760, "the whole world uses fewer than 760 separate mesh nodes (cab interiors, doors and steps on five machines, the Blender yard buildings and sell kiosk, plus the Blender mountains, tunnel lining and the forest's ground-cover chunks: 20 + 12 + about 40) (%d; it was 948 before batching)" % mi_count)
+	check(mi_count < 830, "the whole world uses fewer than 830 separate mesh nodes (cab interiors, doors and steps on five machines, the Blender yard buildings and sell kiosk, the Blender mountains, tunnel lining and ground-cover chunks, plus the shared first-person hands (50 nodes, one rig for every tool) and the protagonist's shadow body (9)) (%d; it was 948 before batching)" % mi_count)
 	# ---- decor: instanced, a handful of batches, follows the soil
 	var top = game.formation_nodes["q_top"]
 	var groups: Array = top._decor_groups

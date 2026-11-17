@@ -10,8 +10,8 @@ const Y := Vector3(0, 1, 0)
 const Z := Vector3(0, 0, 1)
 
 ## Where the forearms come from, in camera space (below the screen edges, never through the camera).
-const ANCHOR_R := Vector3(0.28, -0.58, -0.2)
-const ANCHOR_L := Vector3(-0.28, -0.58, -0.2)
+const ANCHOR_R := Vector3(0.28, -0.62, -0.32)
+const ANCHOR_L := Vector3(-0.28, -0.62, -0.32)
 
 const GRIPS := {
 	"rock_hammer": [{"hand": "R", "at": Vector3(0, 0.07, 0), "axis": Y, "r": 0.024, "preset": "one_hand_hammer"}],

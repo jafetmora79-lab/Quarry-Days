@@ -142,13 +142,13 @@ func pose(grips: Array, model_xf: Transform3D, anchors: Dictionary, toward_cam: 
 		var along := (g["axis"] as Vector3).normalized() * float(slide.get(side, 0.0)) * float(g.get("slide", 0.0))
 		var c: Vector3 = gx * ((g["at"] as Vector3) + along)
 		var r: float = float(g.get("r", 0.02)) * sc
-		_place(h, c, a, r, anchors[side], anchors["pole_" + side], toward_cam, PRESETS.get(str(g.get("preset", "two_hand_shaft")), PRESETS["two_hand_shaft"]), tight, side == "R", gg)
+		_place(h, c, a, r, anchors[side], anchors["pole_" + side], anchors.get("cam_o", Vector3.ZERO), anchors.get("cam_back", Vector3.ZERO), toward_cam, PRESETS.get(str(g.get("preset", "two_hand_shaft")), PRESETS["two_hand_shaft"]), tight, side == "R", gg)
 	for side in hands:
 		if not used.has(side):
 			hands[side]["root"].visible = false
 			hands[side]["active"] = false
 
-func _place(h: Dictionary, c: Vector3, a: Vector3, r: float, anchor: Vector3, pole_dir: Vector3, toward_cam: Vector3, pre: Dictionary, tight: float, right: bool, g: Dictionary) -> void:
+func _place(h: Dictionary, c: Vector3, a: Vector3, r: float, anchor: Vector3, pole_dir: Vector3, cam_o: Vector3, cam_back: Vector3, toward_cam: Vector3, pre: Dictionary, tight: float, right: bool, g: Dictionary) -> void:
 	# the circle round the shaft: e0 toward the arm (the palm side), e1 round the rear of the shaft (away from the camera)
 	var to_arm := anchor - c
 	var e0 := (to_arm - a * to_arm.dot(a))
@@ -203,8 +203,8 @@ func _place(h: Dictionary, c: Vector3, a: Vector3, r: float, anchor: Vector3, po
 	var dir_s := to_sh / maxf(dist, 0.001)
 	var ang := acos(clampf(dir_s.dot(e0), -1.0, 1.0))
 	var wd := dir_s                                                   # the direction the forearm leaves the wrist
-	var l1 := UPPER
-	var l2 := FORE
+	var l1 := maxf(0.30, dist * 0.55)                                    # the arm is as long as the reach needs (stylised): a gentle bend, the elbow never swings toward the camera
+	var l2 := l1
 	var elbow := wrist
 	var pole: Vector3 = pole_dir
 	if dist >= l1 + l2 - 0.002:
@@ -222,6 +222,11 @@ func _place(h: Dictionary, c: Vector3, a: Vector3, r: float, anchor: Vector3, po
 		if axis_b.length() > 0.001:
 			wd = e0.rotated(axis_b.normalized(), WRIST_BEND_MAX)
 			elbow = wrist + wd * (elbow - wrist).length()
+	if cam_back != Vector3.ZERO:                                           # the elbow never comes nearer than 28 cm in front of the camera
+		var zc := (elbow - cam_o).dot(cam_back)
+		if zc > -0.28:
+			elbow -= cam_back * (zc + 0.28)
+			wd = (elbow - wrist).normalized()
 	seg(h["cuff"], wrist - e0 * 0.02, wrist + wd * 0.045, 0.038)
 	seg(h["wrist"], wrist + wd * 0.04, wrist + wd * 0.11, 0.031)
 	seg(h["band"], wrist + wd * 0.095, wrist + wd * 0.12, 0.04)
