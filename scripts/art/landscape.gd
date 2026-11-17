@@ -271,6 +271,36 @@ func forest_blocked(p: Vector2) -> bool:
 static func grove(p: Vector2) -> float:
 	return 0.5 * sin(p.x * 0.071 + 1.3) * cos(p.y * 0.053) + 0.3 * sin(p.x * 0.19 + p.y * 0.13) + 0.2 * cos(p.y * 0.23 - p.x * 0.11)
 
+const TREE_CHUNK := 64.0          ## trees are drawn in 64 m squares, each its own batch, so the ones outside the view are culled (one batch of 5,000 trees was drawn whole every frame)
+const TREE_NEAR := 95.0           ## the full pine inside this distance, the cheap far pine beyond it
+const TREE_END := 300.0
+
+## Plants trees as culled, distance-LOD'd chunks. Returns an invisible MultiMeshInstance3D holding every instance (the data: positions and counts for the game and its tests);
+## what is drawn are the chunk batches: `key` (full model, up to TREE_NEAR) and `far_key` (the cheap model, from TREE_NEAR - 15 m on) when given, else `key` out to `end`.
+func _add_trees(key: String, nm: String, xfs: Array, tints: Array, far_key := "", end := TREE_END) -> MultiMeshInstance3D:
+	var data := _add_mm(key, nm, xfs, tints)
+	if data == null:
+		return null
+	data.visible = false
+	var cells := {}
+	for i in range(xfs.size()):
+		var o: Vector3 = (xfs[i] as Transform3D).origin
+		var ck := "%d_%d" % [int(floor(o.x / TREE_CHUNK)), int(floor(o.z / TREE_CHUNK))]
+		if not cells.has(ck):
+			cells[ck] = [[], []]
+		cells[ck][0].append(xfs[i])
+		cells[ck][1].append(tints[i])
+	for ck in cells:
+		var near := _add_mm(key, "%s_%s" % [nm, ck], cells[ck][0], cells[ck][1], TREE_NEAR if far_key != "" else end)
+		if far_key != "" and WorldModels.has(far_key):
+			var far := _add_mm(far_key, "%s_far_%s" % [nm, ck], cells[ck][0], cells[ck][1], end)
+			if far != null:
+				far.visibility_range_begin = TREE_NEAR - 15.0
+				far.visibility_range_begin_margin = 10.0
+		elif far_key != "" and near != null:
+			near.visibility_range_end = end
+	return data
+
 func _add_mm(key: String, nm: String, xfs: Array, tints: Array, draw_end := 0.0) -> MultiMeshInstance3D:
 	var m: ArrayMesh = WorldModels.mesh(key)
 	if m == null or xfs.is_empty():
@@ -373,9 +403,9 @@ func _plant(rects: Array, seed: int, ground_y: Callable, centre := Vector2(0.0, 
 				_cover_add(chunks, "log", _xf(r, around, 0.8, 1.3, 0.0), Color(1, 1, 1))
 			elif u < 0.80:
 				_cover_add(chunks, "stump", _xf(r, around, 0.8, 1.3, 0.0), Color(1, 1, 1))
-	forest = _add_mm("pine_tall", "Forest", pine_x, pine_t)
-	_add_mm("pine_young", "ForestYoung", young_x, young_t)
-	_add_mm("birch", "ForestBirch", birch_x, birch_t)
+	forest = _add_trees("pine_tall", "Forest", pine_x, pine_t, "pine_far")
+	_add_trees("pine_young", "ForestYoung", young_x, young_t, "", 260.0)
+	_add_trees("birch", "ForestBirch", birch_x, birch_t, "", 220.0)
 	tree_count = pine_x.size()
 	for x in pine_x:
 		tree_positions.append((x as Transform3D).origin)
@@ -411,7 +441,7 @@ func _forest() -> void:
 			continue
 		xfs.append(_xf(r, p, 0.9, 1.5))
 		tints.append(_tint(r))
-	forest = _add_mm("pine_tall", "Forest", xfs, tints)
+	forest = _add_mm("pine_tall", "Forest", xfs, tints)                  # the old layout's embankment ring: a few hundred trees, one batch
 	tree_count = xfs.size()
 	for x in xfs:
 		tree_positions.append((x as Transform3D).origin)

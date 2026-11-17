@@ -119,6 +119,15 @@ def pine_tall(root):
     t.finish()
 
 
+def pine_far(root):
+    """The distant pine (about 40 faces): the same silhouette as pine_tall (a thin trunk and four cones), used beyond ~90 m where the forest is a dark mass."""
+    t = TM("Body", root, holder=True)
+    t.cyl((0, 3.0, 0), 0.28, 0.1, 6.0, "Bark", seg=4)
+    for k, (y, rad, h, m) in enumerate([(1.4, 1.9, 3.0, "Pine"), (3.6, 1.45, 2.8, "PineLight"), (5.6, 1.0, 2.4, "Pine"), (7.2, 0.5, 1.8, "PineLight")]):
+        t.cyl((0, y + h * 0.45, 0), rad, 0.05, h, m, seg=5, phase=k * 0.4)
+    t.finish()
+
+
 def pine_young(root):
     t = TM("Body", root, holder=True)
     t.cyl((0, 0.5, 0), 0.12, 0.07, 1.0, "Bark", seg=5)
@@ -1033,7 +1042,7 @@ def fossil_nest(root):
 MODELS = {
     "pine_tall": pine_tall, "pine_young": pine_young, "birch": birch, "log": log, "stump": stump, "bush": bush, "fern": fern, "grass": grass, "flowers": flowers,
     "mossy_stone": mossy_stone, "peak_a": peak_a, "peak_b": peak_b, "ridge": ridge, "foothill": foothill, "cliff": cliff, "tunnel_mountain": tunnel_mountain,
-    "tunnel_portal": tunnel_portal, "tunnel_set": tunnel_set, "pickup": pickup, "dino": dino, "egg": egg, "incubator": incubator, "fossil_nest": fossil_nest, "deer": deer, "rabbit": rabbit,
+    "tunnel_portal": tunnel_portal, "tunnel_set": tunnel_set, "pine_far": pine_far, "pickup": pickup, "dino": dino, "egg": egg, "incubator": incubator, "fossil_nest": fossil_nest, "deer": deer, "rabbit": rabbit,
 }
 
 

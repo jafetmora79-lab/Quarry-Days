@@ -1722,8 +1722,10 @@ func _physics_process(delta: float) -> void:
 			cash_menu_t = 0.0
 			_draw_menu()
 	fleet.tick()
-	if nav_dirty:
-		_rebake_nav()
+	_nav_cool = maxf(0.0, _nav_cool - delta)
+	if nav_dirty and _nav_cool <= 0.0:
+		_rebake_nav()                       # a bake costs ~25 ms: while the soil is being dug every frame marks it dirty, so it runs at most once a second
+		_nav_cool = 1.0
 	for w in worker_nodes.values():
 		w.step(delta)
 	if driving and not scripted_input:
@@ -6187,8 +6189,14 @@ func _dress_deposit(kind: String) -> void:
 
 # ===================================================================== Phase 5: progression glue
 
+var _nav_cool := 0.0
+var _stage_check_t := 0.0
+
 func _phase5_tick(delta: float) -> void:
-	prog.check_stages()
+	_stage_check_t -= delta
+	if _stage_check_t <= 0.0:
+		_stage_check_t = 0.2                # the stage and level checks cost ~6 ms: five times a second is plenty
+		prog.check_stages()
 	for ev in prog.tick_rigs(delta):
 		var id := str(ev["formation"])
 		if formation_nodes.has(id):
