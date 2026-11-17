@@ -5845,7 +5845,25 @@ func truck_finish_unload(v: QuarryVehicle, t: Dictionary) -> int:
 
 ## Everything the vehicle plate and the prompt line need while a machine is driven: its name, speed against its top speed, load against capacity (and what
 ## it carries), and the one thing the buttons can do right now.
+var _drive_info_cache := {}
+var _drive_info_t := 0.0
+
+## The drive plate's data. The prompt and the plate both ask every frame and finding the dig target is costly, so the answer is reused for 0.1 s (speed and load still update live).
 func hud_drive_info() -> Dictionary:
+	if driving == null or not is_instance_valid(driving):
+		_drive_info_cache = {}
+		return {}
+	var now := Time.get_ticks_msec() * 0.001
+	if not _drive_info_cache.is_empty() and now - _drive_info_t < 0.1 and int(_drive_info_cache.get("vid", -1)) == driving.vehicle_id:
+		var live := _drive_info_cache.duplicate()
+		live["speed"] = absf(driving.speed)
+		return live
+	_drive_info_t = now
+	_drive_info_cache = _hud_drive_info_now()
+	_drive_info_cache["vid"] = driving.vehicle_id
+	return _drive_info_cache
+
+func _hud_drive_info_now() -> Dictionary:
 	if driving == null or not is_instance_valid(driving):
 		return {}
 	var rec := fleet.vehicle(driving.vehicle_id)

@@ -16,7 +16,7 @@ crate, or a belt) and it sells it **one unit at a time**, wherever you are: ever
   unit picks the next material (the one in progress, otherwise the dearest first), removes one unit from the queue, pays `state.payout(res, 1)` through
   `state.add_income(pay, "hopper")`, and updates lifetime sales, the daily log, the hopper's own counters and the automated-business goal. One `cash_sold` signal per material
   per tick drives the feedback, so a fast hopper groups its show while every unit is still booked.
-* **Tiers (data, `data/business.json` -> `cash_hopper.tiers`):** Grandpa's Old Hopper 1 unit/s (queue 300), Motorized 4/s (800, upgrade $900), Industrial 12/s (2400, upgrade $3500).
+* **Tiers (data, `data/business.json` -> `cash_hopper.tiers`):** Grandpa's Old Hopper 24 units/s (queue 300: a full bag sells in about a second), Motorized 48/s (800, upgrade $900), Industrial 96/s (2400, upgrade $3500).
   The upgrade button is on the hopper's panel. The tier is saved.
 * **Ways in:** the panel (E on the hopper): `DEPOSIT ALL` and `DEPOSIT SELECTED` (bag), `FROM CRATE` (an explicit choice), `CLOSE`, `UPGRADE`; the Carts panel (`TO HOPPER` /
   `ALL TO HOPPER` when the cart is beside it); belts. A belt out of the storage crate to a hopper carries whatever the crate holds (`"auto"` resource, dearest first) but only

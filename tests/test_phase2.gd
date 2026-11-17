@@ -164,8 +164,8 @@ func test_cash_hopper_sales() -> void:
 	var h: int = b.add_output(Vector3(0, 0, 0), 0, "cash_hopper")
 	b.outputs[h]["items"]["crushed_stone"] = 5
 	var money := b.state.money
-	b.tick(1.0)
-	check(b.state.money == money + 7 and b.cash_queue(h) == 4, "10 the Cash Hopper sells one unit per second at $7")
+	b.tick(0.05)
+	check(b.state.money == money + 7 and b.cash_queue(h) == 4, "10 the Cash Hopper sells a unit at $7 (24 units per second: 0.05 s sells one)")
 	b.tick(10.0)
 	check(b.cash_queue(h) == 0 and b.state.money == money + 35, "10 and the queue empties for exactly 5 x $7")
 	check(b.chain["sold"], "10 a crushed-stone sale counts toward the chain")

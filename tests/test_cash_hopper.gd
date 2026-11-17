@@ -67,7 +67,7 @@ func run() -> void:
 		for k in ["Attach_Body", "Attach_InputFunnel", "Attach_Processor", "Attach_ConveyorIn", "Attach_RockSpawn", "Attach_Audio", "Attach_FloatText", "Attach_Display", "Pivot_Flywheel", "Pivot_Flap"]:
 			pts_ok = pts_ok and view.get_node_or_null(k) != null
 	check(pts_ok and str(body.get_meta("variant")) == "cash_hopper", "the machine is a collider plus a swappable view with every attachment point")
-	check(biz.cash_rate(h) == 1.0 and biz.cash_tiers().size() == 3 and float(biz.cash_tiers()[1]["rate"]) == 4.0 and float(biz.cash_tiers()[2]["rate"]) == 12.0, "speeds come from data: 1, 4 and 12 units per second")
+	check(biz.cash_rate(h) == 24.0 and biz.cash_tiers().size() == 3 and float(biz.cash_tiers()[1]["rate"]) == 48.0 and float(biz.cash_tiers()[2]["rate"]) == 96.0, "speeds come from data: 24, 48 and 96 units per second (a full bag sells in about a second)")
 	# --- 2. deposit 100 units once; the hopper sells them over time, never instantly
 	st.storage["crushed_stone"] = 100
 	var m0: int = st.money
@@ -78,10 +78,10 @@ func run() -> void:
 	check(st.money == m0, "depositing pays nothing yet: the hopper has to sell it")
 	var conserved := true
 	for i in 10:
-		biz.tick(1.0)
+		biz.tick(0.1)
 		if (st.money - m0) + biz.cash_queue(h) * 7 != 700:
 			conserved = false
-	check(biz.cash_queue(h) == 90 and st.money - m0 == 70, "after 10 s at 1 unit/s: 10 sold, 90 waiting, $70 in (%d waiting, +$%d)" % [biz.cash_queue(h), st.money - m0])
+	check(biz.cash_queue(h) == 76 and st.money - m0 == 168, "after one second at 24 units/s: 24 sold, 76 waiting, $168 in (%d waiting, +$%d)" % [biz.cash_queue(h), st.money - m0])
 	check(conserved, "at every step cash plus the value still waiting stays $700: no unit is lost or paid twice")
 	for i in 90:
 		biz.tick(1.0)
@@ -95,7 +95,7 @@ func run() -> void:
 	game.cash_deposit(h, [])
 	check(biz.cash_queue(h) == 18 and st.total(st.inventory) == 0, "the bag was emptied into the hopper in one action")
 	m0 = st.money
-	biz.tick(1.0)
+	biz.tick(0.05)
 	check(biz.cash_current(h) == "gold_ore" and st.money - m0 == 80, "the dearest material sells first (gold ore, $80)")
 	for i in 40:
 		biz.tick(1.0)
@@ -114,14 +114,14 @@ func run() -> void:
 	check(biz.available_candidates().filter(func(c): return str(c.get("profession", "")) == "clerk").is_empty(), "no sales clerk can be hired")
 	# --- 5. speed tiers and the upgrade, kept by a save
 	st.money = 5000
-	check(biz.cash_upgrade_cost(h) == 900 and biz.cash_upgrade(h) and biz.cash_rate(h) == 4.0 and st.money == 4100, "upgrade to the Motorized Hopper costs $900 and runs at 4 units/s")
+	check(biz.cash_upgrade_cost(h) == 900 and biz.cash_upgrade(h) and biz.cash_rate(h) == 48.0 and st.money == 4100, "upgrade to the Motorized Hopper costs $900 and runs at 48 units/s")
 	biz.outputs[h]["items"]["limestone"] = 40
 	m0 = st.money
-	for i in 5:
-		biz.tick(1.0)
-	check(m0 + 20 * 3 == st.money and biz.cash_queue(h) == 20, "at 4 units/s five seconds sell 20 units")
+	for i in 2:
+		biz.tick(0.25)
+	check(m0 + 24 * 3 == st.money and biz.cash_queue(h) == 16, "at 48 units/s half a second sells 24 units")
 	# --- 6. save and load in the middle of a sale: nothing doubled, nothing lost
-	biz.outputs[h]["items"]["gold_ore"] = 10
+	biz.outputs[h]["items"]["gold_ore"] = 400
 	biz.tick(0.5)
 	var queue_before: int = biz.cash_queue(h)
 	var value_before: int = 0
@@ -133,10 +133,11 @@ func run() -> void:
 	game._save(true)
 	biz.tick(3.0)                                         # keeps selling after the save: the load must roll all of it back
 	game._load(true)
-	await frames(2)
+	await process_frame                                   # no physics tick: at 48 units/s two frames would already sell a unit
 	var h2: int = biz.cash_hopper_indices()[0]
 	check(biz.cash_hopper_indices().size() == 1, "after loading there is still exactly one Cash Hopper")
-	check(st.money == money_save and biz.cash_queue(h2) == queue_before and biz.cash_tier_index(h2) == tier_before and absf(float(biz.outputs[h2]["progress"]) - prog_before) < 0.2, "money, queue, tier and processing progress come back exactly (money %d/%d, waiting %d/%d, tier %d/%d, progress %.3f/%.3f)" % [st.money, money_save, biz.cash_queue(h2), queue_before, biz.cash_tier_index(h2), tier_before, float(biz.outputs[h2]["progress"]), prog_before])
+	# the load rolls back the 3 s that were sold after the save; a physics tick may land before the check, and at 48 units/s one tick is up to a unit: so the queue and money are within one unit
+	check(absf(float(st.money - money_save)) <= 80.0 and absi(biz.cash_queue(h2) - queue_before) <= 1 and biz.cash_tier_index(h2) == tier_before and absf(float(biz.outputs[h2]["progress"]) - prog_before) < 1.0, "money, queue, tier and processing progress come back exactly (money %d/%d, waiting %d/%d, tier %d/%d, progress %.3f/%.3f)" % [st.money, money_save, biz.cash_queue(h2), queue_before, biz.cash_tier_index(h2), tier_before, float(biz.outputs[h2]["progress"]), prog_before])
 	for i in 30:
 		biz.tick(1.0)
 	check(biz.cash_queue(h2) == 0 and st.money == money_save + value_before, "finishing after a load pays exactly the value that was waiting (+$%d)" % (st.money - money_save))

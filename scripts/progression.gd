@@ -570,21 +570,39 @@ func column_open_dir(id: String, i: int, from: Vector3) -> Vector3:
 				best = dir
 	return best if best != Vector3.ZERO else Vector3.BACK
 
+var _colxz := {}
+
+## Every column's world (x, z), computed once per formation: column_pos() does a dozen dictionary lookups and a transform each call, and the excavator asks about every column of
+## every formation each frame.
+func _column_xz(id: String) -> PackedVector2Array:
+	var key := "%s|%s" % [id, str(filled_world())]
+	if _colxz.has(key):
+		return _colxz[key]
+	var out := PackedVector2Array()
+	for i in range(column_count(id)):
+		var p := column_pos(id, i)
+		out.append(Vector2(p.x, p.z))
+	_colxz[key] = out
+	return out
+
 func nearest_column(id: String, from: Vector3, exposed_only := true, max_dist := INF, source := "") -> int:
 	if not state.deposits.has(id):
 		return -1
 	var best := -1
 	var best_d := INF
-	for i in range(column_count(id)):
+	var from2 := Vector2(from.x, from.z)
+	var bench_check := source != "" and bench_applies(id, source)
+	var xz := _column_xz(id)
+	for i in range(xz.size()):
+		var dd := xz[i].distance_to(from2)
+		if dd >= best_d or dd > max_dist:
+			continue                                  # the cheap test first: only the few columns within reach get the exposure and bench checks (a 1,400-column face cost ~20 ms a frame)
 		if column_units(id, i) <= 0 or column_covered(id, i) or (exposed_only and not column_exposed(id, i)):
 			continue
-		if source != "" and bench_applies(id, source) and not column_in_bench(id, i):
+		if bench_check and not column_in_bench(id, i):
 			continue
-		var p := column_pos(id, i)
-		var dd := Vector2(p.x, p.z).distance_to(Vector2(from.x, from.z))
-		if dd < best_d and dd <= max_dist:
-			best_d = dd
-			best = i
+		best_d = dd
+		best = i
 	return best
 
 # ------------------------------------------------------------------ Phase 10.3: benches and embedded minerals
