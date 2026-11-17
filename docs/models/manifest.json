@@ -506,6 +506,10 @@
       "file": "models/characters/CHR_QD_Petra.glb"
      },
      {
+      "name": "Player",
+      "file": "models/characters/CHR_QD_Player.glb"
+     },
+     {
       "name": "Rosa",
       "file": "models/characters/CHR_QD_Rosa.glb"
      },

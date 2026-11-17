@@ -87,6 +87,8 @@ def main():
     for f in sorted(glob.glob(os.path.join(ROOT, "assets", "characters", "*.glb"))):
         if os.path.splitext(os.path.basename(f))[0].replace("CHR_QD_", "") in legacy:
             continue
+        if os.path.basename(f) == "CHR_QD_Player.glb":
+            f = os.path.join(ROOT, "assets", "characters", "viewer", "CHR_QD_Player.glb")        # the gallery shows one satchel state (the game's file holds all four)
         dst = os.path.join(OUT, "characters", os.path.basename(f))
         os.makedirs(os.path.dirname(dst), exist_ok=True)
         shutil.copy2(f, dst)

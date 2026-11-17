@@ -9,7 +9,7 @@ rig with Socket_* nodes, so scripts/art/veil_rig.gd animates every person withou
 Each person is modelled in a canonical 1.75 m frame (Eddie's landmarks), skinned there, then warped to their own
 height, leg length, widths and posture. Output: assets/characters/CHR_QD_<Name>.glb (Y up, facing -Z, feet at 0).
 """
-import bpy, bmesh, math, os, sys, json
+import bpy, bmesh, math, os, sys, json, random
 from mathutils import Vector, Matrix
 from mathutils.bvhtree import BVHTree
 
@@ -130,7 +130,7 @@ def build(name):
     MATS = {}
     for key, ext in (("Top", False), ("TopFront", False), ("TopCuff", False), ("Pants", False), ("PantsHem", False),
                      ("Skin", False), ("Head", False), ("Hair", False), ("Shoes", True), ("Sole", False), ("Gear", True),
-                     ("Badge", True), ("Over", False)):
+                     ("Badge", True), ("Over", False), ("Bag", True)):
         png = os.path.join(tdir, "T_%s_%s.png" % (Q, key))
         if os.path.exists(png): MATS[key] = material("%s_%s" % (Q, key), png, ext)
 
@@ -251,22 +251,35 @@ def build(name):
     # ---- overlay shell (hi-vis vest, field vest, cardigan): offset copy of the torso faces
     ov = sp.get("overlay")
     if ov:
-        ok = ov["kind"]; zlo = {"cardigan": 0.86, "hivis": 0.90, "fieldvest": 0.90}[ok]; gap = {"cardigan": 0.06, "hivis": 0.0, "fieldvest": 0.035}[ok]
-        sleeves_ov = ok == "cardigan"
+        ok = ov["kind"]; zlo = {"cardigan": 0.86, "hivis": 0.90, "fieldvest": 0.90, "workjacket": 0.855}[ok]; gap = {"cardigan": 0.06, "hivis": 0.0, "fieldvest": 0.035, "workjacket": 0.072}[ok]
+        sleeves_ov = ok in ("cardigan", "workjacket"); ov_arm = 0.62 if ok == "workjacket" else 0.80
         bm = bmesh.new(); bm.from_mesh(body_me); bm.verts.ensure_lookup_table()
         nrm = {v.index: v.normal.copy() for v in bm.verts}
         for fc in bm.faces:
             c = fc.calc_center_median(); r = region(c)
             if r == "leg" and c.z < zlo: continue
             if r == "neck": continue
-            if r == "arm" and not (sleeves_ov and arm_t(c) < 0.80): continue
+            if r == "arm" and not (sleeves_ov and arm_t(c) < ov_arm): continue
             if r == "arm" and not sleeves_ov: continue
             if c.z < zlo or c.z > 1.43: continue
             if fc.normal.y > 0.3 and abs(c.x) < gap: continue
-            off = 0.016 if r != "arm" else 0.010
+            off = 0.016 if r != "arm" else (0.012 if ok == "workjacket" else 0.010)
             pts = [v.co + nrm[v.index] * off for v in fc.verts]
             det.add(pts, "Over")
         bm.free()
+        if ok == "workjacket":
+            collar("Over", 20, 0.020, 0.032)                                              # a turned-down work-jacket collar
+            for sx in (-1, 1):                                                           # chest pockets with flaps, dark buttons down the open edges
+                loc, nr = surface(sx * 0.088, 1.255, True)
+                if loc is not None:
+                    tbox(det, loc + nr * 0.010, loc + nr * 0.026, 0.074, 0.074, 0.070, 0.070, (1, 0, 0), "Over")
+                    tbox(det, loc + nr * 0.018 + Vector((0, 0, 0.028)), loc + nr * 0.032 + Vector((0, 0, 0.028)), 0.078, 0.078, 0.026, 0.026, (1, 0, 0), "Over")
+            for sa in ("R", "L"):                                                        # the rolled cuffs: two crossed boxes make an octagonal band round the forearm
+                p_ = J["shoulder" + sa] + (J["wrist" + sa] - J["shoulder" + sa]) * 0.62; a_ = (J["wrist" + sa] - J["shoulder" + sa]).normalized()
+                for rot_ in (0.0, 0.7854):
+                    sd_ = Matrix.Rotation(rot_, 3, a_) @ a_.orthogonal().normalized()
+                    tbox(det, p_ - a_ * 0.020, p_ + a_ * 0.020, 0.136, 0.136, 0.128, 0.128, sd_, "Over")
+                    tbox(det, p_ - a_ * 0.030, p_ - a_ * 0.020, 0.122, 0.136, 0.116, 0.128, sd_, "Over")
     # ---- hands (stylised, thumb + four two-joint fingers); gloves swap the material
     glove = "gloves" in gear
     hands = Part()
@@ -332,6 +345,112 @@ def build(name):
             tbox(pr, loc + nr * 0.02, loc + nr * 0.02 + Vector((-0.025, 0, -0.04)), 0.03, 0.03, 0.008, 0.008, (0, 1, 0), "Gear")
         gpart(pr, "leather")
         bag = Part(); tbox(bag, Vector((-0.18, 0.02, 0.94)), Vector((-0.18, 0.02, 1.10)), 0.10, 0.10, 0.22, 0.22, (0, 1, 0), "Gear"); gpart(bag, "canvas")
+    if "belt" in gear:                                                # a leather belt with a bronze buckle
+        pr = Part()
+        for i in range(16):
+            a0, a1 = 2 * math.pi * i / 16, 2 * math.pi * (i + 1) / 16
+            rx, ry = 0.178 * b["hips"], 0.126 * b["hips"]
+            tbox(pr, Vector((rx * math.sin(a0), ry * math.cos(a0), 0.945)), Vector((rx * math.sin(a1), ry * math.cos(a1), 0.945)), 0.012, 0.012, 0.042, 0.042, (0, 0, 1), "Gear", caps=False)
+        gpart(pr, "beltleather")
+        bk = Part(); tbox(bk, Vector((0, 0.128 * b["hips"] + 0.004, 0.945)), Vector((0, 0.128 * b["hips"] + 0.016, 0.945)), 0.040, 0.040, 0.038, 0.038, (1, 0, 0), "Gear"); gpart(bk, "bronze")
+        for sx in (-1, 1):                                                  # belt loops
+            lp = Part(); tbox(lp, Vector((sx * 0.07, 0.113 * b["hips"] + 0.008, 0.945)), Vector((sx * 0.07, 0.113 * b["hips"] + 0.018, 0.945)), 0.014, 0.014, 0.05, 0.05, (1, 0, 0), "Gear"); gpart(lp, "knee")
+    if sp["pants"]["kind"] == "cargo" and "satchel_player" in gear:   # cargo pockets on the outer thighs, reinforced knees
+        pk_ = Part()
+        for sx in (-1, 1):
+            tbox(pk_, Vector((sx * (hipx + 0.070), 0.012, 0.70)), Vector((sx * (hipx + 0.092), 0.012, 0.70)), 0.088, 0.088, 0.150, 0.150, (0, 1, 0), "Gear")
+            tbox(pk_, Vector((sx * (hipx + 0.088), 0.012, 0.765)), Vector((sx * (hipx + 0.098), 0.012, 0.765)), 0.092, 0.092, 0.034, 0.034, (0, 1, 0), "Gear")     # the flap
+            tbox(pk_, Vector((sx * (hipx + 0.012), 0.070, 0.49)), Vector((sx * (hipx + 0.012), 0.098, 0.49)), 0.092, 0.092, 0.115, 0.115, (1, 0, 0), "Gear")      # knee
+        gpart(pk_, "knee")
+    bag_objs = []
+    if "satchel_player" in gear:                                      # the mining satchel: cross-body strap (always), four bag meshes (one shown at a time by the game)
+        BAGU = {"canvas": (0, 0, 64, 64), "leather": (64, 0, 128, 32), "bronze": (64, 32, 96, 48), "stone": (96, 32, 128, 64), "dark": (0, 64, 32, 96)}
+        def buv(pts, key, salt=0.0):
+            u0, v0, u1, v1 = BAGU[key]; n_ = pnormal(pts); ax_ = max(range(3), key=lambda k_: abs(n_[k_]))
+            if ax_ == 1: us, vs = [p.x for p in pts], [p.z for p in pts]
+            elif ax_ == 0: us, vs = [p.y for p in pts], [p.z for p in pts]
+            else: us, vs = [p.x for p in pts], [p.y for p in pts]
+            cx_ = sum(us) / len(us); cy_ = sum(vs) / len(vs); bu = (cx_ * 5.1 + cy_ * 2.3 + salt) % 0.5; bv = (cx_ * 1.7 + cy_ * 4.9 + salt) % 0.5
+            out = []
+            for uu, vv in zip(us, vs):
+                fu = min(0.98, bu + (uu - min(us)) * 4.0); fv = min(0.98, bv + (vv - min(vs)) * 4.0)
+                out.append(((u0 + fu * (u1 - u0)) / 128.0, 1.0 - (v0 + fv * (v1 - v0)) / 128.0))
+            return out
+        def badd(part, pts, key, salt=0.0, center=None):
+            pts = [Vector(p) for p in pts]
+            if center is not None: pts = outward(pts, center)
+            part.add(pts, "Bag", buv(pts, key, salt))
+        def bbox(part, c, sx, sy, sz, key, salt=0.0):                   # an axis-aligned box in the bag atlas
+            c = Vector(c); h = (sx / 2, sy / 2, sz / 2)
+            cs = [c + Vector((x_ * h[0], y_ * h[1], z_ * h[2])) for x_ in (-1, 1) for y_ in (-1, 1) for z_ in (-1, 1)]
+            for idx in ((0, 1, 3, 2), (4, 6, 7, 5), (0, 4, 5, 1), (2, 3, 7, 6), (0, 2, 6, 4), (1, 5, 7, 3)):
+                badd(part, [cs[i_] for i_ in idx], key, salt, c)
+        # the strap: over the left shoulder, diagonally across the chest and the back to the bag on the right hip
+        sp_ = Part()
+        for pts_f, front in (([(-0.082 + 0.222 * t_ / 12, 1.405 - 0.41 * t_ / 12) for t_ in range(0, 13)], True), ([(-0.088 + 0.226 * t_ / 12, 1.405 - 0.40 * t_ / 12) for t_ in range(0, 13)], False)):
+            prev = None
+            for x_, z_ in pts_f:
+                loc, nr = surface(x_, z_, front)
+                if loc is None: continue
+                sd_ = Vector((1, 0, 0)); cur = [loc + nr * 0.019 - sd_ * 0.022, loc + nr * 0.019 + sd_ * 0.022, loc + nr * 0.030 + sd_ * 0.022, loc + nr * 0.030 - sd_ * 0.022]
+                if prev:
+                    for i_ in range(4):
+                        q_ = [prev[i_], prev[(i_ + 1) % 4], cur[(i_ + 1) % 4], cur[i_]]; sp_.add(q_ if front else q_[::-1], "Gear")
+                prev = cur
+        tbox(sp_, Vector((-0.086, 0.0, 1.43)), Vector((-0.084, -0.004, 1.43)), 0.05, 0.05, 0.046, 0.046, (0, 1, 0), "Gear", caps=True)         # over the top of the shoulder
+        fl, fnr = surface(0.140, 0.995, True)
+        if fl is not None:
+            tbox(sp_, fl + fnr * 0.024, Vector((0.236, -0.120, 1.028)), 0.046, 0.034, 0.014, 0.014, (0, 0, 1), "Gear")                # the strap runs round the hip to the bag's ring
+        bk2, bnr = surface(0.140, 1.0, False)
+        if bk2 is not None:
+            tbox(sp_, bk2 + bnr * 0.024, Vector((0.205, -0.175, 1.050)), 0.046, 0.034, 0.014, 0.014, (0, 0, 1), "Gear")
+        gpart(sp_, "beltleather")
+        bl_loc, bl_nr = surface(0.020, 1.215, True)
+        if bl_loc is not None:
+            bk_ = Part(); tbox(bk_, bl_loc + bl_nr * 0.026, bl_loc + bl_nr * 0.036, 0.034, 0.034, 0.046, 0.046, (1, 0, 0), "Gear"); gpart(bk_, "bronze")      # an adjusting buckle on the chest
+        # the bag: four lofts of the same shape with growing bulge, a leather bottom and rim, an open mouth, a folded-back flap, bronze rings, stones near the opening
+        BC = Vector((0.108, -0.126, 0.0))
+        STATES = (dict(w0=0.250, d0=0.072, w1=0.226, d1=0.050, bulge=0.00, z0=0.810, z1=1.020, stones=0),
+                  dict(w0=0.262, d0=0.098, w1=0.238, d1=0.076, bulge=0.06, z0=0.805, z1=1.050, stones=0),
+                  dict(w0=0.274, d0=0.120, w1=0.250, d1=0.100, bulge=0.12, z0=0.800, z1=1.066, stones=3),
+                  dict(w0=0.290, d0=0.142, w1=0.262, d1=0.122, bulge=0.20, z0=0.795, z1=1.076, stones=6))
+        FR = (0.0, 0.10, 0.34, 0.62, 0.86, 1.0)
+        def sq(a_, wd, dp):
+            cc, ss = math.cos(a_), math.sin(a_)
+            return (wd / 2 * math.copysign(abs(cc) ** 0.55, cc), dp / 2 * math.copysign(abs(ss) ** 0.55, ss))
+        for si, S in enumerate(STATES):
+            P_ = Part(); rings = []
+            for k_, f_ in enumerate(FR):
+                prof = (0.84, 1.0, 1.0 + S["bulge"], 1.0 + S["bulge"] * 0.75, 0.97, 0.93)[k_]
+                wd = (S["w0"] + (S["w1"] - S["w0"]) * f_) * (prof if k_ else 0.90); dp = (S["d0"] + (S["d1"] - S["d0"]) * f_) * (prof if k_ else 0.86)
+                z_ = S["z0"] + (S["z1"] - S["z0"]) * f_ - (0.012 * math.sin(math.pi * f_) if si == 0 else 0.0)
+                rings.append([Vector((BC.x + sq(2 * math.pi * i_ / 10, wd, dp)[0], BC.y + sq(2 * math.pi * i_ / 10, wd, dp)[1], z_)) for i_ in range(10)])
+            mid = Vector((BC.x, BC.y, (S["z0"] + S["z1"]) / 2))
+            for k_ in range(len(rings) - 1):
+                for i_ in range(10):
+                    q_ = [rings[k_][i_], rings[k_][(i_ + 1) % 10], rings[k_ + 1][(i_ + 1) % 10], rings[k_ + 1][i_]]
+                    badd(P_, q_, "leather" if k_ == 0 else "canvas", float(si * 3 + i_), mid)
+            badd(P_, rings[0][::-1], "leather", 1.0, mid - Vector((0, 0, 1)))                              # the reinforced bottom
+            top = rings[-1]; inner = [Vector((BC.x + (p.x - BC.x) * 0.84, BC.y + (p.y - BC.y) * 0.80, p.z)) for p in top]
+            for i_ in range(10):                                                                           # leather rim (a flat ring) and the dark mouth
+                badd(P_, [top[i_], top[(i_ + 1) % 10], inner[(i_ + 1) % 10], inner[i_]], "leather", 7.0, mid + Vector((0, 0, 1)))
+            low = [Vector((p.x, p.y, p.z - 0.07 - (0.03 if si >= 2 else 0.0))) for p in inner]
+            for i_ in range(10):
+                badd(P_, [inner[i_], inner[(i_ + 1) % 10], low[(i_ + 1) % 10], low[i_]], "dark", 2.0, mid + Vector((0, 0, 1)))
+            badd(P_, low[::-1], "dark", 3.0, mid + Vector((0, 0, 1)))
+            fz = S["z1"]; fy = BC.y - S["d1"] / 2 * 0.92                                                    # the flap hangs open behind the mouth
+            bbox(P_, (BC.x, fy - 0.006, fz - 0.020), S["w1"] * 0.86, 0.012, 0.050, "leather", 5.0)
+            bbox(P_, (BC.x, fy - 0.018, fz - 0.062), S["w1"] * 0.80, 0.012, 0.048, "leather", 6.0)
+            for sx_ in (-1, 1):                                                                           # bronze rings where the strap clips on, and a bronze stud on the flap
+                bbox(P_, (BC.x + sx_ * (S["w1"] / 2 + 0.004), BC.y + 0.010, fz - 0.026), 0.016, 0.014, 0.034, "bronze", 1.0)
+            bbox(P_, (BC.x, fy - 0.026, fz - 0.058), 0.026, 0.008, 0.022, "bronze", 2.0)
+            rs = random.Random(11 + si)
+            for k_ in range(S["stones"]):                                                                 # a few low-poly stones show over the opening
+                sx_ = BC.x + (rs.random() - 0.5) * S["w1"] * 0.55; sy_ = BC.y + (rs.random() - 0.5) * S["d1"] * 0.35
+                sz_ = S["z1"] + 0.004 + rs.random() * (0.018 if si == 2 else 0.036)
+                e_ = 0.022 + rs.random() * 0.016
+                bbox(P_, (sx_, sy_, sz_), e_ * 1.5, e_ * 1.2, e_ * 1.1, "stone", float(k_))
+            bag_objs.append(build_object(Q + "_Bag%d" % si, P_, mats=MATS, merge=0.0))
     if "toolbelt" in gear:
         pr = Part()
         for i in range(16):
@@ -521,7 +640,7 @@ def build(name):
         def zt_fn(pd): return band(pd, [(60, 1.640), (100, 1.665), (180, 1.685)])
         shell(lambda pd, j: band(pd, [(60, 1.600), (90, 1.585), (130, 1.540), (180, 1.525)]) - (0.006 if j % 2 else 0),
               lambda pd, s_, k, j: 0.012 + 0.010 * math.sin(math.pi * s_) + 0.006 * (j % 3 == 0), arc=(62, 298), crown=False, NS=4)
-    elif st in ("crop", "buzz", "sidepart", "undercut"):
+    elif st in ("crop", "buzz", "sidepart", "undercut", "messy"):
         lv = [(0, hl), (45, hl - 0.012), (82, 1.645), (125, 1.565), (180, 1.545)]
         if st == "sidepart": lv = [(0, hl), (45, hl - 0.008), (82, 1.646), (125, 1.57), (180, 1.55)]
         def th(pd, s_, k, j):
@@ -530,10 +649,11 @@ def build(name):
                 base = 0.004 if s_ < 0.42 else 0.018 + 0.06 * (s_ - 0.42) * (1.7 if abs(pd) < 70 else 0.8)
                 return base + (0.022 * math.sin(math.pi * (s_ - 0.42) / 0.58) if abs(pd) < 45 and s_ > 0.42 else 0) + (0.008 if (j % 3 == 0 and s_ > 0.42) else 0)
             t_ = 0.008 + 0.016 * s_
+            if st == "messy": t_ = 0.012 + 0.026 * s_ + 0.014 * max(0.0, math.sin(5 * math.radians(pd) + 3 * s_ + j)) ** 2 + (0.010 if (j % 3 == 0 and s_ > 0.5) else 0.0)
             if st == "crop": t_ += 0.006 * max(0.0, math.sin(7 * math.radians(pd) + 2 * s_)) ** 2
             if st == "sidepart": t_ += 0.010 * s_ * (1 if pd < 20 else 0.5)
             return t_
-        shell(lambda pd, j: band(pd, lv) - (0.006 if (j % 2 and st == "crop") else 0), th)
+        shell(lambda pd, j: band(pd, lv) - (0.006 if (j % 2 and st == "crop") else 0.012 if (j % 3 == 0 and st == "messy") else 0), th)
     else:                                                       # longer cuts on a closed shell
         if st in ("bob", "bob_sleek"):
             lv = [(0, 1.645 if hs.get("fringe") else hl), (30, 1.655 if hs.get("fringe") else hl - 0.01), (60, 1.60), (90, 1.535), (180, 1.51)]
@@ -571,6 +691,17 @@ def build(name):
                     tbox(ext, prev, q, 0.024, 0.022, 0.022, 0.02, (1, 0, 0), "Hair"); prev = q
         for pts_, m_, _ in ext.polys:
             hairp.add(pts_, m_, [((0.2 + 0.6 * (i in (1, 2))), 0.1 + 0.8 * (i in (2, 3))) for i in range(len(pts_))] if m_ == "Hair" else gu("red" if st != "bun" else "hair"))
+    if st == "messy":                                                # a swept fringe and tufts so the silhouette is not a helmet
+        tf = Part()
+        for (px, py, pz), (dx, dy, dz), ln, wd in (((-0.050, 0.070, 1.712), (-0.30, 0.55, 0.40), 0.058, 0.040), ((0.000, 0.082, 1.722), (0.10, 0.62, 0.38), 0.062, 0.044),
+                                                   ((0.052, 0.068, 1.714), (0.32, 0.50, 0.40), 0.056, 0.038), ((-0.078, 0.000, 1.732), (-0.55, 0.05, 0.80), 0.054, 0.038),
+                                                   ((0.066, -0.004, 1.738), (0.55, 0.00, 0.82), 0.056, 0.040), ((0.000, -0.050, 1.745), (0.05, -0.30, 0.90), 0.054, 0.040),
+                                                   ((-0.045, -0.085, 1.712), (-0.30, -0.62, 0.50), 0.050, 0.036), ((0.050, -0.085, 1.708), (0.40, -0.55, 0.55), 0.050, 0.036),
+                                                   ((-0.020, 0.030, 1.745), (-0.20, 0.30, 0.90), 0.050, 0.040)):
+            dv = Vector((dx, dy, dz)).normalized(); p0 = Vector((px, py, pz)) - dv * 0.012
+            tbox(tf, p0, p0 + dv * ln, wd, wd * 0.22, wd * 0.9, wd * 0.20, (1, 0, 0), "Hair")
+        for pts_, m_, _ in tf.polys:
+            hairp.add(pts_, m_, [((0.15 + 0.7 * (i in (1, 2))), 0.2 + 0.6 * (i in (2, 3))) for i in range(len(pts_))])
     hair = build_object(Q + "_Hair", hairp, smooth=True, mats=MATS)
 
     # ------------------------------------------------------------ head gear + face gear
@@ -782,7 +913,10 @@ def build(name):
             if 1.33 < p.z <= 1.47 and abs(p.x) < 0.14 and p.y > -0.02 and ("earmuffs_neck" in gear) and p.z > 1.36: return [("Neck", 1.0)]
             return body_w(p)
         skin(gear_ob, gear_w)
-    PARTS = [o for o in (body, head, hair, shoe_ob, gear_ob) if o]
+    for o_ in bag_objs:
+        for nmb in BONES: o_.vertex_groups.new(name=nmb)
+        o_.vertex_groups["Hips"].add([v.index for v in o_.data.vertices], 1.0, 'REPLACE')
+    PARTS = [o for o in (body, head, hair, shoe_ob, gear_ob) if o] + bag_objs
 
     # ------------------------------------------------------------ warp canonical -> this person (height, legs, posture)
     legk = 0.94 * b.get("leg", 1.0); top_c = crown_z + 0.03          # stylised: a touch shorter in the leg
@@ -831,6 +965,9 @@ def build(name):
     rig["built_by"] = "tools/character_cast/build_cast.py"
 
     os.makedirs(OUT, exist_ok=True)
+    if name == "Player":                                              # keep the Blender source of the protagonist beside the GLB
+        os.makedirs(os.path.join(OUT, "src"), exist_ok=True)
+        bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT, "src", "CHR_QD_Player.blend"), copy=True)
     path = os.path.join(OUT, "CHR_QD_%s.glb" % name)
     bpy.ops.object.select_all(action='DESELECT')
     for o in [rig] + PARTS + SOCK: o.select_set(True)
@@ -843,6 +980,17 @@ def build(name):
            "parts": tris, "materials": len({m.name for o in PARTS for m in o.data.materials if m}), "height_m": round(height, 3),
            "empty_material_slots": sum(1 for o in PARTS for m in o.data.materials if m is None)}
     print("CAST_OK", json.dumps(rep))
+    if name == "Player":                                              # the gallery's copy: one satchel state (mostly full) instead of four overlapping ones
+        os.makedirs(os.path.join(OUT, "viewer"), exist_ok=True)
+        for o_ in list(bag_objs):
+            if not o_.name.endswith("Bag2"):
+                bpy.data.objects.remove(o_)
+                PARTS.remove(o_)
+        bpy.ops.object.select_all(action='DESELECT')
+        for o in [rig] + PARTS + SOCK: o.select_set(True)
+        bpy.context.view_layer.objects.active = rig
+        bpy.ops.export_scene.gltf(filepath=os.path.join(OUT, "viewer", "CHR_QD_Player.glb"), export_format='GLB', use_selection=True, export_yup=True, export_apply=False,
+                                  export_extras=True, export_skins=True, export_animations=False, export_image_format='AUTO')
     if PREV: preview(name, rig, PARTS)
     return rep
 
@@ -866,8 +1014,12 @@ def preview(name, rig, parts):
         c = bpy.data.cameras.new(nm); c.lens = lens; o = bpy.data.objects.new(nm, c); sc.collection.objects.link(o); o.location = loc
         o.rotation_euler = (Vector(tgt) - Vector(loc)).to_track_quat('-Z', 'Y').to_euler(); return o
     h = CAST[name]["height"]
-    for tag, loc, tgt, lens, res in (("34", (2.3, 3.4, h * 0.62), (0, 0, h * 0.52), 50, (720, 900)),
-                                     ("face", (0.35, 1.05, h - 0.13), (0, 0, h - 0.16), 60, (720, 720))):
+    views = [("34", (2.3, 3.4, h * 0.62), (0, 0, h * 0.52), 50, (720, 900)), ("face", (0.35, 1.05, h - 0.13), (0, 0, h - 0.16), 60, (720, 720))]
+    if name == "Player":
+        views = [("front", (0.0, 3.6, h * 0.58), (0, 0, h * 0.5), 50, (600, 900)), ("q34", (2.6, 2.8, h * 0.58), (0, 0, h * 0.5), 50, (600, 900)),
+                 ("side", (3.6, 0.0, h * 0.58), (0, 0, h * 0.5), 50, (600, 900)), ("back", (-1.2, -3.5, h * 0.58), (0, 0, h * 0.5), 50, (600, 900)),
+                 ("face", (0.30, 1.05, h - 0.13), (0, 0, h - 0.16), 60, (720, 720)), ("face34", (0.65, 0.95, h - 0.14), (0, 0, h - 0.16), 60, (720, 720))]
+    for tag, loc, tgt, lens, res in views:
         sc.render.resolution_x, sc.render.resolution_y = res
         sc.camera = cam(tag, loc, tgt, lens); sc.render.filepath = os.path.join(PREV, "%s_%s.png" % (name, tag))
         bpy.ops.render.render(write_still=True)

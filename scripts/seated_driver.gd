@@ -6,12 +6,10 @@ class_name SeatedDriver
 ## (created from the cab's own eye/door data, so every drivable machine - excavator, trucks, loaders, dozer - works the same way).
 ## `first_person` hides only the head (so the camera inside it never sees the inside of a skull); the body stays for the hands on the controls.
 
-const MODEL := "res://assets/characters/CHR_QD_Operator.glb"
 const HIP_TO_EYE := 0.70                         ## the model's hip joint to its eyes (standing, scale 1)
 
-static var _packed: PackedScene
-
 var vehicle
+var body: PlayerBody                         ## the protagonist (CHR_QD_Player)
 var rig: VeilRig
 var skel: Skeleton3D
 var first_person := false : set = _set_first_person
@@ -62,19 +60,15 @@ static func attach_to(v) -> SeatedDriver:
 	return d
 
 func build() -> void:
-	if _packed == null:
-		_packed = load(MODEL)
-	var body: Node3D = _packed.instantiate()
+	body = PlayerBody.new()
 	add_child(body)
-	for gi in body.find_children("*", "GeometryInstance3D", true, false):
-		gi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var found := body.find_children("*", "Skeleton3D", true, false)
-	if found.is_empty():
+	if not body.build():
 		return
-	skel = found[0]
-	rig = VeilRig.new()
-	rig.setup(skel, 0.0)
-	rig.seated = true
+	skel = body.skel
+	rig = body.rig
+	body.seated = true                              # legs bent, the satchel off the seat
+	for gi in body.find_children("*", "GeometryInstance3D", true, false):
+		(gi as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var kind := str(vehicle.vtype)
 	rig.wheel_hands = not (kind.contains("excavator") or kind.contains("dozer"))      # a steering wheel on trucks and loaders, the consoles' panel on the tracked machines
 	_head = skel.find_bone("Head")

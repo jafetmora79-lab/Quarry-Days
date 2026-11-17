@@ -16,6 +16,26 @@ KHAKI = (150, 132, 96)
 CHARCOAL = (58, 58, 64)
 
 CAST = {
+    # ================================================================ the protagonist
+    "Player": dict(
+        # The young quarry owner who inherited Grandpa Walt's quarry, 27: a friendly, slightly sturdy build with broad sloping shoulders and big working hands, short messy brown hair, light stubble,
+        # expressive brows and a small relaxed smile; a faded forest-green work jacket (sleeves rolled, open over a cream tee), dark brown cargo trousers with reinforced knees and a leather belt,
+        # chunky tan boots, charcoal work gloves and a rugged canvas mining satchel on a cross-body strap (see the satchel states in build_cast.py).
+        title="Quarry Owner", age=27, height=1.75, gender="m",
+        body=dict(shoulder=1.04, chest=1.05, waist=1.0, hips=1.0, belly=0.004, bust=0.0, slouch=0.012,
+                  arm=1.07, leg=1.0, hands=1.16, head=1.07, neck=1.0),
+        skin=(224, 172, 140),
+        face=dict(jaw=1.04, chin=0.92, cheek=1.04, nose="straight", nose_size=1.04, ears=1.08,
+                  eyes="bright", iris=(98, 66, 40), brows="thick", brow_col=(84, 58, 40), brow_shape="arch",
+                  mouth="smile", facial_hair="stubble", fh_col=(146, 108, 76), wrinkles=0, blush=0.18),
+        hair=dict(style="messy", color=(92, 62, 40), hairline=1.69),
+        top=dict(kind="tee", base=(238, 224, 192), accent=(214, 198, 166), line=(250, 240, 214)),
+        overlay=dict(kind="workjacket", color=(70, 98, 72)),
+        pants=dict(kind="cargo", color=(96, 70, 50)),
+        shoes=dict(kind="boots", color=(176, 132, 84)),
+        gear=["gloves", "belt", "satchel_player"],
+        glove_col=(58, 58, 66),
+    ),
     # ================================================================ story
     "Walter": dict(
         title="Grandpa Walter", age=78, height=1.70, gender="m",
@@ -242,6 +262,6 @@ CANDIDATE_MODEL = {k.lower(): "CHR_QD_" + k for k in CAST if k not in ("Walter",
 # shoe texture layout (top half: plan view, bottom half: side view) and the gear swatch atlas (8x8 cells of 8 px)
 SHOE_LEN = (-0.085, 0.245); SHOE_W = 0.065; SHOE_H = 0.17
 GEAR_KEYS = ["hat", "hat_dark", "metal", "black", "leather", "lens", "strap", "white", "gold", "red", "orange", "glove", "cap",
-             "radio", "badge", "fh", "hair", "skin", "suspender", "canvas", "teal", "pen", "muff"]
+             "radio", "badge", "fh", "hair", "skin", "suspender", "canvas", "teal", "pen", "muff", "bronze", "olive", "knee", "beltleather", "charcoal"]
 def gear_cell(key):
     i = GEAR_KEYS.index(key); return i % 8, i // 8          # (col, row) in an 8x8 grid of 8 px cells

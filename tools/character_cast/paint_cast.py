@@ -295,6 +295,12 @@ def paint_hair(name, sp):
                 if (x - y) % 6 == 0: c = HR[0]
             elif st == "buzz":
                 c = HR[2] if (x + y) % 2 else HR[1]
+            elif st == "messy":                                       # clumps of strands, not stripes: 3x4 blocks of two tones with dark roots and bright tips
+                cell = ((x // 3) * 7 + (y // 4) * 13 + (x // 6) * 5) % 5
+                c = HR[(1, 2, 2, 3, 1)[cell]]
+                if (x + y // 2) % 7 == 0: c = HR[0]
+                if y < 6 and (x // 2) % 3 == 0: c = HR[3]
+                if y > 54: c = HR[0] if (x % 2) else HR[1]
             else:
                 if x % 6 == 0: c = HR[1] if k > 1 else HR[0]
                 if x % 6 == 3 and (y // 6) % 2 == 0: c = HR[3]
@@ -431,7 +437,7 @@ def paint_over(name, sp):
         for x in range(64):
             k = 2
             if o["kind"] == "hivis" and (x + 2 * y) % 8 == 0: k = 3                   # mesh weave
-            if o["kind"] != "hivis" and n[y][x] < 0.16: k = 1
+            if o["kind"] not in ("hivis", "workjacket") and n[y][x] < 0.16: k = 1
             if o["kind"] == "cardigan": k = 2 if (x % 3) else 1
             cv.put(x, y, P[k])
     if o["kind"] == "hivis":
@@ -439,6 +445,23 @@ def paint_over(name, sp):
         if o.get("foreman"):
             for x in range(64):
                 if x % 3 == 0: cv.put(x, tile_row(1.30), (40, 40, 44))
+    if o["kind"] == "workjacket":                                    # faded canvas: panel seams, soft wear, a few stitched creases
+        rnd = random.Random(H(name) & 0xffff)
+        for y in range(64):
+            for x in range(64):
+                k = 2
+                if n[y][x] < 0.22: k = 1
+                if n[y][x] > 0.78: k = 3                                   # sun-faded patches
+                cv.put(x, y, P[k])
+        for x in range(64):                                                # one soft seam each way, stitched
+            cv.put(x, 16, P[1]); cv.put(x, 40, P[1])
+            if x % 4 == 0: cv.put(x, 18, mix(P[2], (200, 188, 140), 0.30)); cv.put(x, 42, mix(P[2], (200, 188, 140), 0.30))
+        for y in range(64):
+            cv.put(24, y, P[1])
+            if y % 4 == 0: cv.put(26, y, mix(P[2], (200, 188, 140), 0.30))
+        for _ in range(5):                                                 # creases
+            x, y = rnd.randrange(64), rnd.randrange(64); L = rnd.randrange(5, 10)
+            for i in range(L): cv.put(x + i, y + i // 3, P[0]); cv.put(x + i, y + i // 3 + 1, P[3])
     if o["kind"] == "fieldvest":
         for zc, w in ((1.06, 9), (1.25, 7)):                         # bellows pockets with flaps
             for xc in (-0.09, 0.09):
@@ -494,10 +517,11 @@ def gear_swatches(sp):
     hat = sp.get("hat", (240, 196, 40))
     sw = {"hat": hat, "hat_dark": mix(hat, (0, 0, 0), 0.3), "metal": (150, 154, 156), "black": (34, 34, 38),
           "leather": (104, 70, 44), "lens": (92, 124, 138), "strap": (60, 56, 52), "white": (236, 232, 222),
-          "gold": (226, 184, 72), "red": (190, 56, 50), "orange": (236, 120, 40), "glove": (180, 150, 96),
+          "gold": (226, 184, 72), "red": (190, 56, 50), "orange": (236, 120, 40), "glove": sp.get("glove_col", (180, 150, 96)),
           "cap": sp.get("cap", hat), "radio": (52, 54, 58), "badge": (236, 226, 190), "fh": sp["face"].get("fh_col") or sp["hair"]["color"],
           "hair": sp["hair"]["color"], "skin": sp["skin"], "suspender": (46, 54, 84), "canvas": (126, 110, 80),
-          "teal": (60, 140, 140), "pen": (40, 70, 160), "muff": (220, 60, 40)}
+          "teal": (60, 140, 140), "pen": (40, 70, 160), "muff": (220, 60, 40),
+          "bronze": (184, 132, 58), "olive": (86, 94, 60), "knee": (72, 50, 36), "beltleather": (74, 48, 30), "charcoal": (58, 58, 66)}
     return sw
 def paint_gear(sp):
     sw = gear_swatches(sp); cv = Canvas(64, 64, (128, 0, 128))
@@ -507,6 +531,43 @@ def paint_gear(sp):
             for x in range(8):
                 k = 2 if y < 1 else (0 if y > 6 else 1)
                 cv.put(cx * 8 + x, cy * 8 + y, R[k])
+    return cv
+
+
+def paint_bag(name, sp):
+    """T_QD_Player_Bag: a 128x128 atlas for the mining satchel - canvas (0..64, 0..64), leather (64..128, 0..32), bronze (64..96, 32..48), stone (96..128, 32..64), the dark inside (0..32, 64..96)."""
+    cv = Canvas(128, 128, (255, 0, 255)); rnd = random.Random(77)
+    C = ramp((88, 94, 58), 2, 2, 0.13); n = vnoise(64, 64, 6, 31)                  # dark olive canvas
+    for y in range(64):
+        for x in range(64):
+            k = 2
+            if (x // 2 + y // 2) % 2: k = 2
+            else: k = 1 if n[y][x] < 0.5 else 2
+            if n[y][x] < 0.14: k = 0
+            if n[y][x] > 0.86: k = 3                                              # faded, sun-bleached patches
+            cv.put(x, y, C[k], wrap=False)
+    for x in range(0, 64): cv.put(x, 21, C[0], wrap=False); cv.put(x, 22, C[3], wrap=False); cv.put(x, 42, C[0], wrap=False); cv.put(x, 43, C[3], wrap=False)
+    for x in range(0, 64, 3): cv.put(x, 24, (216, 200, 150), wrap=False); cv.put(x, 45, (216, 200, 150), wrap=False)           # stitching beside the seams
+    for _ in range(9):                                                            # scuffs and dirt
+        x, y = rnd.randrange(60), rnd.randrange(60)
+        for i in range(rnd.randrange(3, 8)): cv.put(x + i, y + i // 3, C[0], wrap=False)
+    L = ramp((110, 72, 44), 2, 2, 0.12)                                           # thick brown leather
+    for y in range(32):
+        for x in range(64):
+            k = 2 if (x + y * 2) % 7 else 1
+            if rnd.random() < 0.05: k = 3
+            cv.put(64 + x, y, L[k], wrap=False)
+    for x in range(64): cv.put(64 + x, 4, L[0], wrap=False); cv.put(64 + x, 27, L[0], wrap=False)
+    for x in range(0, 64, 3): cv.put(64 + x, 6, (226, 196, 140), wrap=False); cv.put(64 + x, 25, (226, 196, 140), wrap=False)    # stitched edges
+    B = ramp((186, 134, 60), 2, 2, 0.14)                                          # bronze
+    for y in range(16):
+        for x in range(32): cv.put(64 + x, 32 + y, B[3 if y < 3 else (2 if y < 11 else 1)], wrap=False)
+    S_ = ramp((150, 146, 138), 2, 2, 0.13)                                        # stones
+    for y in range(32):
+        for x in range(32): cv.put(96 + x, 32 + y, S_[3 if (x * 3 + y * 5) % 11 == 0 else (2 if (x + y) % 3 else 1)], wrap=False)
+    D = ramp((44, 38, 32), 1, 1, 0.1)                                             # the dark inside
+    for y in range(32):
+        for x in range(32): cv.put(x, 64 + y, D[1 if (x + y) % 3 else 0], wrap=False)
     return cv
 
 
@@ -532,6 +593,7 @@ def paint(name):
     sh, so = paint_shoes(name, sp); sh.save(pre + "Shoes.png"); so.save(pre + "Sole.png")
     paint_gear(sp).save(pre + "Gear.png")
     paint_badge(name, sp).save(pre + "Badge.png")
+    if "satchel_player" in sp.get("gear", []): paint_bag(name, sp).save(pre + "Bag.png")
 
 
 if __name__ == "__main__":

@@ -222,5 +222,25 @@
   "materials": 12,
   "height_m": 1.753,
   "empty_material_slots": 0
+ },
+ "Player": {
+  "name": "Player",
+  "title": "Quarry Owner",
+  "glb": "assets/characters/CHR_QD_Player.glb",
+  "triangles": 4770,
+  "parts": {
+   "QD_Player_Body": 2294,
+   "QD_Player_Head": 352,
+   "QD_Player_Hair": 468,
+   "QD_Player_Shoes": 248,
+   "QD_Player_GearExtras": 436,
+   "QD_Player_Bag0": 216,
+   "QD_Player_Bag1": 216,
+   "QD_Player_Bag2": 252,
+   "QD_Player_Bag3": 288
+  },
+  "materials": 13,
+  "height_m": 1.763,
+  "empty_material_slots": 0
  }
 }

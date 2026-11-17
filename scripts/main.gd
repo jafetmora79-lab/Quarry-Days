@@ -234,6 +234,7 @@ func _ready() -> void:
 	player.name = "Player"
 	player.position = Vector3(0, 0.2, 8)
 	add_child(player)
+	_make_player_body()
 	add_child(safety)
 	safety.setup(self)
 	player.collision_mask = 1 | 2 | 4 | 8 # world, loose pieces, workers, vehicles (conveyors: layer 16, crossable)
@@ -1499,6 +1500,37 @@ func _mine_button_down() -> bool:
 		_mine_latch = false
 	return raw and not driving and not construction and not placement
 
+# ------------------------------------------------------------------ the protagonist's body (PlayerBody): a shadow on foot, the driver in a machine
+var player_body: PlayerBody
+var _body_yaw := 0.0
+
+func _make_player_body() -> void:
+	player_body = PlayerBody.new()
+	player_body.name = "PlayerBody"
+	player.add_child(player_body)
+	if player_body.build():
+		player_body.first_person = true
+		player_body.shadow_only = true            # first person: the body only casts its shadow (the hands in view are the tool rig's)
+	else:
+		player_body.queue_free()
+		player_body = null
+
+func _player_body_tick(delta: float) -> void:
+	if player_body == null or not is_instance_valid(player_body):
+		return
+	player_body.visible = not driving
+	var speed := Vector2(player.velocity.x, player.velocity.z).length()
+	var st := "walk" if speed > 0.12 else "idle"
+	var phase := -1.0
+	var tvw: QuarryToolView = player.tool_view
+	if tvw != null and tvw.phase >= 0.0:
+		st = "work"
+		phase = clampf(tvw.phase, 0.0, 1.0)
+	var yaw_rate := angle_difference(_body_yaw, player.rotation.y) / maxf(delta, 0.001)
+	_body_yaw = player.rotation.y
+	player_body.set_bag(state.total(state.inventory), state.capacity())
+	player_body.animate(delta, st, speed, "miner", state.total(state.hand_bucket) > 0, phase, yaw_rate)
+
 # ------------------------------------------------------------------ placed buckets (the bucket tool)
 ## The bucket is a container, not a scoop: click puts one down where you aim (a green ghost shows where it can stand), dirt dug near it fills the nearest bucket with room,
 ## E picks a filled one up (you carry one at a time, slowed by its weight) and E at the storage box or the Cash Hopper tips it in. Click again to put a carried bucket down.
@@ -2090,6 +2122,7 @@ func _physics_process(delta: float) -> void:
 		art.garage_roof.visible = not inside
 	safety.tick(delta)
 	_bucket_tick(delta)
+	_player_body_tick(delta)
 	if fossil_reveal_active and Input.is_action_just_pressed("interact"):
 		_end_fossil_reveal()
 	player.blueprint.set_active(placement or construction)
