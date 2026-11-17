@@ -237,6 +237,10 @@ func _ready() -> void:
 	add_child(safety)
 	safety.setup(self)
 	player.collision_mask = 1 | 2 | 4 | 8 # world, loose pieces, workers, vehicles (conveyors: layer 16, crossable)
+	bucket_view = BucketView.new()
+	player.camera.add_child(bucket_view)
+	dig_audio = DigAudio.new()
+	add_child(dig_audio)
 	vehicles_root = Node3D.new()
 	vehicles_root.name = "Vehicles"
 	add_child(vehicles_root)
@@ -1289,8 +1293,6 @@ func _mining_ray() -> Dictionary:
 	var end := start - player.camera.global_transform.basis.z * MINE_REACH
 	var query := PhysicsRayQueryParameters3D.create(start, end)
 	query.exclude = [player.get_rid()]
-	if live_terrain != null and live_terrain.terrain != null:
-		query.exclude.append(live_terrain.terrain.body.get_rid())          # the formation columns underneath are what a swing hits (for now)
 	var hit := get_world_3d().direct_space_state.intersect_ray(query)
 	if hit.is_empty() or not hit["collider"] is Node3D:
 		return {}
@@ -1498,6 +1500,71 @@ func _mine_button_down() -> bool:
 		_mine_latch = false
 	return raw and not driving and not construction and not placement
 
+## One tool strike on the live ground (shovel: scoops soft ground into the bucket; pickaxe and hammer: break hard ground into loose rubble that a shovel then scoops).
+## What you hit decides what happens and what you hear: ground harder than the tool bounces the blow with a chink. Returns the dig result.
+func _terrain_strike(point: Vector3) -> Dictionary:
+	var lt := live_terrain
+	var sf := lt.surface_formation(point.x, point.z)
+	var res_name := ""
+	if not sf.is_empty():
+		var fid: String = sf[0]
+		var lock := prog.formation_locked(fid)
+		if lock != "":
+			_notify(lock)
+			return {}
+		if not _inside_dig_perimeter(fid, point):
+			_notify("Outside the marked excavation. Dig inside the survey stakes.")
+			return {}
+		res_name = str(prog.fdef(fid)["resource"])
+	if lt.terrain.is_locked_at(point.x, point.z):
+		_notify("This ground is not for digging.")
+		return {}
+	var t := prog.tool()
+	var digs := str(t.get("class", "")) == "digging"
+	var mode := "scoop" if digs else "break"
+	var max_h := 0 if digs else int(t.get("max_hardness", 1))
+	var scale := 1.0 + 0.25 * float(state.tool_tier)
+	var radius := 0.38 if digs else 0.45
+	var depth := 0.28 if digs else 0.22
+	var budget := (0.09 if digs else 0.12) * scale
+	var res: Dictionary = lt.terrain.dig(point, radius, depth, budget, max_h, mode)
+	if mode == "break" and float(res["broken"]) <= 0.00001 and str(res["blocked_by"]) == "":
+		res = lt.terrain.dig(point, radius, depth, budget, 0, "scoop")        # the pick pulls loose rubble into the bucket
+	var hit_mat := str(res["hit"])
+	var amount := float(res["volume"]) + float(res["broken"])
+	if str(res["blocked_by"]) != "" and amount <= 0.00001:
+		dig_audio.play("blocked", str(res["blocked_by"]), point, 1.0)
+		fx.impact(point, str(lt.geo.props(str(res["blocked_by"]))["resource"]), 0.6, mine_normal)
+		player.impact_feedback(0.5)
+		var hard_res := str(lt.geo.props(str(res["blocked_by"]))["resource"])
+		_notify(prog.tool_suits(hard_res) if prog.tool_suits(hard_res) != "" else "Too hard for this tool: %s." % prog.display(hard_res))
+		return res
+	if amount > 0.0:
+		dig_audio.play("dig", hit_mat, point, 0.8 + minf(amount, 0.3) * 2.0)
+		fx.impact(point, str(lt.geo.props(hit_mat)["resource"]), 1.0, mine_normal)
+		player.impact_feedback(0.5 + 0.25 * float(state.tool_tier))
+	_terrain_yield(res["taken"], sf)
+	lt.settle_columns(point, radius)
+	return res
+
+## Volume -> units at the boundary: whole units go into the buckets, the fraction stays in `terrain_rem` for the next scoop (nothing is created or lost).
+func _terrain_yield(taken: Dictionary, sf: Array) -> void:
+	for id in taken:
+		var props: Dictionary = live_terrain.geo.props(str(id))
+		var r := str(props["resource"])
+		var f := float(taken[id]) * float(props.get("units_per_m3", 5.0)) + float(terrain_rem.get(r, 0.0))
+		var n := int(floor(f))
+		terrain_rem[r] = f - float(n)
+		if n > 0:
+			var put := state.add_item(r, n)
+			if put < n:
+				terrain_rem[r] = float(terrain_rem[r]) + float(n - put)           # no room: the remainder waits
+			if put > 0:
+				var area := prog.area_of_formation(str(sf[0])) if not sf.is_empty() else ""
+				if area != "":
+					prog.area_add(area, "recovered", put)
+				_reward_popup(r, put)
+
 ## Swing tools apply damage at the visible moment of impact, against whatever is under the crosshair then.
 func _on_swing_impact() -> void:
 	var hit := _mining_ray()
@@ -1506,6 +1573,9 @@ func _on_swing_impact() -> void:
 	var node: Node3D = hit["node"]
 	if str(node.get_meta("kind", "")) == "debris":
 		hit_debris(node, prog.tool_power(), hit["point"])
+		return
+	if live_terrain != null and live_terrain.terrain != null and node == live_terrain.terrain.body:
+		_terrain_strike(hit["point"])
 		return
 	if str(node.get_meta("kind", "")) != "deposit":
 		return
@@ -1710,6 +1780,7 @@ func _physics_process(delta: float) -> void:
 		var inside := driving != null and driving.global_position.x > -6.5 + GARAGE_DX and driving.global_position.x < 16.0 + GARAGE_DX and driving.global_position.z > 12.5 and driving.global_position.z < 24.0
 		art.garage_roof.visible = not inside
 	safety.tick(delta)
+	_bucket_tick(delta)
 	if fossil_reveal_active and Input.is_action_just_pressed("interact"):
 		_end_fossil_reveal()
 	player.blueprint.set_active(placement or construction)
@@ -1816,7 +1887,7 @@ func _physics_process(delta: float) -> void:
 				var cid := str(last_target.get_meta("cart"))
 				prompt = "E: %s  (%d / %d)" % [str(prog.gear_def(cid).get("title", cid)), state.cart_total(cid), state.cart_cap(cid)]
 			"upgrades": prompt = "E: use the workbench"
-			"storage": prompt = "E: open storage"
+			"storage": prompt = _storage_prompt()
 			"vehicle":
 				var vrec := fleet.vehicle(int(last_target.get_meta("vehicle_id")))
 				if not vrec.is_empty() and str(vrec["type"]) == "starter_excavator" and not prog.excavator_ready():
@@ -2022,6 +2093,62 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("interact") and last_target:
 		_interact(last_target)
 
+## The starter box: what it holds, and what E does (dump a bucket while you carry any, else open the menu).
+func _storage_prompt() -> String:
+	var held := ""
+	var parts := []
+	for res in Business.SELL_ORDER:
+		if int(state.storage.get(res, 0)) > 0:
+			parts.append("%s %d" % [prog.display(res).to_upper(), int(state.storage[res])])
+	held = "%s / %d" % [("  ".join(parts) if not parts.is_empty() else "EMPTY"), state.storage_capacity()]
+	if state.total(state.inventory) > 0:
+		return "E: dump a bucket (hold E for all %d)   BOX: %s" % [state.buckets_carried(), held]
+	return "E: open the box   BOX: %s" % held
+
+## Empties ONE bucket's load (up to the bucket size, dearest first) into the starter box. Returns the units moved.
+func dump_bucket() -> int:
+	var cap := state.bucket_capacity()
+	var room := state.storage_capacity() - state.total(state.storage)
+	if room <= 0:
+		_notify("The box is full (%d). It empties into the Cash Hopper as it sells." % state.storage_capacity())
+		return 0
+	var want := mini(cap, mini(room, state.total(state.inventory)))
+	var moved := 0
+	for res in Business.SELL_ORDER:
+		if moved >= want:
+			break
+		var n := mini(int(state.inventory.get(res, 0)), want - moved)
+		if n <= 0:
+			continue
+		state.inventory[res] = int(state.inventory[res]) - n
+		state.storage[res] = int(state.storage.get(res, 0)) + n
+		moved += n
+	if moved > 0:
+		pickup_audio.play()
+		_notify("Dumped a bucket: %d into the box (%d / %d)." % [moved, state.total(state.storage), state.storage_capacity()])
+	return moved
+
+## Per frame: holding E at the box dumps the buckets one by one; the pail(s) in view show the load; every full bucket slows the walk a little.
+func _bucket_tick(delta: float) -> void:
+	var total := state.total(state.inventory)
+	var cap := state.bucket_capacity()
+	if bucket_view != null:
+		var main_res := ""
+		var best := -1
+		for res in state.inventory:
+			if int(state.inventory[res]) > best:
+				best = int(state.inventory[res])
+				main_res = str(res)
+		bucket_view.update_view(total, cap, QuarryTheme.RES_COLORS.get(main_res, Color(0.4, 0.28, 0.18)), driving == null and not pc_active and not sleeping and not placement and not construction)
+	player.load_mult = 1.0 - minf(0.35, 0.035 * float(maxi(0, BucketView.count_of(total, cap) - 1)))
+	if Input.is_action_pressed("interact") and last_target != null and is_instance_valid(last_target) and str(last_target.get_meta("kind", "")) == "storage" and total > 0:
+		_dump_hold += delta
+		if _dump_hold > 0.55:
+			_dump_hold = 0.2
+			dump_bucket()
+	else:
+		_dump_hold = 0.0
+
 func _interact(target: Node3D) -> void:
 	match str(target.get_meta("kind","")):
 		"piece":
@@ -2035,6 +2162,10 @@ func _interact(target: Node3D) -> void:
 			else:
 				_notify("Backpack full")
 		"sell", "upgrades", "storage", "crusher", "output", "shop":
+			if str(target.get_meta("kind")) == "storage" and state.total(state.inventory) > 0:
+				dump_bucket()
+				_dump_hold = 0.0
+				return
 			if str(target.get_meta("kind")) == "output" and str(target.get_meta("variant", "")) == "cash_hopper" and not bool(prog.story.get("hopper_intro", false)):
 				prog.story["hopper_intro"] = true
 				_hopper_intro(int(target.get_meta("index", -1)))
@@ -2774,6 +2905,10 @@ var gear_props := {}          ## the compressor (a fixed prop)
 var cart_nodes := {}          ## cart id -> QuarryCart
 var natural_start_enabled := true      ## Phase 10: false keeps the three old starting piles (legacy layouts and older tests)
 var soil: QuarrySoil
+var dig_audio: DigAudio
+var terrain_rem := {}                              ## fractional units left over from volume -> unit conversion, per resource (never lost, never made)
+var bucket_view: BucketView                        ## the Blender pail(s) in the lower-left of the view
+var _dump_hold := 0.0
 var live_terrain: LiveTerrain                      ## the heightfield ground of the filled quarry (scripts/terrain/live_terrain.gd)
 var live_terrain_enabled := true
 var spoil_node: Node3D
@@ -7576,7 +7711,7 @@ func buy_gear(id: String) -> bool:
 	player.tool_view.equip(prog.model_tier(), menu != "")
 	_refresh_workbench()
 	if str(g.get("kind", "tool")) == "cart":
-		hud.toast(str(g["title"]), "BAG NOW HOLDS %d" % state.capacity(), "unlock")
+		hud.toast(str(g["title"]), "BUCKETS NOW HOLD %d" % state.bucket_capacity(), "unlock")
 	elif str(g.get("kind", "tool")) == "equipment":
 		hud.toast(str(g["title"]), "POWERED TOOLS +%d%%" % int(round((float(g.get("power_mult", 1.0)) - 1.0) * 100.0)), "unlock")
 	else:

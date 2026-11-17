@@ -107,6 +107,65 @@ func _level_floor(w: Vector3) -> float:
 			low = yb
 	return low
 
+## The formation column that gives the surface at (x, z): [formation id, column index], or [] where the ground is a pit floor.
+func surface_formation(x: float, z: float) -> Array:
+	var p := Vector3(x, 0.0, z)
+	var best := -INF
+	var out := []
+	for id in geo._formations:
+		var col: int = prog.cell_index_at(id, p)
+		if col < 0 or prog.chunks_left(id, col) <= 0:
+			continue
+		var top: float = prog.column_pos(id, col).y + float(prog.chunks_left(id, col)) * float(prog.fdef(id)["tier_h"])
+		if top > best:
+			best = top
+			out = [id, col]
+	return out
+
+## After the ground has been dug by hand: every column whose footprint now lies a whole tier (or more) below its top gives that tier up in the bookkeeping, so crews, machines,
+## contracts and the production overview see what was dug. (The ground itself is never raised by this: refresh_column only ever lowers.) Returns the tiers removed.
+func settle_columns(point: Vector3, radius: float) -> int:
+	if terrain == null:
+		return 0
+	var removed := 0
+	for id in geo._formations:
+		var seen := {}
+		for o in [Vector2(0, 0), Vector2(radius, 0), Vector2(-radius, 0), Vector2(0, radius), Vector2(0, -radius)]:
+			var col: int = prog.cell_index_at(id, Vector3(point.x + o.x, 0.0, point.z + o.y))
+			if col < 0 or seen.has(col):
+				continue
+			seen[col] = true
+			var tier_h := float(prog.fdef(id)["tier_h"])
+			var n_guard := 0
+			while prog.chunks_left(id, col) > 0 and n_guard < 8:
+				n_guard += 1
+				var top: float = prog.column_pos(id, col).y + float(prog.chunks_left(id, col)) * tier_h
+				if _mean_height(id, col) > top - tier_h * 0.85:
+					break
+				var hp := float(prog.material(str(prog.fdef(id)["resource"])).get("hp", 10))
+				var cu := int(prog.fdef(id)["chunk_units"])
+				prog.extract(id, col, hp * float(cu), cu, "terrain")
+				removed += 1
+				if game.formation_nodes.has(id):
+					(game.formation_nodes[id] as QuarryFormation).refresh()
+	return removed
+
+## Mean ground height over a column's footprint (the 8 x 8 vertices inside it).
+func _mean_height(fid: String, col: int) -> float:
+	var c: Vector3 = prog.column_pos(fid, col)
+	var half := float(prog.fdef(fid)["cell"]) * 0.5
+	var s := 0.0
+	var n := 0
+	var x := c.x - half + QuarryTerrain.CELL * 0.5
+	while x < c.x + half:
+		var z := c.z - half + QuarryTerrain.CELL * 0.5
+		while z < c.z + half:
+			s += terrain.height_at(x, z)
+			n += 1
+			z += QuarryTerrain.CELL
+		x += QuarryTerrain.CELL
+	return s / float(maxi(1, n))
+
 ## Lowers (or raises) the terrain under one formation column to what the columns now leave there.
 func refresh_column(fid: String, col: int) -> void:
 	if terrain == null:
@@ -125,7 +184,7 @@ func refresh_column(fid: String, col: int) -> void:
 				continue
 			var k := terrain.idx(i, j)
 			var d := maxf(0.0, terrain.ntop[k] - s)
-			if absf(d - terrain.dug[k]) > 0.0001:
+			if d > terrain.dug[k] + 0.0001:                      # the bookkeeping only ever lowers the ground: what a shovel dug deeper than the column stays dug
 				terrain.dug[k] = d
 				terrain._dirty_vertex(i, j)
 	synced_columns += 1

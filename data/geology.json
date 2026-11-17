@@ -4,14 +4,14 @@
  "natural_top": 0.0,
  "clay_below": 0.4,
  "materials": [
-  {"id": "topsoil", "title": "Topsoil", "resource": "topsoil", "hardness": 0, "dig_rate": 1.0, "repose": 36, "units_per_m3": 5.0, "texture": "T_QD_ExcavatedDirt", "particle": [0.42, 0.29, 0.18], "sound": "soil", "unit_value": 1},
-  {"id": "clay", "title": "Clay", "resource": "topsoil", "hardness": 0, "dig_rate": 0.8, "repose": 32, "units_per_m3": 5.0, "texture": "T_QD_Clay", "particle": [0.55, 0.34, 0.2], "sound": "clay", "unit_value": 1},
-  {"id": "gravel", "title": "Gravel", "resource": "gravel", "hardness": 0, "dig_rate": 0.7, "repose": 38, "units_per_m3": 5.0, "texture": "T_QD_RockGravel", "particle": [0.55, 0.52, 0.47], "sound": "gravel", "unit_value": 1},
-  {"id": "limestone", "title": "Limestone", "resource": "limestone", "hardness": 1, "dig_rate": 0.5, "repose": 49, "units_per_m3": 3.0, "texture": "T_QD_RockLimestone", "particle": [0.78, 0.74, 0.66], "sound": "rock", "unit_value": 2},
-  {"id": "coal", "title": "Coal", "resource": "coal", "hardness": 1, "dig_rate": 0.5, "repose": 45, "units_per_m3": 3.0, "texture": "T_QD_RockCoal", "particle": [0.12, 0.12, 0.14], "sound": "rock", "unit_value": 3},
-  {"id": "iron_ore", "title": "Iron ore", "resource": "iron_ore", "hardness": 2, "dig_rate": 0.4, "repose": 48, "units_per_m3": 3.0, "texture": "T_QD_RockIron", "particle": [0.55, 0.28, 0.14], "sound": "ore", "unit_value": 4},
-  {"id": "copper_ore", "title": "Copper ore", "resource": "copper_ore", "hardness": 3, "dig_rate": 0.35, "repose": 48, "units_per_m3": 3.0, "texture": "T_QD_RockCopper", "particle": [0.3, 0.55, 0.4], "sound": "ore", "unit_value": 6},
-  {"id": "gold_ore", "title": "Gold ore", "resource": "gold_ore", "hardness": 4, "dig_rate": 0.3, "repose": 48, "units_per_m3": 2.0, "texture": "T_QD_RockGold", "particle": [0.85, 0.7, 0.2], "sound": "ore", "unit_value": 12}
+  {"id": "topsoil", "title": "Topsoil", "resource": "topsoil", "hardness": 0, "dig_rate": 1.0, "repose": 36, "units_per_m3": 11.0, "texture": "T_QD_ExcavatedDirt", "particle": [0.42, 0.29, 0.18], "sound": "soil", "unit_value": 1},
+  {"id": "clay", "title": "Clay", "resource": "topsoil", "hardness": 0, "dig_rate": 0.8, "repose": 32, "units_per_m3": 11.0, "texture": "T_QD_Clay", "particle": [0.55, 0.34, 0.2], "sound": "clay", "unit_value": 1},
+  {"id": "gravel", "title": "Gravel", "resource": "gravel", "hardness": 0, "dig_rate": 0.7, "repose": 38, "units_per_m3": 11.0, "texture": "T_QD_RockGravel", "particle": [0.55, 0.52, 0.47], "sound": "gravel", "unit_value": 1},
+  {"id": "limestone", "title": "Limestone", "resource": "limestone", "hardness": 1, "dig_rate": 0.5, "repose": 49, "units_per_m3": 8.0, "texture": "T_QD_RockLimestone", "particle": [0.78, 0.74, 0.66], "sound": "rock", "unit_value": 2},
+  {"id": "coal", "title": "Coal", "resource": "coal", "hardness": 1, "dig_rate": 0.5, "repose": 45, "units_per_m3": 8.0, "texture": "T_QD_RockCoal", "particle": [0.12, 0.12, 0.14], "sound": "rock", "unit_value": 3},
+  {"id": "iron_ore", "title": "Iron ore", "resource": "iron_ore", "hardness": 2, "dig_rate": 0.4, "repose": 48, "units_per_m3": 6.0, "texture": "T_QD_RockIron", "particle": [0.55, 0.28, 0.14], "sound": "ore", "unit_value": 4},
+  {"id": "copper_ore", "title": "Copper ore", "resource": "copper_ore", "hardness": 3, "dig_rate": 0.35, "repose": 48, "units_per_m3": 5.0, "texture": "T_QD_RockCopper", "particle": [0.3, 0.55, 0.4], "sound": "ore", "unit_value": 6},
+  {"id": "gold_ore", "title": "Gold ore", "resource": "gold_ore", "hardness": 4, "dig_rate": 0.3, "repose": 48, "units_per_m3": 4.0, "texture": "T_QD_RockGold", "particle": [0.85, 0.7, 0.2], "sound": "ore", "unit_value": 12}
  ],
  "default_strata": [
   {"material": "topsoil", "thickness": 0.8},

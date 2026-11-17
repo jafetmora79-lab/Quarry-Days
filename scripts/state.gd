@@ -36,8 +36,20 @@ func _init(settings: Dictionary = {}) -> void:
 	for key in UPGRADE_NAMES:
 		upgrades[key] = false
 
-func capacity() -> int:
+## One bucket's load (the old backpack size: 18, bigger with the backpack and harness upgrades). You carry buckets, as many as you care to fill.
+func bucket_capacity() -> int:
 	return int(config.get("backpack_capacity", 18)) + (16 if upgrades["larger_backpack"] else 0) + (30 if upgrades.get("hauling_harness", false) else 0)
+
+const BUCKET_STACK := 40                          ## the most buckets that can be carried (effectively no limit; walking slows with every full one)
+
+## Everything the buckets can hold together (the old "bag" total, now a stack of buckets).
+func capacity() -> int:
+	return bucket_capacity() * BUCKET_STACK
+
+## How many buckets the load fills (a part-full one counts).
+func buckets_carried() -> int:
+	var cap := bucket_capacity()
+	return (total(inventory) + cap - 1) / cap if total(inventory) > 0 else 0
 
 ## Capacity of the best hauling aid owned (the load per trip is the bag plus one cart; you push one at a time).
 func cart_capacity() -> int:

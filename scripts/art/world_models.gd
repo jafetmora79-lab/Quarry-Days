@@ -30,6 +30,8 @@ const COLOURS := {
 	"QuartzRock": Color(0.70, 0.68, 0.64), "QuartzWhite": Color(0.92, 0.92, 0.88),
 	"PebbleA": Color(0.58, 0.52, 0.44), "PebbleB": Color(0.45, 0.41, 0.37), "PebbleC": Color(0.70, 0.64, 0.54),
 	"ClodDark": Color(0.27, 0.18, 0.12), "ClodMid": Color(0.40, 0.28, 0.18), "ClodLight": Color(0.52, 0.37, 0.25), "ClodStone": Color(0.62, 0.57, 0.49),
+	"BucketSteel": Color(0.46, 0.49, 0.51), "BucketRim": Color(0.30, 0.32, 0.35), "BucketRust": Color(0.50, 0.28, 0.14), "BucketBand": Color(0.36, 0.38, 0.40),
+	"BucketHandle": Color(0.16, 0.16, 0.17), "BucketDirt": Color(0.40, 0.28, 0.18), "BucketInner": Color(0.12, 0.11, 0.10),
 	"Timber": Color(0.45, 0.31, 0.18), "Steel": Color(0.38, 0.40, 0.42), "Concrete": Color(0.55, 0.55, 0.53), "Hazard": Color(0.90, 0.72, 0.10), "Paint": Color(0.90, 0.78, 0.20)}
 const FOLIAGE := {
 	"Pine": Color(0.16, 0.33, 0.20), "PineLight": Color(0.25, 0.43, 0.24), "Leaf": Color(0.42, 0.55, 0.20), "LeafWarm": Color(0.68, 0.58, 0.20),
