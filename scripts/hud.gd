@@ -878,7 +878,10 @@ func _set_hotbar(prog: QuarryProgression) -> void:
 		var kind := "shovel" if cl == "digging" else "flag" if cl == "survey" else ("hammer" if str(bar[i]) == "" and game.state.tool_tier == 0 else "pick")
 		var title := str(t.get("title", "?"))
 		var model_key := str(bar[i]) if str(bar[i]) in GearModels.IDS else ToolModels.key_of(game.state.tool_tier)       # which real model is this slot
-		slots.append({"name": "Plan" if cl == "survey" else title.split(" ")[-1], "kind": kind, "key": model_key})
+		var slot := {"name": "Plan" if cl == "survey" else title.split(" ")[-1], "kind": kind, "key": model_key}
+		if cl == "carry":
+			slot["qty"] = game.state.buckets_carried()                           # the number on the slot is how many buckets you carry
+		slots.append(slot)
 	hotbar_view.set_slots(slots, prog.hotbar_slot())
 
 func refresh_panels() -> void:

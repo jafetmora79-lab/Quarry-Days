@@ -38,7 +38,8 @@ func run() -> void:
 	for t in ToolModels.LADDER:
 		keys.append(ToolModels.LADDER[t])
 	for id in GearModels.IDS:
-		keys.append(id)
+		if id != "bucket":                        # (the bucket is a Blender world model held as a tool, not one of the tool-model files)
+			keys.append(id)
 	check(keys.size() == 16, "16 tools in all (5 ladder + 11 Phase 9): %d" % keys.size())
 	var moving := {"drill": "spinner", "jackhammer": "spinner", "powered_hammer": "spinner", "pneumatic_chisel": "spinner", "hand_splitter": "lever"}
 	for key in keys:
@@ -95,7 +96,8 @@ func run() -> void:
 	root.add_child(tv)
 	var tiers := [0, 1, 2, 3, 4]
 	for id in GearModels.IDS:
-		tiers.append(GearModels.tier_of(id))
+		if id != "bucket":
+			tiers.append(GearModels.tier_of(id))
 	for t in tiers:
 		tv.equip(t, true)
 		var gm := tv.model

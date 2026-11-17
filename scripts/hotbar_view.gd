@@ -64,6 +64,8 @@ func set_slots(slots: Array, cur: int) -> void:
 			var mk := str(item.get("key", ""))
 			if thumbs != null and mk == "ramp_plan":
 				tex = thumbs.get_thumb("tool:ramp_miniature", Callable(QuarryHotbar, "ramp_miniature"))      # the item is a ramp: its picture is a little ramp
+			elif thumbs != null and mk == "bucket":
+				tex = thumbs.get_thumb("tool:bucket", func(): return GearModels.bucket_tool())
 			elif thumbs != null and mk != "":
 				tex = thumbs.get_thumb("tool:" + mk, func(): return ToolModels.load_tool(mk))
 			if tex != null:

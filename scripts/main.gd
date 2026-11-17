@@ -237,8 +237,6 @@ func _ready() -> void:
 	add_child(safety)
 	safety.setup(self)
 	player.collision_mask = 1 | 2 | 4 | 8 # world, loose pieces, workers, vehicles (conveyors: layer 16, crossable)
-	bucket_view = BucketView.new()
-	player.camera.add_child(bucket_view)
 	dig_audio = DigAudio.new()
 	add_child(dig_audio)
 	vehicles_root = Node3D.new()
@@ -1435,6 +1433,13 @@ func _player_mining(delta: float) -> void:
 	if str(prog.tool().get("class", "")) == "survey":
 		_ramp_tool(lmb)                                # the ramp tool plans and builds; it never swings
 		return
+	if str(prog.tool().get("class", "")) == "carry":
+		tv.operating = false
+		if lmb and not tv.is_busy() and mining_cooldown <= 0.0:
+			mining_cooldown = 0.6
+			_mining_ray()
+			tv.swing(0.5, _pour_bucket)                # the pail tips and pours what it holds where you aim
+		return
 	if ramps != null and ramps.ghost != null and ramps.ghost.visible:
 		ramps.hide_ghost()
 	ramp_prompt = ""
@@ -1499,6 +1504,53 @@ func _mine_button_down() -> bool:
 			return false
 		_mine_latch = false
 	return raw and not driving and not construction and not placement
+
+## The bucket in hand tipped over the ground: one bucket's load (up to the bucket size, the biggest heap of it first) is poured where you aim, as loose material on the terrain (units -> m3 at
+## each material's rate, so nothing is created or lost; a fraction of a unit stays in `terrain_rem`). Pouring at the starter box dumps the bucket into it instead.
+func _pour_bucket() -> void:
+	var hit := _mining_ray()
+	if hit.is_empty():
+		return
+	var node: Node3D = hit["node"]
+	if str(node.get_meta("kind", "")) == "storage":
+		dump_bucket()
+		return
+	if live_terrain == null or live_terrain.terrain == null or node != live_terrain.terrain.body:
+		return
+	pour_at(hit["point"])
+
+## Pours one bucket's load at a point of the live ground (see _pour_bucket). Returns the units poured.
+func pour_at(point: Vector3) -> int:
+	if live_terrain.terrain.is_locked_at(point.x, point.z):
+		_notify("This ground is not for heaping.")
+		return 0
+	var cap := state.bucket_capacity()
+	var vols := {}
+	var left := mini(cap, state.total(state.inventory))
+	var order: Array = Business.SELL_ORDER.duplicate()
+	order.reverse()
+	for res in order:
+		if left <= 0:
+			break
+		var n := mini(int(state.inventory.get(res, 0)), left)
+		if n <= 0:
+			continue
+		var mid := live_terrain.geo.material_of_resource(res)
+		state.inventory[res] = int(state.inventory[res]) - n
+		left -= n
+		vols[mid] = float(vols.get(mid, 0.0)) + float(n) / float(live_terrain.geo.props(mid).get("units_per_m3", 5.0))
+	if vols.is_empty():
+		_notify("The bucket is empty.")
+		return 0
+	var before := state.total(state.inventory)
+	var rest: Dictionary = live_terrain.terrain.deposit(point, 0.9, vols)
+	for mid in rest:                                                   # nowhere to put it (all locked): back into the buckets
+		var pr: Dictionary = live_terrain.geo.props(str(mid))
+		state.add_item(str(pr["resource"]), int(round(float(rest[mid]) * float(pr.get("units_per_m3", 5.0)))))
+	var main_mid: String = str(vols.keys()[0])
+	dig_audio.play("pour", main_mid, point, 1.0)
+	fx.impact(point, str(live_terrain.geo.props(main_mid)["resource"]), 0.8, mine_normal)
+	return mini(cap, before + 0) if before >= 0 else 0
 
 ## One tool strike on the live ground (shovel: scoops soft ground into the bucket; pickaxe and hammer: break hard ground into loose rubble that a shovel then scoops).
 ## What you hit decides what happens and what you hear: ground harder than the tool bounces the blow with a chink. Returns the dig result.
@@ -2132,14 +2184,14 @@ func dump_bucket() -> int:
 func _bucket_tick(delta: float) -> void:
 	var total := state.total(state.inventory)
 	var cap := state.bucket_capacity()
-	if bucket_view != null:
+	if player.tool_view != null and player.tool_view.model != null and player.tool_view.model.has_meta("fill"):           # the bucket is in hand: its heap shows the load
 		var main_res := ""
 		var best := -1
 		for res in state.inventory:
 			if int(state.inventory[res]) > best:
 				best = int(state.inventory[res])
 				main_res = str(res)
-		bucket_view.update_view(total, cap, QuarryTheme.RES_COLORS.get(main_res, Color(0.4, 0.28, 0.18)), driving == null and not pc_active and not sleeping and not placement and not construction)
+		BucketView.dress(player.tool_view.model.get_meta("fill"), BucketView.fraction_of(total, cap), QuarryTheme.RES_COLORS.get(main_res, Color(0.4, 0.28, 0.18)))
 	player.load_mult = 1.0 - minf(0.35, 0.035 * float(maxi(0, BucketView.count_of(total, cap) - 1)))
 	if Input.is_action_pressed("interact") and last_target != null and is_instance_valid(last_target) and str(last_target.get_meta("kind", "")) == "storage" and total > 0:
 		_dump_hold += delta
@@ -2907,7 +2959,6 @@ var natural_start_enabled := true      ## Phase 10: false keeps the three old st
 var soil: QuarrySoil
 var dig_audio: DigAudio
 var terrain_rem := {}                              ## fractional units left over from volume -> unit conversion, per resource (never lost, never made)
-var bucket_view: BucketView                        ## the Blender pail(s) in the lower-left of the view
 var _dump_hold := 0.0
 var live_terrain: LiveTerrain                      ## the heightfield ground of the filled quarry (scripts/terrain/live_terrain.gd)
 var live_terrain_enabled := true

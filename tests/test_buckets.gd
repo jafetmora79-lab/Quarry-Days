@@ -33,7 +33,13 @@ func run() -> void:
 	await frames(10)
 	var st = game.state
 	check(st.bucket_capacity() == 18 and st.capacity() == 18 * QuarryState.BUCKET_STACK, "a bucket holds 18 and any number can be carried (%d buckets)" % QuarryState.BUCKET_STACK)
-	check(game.bucket_view != null and game.bucket_view.get_child_count() >= 2, "the Blender pail is in the player's view (held pail + spares)")
+	var bar: Array = game.prog.hotbar()
+	check("bucket" in bar, "the bucket is a hotbar item like the pickaxe (%s)" % str(bar))
+	game.prog.select_slot(bar.find("bucket"))
+	for i in range(40):
+		game.player.tool_view.equip(game.prog.model_tier())
+		await physics_frame
+	check(game.player.tool_view.model != null and game.player.tool_view.model.has_meta("fill"), "with it in hand you hold the Blender pail, its heap in a Fill holder")
 	check(not game.hud.find_child("BagPlate", true, false).visible, "the bag badge is gone from the HUD")
 	check(st.storage_capacity() >= 100, "the starter box holds 100 (%d)" % st.storage_capacity())
 	# carrying
@@ -43,11 +49,11 @@ func run() -> void:
 	check(st.buckets_carried() == 3, "40 units fill two buckets and part of a third (%d)" % st.buckets_carried())
 	await frames(3)
 	check(game.player.load_mult < 1.0 and game.player.load_mult > 0.8, "carrying them slows the walk a little (%.3f)" % game.player.load_mult)
-	var spares := 0
-	for sp in game.bucket_view.spares:
-		if (sp["root"] as Node3D).visible:
-			spares += 1
-	check(spares == 2, "two full buckets stand behind the one in hand (%d)" % spares)
+	await frames(3)
+	var fill: Node3D = game.player.tool_view.model.get_meta("fill")
+	check(absf(fill.scale.y - lerpf(0.12, 1.0, 4.0 / 18.0)) < 0.02, "the heap in the pail shows the part-full bucket (%.2f)" % fill.scale.y)
+	var qty: Label = game.hud.hotbar_view.find_child("Qty", true, false)
+	check(qty != null and qty.text == "3", "the hotbar slot shows how many buckets are carried (%s)" % (qty.text if qty != null else "none"))
 	# the box prompt
 	var pr: String = game._storage_prompt()
 	check(pr.contains("dump a bucket") and pr.contains("BOX:") and pr.contains("/ %d" % st.storage_capacity()), "aiming at the box says what it holds: '%s'" % pr)
@@ -59,6 +65,13 @@ func run() -> void:
 	var m3: int = game.dump_bucket()
 	check(m3 == 4 and st.inventory["topsoil"] == 0, "the last, part-full bucket moves what it has (%d)" % m3)
 	check(game._storage_prompt().contains("open the box"), "empty-handed, E opens the box menu")
+	# pouring onto the ground puts the load back as loose material
+	st.inventory["topsoil"] = 40
+	var tvol: float = game.live_terrain.terrain.total_volume()
+	var ground := Vector3(3.0, 0.0, -45.0)
+	game.pour_at(ground)
+	check(st.inventory["topsoil"] == 22 and absf(game.live_terrain.terrain.total_volume() - (tvol + 18.0 / 11.0)) < 0.01, "pouring a bucket on the ground puts 18 units back as %.3f m3 of loose topsoil" % (18.0 / 11.0))
+	st.inventory["topsoil"] = 0
 	# a full box refuses
 	st.storage["topsoil"] = st.storage_capacity()
 	st.inventory["topsoil"] = 18

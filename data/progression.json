@@ -7712,6 +7712,18 @@
    "sound": "hit_hammer",
    "starter": true
   },
+  "bucket": {
+   "title": "Bucket",
+   "cost": 0,
+   "class": "carry",
+   "model": 0,
+   "desc": "Grandpa's steel pail. Everything you dig goes into buckets (18 each, as many as you like). Left click pours the load out where you aim; E at the box dumps a bucket in.",
+   "power": 0,
+   "interval": 0.6,
+   "max_hardness": 0,
+   "sound": "hit_hammer",
+   "starter": true
+  },
   "pointed_chisel": {
    "title": "Pointed Chisel",
    "cost": 40,

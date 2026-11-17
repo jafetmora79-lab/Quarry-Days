@@ -88,6 +88,9 @@ func run() -> void:
 	var cur_key := ToolModels.key_of(game.state.tool_tier)
 	check(ToolModels.has_tool(cur_key), "the tool in hand (%s) has a real model to make its picture from" % cur_key)
 	for k in ToolModels.LADDER.values() + GearModels.IDS:
+		if k == "bucket":
+			check(GearModels.bucket_tool().find_child("Fill", true, false) != null, "bucket has its Blender pail for its thumbnail")
+			continue
 		if k == "ramp_plan" or k in GearModels.IDS or k in ToolModels.LADDER.values():
 			check(ToolModels.has_tool(str(k)), "%s has a model for its thumbnail" % k)
 	# ---- the objective tracker: compact, then the full list

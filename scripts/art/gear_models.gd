@@ -7,7 +7,7 @@ class_name GearModels
 ##   tool tier numbers >= TIER_BASE are these tools: tier = TIER_BASE + index in IDS.
 
 const TIER_BASE := 10
-const IDS := ["pointed_chisel", "flat_chisel", "repaired_pickaxe", "sledgehammer", "steel_pickaxe", "hardened_pickaxe", "hand_splitter", "powered_hammer", "pneumatic_chisel", "shovel", "ramp_plan"]
+const IDS := ["pointed_chisel", "flat_chisel", "repaired_pickaxe", "sledgehammer", "steel_pickaxe", "hardened_pickaxe", "hand_splitter", "powered_hammer", "pneumatic_chisel", "shovel", "ramp_plan", "bucket"]
 
 const SWING := {"grip": Vector3(0.30, -0.42, -0.55), "scale": 0.8, "rest": -0.75, "yaw": 0.2, "wind": 0.1, "strike": -1.35}
 
@@ -33,6 +33,7 @@ const POSE := {
 		"hands": [["R", Vector3(0, 0.0, 0.08)], ["L", Vector3(-0.12, 0.12, -0.17), Vector3.RIGHT]]},   # pistol grip, and the side grip on the clamp (axis X)
 	"shovel": {"grip": Vector3(-0.06, -0.34, -0.46), "scale": 1.0, "rest": -0.6, "rest_roll": -0.5, "twist": 0.0, "yaw": 0.0, "wind": -0.35, "strike": -1.15, "tip": Vector3(0, 0.84, -0.04), "style": "scoop", "impact_p": 0.5,
 		"hands": [["L", Vector3(0, 0.1, 0)], ["R", Vector3(0, 0.32, 0)]]},                 # the reference pose: the left fist low on the handle, the right fist higher, the blade up and to the right
+	"bucket": {"grip": Vector3(0.22, -0.30, -0.55), "scale": 1.0, "rest": -0.05, "yaw": 0.0, "wind": 0.0, "strike": -0.35, "tip": Vector3(0, 0.0, 0), "hands": [["R", Vector3(0, 0.0, 0), Vector3.RIGHT]]},
 	"ramp_plan": {"grip": Vector3(0.28, -0.40, -0.52), "scale": 0.9, "rest": -0.45, "yaw": 0.15, "wind": -0.45, "strike": -0.5, "tip": Vector3(0, 0.5, -0.05), "hands": [["R", Vector3(0, 0.1, 0)]]},
 	"pneumatic_chisel": {"grip": Vector3(0.3, -0.14, -0.5), "scale": 0.75, "power": true, "rest_rot": Vector3(0.0, 0.3, 0.0), "model_pitch": 0.8, "tip": Vector3(0, -0.62, 0), "spin": "pump_y", "amp": 0.012,
 		"hands": [["R", Vector3(0.15, 0.04, 0), Vector3.RIGHT], ["L", Vector3(-0.15, 0.04, 0), Vector3.RIGHT]]},   # the T-handle grips (axis X)
@@ -79,7 +80,22 @@ class Builder:
 
 # ------------------------------------------------------------------ handheld tools
 
+## The bucket as a held tool: the Blender pail hanging from its bail (the grip is the top of the handle), its load a heap in a holder named "Fill" (meta "fill").
+static func bucket_tool() -> Node3D:
+	var n := Node3D.new()
+	n.name = "Gear_bucket"
+	var a: Dictionary = WorldModels.animal("bucket")
+	if a.is_empty():
+		return n
+	var root: Node3D = a["root"]
+	root.position = Vector3(0, -0.52, 0)
+	n.add_child(root)
+	n.set_meta("fill", (a["parts"] as Dictionary).get("Fill"))
+	return n
+
 static func build_tool(id: String) -> Node3D:
+	if id == "bucket":
+		return bucket_tool()
 	var bm := ToolModels.load_tool(id)          # the Blender-built model (tools/tool_models); the procedural one below is the fallback
 	if bm != null:
 		return bm
