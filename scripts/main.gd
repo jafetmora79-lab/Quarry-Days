@@ -824,14 +824,9 @@ func hit_debris(node: Node3D, damage: float, point: Vector3, continuous := false
 		return
 	var unit_hp := float(cfg.get("heap_unit_hp", 10.0))
 	while float(debris_dmg[id]) >= unit_hp and prog.heap_units_left(id) > 0:
-		if state.total(state.inventory) >= state.capacity():
-			debris_dmg[id] = unit_hp * 0.999
-			_bag_full_notice()
-			break
-		state.add_item("limestone", 1)
 		prog.cleanup["units"][id] = prog.heap_units_left(id) - 1
 		debris_dmg[id] = float(debris_dmg[id]) - unit_hp
-		_reward_popup("limestone", 1)
+		_drop_debris_stone()                                        # the stone breaks off and lands beside the player: pick it up, then bag or bucket
 	var total := float(maxi(1, int(cfg.get("heap_units", 5))))
 	if prog.heap_units_left(id) <= 0:
 		_finish_debris(id, node, "rubble")
@@ -1282,7 +1277,7 @@ func _too_hard(res: String) -> void:
 func _bag_full_notice() -> void:
 	if bag_full_t <= 0.0:
 		bag_full_t = 2.5
-		_notify("Bag full! Sell at the office computer or store at the crate. Extra rock drops beside the formation.")
+		_notify("Bag full! Throw it into a bucket (E on one), tip it into the box, or sell it. Place a bucket to keep digging.")
 
 ## Ray from the camera: {"node", "column", "point"} for whatever the crosshair is on.
 func _mining_ray() -> Dictionary:
@@ -1547,6 +1542,154 @@ func _bucket_tool(lmb: bool) -> void:
 			_notify("Bucket put down with %d in it." % carried)
 		else:
 			_notify("Bucket placed. Dig near it and the dirt goes in; E picks it up.")
+
+# ------------------------------------------------------------------ stones from the cleanup, and the toss into a bucket
+var debris_stones := {}                 ## id -> loose stone lying where a rubble heap was broken (kept in saves)
+var _stone_seq := 0
+
+func _ground_y_at(p: Vector3) -> float:
+	var q := PhysicsRayQueryParameters3D.create(p + Vector3(0, 3, 0), p - Vector3(0, 4, 0), 1)
+	var h := get_world_3d().direct_space_state.intersect_ray(q)
+	return float(h["position"].y) if not h.is_empty() else p.y
+
+## One unit of a broken rubble heap: a stone lands next to the player.
+func _drop_debris_stone() -> void:
+	var fwd := -player.global_transform.basis.z
+	var side := player.global_transform.basis.x
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var at := player.global_position + fwd * rng.randf_range(0.7, 1.1) + side * rng.randf_range(-0.6, 0.6)
+	at.y = _ground_y_at(at)
+	_spawn_debris_stone(at, "")
+	pickup_audio.play()
+
+func _spawn_debris_stone(at: Vector3, id: String) -> void:
+	_stone_seq += 1
+	var sid := id if id != "" else "ds_%d_%d" % [Time.get_ticks_msec(), _stone_seq]
+	var body := _solid(world, "Loose stone", at + Vector3(0, 0.2, 0), Vector3(0.34, 0.3, 0.32), Color(0.78, 0.74, 0.66), float(_stone_seq) * 1.7)
+	body.collision_layer = 2
+	body.set_meta("kind", "piece")
+	body.set_meta("resource", "limestone")
+	body.set_meta("debris_stone", true)
+	body.set_meta("piece_id", sid)
+	if art:
+		art.dress_piece(body, "limestone", _stone_seq)
+	debris_stones[sid] = body
+
+## E on a loose stone: into a placed bucket within reach (thrown in with an arc), else into the bag.
+func _collect_debris_stone(stone: Node3D) -> void:
+	var sid := str(stone.get_meta("piece_id"))
+	var pb := _buckets()
+	var best: Node3D = null
+	var best_d := PlacedBuckets.REACH_FILL
+	for it in pb.items:
+		var b: Node3D = it["body"]
+		var d := Vector2(b.global_position.x - player.global_position.x, b.global_position.z - player.global_position.z).length()
+		if d < best_d and pb.room_of(b) > 0:
+			best = b
+			best_d = d
+	if best != null:
+		debris_stones.erase(sid)
+		var from := stone.global_position
+		stone.queue_free()
+		_throw_units({"limestone": 1}, best, from)
+		return
+	if state.add_item("limestone", 1) == 1:
+		debris_stones.erase(sid)
+		stone.queue_free()
+		pickup_audio.play()
+		_notify("Picked up a stone (bag %d / %d). Throw it into a bucket: E on one." % [state.total(state.inventory), state.capacity()])
+	else:
+		_bag_full_notice()
+
+## The bag's contents go into the bucket you aim at: the hand reaches to the hip and tosses them in, stone by stone, each in an arc that lands in the pail.
+func throw_bag_into_bucket(body: Node3D) -> int:
+	var pb := _buckets()
+	var room := pb.room_of(body)
+	if room <= 0:
+		_notify("That bucket is full.")
+		return 0
+	var units := {}
+	var left := room
+	for res in state.inventory.keys():
+		var n := mini(int(state.inventory[res]), left)
+		if n <= 0:
+			continue
+		units[res] = n
+		state.inventory[res] = int(state.inventory[res]) - n
+		left -= n
+	if units.is_empty():
+		return 0
+	player.tool_view.throw_motion()
+	var from: Vector3 = player.camera.global_position + player.camera.global_basis * Vector3(0.3, -0.5, -0.1)
+	_throw_units(units, body, from)
+	return pb.total_of(units)
+
+## Launches the units (already taken from wherever they were) towards a bucket: up to 8 stones in the air at once, spaced out; each lands in the pail and adds its share.
+func _throw_units(units: Dictionary, body: Node3D, from: Vector3) -> void:
+	var pb := _buckets()
+	var seq := []
+	for res in units:
+		for i in range(int(units[res])):
+			seq.append(str(res))
+	var total := seq.size()
+	if total <= 0:
+		return
+	body.set_meta("pending", int(body.get_meta("pending", 0)) + total)
+	var stones := mini(total, 8)
+	var per := int(ceil(float(total) / float(stones)))
+	var idx := 0
+	for s in range(stones):
+		var share := {}
+		var cnt := 0
+		while cnt < per and idx < total:
+			share[seq[idx]] = int(share.get(seq[idx], 0)) + 1
+			idx += 1
+			cnt += 1
+		if share.is_empty():
+			break
+		var main_res := pb.main_res(share)
+		var node := MeshInstance3D.new()
+		var soup := MeshKit.Soup.new()
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 40 + s
+		PileModels.chunk_into(soup, Vector3.ZERO, Vector3(0.1, 0.08, 0.09), rng)
+		node.mesh = soup.mesh()
+		node.material_override = MeshKit.mat(BucketView.MATS.get(main_res, "RockLimestone"))
+		node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		node.visible = false
+		world.add_child(node)
+		var spin := Vector3(rng.randf_range(-6, 6), rng.randf_range(-6, 6), rng.randf_range(-6, 6))
+		var tw := create_tween()
+		tw.tween_interval(0.12 * float(s) + 0.08)
+		tw.tween_callback(func(): node.visible = true)
+		var move := func(t: float):
+			if not is_instance_valid(body):
+				return
+			var mouth: Vector3 = body.global_position + Vector3(0, 0.5, 0)
+			node.global_position = from.lerp(mouth, t) + Vector3(0, sin(t * PI) * 0.55, 0)
+			node.rotation = spin * t
+		tw.tween_method(move, 0.0, 1.0, 0.45)
+		tw.tween_callback(func(): _stone_landed(body, share, node))
+
+func _stone_landed(body: Node3D, share: Dictionary, node: Node3D) -> void:
+	var pb := _buckets()
+	var n := pb.total_of(share)
+	if is_instance_valid(body):
+		body.set_meta("pending", maxi(0, int(body.get_meta("pending", 0)) - n))
+	if is_instance_valid(node):
+		node.queue_free()
+	var put_total := 0
+	for res in share:
+		var put := 0
+		if is_instance_valid(body) and pb.index_of(body) >= 0:
+			put = pb.add_units(body, str(res), int(share[res]))
+		put_total += put
+		if put < int(share[res]):
+			state.add_item(str(res), int(share[res]) - put)            # the bucket is gone or full: it goes back into the bag, nothing is lost
+	if is_instance_valid(body) and put_total > 0:
+		fx.impact(body.global_position + Vector3(0, 0.45, 0), pb.main_res(share), 0.4, Vector3.UP)
+		_sfx_at("hit_pick", body.global_position, -8.0)
 
 ## E on a standing bucket: pick it up with what it holds (one in the hands at a time).
 func pick_up_bucket(body: Node) -> bool:
@@ -2030,7 +2173,10 @@ func _physics_process(delta: float) -> void:
 			"piece": prompt = "E: collect "+str(last_target.get_meta("resource"))
 			"placed_bucket":
 				var bi: Dictionary = _buckets().bucket_info(last_target)
-				prompt = "E: pick up the bucket (%d / %d)" % [_buckets().total_of(bi.get("load", {})), state.bucket_capacity()]
+				if state.total(state.inventory) > 0 and _buckets().room_of(last_target) > 0:
+					prompt = "E: throw the bag's %d into the bucket (%d / %d)" % [state.total(state.inventory), _buckets().total_of(bi.get("load", {})), state.bucket_capacity()]
+				else:
+					prompt = "E: pick up the bucket (%d / %d)" % [_buckets().total_of(bi.get("load", {})), state.bucket_capacity()]
 			"crusher": prompt = "E: use crusher"
 			"sell": prompt = "E: sell materials"
 			"shop": prompt = "E: order machinery"
@@ -2319,6 +2465,9 @@ func _interact(target: Node3D) -> void:
 	match str(target.get_meta("kind","")):
 		"piece":
 			var kind := str(target.get_meta("resource"))
+			if bool(target.get_meta("debris_stone", false)):
+				_collect_debris_stone(target)
+				return
 			if state.add_item(kind,1) == 1:
 				prog.area_add(prog.area_of_formation(str(target.get_meta("deposit", ""))), "recovered", 1)
 				ground_pieces.erase(str(target.get_meta("piece_id")))
@@ -2328,7 +2477,10 @@ func _interact(target: Node3D) -> void:
 			else:
 				_notify("Backpack full")
 		"placed_bucket":
-			pick_up_bucket(target)
+			if state.total(state.inventory) > 0 and _buckets().room_of(target) > 0:
+				throw_bag_into_bucket(target)                  # the bag's stones go in with a toss
+			else:
+				pick_up_bucket(target)
 		"sell", "upgrades", "storage", "crusher", "output", "shop":
 			var carrying := _buckets().total_of(state.hand_bucket) > 0
 			if carrying and str(target.get_meta("kind")) == "storage":
@@ -4242,6 +4394,12 @@ func _save(quiet := false) -> void:
 	fleet.driving_id = driving.vehicle_id if driving else -1
 	var data := state.snapshot()
 	data["pieces"] = pieces
+	var dst := []
+	for sid in debris_stones:
+		var sb: Node3D = debris_stones[sid]
+		if is_instance_valid(sb) and not sb.is_queued_for_deletion():
+			dst.append({"id": sid, "pos": [sb.global_position.x, sb.global_position.y - 0.2, sb.global_position.z]})
+	data["debris_stones"] = dst
 	var vps := []
 	for pid in vein_pieces:
 		if ground_pieces.has(pid) and is_instance_valid(ground_pieces[pid]):
@@ -4405,6 +4563,10 @@ func _load(quiet := false) -> void:
 	for body in ground_pieces.values():
 		body.queue_free()
 	ground_pieces.clear()
+	for body in debris_stones.values():
+		if is_instance_valid(body):
+			body.queue_free()
+	debris_stones.clear()
 	for body in crusher_nodes:
 		body.queue_free()
 	crusher_nodes.clear()
@@ -4435,6 +4597,9 @@ func _load(quiet := false) -> void:
 	for kind in deposit_nodes:
 		_refresh_deposit(kind)
 	var ids := {}
+	for dsd in (data.get("debris_stones", []) if data.get("debris_stones", []) is Array else []):
+		if dsd is Dictionary and dsd.get("pos") is Array and (dsd["pos"] as Array).size() >= 3:
+			_spawn_debris_stone(Vector3(float(dsd["pos"][0]), float(dsd["pos"][1]), float(dsd["pos"][2])), str(dsd.get("id", "")))
 	for id in data["pieces"]:
 		ids[str(id)] = true
 	var legacy_pieces := {}

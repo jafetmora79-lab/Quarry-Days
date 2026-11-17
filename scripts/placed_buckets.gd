@@ -150,6 +150,24 @@ func receive(from: Vector3, at: Vector3, res: String, n: int) -> int:
 		refresh(it)
 	return n - left
 
+## Room left in a bucket, counting stones still in the air towards it.
+func room_of(body: Node) -> int:
+	var it := bucket_info(body)
+	if it.is_empty():
+		return 0
+	return maxi(0, cap - total_of(it["load"]) - int(body.get_meta("pending", 0)))
+
+## Units that have landed in the bucket (the stones thrown in from the bag).
+func add_units(body: Node, res: String, n: int) -> int:
+	var it := bucket_info(body)
+	if it.is_empty():
+		return 0
+	var put := mini(n, maxi(0, cap - total_of(it["load"])))
+	if put > 0:
+		(it["load"] as Dictionary)[res] = int((it["load"] as Dictionary).get(res, 0)) + put
+		refresh(it)
+	return put
+
 func bucket_info(body: Node) -> Dictionary:
 	var i := index_of(body)
 	return {} if i < 0 else items[i]

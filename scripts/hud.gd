@@ -413,7 +413,7 @@ func _build() -> void:
 	bp.name = "BagPlate"
 	bp.size_flags_horizontal = Control.SIZE_SHRINK_END                    # a compact badge, not a wide box
 	bp.custom_minimum_size = Vector2(92, 0)
-	bp.visible = false                                                       # no bag badge: you carry buckets, and the bucket in your hand shows how full it is
+	bp.visible = true                                                        # the bag is back: the badge shows how full it is (the satchel shows it too)
 	bottom.add_child(bp)
 	var bv := _vbox(bp, 2)
 	var brow := HBoxContainer.new()

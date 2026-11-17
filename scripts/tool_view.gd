@@ -43,6 +43,7 @@ var _from_off := Vector3.ZERO
 var _blend := 1.0           ## 0..1 blend from the pose we were in when a swing began (no snapping)
 var _pause := 0.0           ## the short hold at the moment of a heavy impact
 var tip_t := -1.0           ## the bucket tipping out (0..1), -1 idle
+var throw_t := -1.0         ## the throw of the bag's stones into a bucket (0..1), -1 idle
 var carry_load := 0.0       ## 0..1: how full the carried bucket is (its weight sags the pose)
 var _clods: Array = []      ## soil leaving the blade: [{node, vel, life}]
 signal payload_dumped(res: String)
@@ -166,6 +167,10 @@ func _dump_payload(animated: bool) -> void:
 func tip_bucket() -> void:
 	tip_t = 0.0
 
+## The toss of stones from the bag (the hand dips to the hip and swings out).
+func throw_motion() -> void:
+	throw_t = 0.0
+
 ## Tool bounces off rock that is too hard.
 func deflect() -> void:
 	deflect_t = 0.3
@@ -270,6 +275,14 @@ func _process(delta: float) -> void:
 			off += Vector3(-0.04, 0.04, -0.06) * tp
 			if tip_t >= 1.0:
 				tip_t = -1.0
+	if throw_t >= 0.0:                                    # the reach to the bag and the toss: dip, swing out, back
+		throw_t += delta / 0.6
+		var tk := sin(clampf(throw_t, 0.0, 1.0) * PI)
+		rot.x += 0.55 * tk
+		rot.z += -0.25 * tk
+		off += Vector3(0.1, -0.14, 0.04) * tk
+		if throw_t >= 1.0:
+			throw_t = -1.0
 	_prev_rot = rot
 	_prev_off = off
 	rot.x += lower * 1.0

@@ -32,7 +32,7 @@ func run() -> void:
 	await process_frame
 	await frames(10)
 	var st = game.state
-	check(st.bucket_capacity() == 18 and st.capacity() == 18 * QuarryState.BUCKET_STACK, "a bucket holds 18 and any number can be carried (%d buckets)" % QuarryState.BUCKET_STACK)
+	check(st.bucket_capacity() == 18 and st.capacity() == 18, "a bucket holds 18 and the bag holds one bucket's worth (%d)" % st.capacity())
 	var bar: Array = game.prog.hotbar()
 	check("bucket" in bar, "the bucket is a hotbar item like the pickaxe (%s)" % str(bar))
 	game.prog.select_slot(bar.find("bucket"))
@@ -40,7 +40,7 @@ func run() -> void:
 		game.player.tool_view.equip(game.prog.model_tier())
 		await physics_frame
 	check(game.player.tool_view.model != null and game.player.tool_view.model.has_meta("fill"), "with it in hand you hold the Blender pail, its heap in a Fill holder")
-	check(not game.hud.find_child("BagPlate", true, false).visible, "the bag badge is gone from the HUD")
+	check(game.hud.find_child("BagPlate", true, false).visible, "the bag badge is back on the HUD")
 	check(st.storage_capacity() >= 100, "the starter box holds 100 (%d)" % st.storage_capacity())
 	# carrying
 	for k in st.inventory.keys():

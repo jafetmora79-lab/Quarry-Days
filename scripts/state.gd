@@ -43,9 +43,10 @@ func bucket_capacity() -> int:
 
 const BUCKET_STACK := 40                          ## the most buckets that can be carried (effectively no limit; walking slows with every full one)
 
-## Everything the buckets can hold together (the old "bag" total, now a stack of buckets).
+## The BAG: what the player carries on the body (stones picked up, dirt dug with no bucket near). One bucket's worth (18, bigger with the backpack and harness upgrades).
+## Bulk work goes through placed buckets (PlacedBuckets); the bag is for the stones and the odd scoop.
 func capacity() -> int:
-	return bucket_capacity() * BUCKET_STACK
+	return bucket_capacity()
 
 ## How many buckets the load fills (a part-full one counts).
 func buckets_carried() -> int:
