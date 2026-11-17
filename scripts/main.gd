@@ -5642,6 +5642,20 @@ func loader_primary(v: QuarryVehicle) -> int:
 				body.queue_free()
 				got += 1
 				source = "loose rock" if source == "" else source + " and loose rock"
+	if got == 0 and fleet.space(rec) > 0 and live_terrain != null and live_terrain.terrain != null:
+		var lt := live_terrain
+		var gy := lt.terrain.height_at(point.x, point.z)
+		var right := v.global_transform.basis.x
+		var fwd := -v.global_transform.basis.z
+		var mid0 := lt.terrain.material_at_point(point)
+		var upm := float(lt.geo.props(mid0).get("units_per_m3", 5.0))
+		var tres: Dictionary = lt.terrain.cut_box(Vector3(point.x, gy - 0.3, point.z), Vector3(right.x, 0.0, right.z).normalized(), Vector3(fwd.x, 0.0, fwd.z).normalized(), 1.1, 0.2, 1.4, float(fleet.space(rec)) / upm, int(fleet.spec(v.vtype).get("dig_hardness", 0)))
+		got = _cargo_from_taken(rec, v.vehicle_id, tres["taken"], "")
+		if got > 0:
+			source = "the ground"
+			dig_audio.play("dig", mid0, point, 1.2)
+			lt.settle_columns(point, 1.5)
+			nav_dirty = true
 	v.bucket_target = 1.0
 	if got > 0:
 		v.curl_timer = 0.6
@@ -5772,6 +5786,53 @@ func _excavator_dig(v: QuarryVehicle, delta: float) -> void:
 
 var _veh_rem := {}                 ## vehicle id -> {resource -> fractional units left over from volume -> unit conversion}
 
+## Volume -> cargo units for a machine: whole units go into its bucket or blade (as far as it has room), the fraction stays with the vehicle (`_veh_rem`), and what does not fit
+## waits there too. Returns the units added.
+func _cargo_from_taken(rec: Dictionary, vid: int, taken: Dictionary, area: String) -> int:
+	var rem: Dictionary = _veh_rem.get(vid, {})
+	var total := 0
+	for id in taken:
+		var pr: Dictionary = live_terrain.geo.props(str(id))
+		var r := str(pr["resource"])
+		var f := float(taken[id]) * float(pr.get("units_per_m3", 5.0)) + float(rem.get(r, 0.0))
+		var n := int(floor(f))
+		rem[r] = f - float(n)
+		if n > 0:
+			var put := fleet.add_cargo(rec, r, n, area)
+			rem[r] = float(rem[r]) + float(n - put)
+			if area != "" and put > 0:
+				prog.area_add(area, "recovered", put)
+			total += put
+	_veh_rem[vid] = rem
+	return total
+
+## A machine's whole load tipped on the live ground (a heap of loose material at `point`): units -> m3 per material, nothing created or lost. Returns the units put down.
+func _dump_cargo_on_ground(rec: Dictionary, vid: int, point: Vector3, radius := 1.3) -> int:
+	if live_terrain == null or live_terrain.terrain == null or live_terrain.terrain.is_locked_at(point.x, point.z):
+		return 0
+	var vols := {}
+	var units := 0
+	for r in rec["cargo"].keys():
+		var res := str(r)
+		var n := int(rec["cargo"][r])
+		if n <= 0:
+			continue
+		var mid := live_terrain.geo.material_of_resource("topsoil" if res == "soil" else res)
+		vols[mid] = float(vols.get(mid, 0.0)) + float(n) / float(live_terrain.geo.props(mid).get("units_per_m3", 5.0))
+		units += n
+	if vols.is_empty():
+		return 0
+	var rest: Dictionary = live_terrain.terrain.deposit(point, radius, vols)
+	if not rest.is_empty():
+		return 0                                                       # nowhere to put it: the load stays in the bucket
+	for r in rec["cargo"].keys():
+		var n := int(rec["cargo"][r])
+		fleet.take_cargo(rec, str(r), n)
+		if str(r) != "soil":
+			fleet.take_origin(rec, n)                                # the load leaves with its origin record: nothing is delivered, nothing is counted
+	dig_audio.play("pour", str(vols.keys()[0]), point, 1.0)
+	return units
+
 ## The excavator's bucket on the live terrain: it bites the highest ground inside the column it is working, takes what its hardness allows (at most what the bucket has room for),
 ## and the volume becomes cargo units with a carried remainder (nothing created or lost). The bookkeeping follows (settle_columns).
 func _excavator_dig_terrain(v: QuarryVehicle, t: Dictionary, delta: float) -> void:
@@ -5797,18 +5858,7 @@ func _excavator_dig_terrain(v: QuarryVehicle, t: Dictionary, delta: float) -> vo
 		dig_audio.play("blocked", str(res["blocked_by"]), pt, 1.0)
 		_notify("The %s cannot break %s. A bigger machine or a drilling rig is needed." % [str(s["title"]).to_lower(), prog.display(str(lt.geo.props(str(res["blocked_by"]))["resource"]))])
 		return
-	var rem: Dictionary = _veh_rem.get(v.vehicle_id, {})
-	for id in res["taken"]:
-		var pr: Dictionary = lt.geo.props(str(id))
-		var r := str(pr["resource"])
-		var f := float(res["taken"][id]) * float(pr.get("units_per_m3", 5.0)) + float(rem.get(r, 0.0))
-		var n := int(floor(f))
-		rem[r] = f - float(n)
-		if n > 0:
-			var put := fleet.add_cargo(rec, r, n, prog.area_of_formation(kind))
-			rem[r] = float(rem[r]) + float(n - put)
-			prog.area_add(prog.area_of_formation(kind), "recovered", put)
-	_veh_rem[v.vehicle_id] = rem
+	_cargo_from_taken(rec, v.vehicle_id, res["taken"], prog.area_of_formation(kind))
 	if float(res["volume"]) > 0.0 and power_feedback_t <= 0.0:
 		power_feedback_t = 0.18
 		fx.impact(pt, str(props["resource"]), 0.9)
@@ -5955,6 +6005,13 @@ func vehicle_dump(v: QuarryVehicle, quiet := false) -> int:
 	if t.is_empty() and v.vkind == "excavator" and v.rig != null and truck_hint(v) != "":
 		if not quiet: _notify(truck_hint(v))
 		return 0
+	if t.is_empty() and v.vkind != "truck" and live_terrain != null:
+		var ground := _dump_cargo_on_ground(rec, v.vehicle_id, v.work_point())
+		if ground > 0:
+			v.dump_timer = 1.0
+			nav_dirty = true
+			if not quiet: _notify("Tipped %d onto the ground." % ground)
+			return ground
 	if t.is_empty():
 		if not quiet: _notify("Nothing to unload into here. Get close to a storage crate, crusher, output storage%s." % (" or truck" if v.has_bucket() else ""))
 		return 0
@@ -6021,6 +6078,18 @@ func _dozer_push(v: QuarryVehicle, delta: float) -> int:
 				fleet.add_cargo(rec, "soil", took)
 				soil.refresh()
 				soil_sync_state()
+		if took == 0 and live_terrain != null and live_terrain.terrain != null:
+			var lt2 := live_terrain
+			var gy2 := lt2.terrain.height_at(p.x, p.z)
+			var fwd2 := -v.global_transform.basis.z
+			var right2 := v.global_transform.basis.x
+			var mid1 := lt2.terrain.material_at_point(p)
+			var upm1 := float(lt2.geo.props(mid1).get("units_per_m3", 5.0))
+			var tr1: Dictionary = lt2.terrain.cut_box(Vector3(p.x, gy2 - 0.12, p.z), Vector3(right2.x, 0.0, right2.z).normalized(), Vector3(fwd2.x, 0.0, fwd2.z).normalized(), 1.4, 0.1, 0.6, 1.0 / upm1, 0)
+			took = _cargo_from_taken(rec, v.vehicle_id, tr1["taken"], "")
+			if took > 0:
+				lt2.settle_columns(p, 1.5)
+				nav_dirty = true
 		if took == 0:
 			var near := ""
 			for id in ground_pieces:
