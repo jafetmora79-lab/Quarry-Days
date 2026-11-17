@@ -1596,7 +1596,7 @@ func _terrain_strike(point: Vector3) -> Dictionary:
 		fx.impact(point, str(lt.geo.props(hit_mat)["resource"]), 1.0, mine_normal)
 		player.impact_feedback(0.5 + 0.25 * float(state.tool_tier))
 	_terrain_yield(res["taken"], sf)
-	lt.settle_columns(point, radius)
+	_after_settle(lt.settle_columns(point, radius), "player", {})
 	return res
 
 ## Volume -> units at the boundary: whole units go into the buckets, the fraction stays in `terrain_rem` for the next scoop (nothing is created or lost).
@@ -4300,7 +4300,10 @@ func _load(quiet := false) -> void:
 			live_terrain.terrain.restore(tsnap)                            # ... plus everything dug and heaped by hand or machine (old saves have none)
 			live_terrain.terrain.flush(true)
 		terrain_rem = (data.get("terrain_rem", {}) as Dictionary).duplicate() if data.get("terrain_rem", {}) is Dictionary else {}
-		_veh_rem = (data.get("veh_rem", {}) as Dictionary).duplicate(true) if data.get("veh_rem", {}) is Dictionary else {}
+		_veh_rem = {}
+		if data.get("veh_rem", {}) is Dictionary:
+			for k in data["veh_rem"]:
+				_veh_rem[int(k) if str(k).is_valid_int() else k] = data["veh_rem"][k]       # (JSON turns the vehicle ids into text)
 	_sync_rigs()
 	for kind in deposit_nodes:
 		_refresh_deposit(kind)
@@ -5654,7 +5657,7 @@ func loader_primary(v: QuarryVehicle) -> int:
 		if got > 0:
 			source = "the ground"
 			dig_audio.play("dig", mid0, point, 1.2)
-			lt.settle_columns(point, 1.5)
+			_after_settle(lt.settle_columns(point, 1.5), "bucket", rec)
 			nav_dirty = true
 	v.bucket_target = 1.0
 	if got > 0:
@@ -5786,6 +5789,40 @@ func _excavator_dig(v: QuarryVehicle, delta: float) -> void:
 
 var _veh_rem := {}                 ## vehicle id -> {resource -> fractional units left over from volume -> unit conversion}
 
+## Mineral pockets that came out with the tiers a dig gave up (see LiveTerrain.settle_columns): handed to `to` ("player": the buckets, "bucket": the machine's bucket, "ground": loose pieces).
+func _after_settle(settled: Array, to: String, rec: Dictionary) -> void:
+	for s in settled:
+		var ex: Dictionary = s["ex"]
+		if not (ex.get("veins", []) as Array).is_empty():
+			_vein_bonus(ex, str(s["id"]), int(s["col"]), to, rec)
+		if formation_nodes.has(str(s["id"])):
+			(formation_nodes[str(s["id"])] as QuarryFormation).refresh()
+
+## One bite of a column by someone who leaves loose pieces (staff, the dinosaur): the damage is the same as before (dps / material hp = units), but the ground is really dug at the highest
+## point of the column. Returns the whole units that came out (the fraction is carried per source in `_veh_rem`).
+func _terrain_bite_units(kind: String, col: int, damage: float, max_h: int, from: Vector3, source: String) -> int:
+	var lt := live_terrain
+	var pt := lt.highest_point(kind, col, from)
+	var mat_id := lt.terrain.material_at_point(pt)
+	var props: Dictionary = lt.geo.props(mat_id)
+	var hp := float(prog.material(str(props["resource"])).get("hp", 10))
+	var units := damage / hp
+	var res: Dictionary = lt.terrain.dig(pt, 1.0, 0.45, units / float(props.get("units_per_m3", 5.0)), max_h, "scoop")
+	var rem: Dictionary = _veh_rem.get(source, {})
+	var total := 0.0
+	for id in res["taken"]:
+		total += float(res["taken"][id]) * float(lt.geo.props(str(id)).get("units_per_m3", 5.0))
+	var f := total + float(rem.get("units", 0.0))
+	var n := int(floor(f))
+	rem["units"] = f - float(n)
+	_veh_rem[source] = rem
+	if n > 0:
+		prog.area_add(prog.area_of_formation(kind), "recovered", n)
+	if float(res["volume"]) > 0.0:
+		_after_settle(lt.settle_columns(pt, 1.0), "ground", {})
+		nav_dirty = true
+	return n
+
 ## Volume -> cargo units for a machine: whole units go into its bucket or blade (as far as it has room), the fraction stays with the vehicle (`_veh_rem`), and what does not fit
 ## waits there too. Returns the units added.
 func _cargo_from_taken(rec: Dictionary, vid: int, taken: Dictionary, area: String, as_soil := false) -> int:
@@ -5864,7 +5901,7 @@ func _excavator_dig_terrain(v: QuarryVehicle, t: Dictionary, delta: float) -> vo
 		fx.impact(pt, str(props["resource"]), 0.9)
 		dig_audio.play("dig", mat_id, pt, 1.4)
 	if float(res["volume"]) > 0.0:
-		lt.settle_columns(pt, 1.0)
+		_after_settle(lt.settle_columns(pt, 1.0), "bucket", rec)
 		nav_dirty = true
 
 ## Phase 10.3: mineral pockets buried in a formation. When the block holding one is cut away, the pocket falls out: its
@@ -6088,7 +6125,7 @@ func _dozer_push(v: QuarryVehicle, delta: float) -> int:
 			var tr1: Dictionary = lt2.terrain.cut_box(Vector3(p.x, gy2 - 0.12, p.z), Vector3(right2.x, 0.0, right2.z).normalized(), Vector3(fwd2.x, 0.0, fwd2.z).normalized(), 1.4, 0.1, 0.6, 1.0 / upm1, 0, true)
 			took = _cargo_from_taken(rec, v.vehicle_id, tr1["taken"], "", true)
 			if took > 0:
-				lt2.settle_columns(p, 1.5)
+				_after_settle(lt2.settle_columns(p, 1.5), "bucket", rec)
 				nav_dirty = true
 		if took == 0:
 			var near := ""
@@ -7564,15 +7601,22 @@ func companion_strike(kind: String, col: int, damage: float, who: Node3D) -> voi
 		return
 	var node: QuarryFormation = formation_nodes[kind]
 	var room := maxi(0, int(prog.cfg.get("loose_piece_cap", 36)) - loose_count(kind))
-	var ex := prog.extract(kind, col, damage, room, "companion")
-	for i in range(int(ex["units"])):
-		_spawn_formation_piece(kind, col, i)
-	_vein_bonus(ex, kind, col, "ground")       # a pocket the club opens lies on the ground as pieces of its own mineral: nothing vanishes
-	node.hit(col)
-	if int(ex["chunks"]) > 0:
-		node.refresh()
+	var ex := {"units": 0, "chunks": 0}
+	if live_terrain != null and live_terrain.terrain != null and live_terrain.geo._formations.has(kind):
+		ex["units"] = _terrain_bite_units(kind, col, damage, 99, who.global_position if who != null else node.column_top(col), "companion")
+		for i in range(mini(int(ex["units"]), room)):
+			_spawn_formation_piece(kind, col, i)
+		node.hit(col)
 	else:
-		node.update_label()
+		ex = prog.extract(kind, col, damage, room, "companion")
+		for i in range(int(ex["units"])):
+			_spawn_formation_piece(kind, col, i)
+		_vein_bonus(ex, kind, col, "ground")       # a pocket the club opens lies on the ground as pieces of its own mineral: nothing vanishes
+		node.hit(col)
+		if int(ex["chunks"]) > 0:
+			node.refresh()
+		else:
+			node.update_label()
 	if not bool(prog.story.get("dino_mining_seen", false)) and int(ex["units"]) > 0:
 		prog.story["dino_mining_seen"] = true
 		_walter_cheer()
@@ -7850,8 +7894,18 @@ func _crew_strike_formation(kind: String, hits: int, extra: int, w: Node3D) -> v
 	if col < 0 or prog.extraction_block(kind, col, "crew") != "":
 		return
 	var room := maxi(0, int(prog.cfg.get("loose_piece_cap", 36)) - loose_count(kind))
-	var ex := prog.extract(kind, col, prog.crew_damage(float(hits), float(extra)), room, "crew")
 	var res := str(state.deposits[kind]["resource"])
+	if live_terrain != null and live_terrain.terrain != null and live_terrain.geo._formations.has(kind):
+		var n_units := _terrain_bite_units(kind, col, prog.crew_damage(float(hits), float(extra)), prog.best_hardness(), w.global_position if w else node.global_position, "crew")
+		for i in range(mini(n_units, room)):
+			_spawn_formation_piece(kind, col, i)
+		node.hit(col)
+		var at_t := node.column_top(col)
+		if player and player.global_position.distance_to(at_t) < 22.0:
+			fx.impact(at_t, res, 0.7)
+			_sfx_at("hit_pick", at_t, -4.0)
+		return
+	var ex := prog.extract(kind, col, prog.crew_damage(float(hits), float(extra)), room, "crew")
 	for i in range(int(ex["units"])):
 		_spawn_formation_piece(kind, col, i)
 	_vein_bonus(ex, kind, col, "ground")

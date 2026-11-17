@@ -143,11 +143,12 @@ func highest_point(fid: String, col: int, from: Vector3) -> Vector3:
 	return best
 
 ## After the ground has been dug by hand: every column whose footprint now lies a whole tier (or more) below its top gives that tier up in the bookkeeping, so crews, machines,
-## contracts and the production overview see what was dug. (The ground itself is never raised by this: refresh_column only ever lowers.) Returns the tiers removed.
-func settle_columns(point: Vector3, radius: float) -> int:
+## contracts and the production overview see what was dug. (The ground itself is never raised by this: refresh_column only ever lowers.) Returns one record per tier given up:
+## {"id", "col", "ex"} where `ex` is the extraction result (it carries the mineral pockets that tier held, for the caller to hand out).
+func settle_columns(point: Vector3, radius: float) -> Array:
+	var removed := []
 	if terrain == null:
-		return 0
-	var removed := 0
+		return removed
 	for id in geo._formations:
 		var seen := {}
 		for o in [Vector2(0, 0), Vector2(radius, 0), Vector2(-radius, 0), Vector2(0, radius), Vector2(0, -radius)]:
@@ -164,8 +165,8 @@ func settle_columns(point: Vector3, radius: float) -> int:
 					break
 				var hp := float(prog.material(str(prog.fdef(id)["resource"])).get("hp", 10))
 				var cu := int(prog.fdef(id)["chunk_units"])
-				prog.extract(id, col, hp * float(cu), cu, "terrain")
-				removed += 1
+				var ex: Dictionary = prog.extract(id, col, hp * float(cu), cu, "terrain")
+				removed.append({"id": id, "col": col, "ex": ex})
 				if game.formation_nodes.has(id):
 					(game.formation_nodes[id] as QuarryFormation).refresh()
 	return removed
