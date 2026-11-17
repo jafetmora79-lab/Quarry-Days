@@ -1615,6 +1615,8 @@ func _terrain_yield(taken: Dictionary, sf: Array) -> void:
 				var area := prog.area_of_formation(str(sf[0])) if not sf.is_empty() else ""
 				if area != "":
 					prog.area_add(area, "recovered", put)
+					if r != "topsoil" and r != "gravel":
+						prog.area_add(area, "rock", put)                   # cut rock counts toward the contract as it is dug (the tiers it opens are bookkeeping only)
 				_reward_popup(r, put)
 
 ## Swing tools apply damage at the visible moment of impact, against whatever is under the crosshair then.
@@ -5766,10 +5768,8 @@ func _excavator_dig(v: QuarryVehicle, delta: float) -> void:
 		v.digging = false
 		_notify(block)
 		return
-	if live_terrain != null and live_terrain.terrain != null and live_terrain.geo._formations.has(kind):
-		_excavator_dig_terrain(v, t, delta)                  # the bucket bites the real ground
-		return
 	var ex := prog.extract(kind, col, float(s.get("dig_dps", 10.0)) * delta, room, "excavator")
+	_carve_column(kind, col, float(s.get("dig_dps", 10.0)) * delta, v.global_position)         # the real ground is carved by the same volume
 	var n := int(ex["units"])
 	var node: QuarryFormation = t["node"]
 	node.hit(col)
@@ -5799,6 +5799,21 @@ func _after_settle(settled: Array, to: String, rec: Dictionary) -> void:
 		if formation_nodes.has(str(s["id"])):
 			(formation_nodes[str(s["id"])] as QuarryFormation).refresh()
 
+## Machines, staff and the dinosaur keep the bookkeeping's rate: what they cut, how many units that is and how fast the columns are given up stay exactly as they were (one unit of a
+## column is `cell x cell x tier height / chunk units` m3 of it). The REAL ground is carved by that same volume at the highest point of the column, so the picture follows the work
+## smoothly instead of dropping a whole tier at a time. (Only the player's own tools dig the ground first, at real scale.)
+func _carve_column(kind: String, col: int, damage: float, from: Vector3) -> void:
+	if live_terrain == null or live_terrain.terrain == null or not live_terrain.geo._formations.has(kind):
+		return
+	var f: Dictionary = prog.fdef(kind)
+	var hp := float(prog.material(str(f["resource"])).get("hp", 10))
+	var vpu := float(f["cell"]) * float(f["cell"]) * float(f["tier_h"]) / float(f["chunk_units"])
+	var lt := live_terrain
+	var pt := lt.highest_point(kind, col, from)
+	var res: Dictionary = lt.terrain.dig(pt, 1.3, 0.7, damage / hp * vpu, 99, "scoop")
+	if float(res["volume"]) > 0.0:
+		nav_dirty = true
+
 ## One bite of a column by someone who leaves loose pieces (staff, the dinosaur): the damage is the same as before (dps / material hp = units), but the ground is really dug at the highest
 ## point of the column. Returns the whole units that came out (the fraction is carried per source in `_veh_rem`).
 func _terrain_bite_units(kind: String, col: int, damage: float, max_h: int, from: Vector3, source: String) -> int:
@@ -5808,7 +5823,7 @@ func _terrain_bite_units(kind: String, col: int, damage: float, max_h: int, from
 	var props: Dictionary = lt.geo.props(mat_id)
 	var hp := float(prog.material(str(props["resource"])).get("hp", 10))
 	var units := damage / hp
-	var res: Dictionary = lt.terrain.dig(pt, 1.0, 0.45, units / float(props.get("units_per_m3", 5.0)), max_h, "scoop")
+	var res: Dictionary = lt.terrain.dig(pt, 1.25, 0.6, units / float(props.get("units_per_m3", 5.0)), max_h, "scoop")
 	var rem: Dictionary = _veh_rem.get(source, {})
 	var total := 0.0
 	for id in res["taken"]:
@@ -7602,22 +7617,16 @@ func companion_strike(kind: String, col: int, damage: float, who: Node3D) -> voi
 		return
 	var node: QuarryFormation = formation_nodes[kind]
 	var room := maxi(0, int(prog.cfg.get("loose_piece_cap", 36)) - loose_count(kind))
-	var ex := {"units": 0, "chunks": 0}
-	if live_terrain != null and live_terrain.terrain != null and live_terrain.geo._formations.has(kind):
-		ex["units"] = _terrain_bite_units(kind, col, damage, 99, who.global_position if who != null else node.column_top(col), "companion")
-		for i in range(mini(int(ex["units"]), room)):
-			_spawn_formation_piece(kind, col, i)
-		node.hit(col)
+	var ex := prog.extract(kind, col, damage, room, "companion")
+	_carve_column(kind, col, damage, who.global_position if who != null else node.column_top(col))
+	for i in range(int(ex["units"])):
+		_spawn_formation_piece(kind, col, i)
+	_vein_bonus(ex, kind, col, "ground")       # a pocket the club opens lies on the ground as pieces of its own mineral: nothing vanishes
+	node.hit(col)
+	if int(ex["chunks"]) > 0:
+		node.refresh()
 	else:
-		ex = prog.extract(kind, col, damage, room, "companion")
-		for i in range(int(ex["units"])):
-			_spawn_formation_piece(kind, col, i)
-		_vein_bonus(ex, kind, col, "ground")       # a pocket the club opens lies on the ground as pieces of its own mineral: nothing vanishes
-		node.hit(col)
-		if int(ex["chunks"]) > 0:
-			node.refresh()
-		else:
-			node.update_label()
+		node.update_label()
 	if not bool(prog.story.get("dino_mining_seen", false)) and int(ex["units"]) > 0:
 		prog.story["dino_mining_seen"] = true
 		_walter_cheer()
@@ -7896,17 +7905,8 @@ func _crew_strike_formation(kind: String, hits: int, extra: int, w: Node3D) -> v
 		return
 	var room := maxi(0, int(prog.cfg.get("loose_piece_cap", 36)) - loose_count(kind))
 	var res := str(state.deposits[kind]["resource"])
-	if live_terrain != null and live_terrain.terrain != null and live_terrain.geo._formations.has(kind):
-		var n_units := _terrain_bite_units(kind, col, prog.crew_damage(float(hits), float(extra)), prog.best_hardness(), w.global_position if w else node.global_position, "crew")
-		for i in range(mini(n_units, room)):
-			_spawn_formation_piece(kind, col, i)
-		node.hit(col)
-		var at_t := node.column_top(col)
-		if player and player.global_position.distance_to(at_t) < 22.0:
-			fx.impact(at_t, res, 0.7)
-			_sfx_at("hit_pick", at_t, -4.0)
-		return
 	var ex := prog.extract(kind, col, prog.crew_damage(float(hits), float(extra)), room, "crew")
+	_carve_column(kind, col, prog.crew_damage(float(hits), float(extra)), w.global_position if w else node.global_position)
 	for i in range(int(ex["units"])):
 		_spawn_formation_piece(kind, col, i)
 	_vein_bonus(ex, kind, col, "ground")

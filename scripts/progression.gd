@@ -913,7 +913,7 @@ func cleared_fraction(ids: Array = []) -> float:
 ## companion) may take rock out from under somebody's feet.
 var protect := Callable()
 
-func extract(id: String, col: int, damage: float, limit := 1 << 30, source := "hand") -> Dictionary:
+func extract(id: String, col: int, damage: float, limit := 1 << 30, source := "hand", count_area := true) -> Dictionary:
 	var out := {"units": 0, "chunks": 0, "column_emptied": false}
 	if protect.is_valid() and col >= 0 and protect.call(id, col):
 		return out
@@ -941,7 +941,7 @@ func extract(id: String, col: int, damage: float, limit := 1 << 30, source := "h
 	stats["chunks"] = int(stats["chunks"]) + int(out["chunks"])
 	stats[source] = int(stats.get(source, 0)) + n
 	var area_id := area_of_formation(id)
-	if area_id != "":
+	if area_id != "" and count_area:
 		area_add(area_id, "rock", n)
 	if int(d["stock"]) <= 0 and not bool(d.get("cleared", false)):
 		d["cleared"] = true

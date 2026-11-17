@@ -165,7 +165,7 @@ func settle_columns(point: Vector3, radius: float) -> Array:
 					break
 				var hp := float(prog.material(str(prog.fdef(id)["resource"])).get("hp", 10))
 				var cu := int(prog.fdef(id)["chunk_units"])
-				var ex: Dictionary = prog.extract(id, col, hp * float(cu), cu, "terrain")
+				var ex: Dictionary = prog.extract(id, col, hp * float(cu), cu, "terrain", false)       # (the dug units were counted when they were dug)
 				removed.append({"id": id, "col": col, "ex": ex})
 				if game.formation_nodes.has(id):
 					(game.formation_nodes[id] as QuarryFormation).refresh()
