@@ -52,12 +52,27 @@ func run() -> void:
 	battle.step(0.2, true)
 	check(battle.elapsed == 0.0, "a continuous two-second stare triggers it")
 	battle.step(12.0, true)
-	check(battle.effects.visible and battle.beams[0].visible and battle.clash.visible, "power-up reaches two energy beams and a clash")
+	check(battle.pose_name(battle.elapsed) == "boat_roll", "sequence reaches wrist flick and roll")
+	check(battle.actors[1]["parts"].has("PawL") and battle.actors[1]["parts"].has("PawR"), "rabbit has independent paws derived from its original mesh")
+	var paw_l: Node3D = battle.actors[1]["parts"]["PawL"]
+	var paw_r: Node3D = battle.actors[1]["parts"]["PawR"]
+	check(paw_l.basis != paw_r.basis, "left and right paws perform different gestures")
+	battle._pose(4.0)
+	var six: Transform3D = battle.actors[0]["parts"]["LegFL"].transform
+	battle._pose(17.0)
+	check(six != battle.actors[0]["parts"]["LegFL"].transform, "six-seven and crossed forelegs have distinct silhouettes")
+	battle._pose(21.0)
+	check(battle.pose_name(21.0) == "pockets", "relaxed tucked-paw pose follows crossed stance")
 	battle.step(5.0, true)
-	check(battle.halos[1].scale.x > battle.halos[0].scale.x, "rabbit gets the final oversized aura surge")
+	check(battle.pose_name(battle.elapsed) == "crossed", "deadpan crossed-paw pose replaces the beam clash")
 	battle.step(7.0, true)
 	check(battle.elapsed < 0 and not battle.effects.visible and battle.cooldown > 0, "battle ends cleanly with a cooldown")
 	check(battle.actors[0]["root"].position == battle.actors[0]["home"], "animal returns to original ground position")
+	var restored := true
+	for made in battle.actors:
+		for key in made["parts"]:
+			if made["parts"][key].transform != made["rest"][key]: restored = false
+	check(restored, "all original and split-paw transforms restore after the dance")
 	battle.step(2.1, true)
 	check(battle.elapsed < 0, "continued watching cannot immediately retrigger")
 	battle.step(20.0, false)

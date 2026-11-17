@@ -10,11 +10,7 @@ const GOLD := Color(1.0, 0.64, 0.12)
 
 var game
 var actors: Array = []
-var halos: Array = []
-var flames: Array = []
 var waves: Array = []
-var beams: Array = []
-var clash: MeshInstance3D
 var effects: Node3D
 var gaze := 0.0
 var elapsed := -1.0
@@ -39,31 +35,23 @@ func setup(g) -> void:
 			return
 		var root: Node3D = made["root"]
 		add_child(root)
-		root.position = Vector3(0, 0, -3.3 if key == "deer" else 3.3)
+		root.position = Vector3(0, 0, -2.0 if key == "deer" else 2.0)
 		root.rotation.y = PI if key == "deer" else 0.0
 		made["home"] = root.position
+		made["yaw"] = root.rotation.y
+		if key == "rabbit":
+			root.scale = Vector3.ONE * 2.0 # readable little challenger at the distant fence
+			_split_forepaws(made)
+		var rest := {}
+		for part_name in made["parts"]:
+			rest[part_name] = (made["parts"][part_name] as Node3D).transform
+		made["rest"] = rest
 		actors.append(made)
 	effects = Node3D.new()
 	add_child(effects)
 	for i in 2:
 		var colour := BLUE if i == 0 else GOLD
 		var origin: Vector3 = actors[i]["home"]
-		var halo := Node3D.new()
-		effects.add_child(halo)
-		halo.position = origin
-		halos.append(halo)
-		var spikes: Array = []
-		for k in 10:
-			var cone := CylinderMesh.new()
-			cone.top_radius = 0.0
-			cone.bottom_radius = 0.15
-			cone.height = 1.0
-			cone.radial_segments = 4
-			var spike := _mesh(halo, cone, colour)
-			var a := TAU * float(k) / 10.0
-			spike.position = Vector3(cos(a) * 0.8, 1.0, sin(a) * 0.8)
-			spikes.append(spike)
-		flames.append(spikes)
 		var torus := TorusMesh.new()
 		torus.inner_radius = 0.90
 		torus.outer_radius = 1.0
@@ -72,19 +60,6 @@ func setup(g) -> void:
 		var wave := _mesh(effects, torus, colour)
 		wave.position = origin + Vector3(0, 0.08, 0)
 		waves.append(wave)
-		var cylinder := CylinderMesh.new()
-		cylinder.top_radius = 0.14
-		cylinder.bottom_radius = 0.32
-		cylinder.height = 1.0
-		cylinder.radial_segments = 6
-		beams.append(_mesh(effects, cylinder, colour))
-	var ball := SphereMesh.new()
-	ball.radius = 0.45
-	ball.height = 0.9
-	ball.radial_segments = 8
-	ball.rings = 4
-	clash = _mesh(effects, ball, Color(1.0, 0.96, 0.76))
-	clash.position = Vector3(0, 1.2, 0)
 	effects.visible = false
 
 func _mesh(parent: Node3D, mesh: Mesh, colour: Color) -> MeshInstance3D:
@@ -156,45 +131,117 @@ func step(delta: float, looking: bool) -> void:
 		return
 	_pose(elapsed)
 
+## Split only the Easter egg's instanced rabbit foreleg mesh at its centre.
+## The original GLB has both paws in one hinge; no source asset is changed.
+func _split_forepaws(made: Dictionary) -> void:
+	var pair: Node3D = made["parts"]["LegF"]
+	var source: Mesh = (pair.get_child(0) as MeshInstance3D).mesh
+	pair.visible = false
+	for side in [-1, 1]:
+		var paw := Node3D.new()
+		paw.transform = pair.transform
+		paw.position.x += float(side) * 0.06
+		made["root"].add_child(paw)
+		var mesh := ArrayMesh.new()
+		for surface in source.get_surface_count():
+			var arrays := source.surface_get_arrays(surface)
+			var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+			var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+			if indices.is_empty():
+				indices = PackedInt32Array(range(verts.size()))
+			var chosen := PackedInt32Array()
+			for tri in range(0, indices.size(), 3):
+				var x := (verts[indices[tri]].x + verts[indices[tri + 1]].x + verts[indices[tri + 2]].x) / 3.0
+				if x * float(side) > 0.0:
+					chosen.append_array(indices.slice(tri, tri + 3))
+			if chosen.is_empty():
+				continue
+			for v in verts.size():
+				verts[v].x -= float(side) * 0.06
+			arrays[Mesh.ARRAY_VERTEX] = verts
+			arrays[Mesh.ARRAY_INDEX] = chosen
+			mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+			mesh.surface_set_material(mesh.get_surface_count() - 1, source.surface_get_material(surface))
+		var mi := MeshInstance3D.new()
+		mi.mesh = mesh
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		paw.add_child(mi)
+		made["parts"]["PawL" if side < 0 else "PawR"] = paw
+
+func pose_name(t: float) -> String:
+	if t < 2.0: return "stare"
+	if t < 8.0: return "six_seven"
+	if t < 15.0: return "boat_roll"
+	if t < 20.0: return "crossed"
+	if t < 23.0: return "pockets"
+	return "settle"
+
 func _pose(t: float) -> void:
-	# Stare-down -> alternating power-ups -> clash -> rabbit's absurd final
-	# surge -> both settle, as if nothing happened. Never a camera takeover.
-	var charge := smoothstep(2.0, 5.0, t) * (1.0 - smoothstep(21.0, 24.0, t))
-	var firing := t >= 10.0 and t < 20.0
-	effects.visible = charge > 0.001
+	var stage := pose_name(t)
+	var rise := smoothstep(1.0, 2.5, t) * (1.0 - smoothstep(22.5, 24.0, t))
+	effects.visible = rise > 0.01
 	for i in 2:
-		var actor: Node3D = actors[i]["root"]
-		var parts: Dictionary = actors[i]["parts"]
-		var surge := 1.0 + (0.75 if i == 1 and t > 16.0 and t < 20.0 else 0.0)
-		var strength := charge * surge * (0.88 + sin(t * 8.0 + i * PI) * 0.12)
-		var home: Vector3 = actors[i]["home"]
-		actor.position = home + Vector3(0, sin(t * 5.0 + i) * 0.035 * charge, 0)
-		actor.rotation.x = -0.12 * charge + sin(t * 13.0) * 0.012 * charge
+		var made: Dictionary = actors[i]
+		var actor: Node3D = made["root"]
+		var parts: Dictionary = made["parts"]
+		for key in parts:
+			(parts[key] as Node3D).transform = made["rest"][key]
+		var beat := (t - (0.0 if i == 0 else 0.45)) * TAU * 0.9
+		var sway := sin(beat) * 0.10 * rise if stage in ["six_seven", "boat_roll"] else 0.0
+		actor.position = made["home"] + Vector3(0, absf(sin(beat)) * 0.035 * rise, 0)
+		# Quarter-turn toward the viewer makes the forepaw silhouettes legible
+		# from the fence, while they still face one another.
+		actor.rotation = Vector3(0, float(made["yaw"]) + (0.4 if i == 0 else -0.4) * rise, sway)
+		var hip := Vector3(0, 0.8, 0.55) if i == 0 else Vector3(0, 0.13, 0.1)
+		var tilt := Basis(Vector3.RIGHT, (0.85 if i == 0 else 0.65) * rise)
+		for key in ["Body", "Head", "Antlers", "EarL", "EarR", "Tail", "LegFL", "LegFR", "PawL", "PawR"]:
+			if parts.has(key):
+				var node: Node3D = parts[key]
+				node.position = hip + tilt * (node.position - hip)
+				node.basis = tilt * node.basis
+		var left := Vector3(0.85, 0.0, -0.2)
+		var right := Vector3(0.85, 0.0, 0.2)
+		match stage:
+			"six_seven":
+				# Opposing open-hoof/paw palms, alternating at chest height.
+				left = Vector3(1.3 + sin(beat) * 0.22, sin(beat) * 0.25, -0.5)
+				right = Vector3(1.3 - sin(beat) * 0.22, sin(beat) * 0.25, 0.5)
+			"boat_roll":
+				# Eight right flicks followed by five left; each flick lasts .5 s.
+				var local_t := t - 8.0
+				var active_right := local_t < 4.0
+				var flick := sin(local_t * TAU * 2.0)
+				left = Vector3(1.2, -0.25, -0.65)
+				right = Vector3(1.2, 0.25, 0.65)
+				if active_right:
+					right += Vector3(0.15 * cos(local_t * TAU), flick * 0.5, flick * 0.25)
+				elif local_t < 6.5:
+					left += Vector3(0.15 * cos(local_t * TAU), flick * 0.5, flick * 0.25)
+			"crossed":
+				left = Vector3(0.9, -0.45, -1.1)
+				right = Vector3(0.9, 0.45, 1.1)
+			"pockets":
+				# Paws tucked at the hips, chin up: pockets implied, not added.
+				left = Vector3(-0.2, 0.0, -0.12)
+				right = Vector3(-0.2, 0.0, 0.12)
+		for pair in [["LegFL" if i == 0 else "PawL", left], ["LegFR" if i == 0 else "PawR", right]]:
+			var limb: Node3D = parts[pair[0]]
+			limb.basis = tilt * Basis.from_euler(pair[1] * rise)
+			if i == 1:
+				limb.position.y += 0.09 * rise
+		var head: Node3D = parts["Head"]
+		var chin := Basis(Vector3.RIGHT, (-0.25 if stage in ["crossed", "pockets"] else -0.10) * rise)
 		for key in ["Head", "Antlers", "EarL", "EarR"]:
 			if parts.has(key):
-				(parts[key] as Node3D).rotation.x = -0.22 * charge
-		halos[i].scale = Vector3.ONE * maxf(0.001, strength)
-		halos[i].rotation.y = t * (0.65 if i == 0 else -1.0)
-		for k in flames[i].size():
-			var spike: MeshInstance3D = flames[i][k]
-			var h := 1.2 + 0.7 * sin(t * 7.0 + float(k) * 2.1)
-			spike.scale.y = h
-			spike.position.y = h * 0.5
-		var phase := fposmod(t * 0.7 + i * 0.5, 1.0)
-		waves[i].scale = Vector3.ONE * maxf(0.001, (0.5 + phase * 2.2) * charge * surge)
-		waves[i].visible = phase < 0.85
-		var beam: MeshInstance3D = beams[i]
-		beam.visible = firing
-		if firing:
-			var start := home + Vector3(0, 1.2, 0)
-			var meet := Vector3(0, 1.2, -1.3 if t > 16.0 else sin(t * 2.0) * 0.45)
-			var span := meet - start
-			beam.position = (start + meet) * 0.5
-			beam.quaternion = Quaternion(Vector3.UP, span.normalized())
-			beam.scale = Vector3(0.7 * strength, span.length(), 0.7 * strength)
-	clash.visible = firing
-	clash.position.z = -1.3 if t > 16.0 else sin(t * 2.0) * 0.45
-	clash.scale = Vector3.ONE * (1.0 + 0.3 * sin(t * 12.0))
+				var node: Node3D = parts[key]
+				node.position = head.position + chin * (node.position - head.position)
+				node.basis = chin * node.basis
+		for ear in ["EarL", "EarR"]:
+			(parts[ear] as Node3D).rotate_z((0.1 if ear == "EarL" else -0.1) * sin(beat * 0.5) * rise)
+		# Brief ground ripples punctuate a pose; nothing covers the animal.
+		var phase := fposmod(t - (15.0 if i == 0 else 17.0), 4.0)
+		waves[i].visible = t >= 15.0 and t < 20.0 and phase < 0.5
+		waves[i].scale = Vector3.ONE * (0.4 + phase * 1.8) * (0.5 if i == 1 else 1.0)
 
 func finish() -> void:
 	elapsed = -1.0
@@ -205,6 +252,6 @@ func finish() -> void:
 	for made in actors:
 		var actor: Node3D = made["root"]
 		actor.position = made["home"]
-		actor.rotation.x = 0.0
-		for part in made["parts"].values():
-			(part as Node3D).rotation.x = 0.0
+		actor.rotation = Vector3(0, made["yaw"], 0)
+		for key in made["parts"]:
+			(made["parts"][key] as Node3D).transform = made["rest"][key]
