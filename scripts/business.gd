@@ -875,6 +875,24 @@ func cash_deposit_bag(i: int, keys := []) -> Dictionary:
 		moved[r] = n
 	return moved
 
+## A carried bucket tipped into the Cash Hopper: moves what fits out of `items` ({resource: units}, modified in place). Returns what went in.
+func cash_deposit_items(i: int, items: Dictionary) -> Dictionary:
+	var moved := {}
+	if not is_cash_hopper(i):
+		return moved
+	var ep := {"type": "output", "index": i}
+	for res in items.keys():
+		var r := str(res)
+		var n := mini(int(items.get(r, 0)), ep_space(ep, r))
+		if n <= 0:
+			continue
+		items[r] = int(items[r]) - n
+		if int(items[r]) <= 0:
+			items.erase(r)
+		ep_put(ep, r, n, false)
+		moved[r] = n
+	return moved
+
 ## The same from the storage crate (an explicit choice by the player: the crate never sells by itself).
 func cash_deposit_crate(i: int, keys := []) -> Dictionary:
 	var moved := {}

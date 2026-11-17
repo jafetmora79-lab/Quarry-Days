@@ -50,8 +50,11 @@ func run() -> void:
 	await frames(3)
 	check(game.player.load_mult < 1.0 and game.player.load_mult > 0.8, "carrying them slows the walk a little (%.3f)" % game.player.load_mult)
 	await frames(3)
+	st.hand_bucket = {"topsoil": 4}                   # the pail in the hands shows the bucket you carry (placed buckets: see test_placed_buckets)
+	await frames(3)
 	var fill: Node3D = game.player.tool_view.model.get_meta("fill")
-	check(absf(fill.scale.y - lerpf(0.12, 1.0, 4.0 / 18.0)) < 0.02, "the heap in the pail shows the part-full bucket (%.2f)" % fill.scale.y)
+	check(fill.get_child_count() >= 2 and fill.get_meta("sig", "") != "", "the pail in the hands shows what it holds, drawn in layers (%d parts)" % fill.get_child_count())
+	st.hand_bucket = {}
 	var qty: Label = game.hud.hotbar_view.find_child("Qty", true, false)
 	check(qty != null and qty.text == "3", "the hotbar slot shows how many buckets are carried (%s)" % (qty.text if qty != null else "none"))
 	# the box prompt

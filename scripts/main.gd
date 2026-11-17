@@ -1380,7 +1380,7 @@ func player_mine(kind: String, col: int, damage: float, point := Vector3.INF, co
 		player.impact_feedback(0.25)
 	node.hit(col)
 	if n > 0:
-		var put := state.add_item(res, n)
+		var put := _player_yield(res, n, at)
 		prog.area_add(prog.area_of_formation(kind), "recovered", put)
 		if put > 0:
 			_reward_popup(res, put)
@@ -1435,11 +1435,10 @@ func _player_mining(delta: float) -> void:
 		return
 	if str(prog.tool().get("class", "")) == "carry":
 		tv.operating = false
-		if lmb and not tv.is_busy() and mining_cooldown <= 0.0:
-			mining_cooldown = 0.6
-			_mining_ray()
-			tv.swing(0.5, _pour_bucket)                # the pail tips and pours what it holds where you aim
+		_bucket_tool(lmb)                              # the bucket is put down where you aim; it is not a scoop
 		return
+	if placed_buckets != null:
+		placed_buckets.hide_ghost()
 	if ramps != null and ramps.ghost != null and ramps.ghost.visible:
 		ramps.hide_ghost()
 	ramp_prompt = ""
@@ -1505,6 +1504,114 @@ func _mine_button_down() -> bool:
 		_mine_latch = false
 	return raw and not driving and not construction and not placement
 
+# ------------------------------------------------------------------ placed buckets (the bucket tool)
+## The bucket is a container, not a scoop: click puts one down where you aim (a green ghost shows where it can stand), dirt dug near it fills the nearest bucket with room,
+## E picks a filled one up (you carry one at a time, slowed by its weight) and E at the storage box or the Cash Hopper tips it in. Click again to put a carried bucket down.
+var placed_buckets: PlacedBuckets
+var mine_point_hint := Vector3.ZERO
+
+func _buckets() -> PlacedBuckets:
+	if placed_buckets == null or not is_instance_valid(placed_buckets):
+		placed_buckets = PlacedBuckets.new()
+		world.add_child(placed_buckets)
+	placed_buckets.cap = state.bucket_capacity()
+	return placed_buckets
+
+func _bucket_tool(lmb: bool) -> void:
+	var pb := _buckets()
+	var hit := _mining_ray()
+	var ok := false
+	var point := Vector3.ZERO
+	if not hit.is_empty() and not (hit["node"] is Node and str((hit["node"] as Node).get_meta("kind", "")) in ["placed_bucket", "vehicle", "storage"]):
+		point = hit["point"]
+		ok = pb.why_not(point, hit["normal"], player.global_position) == ""
+		pb.show_ghost(point, ok)
+	else:
+		pb.hide_ghost()
+	if not lmb or mining_cooldown > 0.0 or player.tool_view.is_busy():
+		return
+	mining_cooldown = 0.35
+	if hit.is_empty():
+		return
+	var why := pb.why_not(hit["point"], hit["normal"], player.global_position)
+	if why != "" or not ok:
+		_notify(why if why != "" else "Aim at the ground to put the bucket down.")
+		return
+	var item := pb.place(point, state.hand_bucket, player.rotation.y)
+	if not item.is_empty():
+		var carried := pb.total_of(state.hand_bucket)
+		state.hand_bucket = {}
+		nav_dirty = true
+		pickup_audio.play()
+		if carried > 0:
+			_notify("Bucket put down with %d in it." % carried)
+		else:
+			_notify("Bucket placed. Dig near it and the dirt goes in; E picks it up.")
+
+## E on a standing bucket: pick it up with what it holds (one in the hands at a time).
+func pick_up_bucket(body: Node) -> bool:
+	var pb := _buckets()
+	if pb.total_of(state.hand_bucket) > 0:
+		_notify("Your hands are full: put this bucket down (click) or tip it into the box or the hopper first.")
+		return false
+	var idx := pb.index_of(body)
+	if idx < 0:
+		return false
+	state.hand_bucket = pb.pick_up(body)
+	nav_dirty = true
+	var slot := prog.hotbar().find("bucket")
+	if slot >= 0:
+		select_tool_slot(slot)
+	pickup_audio.play()
+	_notify("Picked up the bucket (%d units). Take it to the box or the Cash Hopper." % pb.total_of(state.hand_bucket))
+	return true
+
+## Tips the bucket in the hands into the storage box (as much as fits).
+func deliver_hand_to_storage() -> int:
+	var moved := 0
+	var room := state.storage_capacity() - state.total(state.storage)
+	if room <= 0:
+		_notify("The box is full (%d). It empties into the Cash Hopper as it sells." % state.storage_capacity())
+		return 0
+	for res in Business.SELL_ORDER:
+		var n := mini(int(state.hand_bucket.get(res, 0)), room - moved)
+		if n <= 0:
+			continue
+		state.hand_bucket[res] = int(state.hand_bucket[res]) - n
+		if int(state.hand_bucket[res]) <= 0:
+			state.hand_bucket.erase(res)
+		state.storage[res] = int(state.storage.get(res, 0)) + n
+		moved += n
+	if moved > 0:
+		pickup_audio.play()
+		_notify("Tipped the bucket into the box: %d (%d / %d)." % [moved, state.total(state.storage), state.storage_capacity()])
+	return moved
+
+## Tips the bucket in the hands into the Cash Hopper, which sells it by itself.
+func deliver_hand_to_hopper(idx: int) -> int:
+	var moved: Dictionary = business.cash_deposit_items(idx, state.hand_bucket)
+	var n := 0
+	for k in moved:
+		n += int(moved[k])
+	if n > 0:
+		pickup_audio.play()
+		hud.toast("Into the hopper: %d units" % n, "It sells them one by one", "sale")
+	else:
+		_notify("The hopper is full: let it work a bit." if state.hand_bucket.size() > 0 else "The bucket is empty.")
+	return n
+
+## Where a player's dug units go: the nearest placed bucket with room first (see PlacedBuckets.receive), the rest into the bag as before.
+func _player_yield(res: String, n: int, at: Vector3) -> int:
+	var put := 0
+	if placed_buckets != null and is_instance_valid(placed_buckets) and not placed_buckets.items.is_empty():
+		placed_buckets.cap = state.bucket_capacity()
+		put = placed_buckets.receive(player.global_position, at, res, n)
+		if put > 0:
+			state.note_lifetime("mined", res, put)
+	if put < n:
+		put += state.add_item(res, n - put)
+	return put
+
 ## The bucket in hand tipped over the ground: one bucket's load (up to the bucket size, the biggest heap of it first) is poured where you aim, as loose material on the terrain (units -> m3 at
 ## each material's rate, so nothing is created or lost; a fraction of a unit stays in `terrain_rem`). Pouring at the starter box dumps the bucket into it instead.
 func _pour_bucket() -> void:
@@ -1555,6 +1662,7 @@ func pour_at(point: Vector3) -> int:
 ## One tool strike on the live ground (shovel: scoops soft ground into the bucket; pickaxe and hammer: break hard ground into loose rubble that a shovel then scoops).
 ## What you hit decides what happens and what you hear: ground harder than the tool bounces the blow with a chink. Returns the dig result.
 func _terrain_strike(point: Vector3) -> Dictionary:
+	mine_point_hint = point
 	var lt := live_terrain
 	var sf := lt.surface_formation(point.x, point.z)
 	var res_name := ""
@@ -1608,7 +1716,7 @@ func _terrain_yield(taken: Dictionary, sf: Array) -> void:
 		var n := int(floor(f))
 		terrain_rem[r] = f - float(n)
 		if n > 0:
-			var put := state.add_item(r, n)
+			var put := _player_yield(r, n, mine_point_hint)
 			if put < n:
 				terrain_rem[r] = float(terrain_rem[r]) + float(n - put)           # no room: the remainder waits
 			if put > 0:
@@ -1675,7 +1783,7 @@ func _notify(s: String) -> void:
 ## Interaction highlight (Phase 8.5): a thin warm outline on the one thing you could press E on. Only real interactables get it
 ## (never terrain, rock, loose pieces or weeds), it is removed the moment you look away, open a menu, drive or build, and it is
 ## never used for construction ghosts, which have their own blueprint look.
-const HIGHLIGHT_KINDS := ["repair_part", "cart", "door", "bed", "sell", "upgrades", "storage", "crusher", "output", "shop", "office", "rig", "vehicle", "discovery", "fossil", "egg", "conveyor", "gate"]      # (people are never outlined: it ruins the character art)
+const HIGHLIGHT_KINDS := ["repair_part", "cart", "door", "bed", "sell", "upgrades", "storage", "crusher", "output", "shop", "office", "rig", "vehicle", "discovery", "fossil", "egg", "conveyor", "gate", "placed_bucket"]      # (people are never outlined: it ruins the character art)
 var highlight_node: Node3D
 var highlight_meshes: Array = []
 var _hl_mat: StandardMaterial3D
@@ -1916,13 +2024,16 @@ func _physics_process(delta: float) -> void:
 					var rr: Dictionary = prog.rigs[ri]
 					prompt = "E: %s  -  %s  (bin %d/%d)" % [str(prog.machine(str(rr["type"]))["title"]), str(rr["status"]), prog.rig_bin_total(rr), prog.rig_bin_cap(rr)]
 			"piece": prompt = "E: collect "+str(last_target.get_meta("resource"))
+			"placed_bucket":
+				var bi: Dictionary = _buckets().bucket_info(last_target)
+				prompt = "E: pick up the bucket (%d / %d)" % [_buckets().total_of(bi.get("load", {})), state.bucket_capacity()]
 			"crusher": prompt = "E: use crusher"
 			"sell": prompt = "E: sell materials"
 			"shop": prompt = "E: order machinery"
 			"output":
 				var ov := str(last_target.get_meta("variant", "output"))
 				if ov == "cash_hopper":
-					prompt = "E: Cash Hopper  (%d waiting)" % business.cash_queue(int(last_target.get_meta("index", -1)))
+					prompt = ("E: tip the bucket into the Cash Hopper  " if placed_buckets != null and placed_buckets.total_of(state.hand_bucket) > 0 else "E: Cash Hopper  ") + "(%d waiting)" % business.cash_queue(int(last_target.get_meta("index", -1)))
 				else:
 					prompt = {"output": "E: output storage", "hopper": "E: small hopper", "sorter": "E: sorting table"}[ov]
 			"conveyor":
@@ -2149,6 +2260,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 ## The starter box: what it holds, and what E does (dump a bucket while you carry any, else open the menu).
 func _storage_prompt() -> String:
+	if placed_buckets != null and placed_buckets.total_of(state.hand_bucket) > 0:
+		return "E: tip the bucket into the box (%d)   BOX: %d / %d" % [placed_buckets.total_of(state.hand_bucket), state.total(state.storage), state.storage_capacity()]
 	var held := ""
 	var parts := []
 	for res in Business.SELL_ORDER:
@@ -2186,15 +2299,9 @@ func dump_bucket() -> int:
 func _bucket_tick(delta: float) -> void:
 	var total := state.total(state.inventory)
 	var cap := state.bucket_capacity()
-	if player.tool_view != null and player.tool_view.model != null and player.tool_view.model.has_meta("fill"):           # the bucket is in hand: its heap shows the load
-		var main_res := ""
-		var best := -1
-		for res in state.inventory:
-			if int(state.inventory[res]) > best:
-				best = int(state.inventory[res])
-				main_res = str(res)
-		BucketView.dress(player.tool_view.model.get_meta("fill"), BucketView.fraction_of(total, cap), QuarryTheme.RES_COLORS.get(main_res, Color(0.4, 0.28, 0.18)))
-	player.load_mult = 1.0 - minf(0.35, 0.035 * float(maxi(0, BucketView.count_of(total, cap) - 1)))
+	if player.tool_view != null and player.tool_view.model != null and player.tool_view.model.has_meta("bucket_model"):           # the bucket is in hand: it shows what it really holds
+		BucketView.set_load(player.tool_view.model.get_meta("bucket_model"), state.hand_bucket, cap)
+	player.load_mult = 1.0 - minf(0.35, 0.035 * float(maxi(0, BucketView.count_of(total, cap) - 1))) - 0.25 * minf(1.0, float(state.total(state.hand_bucket)) / float(maxi(1, cap)))
 	if Input.is_action_pressed("interact") and last_target != null and is_instance_valid(last_target) and str(last_target.get_meta("kind", "")) == "storage" and total > 0:
 		_dump_hold += delta
 		if _dump_hold > 0.55:
@@ -2215,7 +2322,16 @@ func _interact(target: Node3D) -> void:
 				_notify("Collected "+kind)
 			else:
 				_notify("Backpack full")
+		"placed_bucket":
+			pick_up_bucket(target)
 		"sell", "upgrades", "storage", "crusher", "output", "shop":
+			var carrying := _buckets().total_of(state.hand_bucket) > 0
+			if carrying and str(target.get_meta("kind")) == "storage":
+				deliver_hand_to_storage()
+				return
+			if carrying and str(target.get_meta("kind")) == "output" and str(target.get_meta("variant", "")) == "cash_hopper":
+				deliver_hand_to_hopper(int(target.get_meta("index", -1)))
+				return
 			if str(target.get_meta("kind")) == "storage" and state.total(state.inventory) > 0:
 				dump_bucket()
 				_dump_hold = 0.0
@@ -4135,6 +4251,8 @@ func _save(quiet := false) -> void:
 		data["terrain"] = live_terrain.terrain.snapshot()             # only the vertices that were dug or heaped, compressed
 		data["terrain_rem"] = terrain_rem.duplicate()
 		data["veh_rem"] = _veh_rem.duplicate(true)
+	if placed_buckets != null and is_instance_valid(placed_buckets):
+		data["placed_buckets"] = placed_buckets.save()
 	# write to a temporary file first, keep the previous good save as a backup, then swap: a crash or a closed window
 	# in the middle of a save can no longer leave a broken or empty save behind
 	var tmp := SAVE_PATH + ".tmp"
@@ -4302,6 +4420,7 @@ func _load(quiet := false) -> void:
 			live_terrain.terrain.restore(tsnap)                            # ... plus everything dug and heaped by hand or machine (old saves have none)
 			live_terrain.terrain.flush(true)
 		terrain_rem = (data.get("terrain_rem", {}) as Dictionary).duplicate() if data.get("terrain_rem", {}) is Dictionary else {}
+		_buckets().restore(data.get("placed_buckets", []) if data.get("placed_buckets", []) is Array else [])
 		_veh_rem = {}
 		var vr = data.get("veh_rem", {})
 		if vr is Dictionary:
@@ -8071,6 +8190,9 @@ func ramps_for_plan() -> Array:
 	return ramps.plan_segments() if ramps != null else []
 
 func select_tool_slot(slot: int) -> void:
+	if placed_buckets != null and placed_buckets.total_of(state.hand_bucket) > 0 and prog.hotbar()[clampi(slot, 0, prog.hotbar().size() - 1)] != "bucket":
+		_notify("You are carrying a bucket: put it down (click) or tip it into the box or the hopper first.")
+		return
 	if prog.select_slot(slot) == null:
 		return
 	player.tool_view.equip(prog.model_tier(), false)
@@ -8081,6 +8203,9 @@ func select_tool_slot(slot: int) -> void:
 func cycle_tool() -> void:
 	if prog.held_options().size() < 2:
 		_notify("You only have one tool. Buy more at the workbench.")
+		return
+	if placed_buckets != null and placed_buckets.total_of(state.hand_bucket) > 0:
+		_notify("You are carrying a bucket: put it down (click) or tip it into the box or the hopper first.")
 		return
 	prog.cycle_tool()
 	player.tool_view.equip(prog.model_tier(), false)

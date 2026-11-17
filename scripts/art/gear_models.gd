@@ -84,13 +84,11 @@ class Builder:
 static func bucket_tool() -> Node3D:
 	var n := Node3D.new()
 	n.name = "Gear_bucket"
-	var a: Dictionary = WorldModels.animal("bucket")
-	if a.is_empty():
-		return n
-	var root: Node3D = a["root"]
+	var root: Node3D = BucketView.build()                   # a hollow pail with a textured inside; its contents are drawn from what it holds (BucketView.set_load)
 	root.position = Vector3(0, -0.52, 0)
 	n.add_child(root)
-	n.set_meta("fill", (a["parts"] as Dictionary).get("Fill"))
+	n.set_meta("fill", root.get_meta("fill"))
+	n.set_meta("bucket_model", root)
 	return n
 
 static func build_tool(id: String) -> Node3D:
