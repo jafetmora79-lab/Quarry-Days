@@ -41,10 +41,10 @@ func run() -> void:
 	var n := 0
 	var units := 0
 	while prog.chunks_left("q_top", col) > 0 and n < 4000:
-		var ex: Dictionary = prog.extract("q_top", col, dps * 0.25, 99, "excavator")
+		var ex: Dictionary = prog.extract("q_top", col, dps * 0.1, 99, "excavator")
 		units += int(ex["units"])
-		game._carve_column("q_top", col, dps * 0.25, cp + Vector3(5, 0, 0))
-		if prog.column_units("q_top", col) == 3:
+		game._carve_column("q_top", col, dps * 0.1, cp + Vector3(5, 0, 0))
+		if prog.column_units("q_top", col) <= 3 and mid_h == 0.0:
 			mid_h = 0.0
 			for dx2 in [-1.5, 0.0, 1.5]:
 				for dz2 in [-1.5, 0.0, 1.5]:
