@@ -231,49 +231,49 @@
       "ok": true
     },
     {
-      "check": "repaired_pickaxe R hand",
+      "check": "repaired_pickaxe L hand",
       "gap_m": 0.01,
       "note": "",
       "ok": true
     },
     {
-      "check": "repaired_pickaxe L hand",
+      "check": "repaired_pickaxe R hand",
       "gap_m": 0.005,
       "note": "",
       "ok": true
     },
     {
-      "check": "sledgehammer R hand",
+      "check": "sledgehammer L hand",
       "gap_m": 0.014,
       "note": "",
       "ok": true
     },
     {
-      "check": "sledgehammer L hand",
+      "check": "sledgehammer R hand",
       "gap_m": 0.026,
       "note": "",
       "ok": true
     },
     {
-      "check": "steel_pickaxe R hand",
+      "check": "steel_pickaxe L hand",
       "gap_m": 0.002,
       "note": "",
       "ok": true
     },
     {
-      "check": "steel_pickaxe L hand",
+      "check": "steel_pickaxe R hand",
       "gap_m": 0.019,
       "note": "",
       "ok": true
     },
     {
-      "check": "hardened_pickaxe R hand",
+      "check": "hardened_pickaxe L hand",
       "gap_m": 0.018,
       "note": "",
       "ok": true
     },
     {
-      "check": "hardened_pickaxe L hand",
+      "check": "hardened_pickaxe R hand",
       "gap_m": 0.02,
       "note": "",
       "ok": true
@@ -315,13 +315,13 @@
       "ok": true
     },
     {
-      "check": "shovel R hand",
+      "check": "shovel L hand",
       "gap_m": 0.017,
       "note": "",
       "ok": true
     },
     {
-      "check": "shovel L hand",
+      "check": "shovel R hand",
       "gap_m": 0.017,
       "note": "",
       "ok": true

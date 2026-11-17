@@ -169,10 +169,6 @@ var rig_nodes: Array = []
 var rig_pick_type := ""
 
 func _ready() -> void:
-	# `QuarryDays.exe -- --terrain-arena` opens the on-foot digging arena (the heightfield ground) instead of the quarry.
-	if OS.get_cmdline_user_args().has("--terrain-arena"):
-		call_deferred("_open_terrain_arena")
-		return
 	crew = AutoCrew.new(self)
 	touch_mode = OS.has_feature("mobile") or OS.get_cmdline_user_args().has("--touch")
 	var cfg = JSON.parse_string(FileAccess.get_file_as_string("res://data/economy.json"))
@@ -5397,9 +5393,6 @@ func _nearest_pile(point: Vector3, radius: float) -> String:
 			best_d = d
 			best = id
 	return best
-
-func _open_terrain_arena() -> void:
-	get_tree().change_scene_to_file("res://TerrainArena.tscn")
 
 ## Contextual left click: a lowered bucket scoops (pile first, then loose pieces) and lifts;
 ## a raised bucket lowers.

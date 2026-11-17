@@ -1,7 +1,7 @@
 extends Node3D
 class_name TerrainArena
 ## On-foot test arena for the real digging ground (QuarryTerrain): a 64 x 64 m field of the quarry's own strata, a dirt pile and a rubble pile, a collection box.
-## Launch:  QuarryDays.exe -- --terrain-arena   (or run res://TerrainArena.tscn).
+## Launch:  TerrainArena.bat (QuarryDays.exe res://TerrainArena.tscn).
 ##
 ##   WASD move, Shift sprint, mouse look, Space jump
 ##   1 shovel   2 pickaxe   3 hammer

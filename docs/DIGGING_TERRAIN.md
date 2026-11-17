@@ -18,7 +18,7 @@ Branch `claude/quarry-digging-integration` (started from `feature/intro-world-ui
 | 8-material terrain shader (weights in COLOR/UV/UV2), flat projection on gentle ground, one side projection only on steep faces, materials sampled only where their weight is above a threshold | `assets/shaders/quarry_terrain.gdshader` | compiles (windowed run, no shader errors); **cost is not measured** |
 | Synthesised digging sounds (no recordings): `chink` (blocked), `thud_soil`, `squelch_clay`, `crunch_gravel`, `crack_rock` x3 variants each, `pour_dirt`, `pour_rock`, `scrape_metal` (loop) | `tools/make_sfx.py` -> `audio/dig_*.wav` | all files exist |
 | One audio entry point `DigAudio.play(event, material, pos, intensity)`: 8-player pool, pitch +-6 %, per-event cooldown, event log for tests | `scripts/terrain/dig_audio.gd` | each material plays its own set, blocked plays the chink, a held button is swallowed |
-| On-foot arena over the real terrain (real tool models, hints, particles, volume HUD) | `TerrainArena.tscn`, `scripts/terrain/terrain_arena.gd`, `QuarryDays.exe -- --terrain-arena` | `tests/test_terrain_arena.gd` |
+| On-foot arena over the real terrain (real tool models, hints, particles, volume HUD) | `TerrainArena.tscn`, `scripts/terrain/terrain_arena.gd`, `QuarryDays.exe res://TerrainArena.tscn` (TerrainArena.bat) | `tests/test_terrain_arena.gd` |
 
 ## What is NOT done (the live quarry still digs the old way)
 
