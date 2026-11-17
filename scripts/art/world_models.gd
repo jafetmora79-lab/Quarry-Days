@@ -23,6 +23,13 @@ const COLOURS := {
 	"HopSteel": Color(0.31, 0.39, 0.34), "HopSteelDk": Color(0.20, 0.26, 0.23), "HopRust": Color(0.49, 0.27, 0.13), "HopRustDk": Color(0.33, 0.18, 0.09),
 	"HopYellow": Color(0.90, 0.69, 0.13), "HopIron": Color(0.15, 0.15, 0.16), "HopBrass": Color(0.80, 0.61, 0.24), "HopConcrete": Color(0.50, 0.50, 0.47), "HopStain": Color(0.22, 0.20, 0.17),
 	"HopScreen": Color(0.10, 0.18, 0.12), "HopWood": Color(0.42, 0.29, 0.17), "HopRock": Color(0.70, 0.68, 0.62),
+	"LimeDark": Color(0.66, 0.62, 0.54), "LimeLight": Color(0.86, 0.82, 0.72), "LimeBand": Color(0.74, 0.58, 0.44),
+	"CoalBody": Color(0.10, 0.10, 0.11), "CoalDark": Color(0.05, 0.05, 0.06), "CoalSheen": Color(0.42, 0.46, 0.52),
+	"IronRock": Color(0.36, 0.26, 0.21), "IronRed": Color(0.66, 0.24, 0.11), "IronBlack": Color(0.15, 0.13, 0.13),
+	"CopperRock": Color(0.28, 0.36, 0.30), "Malachite": Color(0.20, 0.64, 0.46), "CopperOrange": Color(0.82, 0.44, 0.19),
+	"QuartzRock": Color(0.70, 0.68, 0.64), "QuartzWhite": Color(0.92, 0.92, 0.88),
+	"PebbleA": Color(0.58, 0.52, 0.44), "PebbleB": Color(0.45, 0.41, 0.37), "PebbleC": Color(0.70, 0.64, 0.54),
+	"ClodDark": Color(0.27, 0.18, 0.12), "ClodMid": Color(0.40, 0.28, 0.18), "ClodLight": Color(0.52, 0.37, 0.25), "ClodStone": Color(0.62, 0.57, 0.49),
 	"Timber": Color(0.45, 0.31, 0.18), "Steel": Color(0.38, 0.40, 0.42), "Concrete": Color(0.55, 0.55, 0.53), "Hazard": Color(0.90, 0.72, 0.10), "Paint": Color(0.90, 0.78, 0.20)}
 const FOLIAGE := {
 	"Pine": Color(0.16, 0.33, 0.20), "PineLight": Color(0.25, 0.43, 0.24), "Leaf": Color(0.42, 0.55, 0.20), "LeafWarm": Color(0.68, 0.58, 0.20),
@@ -95,6 +102,8 @@ static func material_for(name: String) -> Material:
 		m = sm
 	elif name == "Lamp":
 		m = MeshKit.flat(Color(1.0, 0.86, 0.55), 1.2)
+	elif name == "GoldNugget":
+		m = MeshKit.flat(Color(1.0, 0.78, 0.16), 0.45)
 	elif name == "HopLamp":
 		m = MeshKit.flat(Color(0.9, 0.2, 0.12), 1.2)
 	elif name == "Amber":
@@ -161,6 +170,20 @@ static func _instance(key: String) -> Node3D:
 		n.free()
 		n = inner
 	return n
+
+static var _ore_parts := {}
+
+## One loose-ore chunk of the Blender set ("ore_pieces"): resource "limestone", "coal", "iron_ore", "copper_ore", "gold_ore", "gravel" or "soil", variant 0..2. Null if the model is missing.
+static func ore_piece(res: String, variant: int) -> ArrayMesh:
+	if _ore_parts.is_empty():
+		var a := animal("ore_pieces")
+		if a.is_empty():
+			_ore_parts["_none"] = true
+			return null
+		for k in a["parts"]:
+			_ore_parts[k] = ((a["parts"][k] as Node3D).get_node("Mesh") as MeshInstance3D).mesh
+		(a["root"] as Node).free()
+	return _ore_parts.get("%s_%d" % [res, variant % 3], null)
 
 ## A static mesh of model `key` (its Body), cached; null when the file is missing.
 static func mesh(key: String) -> ArrayMesh:

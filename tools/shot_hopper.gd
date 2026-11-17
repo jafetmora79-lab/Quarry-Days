@@ -44,8 +44,9 @@ func run():
 	await shot("hopper_back_idle", out)
 	game.business.outputs[h]["items"]["crushed_stone"] = 200
 	game.business.outputs[h]["tier"] = 0
-	look(cam, c + Vector3(-2.6, 1.8, -3.4), c + Vector3(0, 1.0, 0))
+	look(cam, c + Vector3(-2.2, 1.5, -3.0), c + Vector3(0, 1.0, 0))
 	for i in 20:
 		await physics_frame
-	await shot("hopper_working", out, 25)
+	for k in range(8):
+		await shot("hopper_seq_%d" % k, out, 5)
 	quit()

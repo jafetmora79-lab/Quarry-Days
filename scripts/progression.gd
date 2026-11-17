@@ -651,6 +651,8 @@ func extraction_block(id: String, col: int, source := "hand", max_hardness := -1
 		return lock
 	if column_units(id, col) <= 0:
 		return "That section is already cut away."
+	if not column_in_dig_area(id, col):
+		return "Outside the marked excavation. Dig inside the survey stakes."
 	if not column_minable(id, col):
 		return "Only exposed rock can be cut: mine the face in front."
 	var res := str(state.deposits[id]["resource"])
@@ -761,6 +763,23 @@ func area_for_point(p: Vector3) -> String:
 			if p.x >= float(r[0]) and p.x <= float(r[2]) and p.z >= float(r[1]) and p.z <= float(r[3]):
 				return str(a["id"])
 	return ""
+
+## The marked excavation of a formation (its area's `rect`: world x0, z0, x1, z1) or an empty array when the whole formation may be worked.
+func dig_rect(id: String) -> Array:
+	for a in area_defs():
+		if a.has("dig") and id in a.get("formations", []):
+			return a["dig"]
+	return []
+
+## True when the column of `id` lies inside its marked excavation (a column counts when its centre is within half a cell of the survey line). Nothing may be
+## dug outside it: not by hand, not by a machine, not by the crew or the dinosaur.
+func column_in_dig_area(id: String, col: int) -> bool:
+	var r := dig_rect(id)
+	if r.is_empty():
+		return true
+	var p := column_pos(id, col)
+	var m := float(fdef(id).get("cell", 2.0)) * 0.5
+	return p.x >= float(r[0]) - m and p.x <= float(r[2]) + m and p.z >= float(r[1]) - m and p.z <= float(r[3]) + m
 
 func area_of_formation(fid: String) -> String:
 	for a in area_defs():

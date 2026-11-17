@@ -936,11 +936,12 @@ func _land_detail() -> void:
 		var a0 := float(k) / 9.0 * TAU
 		var a1 := float(k + 1) / 9.0 * TAU
 		patch.tri(Vector3.ZERO, Vector3(sin(a0) * (1.0 + 0.25 * sin(a0 * 3.0)), 0.0, cos(a0) * (1.0 + 0.25 * sin(a0 * 3.0))), Vector3(sin(a1) * (1.0 + 0.25 * sin(a1 * 3.0)), 0.0, cos(a1) * (1.0 + 0.25 * sin(a1 * 3.0))))
+	var clods: Mesh = WorldModels.mesh("dirt_clods")       # the Blender clods of earth replace the flat discs
 	var hub: Rect2 = game.hub_rect()
 	# kind: [mesh, base colour, spread, count, scale range, lift]
 	var kinds := [
 		[tuft.mesh(), Color(0.56, 0.58, 0.3), 0.22, 900, Vector2(0.8, 1.7), 0.0],
-		[patch.mesh(), Color(0.5, 0.42, 0.27), 0.16, 260, Vector2(1.2, 3.2), 0.03],
+		[patch.mesh() if clods == null else clods, Color(0.5, 0.42, 0.27), 0.16, 260 if clods == null else 170, Vector2(1.2, 3.2) if clods == null else Vector2(0.8, 2.0), 0.03 if clods == null else 0.0],
 		[stone.mesh(), Color(0.6, 0.57, 0.5), 0.22, 150, Vector2(0.6, 1.6), -0.05],
 		[pebbles.mesh(), Color(0.55, 0.5, 0.42), 0.25, 260, Vector2(0.9, 1.8), 0.0],
 	]
@@ -961,7 +962,7 @@ func _land_detail() -> void:
 			if (p.x > -126.0 and p.x < -20.0 and absf(p.y - 25.4) < 7.0) or QuarryOpening.near_road(p, 7.0):
 				continue                       # the through-tunnel's roadway and the forest road: no tufts or stones on the tarmac
 			var sc: float = rng.randf_range(float(kd[4].x), float(kd[4].y))
-			var basis := Basis(Vector3.UP, rng.randf() * TAU) * Basis.from_scale(Vector3(sc, sc if ki != 1 else 1.0, sc))
+			var basis := Basis(Vector3.UP, rng.randf() * TAU) * Basis.from_scale(Vector3(sc, sc if (ki != 1 or clods != null) else 1.0, sc))
 			xfs.append(Transform3D(basis, Vector3(p.x, float(kd[5]), p.y)))
 			var bc: Color = kd[1]
 			var f := rng.randf_range(1.0 - float(kd[2]), 1.0 + float(kd[2]))
@@ -977,7 +978,7 @@ func _land_detail() -> void:
 		var mmi := MultiMeshInstance3D.new()
 		mmi.multimesh = mm
 		mmi.name = "LandDetail%d" % ki
-		mmi.material_override = QuarryFormation._decor_material()
+		mmi.material_override = null if (ki == 1 and clods != null) else QuarryFormation._decor_material()
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		mmi.visibility_range_end = 140.0
 		root.add_child(mmi)
@@ -1077,6 +1078,15 @@ func dress_deposit(body: StaticBody3D, info: Dictionary, size: Vector3) -> void:
 ## Loose piece: a small faceted chunk (3 shared shapes per material).
 func dress_piece(body: StaticBody3D, res: String, idx: int) -> void:
 	var key := "%s_%d" % [res, idx % 3]
+	var mkey: String = {"iron_ore": "iron_ore", "copper_ore": "copper_ore", "gold_ore": "gold_ore", "limestone": "limestone", "coal": "coal", "crushed_stone": "gravel", "gravel": "gravel", "soil": "soil", "topsoil": "soil"}.get(res, "limestone")
+	var blender_mesh: ArrayMesh = WorldModels.ore_piece(mkey, idx % 3)
+	if blender_mesh != null:
+		var bmi: MeshInstance3D = body.get_child(0)
+		bmi.mesh = blender_mesh
+		bmi.position.y = -0.27                              # the piece body stands 0.27 m above the ground
+		bmi.material_override = null                       # the model carries its own materials (ore veins, crystals, nuggets)
+		bmi.rotation.y = float(idx) * 2.399
+		return
 	if not piece_meshes.has(key):
 		piece_meshes[key] = MeshKit.rock(Vector3(0.5, 0.42, 0.46), 900 + idx % 3, 3, 6)
 	var mi: MeshInstance3D = body.get_child(0)

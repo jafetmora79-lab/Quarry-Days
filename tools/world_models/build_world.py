@@ -13,6 +13,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(HERE), "tool_models"))
 import qd_blender as Q
 from qd_blender import empty
 from tm import TM
+sys.path.insert(0, HERE)
+import ground_models
 
 OUT = os.path.join(Q.REPO, "assets", "world")
 SRC = os.path.join(OUT, "src")
@@ -1108,6 +1110,11 @@ def cash_hopper(root):
         for sy in (-1, 1):
             t.cyl((sx * 0.6, 1.0 + sy * 0.25, -0.89), 0.018, 0.018, 0.015, BR, seg=6, axis='z')
     t.box((0.5, 0.52, -0.83), (0.3, 0.1, 0.02), BR)                                                 # a brass plaque (blank)
+    t.box((0, 0.64, -0.835), (0.62, 0.1, 0.03), IR)                                                 # the payout slot: a framed opening in the front, a sloped chute down to the tray
+    t.box((0, 0.64, -0.852), (0.5, 0.045, 0.02), SN)
+    t.slab(0.62, -0.86, 0.5, 0.47, -1.0, 0.54, 0.025, BR, x=0.0)
+    for sx in (-1, 1):
+        t.box((sx * 0.27, 0.57, -0.93), (0.025, 0.12, 0.17), BR)                                    # chute cheeks
     t.box((0, 0.48, -0.9), (0.9, 0.08, 0.1), SD)                                                    # the coin tray lip and its tray
     t.box((0, 0.42, -0.95), (0.8, 0.04, 0.2), BR)
     t.box((0, 0.46, -1.04), (0.8, 0.08, 0.02), BR)
@@ -1131,6 +1138,7 @@ def cash_hopper(root):
     t.box((0.9, 0.5, 0.4), (0.3, 0.3, 0.4), SD)
     t.cyl((0.9, 0.55, 0.4), 0.12, 0.12, 0.34, RU, seg=8, axis='x')
     t.box((0.9, 0.82, 0.22), (0.26, 0.16, 0.06), IR)
+    t.bar((0.97, 0.6, 0.4), (0.97, 0.88, 0.05), 0.06, 0.05, IR, up=(1, 0, 0))                       # the drive belt from the motor up to the flywheel's axle
     t.finish()
 
     # ---- funnel: a wide octagonal frustum with ribs, a hazard rim, a dark throat
@@ -1208,7 +1216,7 @@ def cash_hopper(root):
 MODELS = {
     "pine_tall": pine_tall, "pine_young": pine_young, "birch": birch, "log": log, "stump": stump, "bush": bush, "fern": fern, "grass": grass, "flowers": flowers,
     "mossy_stone": mossy_stone, "peak_a": peak_a, "peak_b": peak_b, "ridge": ridge, "foothill": foothill, "cliff": cliff, "tunnel_mountain": tunnel_mountain,
-    "tunnel_portal": tunnel_portal, "tunnel_set": tunnel_set, "cash_hopper": cash_hopper, "pine_far": pine_far, "pickup": pickup, "dino": dino, "egg": egg, "incubator": incubator, "fossil_nest": fossil_nest, "deer": deer, "rabbit": rabbit,
+    "tunnel_portal": tunnel_portal, "tunnel_set": tunnel_set, "cash_hopper": cash_hopper, "ore_pieces": ground_models.ore_pieces, "dirt_clods": ground_models.dirt_clods, "pine_far": pine_far, "pickup": pickup, "dino": dino, "egg": egg, "incubator": incubator, "fossil_nest": fossil_nest, "deer": deer, "rabbit": rabbit,
 }
 
 

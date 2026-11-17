@@ -1305,6 +1305,9 @@ func loose_count(kind: String) -> int:
 
 ## Surface areas with a marked rectangle (Area 1) can only be dug inside it; the hillside and soil field beyond the survey lines stay untouched.
 func _inside_dig_perimeter(kind: String, p: Vector3) -> bool:
+	var dr := prog.dig_rect(kind)
+	if not dr.is_empty():
+		return p.x >= float(dr[0]) - 0.3 and p.x <= float(dr[2]) + 0.3 and p.z >= float(dr[1]) - 0.3 and p.z <= float(dr[3]) + 0.3
 	for ad in prog.area_defs():
 		if ad.has("rect") and kind in ad.get("formations", []):
 			var r: Array = ad["rect"]

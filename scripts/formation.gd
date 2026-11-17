@@ -81,6 +81,10 @@ func setup(main_node, p: QuarryProgression, id: String) -> void:
 		(mat as BaseMaterial3D).uv1_world_triplanar = true
 		(mat as BaseMaterial3D).uv1_scale = Vector3(0.5, 0.5, 0.5)
 		(mat as BaseMaterial3D).uv1_triplanar_sharpness = 6.0
+		# a little self-light from the texture itself: faces turned away from the sun read as shaded earth and rock, never as black
+		(mat as BaseMaterial3D).emission_enabled = true
+		(mat as BaseMaterial3D).emission_texture = (mat as BaseMaterial3D).albedo_texture
+		(mat as BaseMaterial3D).emission_energy_multiplier = 0.4
 		skin_mi = MeshInstance3D.new()
 		skin_mi.name = "RockSkin"
 		skin_mi.material_override = mat
@@ -141,6 +145,8 @@ func setup(main_node, p: QuarryProgression, id: String) -> void:
 	add_child(label)
 	if f.has("decor"):
 		_build_decor(f["decor"])
+	elif str(f.get("world", "")) == "filled":
+		_build_ore_decor()
 	refresh(true)
 
 static func crack_material(stage: int) -> Material:
@@ -176,21 +182,20 @@ func _build_decor(dd: Dictionary) -> void:
 	var pebbles := MeshKit.Soup.new()
 	for pk in range(5):
 		MeshKit.rock_into(pebbles, Vector3(rng.randf_range(-0.5, 0.5), 0.0, rng.randf_range(-0.5, 0.5)), Vector3(0.22, 0.14, 0.2), 90 + pk, 2, 5)
-	var patch := MeshKit.Soup.new()          # a low, irregular disc lying on the ground
-	var pn := 9
-	for k in range(pn):
-		var a0 := float(k) / float(pn) * TAU
-		var a1 := float(k + 1) / float(pn) * TAU
-		var r0 := 1.0 + 0.25 * sin(a0 * 3.0 + 1.0)
-		var r1 := 1.0 + 0.25 * sin(a1 * 3.0 + 1.0)
-		patch.tri(Vector3.ZERO, Vector3(sin(a0) * r0, 0.0, cos(a0) * r0), Vector3(sin(a1) * r1, 0.0, cos(a1) * r1))
+	# clods of dug earth (the Blender "dirt_clods" model with its own colours); the old flat, hard-edged tan discs are gone
+	var clod_mesh: Mesh = WorldModels.mesh("dirt_clods")
+	var clod_model := clod_mesh != null
+	if not clod_model:
+		var cs := MeshKit.Soup.new()
+		MeshKit.rock_into(cs, Vector3.ZERO, Vector3(0.7, 0.3, 0.6), 41, 2, 6)
+		clod_mesh = cs.mesh()
 	# kind: [mesh, base colour, tint spread, share of the columns that get one, scale range, lift]
 	var kinds := [
 		[scrub.mesh(), Color(0.27, 0.37, 0.19), 0.2, 0.10, Vector2(0.8, 1.35), -0.05],
 		[tuft.mesh(), Color(0.55, 0.58, 0.3), 0.22, 0.30, Vector2(0.8, 1.5), 0.0],
 		[stone.mesh(), Color(0.62, 0.58, 0.5), 0.2, 0.07, Vector2(0.7, 1.4), -0.05],
 		[pebbles.mesh(), Color(0.6, 0.55, 0.47), 0.2, 0.22, Vector2(0.9, 1.6), 0.0],
-		[patch.mesh(), Color(0.55, 0.38, 0.25), 0.16, 0.30, Vector2(0.9, 2.0), 0.035],
+		[clod_mesh, Color(0.46, 0.32, 0.21), 0.16, 0.22, Vector2(0.9, 1.7), 0.0],
 	]
 	var cols_list := []
 	for i in range(prog.column_count(fid)):
@@ -228,7 +233,7 @@ func _build_decor(dd: Dictionary) -> void:
 		var mmi := MultiMeshInstance3D.new()
 		mmi.multimesh = mm
 		mmi.name = "Decor%d" % ki
-		mmi.material_override = _decor_material()
+		mmi.material_override = null if (ki == 4 and clod_model) else _decor_material()
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		mmi.visibility_range_end = 110.0
 		add_child(mmi)
@@ -240,6 +245,51 @@ func _build_decor(dd: Dictionary) -> void:
 		clean.fill(false)
 		_decor_groups.append({"mm": mm, "base": xfs, "col": cols, "on": on, "clean": clean, "overgrowth": ki != 4})
 	_apply_cleanup_state()
+
+## Ore showing in the exposed rock: chunks of the Blender ore set (veins of rust, malachite crystals, gold nuggets, coal sheen) half-buried on the top of each
+## column of an ore, coal, limestone or gravel layer. They belong to their column like the topsoil decor: cutting it removes them.
+func _build_ore_decor() -> void:
+	var rk: String = {"iron_ore": "iron_ore", "copper_ore": "copper_ore", "gold_ore": "gold_ore", "limestone": "limestone", "coal": "coal", "gravel": "gravel"}.get(res, "")
+	if rk == "":
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(fid) + 5
+	for v in range(3):
+		var m: Mesh = WorldModels.ore_piece(rk, v)
+		if m == null:
+			continue
+		var xfs: Array = []
+		var cols: Array = []
+		for i in range(prog.column_count(fid)):
+			var tiers := prog.column_tiers(fid, i)
+			if tiers <= 0 or (i + v) % 3 != 0 or rng.randf() > 0.8:
+				continue
+			var lp := _local(i)
+			var sc := rng.randf_range(1.5, 2.6)
+			var basis := Basis(Vector3.UP, rng.randf() * TAU) * Basis(Vector3.RIGHT, rng.randf_range(-0.2, 0.2)) * Basis.from_scale(Vector3(sc, sc * rng.randf_range(0.8, 1.1), sc))
+			xfs.append(Transform3D(basis, Vector3(lp.x + rng.randf_range(-cell * 0.3, cell * 0.3), float(tiers) * tier_h - 0.06 * sc, lp.z + rng.randf_range(-cell * 0.3, cell * 0.3))))
+			cols.append(i)
+		if xfs.is_empty():
+			continue
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = m
+		mm.instance_count = xfs.size()
+		for q in range(xfs.size()):
+			mm.set_instance_transform(q, xfs[q])
+		var mmi := MultiMeshInstance3D.new()
+		mmi.multimesh = mm
+		mmi.name = "Ore%d" % v
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mmi.visibility_range_end = 90.0
+		add_child(mmi)
+		var on: Array = []
+		on.resize(xfs.size())
+		on.fill(true)
+		var clean: Array = []
+		clean.resize(xfs.size())
+		clean.fill(false)
+		_decor_groups.append({"mm": mm, "base": xfs, "col": cols, "on": on, "clean": clean, "overgrowth": false})
 
 ## No scrub, tufts or stones on the road: the through-tunnel's roadway (and 6 m either side), its portals, and the forest road outside.
 static func _decor_blocked(w: Vector3) -> bool:
@@ -431,7 +481,21 @@ func _rebuild_skin(heights: Array) -> void:
 				# bottom edge of the face: the neighbour's top (same corners), or the floor where nothing stands
 				var q0: Vector3 = corner.call(k0.x, k0.y, nh)
 				var q1: Vector3 = corner.call(k1.x, k1.y, nh)
-				_quad_out(s, q0, q1, p1, p0, out_dir)
+				if str(prog.fdef(fid).get("frame", "")) == "pit":
+					# Visual only (the colliders keep their square edges): a dug face is not a vertical plane. Its foot spreads out a little (the angle of repose, more
+					# for a deeper cut) and the middle of every face bulges a touch, so excavated edges read as cut earth and rock, not stacked blocks.
+					var drop := h - nh
+					var slope := clampf(drop * 0.22, 0.0, 0.3)
+					var bulge := (_corner_noise(k0.x * 3 + o.x, k0.y * 3 + o.y, 9) - 0.25) * 0.12
+					var r0 := q0 + out_dir * slope
+					var r1 := q1 + out_dir * slope
+					var mt := (p0 + p1) * 0.5
+					var pm := mt + out_dir * bulge * 0.4
+					var qm := (q0 + q1) * 0.5 + out_dir * (slope + bulge)
+					_quad_out(s, r0, qm, pm, p0, out_dir)
+					_quad_out(s, qm, r1, p1, pm, out_dir)
+				else:
+					_quad_out(s, q0, q1, p1, p0, out_dir)
 	skin_mi.mesh = s.mesh()
 
 func _tri_out(s: MeshKit.Soup, a: Vector3, b: Vector3, c: Vector3, hint: Vector3) -> void:

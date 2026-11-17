@@ -52,6 +52,11 @@ var _t := 0.0
 var _work := 0.0                         ## 0..1 how hard the machine is working (eased: it winds up and down)
 var _fw_speed := 0.0
 var _lamp_on := -1
+var _thump := 0.0                        ## the housing's jolt on each crush, easing out
+var _last_items := {}                    ## what the hopper held at the last look: a rise means material has just gone in
+var _intake_cd := 0.0
+var _items_seen := false
+var _fill_target := Vector3.ONE
 
 func setup(g, i: int) -> void:
 	game = g
@@ -196,6 +201,26 @@ func _build_placeholder() -> void:
 
 # ------------------------------------------------------------------ feedback
 
+## Material going in is visible: when the hopper holds more of something than a moment ago, rock tumbles into the funnel.
+func _check_intake(delta: float) -> void:
+	_intake_cd = maxf(0.0, _intake_cd - delta)
+	var items: Dictionary = game.business.outputs[index].get("items", {})
+	var best := 0
+	var res := ""
+	for r in items:
+		var gain := int(items[r]) - int(_last_items.get(r, 0))
+		if gain > best:
+			best = gain
+			res = str(r)
+	if best > 0 and _intake_cd <= 0.0 and _items_seen:
+		_intake_cd = 0.16
+		for k in range(clampi(1 + best / 6, 1, 7)):
+			_drop_rock(res, 0.07 * float(k))
+		if funnel_node != null:
+			funnel_node.rotation.z = 0.02                  # the funnel rings when rock lands
+	_items_seen = true
+	_last_items = items.duplicate()
+
 func _rock_mat(res: String) -> StandardMaterial3D:
 	if not _rock_mats.has(res):
 		_rock_mats[res] = _mat(QuarryTheme.RES_COLORS.get(res, Color(0.7, 0.7, 0.65)), 0.9)
@@ -234,6 +259,17 @@ func _process(delta: float) -> void:
 		lamp.material_override = lm
 	_flap_kick = maxf(0.0, _flap_kick - delta * 6.0)
 	(points["Pivot_Flap"] as Node3D).rotation.x = -_flap_kick * 0.35
+	_thump = maxf(0.0, _thump - delta * 7.0)
+	if model != null:
+		model.position.y = -0.012 * _thump                    # the whole housing jolts down a hair on each crush
+	if fill != null and fill.visible:
+		fill.scale = fill.scale.lerp(_fill_target, clampf(delta * 7.0, 0.0, 1.0))      # the heap rises and sinks smoothly with the queue
+	_check_intake(delta)
+	_float_cd = maxf(0.0, _float_cd - delta)
+	if _float_acc > 0 and _float_cd <= 0.0:
+		_float_cd = 0.5
+		_show_float(_float_acc)
+		_float_acc = 0
 	_burst_t -= delta
 	if _burst_t <= 0.0 and not _pending.is_empty():
 		_flush()
@@ -243,6 +279,12 @@ func _process(delta: float) -> void:
 		_disp_t = 0.2
 		_refresh_display()
 		_refresh_fill()
+
+## One sale burst, in the order the machine really works: (1) rock leaves the heap and is swallowed by the throat, (2) the ram thumps and the housing clunks while it is
+## crushed and appraised, (3) the payout slot pushes out the money: bills slide out and drop into the tray, coins ring, the amount floats up. Each stage follows the
+## one before it (never at the same moment), so the eye can follow the rock to the cash.
+const SLOT := Vector3(0.0, 0.64, -0.9)           ## the payout slot in the front of the housing
+const TRAY := Vector3(0.0, 0.5, -1.0)            ## where bills and coins land
 
 func _flush() -> void:
 	var units := 0
@@ -258,26 +300,64 @@ func _flush() -> void:
 	_pending.clear()
 	if units <= 0:
 		return
-	# rocks falling into the funnel (a few per burst, never one per unit)
-	var rocks := mini(units, 5)
-	for k in range(rocks):
-		_drop_rock(main_res, 0.07 * float(k))
-	# sound: a clunk then a coin, a little different every time
+	for k in range(mini(units, 3)):                                  # 1. rock goes down the throat
+		_swallow_rock(main_res, 0.06 * float(k))
+	_after(0.22, _thump_sound.bind(units))                           # 2. the crush: ram, housing and a clunk
+	_after(0.44, _payout.bind(units, money))                         # 3. the money comes out of the slot
+
+func _after(t: float, f: Callable) -> void:
+	if not is_inside_tree():
+		return
+	get_tree().create_timer(t).timeout.connect(func():
+		if is_instance_valid(self) and is_inside_tree():
+			f.call())
+
+func _thump_sound(units: int) -> void:
+	_thump = 1.0
+	_flap_kick = 1.0
 	if audio != null:
-		var s: AudioStream = clunk_streams[_rng.randi() % clunk_streams.size()]
-		audio.stream = s
+		audio.stream = clunk_streams[_rng.randi() % clunk_streams.size()]
 		audio.pitch_scale = _rng.randf_range(0.82, 1.12) * (1.0 - minf(0.2, float(units) * 0.01))
 		audio.volume_db = -3.0 + minf(5.0, float(units) * 0.6)
 		audio.play()
-		get_tree().create_timer(0.09 + _rng.randf() * 0.05).timeout.connect(_coin_sound.bind(units))
-	_float_text(money, units)
-	_coin_burst(units)
 
-## A few gold coins pop out of the front tray and settle on it (never one per unit).
+func _payout(units: int, money: int) -> void:
+	_bills(units)
+	_coin_burst(units)
+	_after(0.06, _coin_sound.bind(units))
+	_float_text(money, units)
+
+## Paper money slides out of the slot (flat, toward the viewer), tips over the chute and settles in the tray; a few at a time.
+func _bills(units: int) -> void:
+	var n := clampi(1 + units / 8, 1, 4)
+	for k in range(n):
+		var bill := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(0.2, 0.008, 0.1)
+		bill.mesh = bm
+		var m := StandardMaterial3D.new()
+		m.albedo_color = Color(0.50, 0.76, 0.46)
+		m.roughness = 0.9
+		bill.material_override = m
+		var sx := _rng.randf_range(-0.12, 0.12)
+		bill.position = SLOT + Vector3(sx, 0.0, 0.06)
+		bill.rotation = Vector3(0.0, _rng.randf_range(-0.12, 0.12), 0.0)
+		add_child(bill)
+		var rest := TRAY + Vector3(sx + _rng.randf_range(-0.1, 0.1), 0.02 * float(k), _rng.randf_range(-0.02, 0.04))
+		var tw := create_tween()
+		tw.tween_interval(0.09 * float(k))
+		tw.tween_property(bill, "position", SLOT + Vector3(sx, 0.0, -0.16), 0.17).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tw.tween_property(bill, "position", rest, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tw.parallel().tween_property(bill, "rotation", Vector3(0.0, bill.rotation.y + _rng.randf_range(-0.4, 0.4), 0.0), 0.16)
+		tw.tween_interval(0.9)
+		tw.tween_property(bill, "scale", Vector3.ZERO, 0.2)
+		tw.tween_callback(bill.queue_free)
+
+## A few gold coins drop out of the slot, clink down the chute and settle in the tray (never one per unit).
 func _coin_burst(units: int) -> void:
 	if model == null:
 		return
-	var n := mini(units, 6)
+	var n := mini(units, 5)
 	for k in range(n):
 		var coin := MeshInstance3D.new()
 		var cm := CylinderMesh.new()
@@ -292,18 +372,18 @@ func _coin_burst(units: int) -> void:
 		m.emission = Color(1.0, 0.75, 0.2)
 		m.emission_energy_multiplier = 0.5
 		coin.material_override = m
-		var x0 := _rng.randf_range(-0.3, 0.3)
-		coin.position = Vector3(x0, 0.5, -1.0)
+		var x0 := _rng.randf_range(-0.2, 0.2)
+		coin.position = SLOT + Vector3(x0, 0.0, 0.0)
 		coin.rotation = Vector3(_rng.randf() * 3.0, 0.0, _rng.randf() * 3.0)
 		add_child(coin)
-		var land := Vector3(x0 + _rng.randf_range(-0.15, 0.15), 0.45, -1.0 - _rng.randf_range(0.0, 0.08))
-		var apex := Vector3((coin.position.x + land.x) * 0.5, 0.95 + _rng.randf() * 0.25, -1.1)
+		var land := TRAY + Vector3(x0 + _rng.randf_range(-0.1, 0.1), 0.0, _rng.randf_range(0.0, 0.05))
+		var apex := Vector3((coin.position.x + land.x) * 0.5, SLOT.y + 0.1 + _rng.randf() * 0.1, SLOT.z - 0.12)
 		var tw := create_tween()
-		tw.tween_interval(0.03 * float(k))
-		tw.tween_property(coin, "position", apex, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-		tw.tween_property(coin, "position", land, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-		tw.parallel().tween_property(coin, "rotation", coin.rotation + Vector3(6.0, 0.0, 4.0), 0.34)
-		tw.tween_interval(0.5)
+		tw.tween_interval(0.05 * float(k))
+		tw.tween_property(coin, "position", apex, 0.1).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tw.tween_property(coin, "position", land, 0.14).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tw.parallel().tween_property(coin, "rotation", coin.rotation + Vector3(6.0, 0.0, 4.0), 0.24)
+		tw.tween_interval(0.7)
 		tw.tween_property(coin, "scale", Vector3.ZERO, 0.2)
 		tw.tween_callback(coin.queue_free)
 
@@ -321,30 +401,63 @@ func _coin_sound(units: int) -> void:
 	p.finished.connect(p.queue_free)
 	p.play()
 
+## Material arriving (a deposit, a belt, a crate): rock tumbles from above into the funnel and lands on the heap (which grows with the queue).
 func _drop_rock(res: String, delay: float) -> void:
+	var rock := _make_rock(res)
+	var spawn: Node3D = points["Attach_RockSpawn"]
+	rock.position = spawn.position + Vector3(_rng.randf_range(-0.3, 0.3), 0.0, _rng.randf_range(-0.3, 0.3))
+	rock.visible = false
+	var funnel: Node3D = points["Attach_InputFunnel"]
+	var end := funnel.position + Vector3(_rng.randf_range(-0.2, 0.2), 0.62, _rng.randf_range(-0.2, 0.2))      # lands on the heap
+	var t := create_tween()
+	t.tween_interval(delay)
+	t.tween_callback(func(): rock.visible = true)
+	t.tween_property(rock, "position", end, _rng.randf_range(0.28, 0.4)).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	t.parallel().tween_property(rock, "rotation", rock.rotation + Vector3(2.0, 1.0, 1.5), 0.35)
+	t.tween_property(rock, "scale", Vector3.ZERO, 0.12)
+	t.tween_callback(rock.queue_free)
+
+## Selling: a rock rolls off the heap and is drawn down the throat (it shrinks as it goes), inside the funnel's mouth.
+func _swallow_rock(res: String, delay: float) -> void:
+	var rock := _make_rock(res)
+	var funnel: Node3D = points["Attach_InputFunnel"]
+	rock.position = funnel.position + Vector3(_rng.randf_range(-0.25, 0.25), 0.55, _rng.randf_range(-0.25, 0.25))
+	rock.visible = false
+	var throat := funnel.position + Vector3(0.0, 0.1, 0.0)
+	var t := create_tween()
+	t.tween_interval(delay)
+	t.tween_callback(func(): rock.visible = true)
+	t.tween_property(rock, "position", throat, 0.2).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	t.parallel().tween_property(rock, "scale", Vector3.ONE * 0.25, 0.2)
+	t.tween_callback(rock.queue_free)
+
+func _make_rock(res: String) -> MeshInstance3D:
 	var rock := MeshInstance3D.new()
 	var bm := BoxMesh.new()
 	var sz := _rng.randf_range(0.14, 0.26)
 	bm.size = Vector3(sz, sz * 0.8, sz)
 	rock.mesh = bm
 	rock.material_override = _rock_mat(res)
-	var spawn: Node3D = points["Attach_RockSpawn"]
-	var start := spawn.position + Vector3(_rng.randf_range(-0.3, 0.3), 0.0, _rng.randf_range(-0.3, 0.3))
-	rock.position = start
 	rock.rotation = Vector3(_rng.randf(), _rng.randf(), _rng.randf()) * 3.0
-	rock.visible = false
 	add_child(rock)
-	var funnel: Node3D = points["Attach_InputFunnel"]
-	var end := funnel.position + Vector3(_rng.randf_range(-0.1, 0.1), -0.3, _rng.randf_range(-0.1, 0.1))
-	var t := create_tween()
-	t.tween_interval(delay)
-	t.tween_callback(func(): rock.visible = true)
-	t.tween_property(rock, "position", end, _rng.randf_range(0.28, 0.4)).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	t.parallel().tween_property(rock, "rotation", rock.rotation + Vector3(2.0, 1.0, 1.5), 0.35)
-	t.tween_callback(rock.queue_free)
+	return rock
 
+var _float_acc := 0
+var _float_cd := 0.0
+
+## The amount rises from the tray. A fast hopper pays out many times a second: the amounts are added up and shown about twice a second, so the number reads.
 func _float_text(money: int, units: int) -> void:
-	if _live_floats >= 6 or money <= 0:
+	if money <= 0:
+		return
+	_float_acc += money
+	if _float_cd > 0.0:
+		return
+	_float_cd = 0.5
+	_show_float(_float_acc)
+	_float_acc = 0
+
+func _show_float(money: int) -> void:
+	if _live_floats >= 4 or money <= 0:
 		return
 	_live_floats += 1
 	var l := Label3D.new()
@@ -356,7 +469,7 @@ func _float_text(money: int, units: int) -> void:
 	l.no_depth_test = true
 	l.modulate = Color(0.45, 1.0, 0.45) if money < 50 else Color(1.0, 0.82, 0.25)        # green, amber for a big burst
 	l.outline_modulate = Color(0.04, 0.12, 0.04) if money < 50 else Color(0.25, 0.14, 0.0)
-	l.position = (points["Attach_FloatText"] as Node3D).position + Vector3(_rng.randf_range(-0.35, 0.35), 0.0, _rng.randf_range(-0.2, 0.2))
+	l.position = TRAY + Vector3(_rng.randf_range(-0.15, 0.15), 0.35, -0.15)
 	add_child(l)
 	var t := create_tween()
 	t.tween_property(l, "position:y", l.position.y + 1.2, 1.1).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
@@ -384,7 +497,7 @@ func _refresh_fill() -> void:
 	fill.visible = q > 0
 	if q > 0:
 		var ratio := clampf(float(q) / float(b.output_capacity_of(index)), 0.08, 1.0)
-		fill.scale = Vector3(0.5 + 0.5 * ratio, 0.4 + 1.0 * ratio, 0.5 + 0.5 * ratio)
+		_fill_target = Vector3(0.5 + 0.5 * ratio, 0.4 + 1.0 * ratio, 0.5 + 0.5 * ratio)
 		var cur: String = b.cash_current(index)
 		if cur == "":
 			for res in b.SELL_ORDER:
