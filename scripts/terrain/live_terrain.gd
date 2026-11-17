@@ -122,6 +122,26 @@ func surface_formation(x: float, z: float) -> Array:
 			out = [id, col]
 	return out
 
+## Where a machine should bite a column: the highest ground inside its footprint (nearest to `from` among equals), so the column is taken down evenly from the top instead of a
+## well being sunk in its middle. A point in world space on the ground.
+func highest_point(fid: String, col: int, from: Vector3) -> Vector3:
+	var c: Vector3 = prog.column_pos(fid, col)
+	var half := float(prog.fdef(fid)["cell"]) * 0.5 - QuarryTerrain.CELL * 0.5
+	var best := Vector3(c.x, -INF, c.z)
+	var best_d := INF
+	var x := c.x - half
+	while x <= c.x + half + 0.001:
+		var z := c.z - half
+		while z <= c.z + half + 0.001:
+			var h := terrain.height_at(x, z)
+			var d := Vector2(x - from.x, z - from.z).length()
+			if h > best.y + 0.02 or (absf(h - best.y) <= 0.02 and d < best_d):
+				best = Vector3(x, h, z)
+				best_d = d
+			z += QuarryTerrain.CELL * 2.0
+		x += QuarryTerrain.CELL * 2.0
+	return best
+
 ## After the ground has been dug by hand: every column whose footprint now lies a whole tier (or more) below its top gives that tier up in the bookkeeping, so crews, machines,
 ## contracts and the production overview see what was dug. (The ground itself is never raised by this: refresh_column only ever lowers.) Returns the tiers removed.
 func settle_columns(point: Vector3, radius: float) -> int:

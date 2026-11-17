@@ -117,6 +117,7 @@ func run() -> void:
 	game.curfew_enabled = false
 	game.introductions_enabled = false
 	root.add_child(game)
+	game.business.starter_feed = false          # the starter box would sell this scenario's storage stock while it runs
 	await process_frame
 	await frames(6)
 	if game.walter_dialog:

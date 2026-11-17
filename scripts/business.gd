@@ -313,14 +313,15 @@ func record_units(e: Dictionary, n: int) -> void:
 func current_day() -> int:
 	return int(floor(state.clock_minutes / 1440.0))
 
-## The starter box (the storage crate) empties into Grandpa's Cash Hopper by itself, dearest material first, at STARTER_FEED_RATE units a second while the hopper has room.
+## The starter box (the storage crate) empties its loose dirt (topsoil, gravel) into Grandpa's Cash Hopper by itself, dearest first, at STARTER_FEED_RATE units a second while the hopper has room.
 ## Dump a bucket in the box and it is sold; the crate can still be emptied by hand from its menu.
 const STARTER_FEED_RATE := 12.0
+const STARTER_FEED_KINDS := ["gravel", "topsoil"]         # the loose dirt you dig; the box feeds the hopper with it
 var starter_feed := true
 var _feed_acc := 0.0
 
 func tick_starter_feed(seconds: float) -> void:
-	if not starter_feed or state.total(state.storage) <= 0:
+	if not starter_feed or int(state.storage.get("topsoil", 0)) + int(state.storage.get("gravel", 0)) <= 0:
 		_feed_acc = 0.0
 		return
 	var hs := cash_hopper_indices()
@@ -331,13 +332,15 @@ func tick_starter_feed(seconds: float) -> void:
 	for res in SELL_ORDER:
 		if _feed_acc < 1.0:
 			break
+		if not STARTER_FEED_KINDS.has(res):
+			continue                      # stone, coal and ore stay in the crate for the crusher chain and the haulers
 		var n := mini(mini(int(_feed_acc), int(state.storage.get(res, 0))), ep_space(ep, res))
 		if n <= 0:
 			continue
 		state.storage[res] = int(state.storage[res]) - n
 		ep_put(ep, res, n, false)
 		_feed_acc -= float(n)
-	if state.total(state.storage) <= 0:
+	if int(state.storage.get("topsoil", 0)) + int(state.storage.get("gravel", 0)) <= 0:
 		_feed_acc = 0.0
 
 ## Advance business time. Payroll is evaluated once per whole in-game minute,

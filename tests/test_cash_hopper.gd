@@ -226,6 +226,7 @@ func run() -> void:
 	g2._create_output(hs2)
 	biz.compute_links()
 	check(str(biz.links[sbelt]["dst"].get("type", "")) == "output" and str(biz.links[sbelt]["resource"]) == "auto", "a belt from the crate to a Cash Hopper carries whatever the crate holds")
+	biz.starter_feed = false                      # this scenario is about the belt the player built: the starter box's own automatic feed is off here
 	var crate_before := {"gold_ore": 6, "limestone": 9}
 	st.storage["gold_ore"] = 6
 	st.storage["limestone"] = 9

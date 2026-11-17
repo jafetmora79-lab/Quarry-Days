@@ -5683,6 +5683,9 @@ func _excavator_dig(v: QuarryVehicle, delta: float) -> void:
 		v.digging = false
 		_notify(block)
 		return
+	if live_terrain != null and live_terrain.terrain != null and live_terrain.geo._formations.has(kind):
+		_excavator_dig_terrain(v, t, delta)                  # the bucket bites the real ground
+		return
 	var ex := prog.extract(kind, col, float(s.get("dig_dps", 10.0)) * delta, room, "excavator")
 	var n := int(ex["units"])
 	var node: QuarryFormation = t["node"]
@@ -5701,6 +5704,53 @@ func _excavator_dig(v: QuarryVehicle, delta: float) -> void:
 		node.refresh()
 	else:
 		node.update_label()
+
+var _veh_rem := {}                 ## vehicle id -> {resource -> fractional units left over from volume -> unit conversion}
+
+## The excavator's bucket on the live terrain: it bites the highest ground inside the column it is working, takes what its hardness allows (at most what the bucket has room for),
+## and the volume becomes cargo units with a carried remainder (nothing created or lost). The bookkeeping follows (settle_columns).
+func _excavator_dig_terrain(v: QuarryVehicle, t: Dictionary, delta: float) -> void:
+	var s: Dictionary = fleet.spec(v.vtype)
+	var rec := fleet.vehicle(v.vehicle_id)
+	var lt := live_terrain
+	var kind: String = t["kind"]
+	var col: int = t["col"]
+	var pt := lt.highest_point(kind, col, v.global_position)
+	v.dig_aim = pt
+	var room := fleet.space(rec)
+	if room <= 0:
+		v.digging = false
+		_notify("The bucket is full. Right click to dump it into a truck or on the spoil heap.")
+		return
+	var mat_id := lt.terrain.material_at_point(pt)
+	var props: Dictionary = lt.geo.props(mat_id)
+	var hp := float(prog.material(str(props["resource"])).get("hp", 10))
+	var units := minf(float(s.get("dig_dps", 10.0)) * delta / hp, float(room))
+	var res: Dictionary = lt.terrain.dig(pt, 1.0, 0.45, units / float(props.get("units_per_m3", 5.0)), int(s.get("dig_hardness", 1)), "scoop")
+	if str(res["blocked_by"]) != "" and float(res["volume"]) <= 0.00001:
+		v.digging = false
+		dig_audio.play("blocked", str(res["blocked_by"]), pt, 1.0)
+		_notify("The %s cannot break %s. A bigger machine or a drilling rig is needed." % [str(s["title"]).to_lower(), prog.display(str(lt.geo.props(str(res["blocked_by"]))["resource"]))])
+		return
+	var rem: Dictionary = _veh_rem.get(v.vehicle_id, {})
+	for id in res["taken"]:
+		var pr: Dictionary = lt.geo.props(str(id))
+		var r := str(pr["resource"])
+		var f := float(res["taken"][id]) * float(pr.get("units_per_m3", 5.0)) + float(rem.get(r, 0.0))
+		var n := int(floor(f))
+		rem[r] = f - float(n)
+		if n > 0:
+			var put := fleet.add_cargo(rec, r, n, prog.area_of_formation(kind))
+			rem[r] = float(rem[r]) + float(n - put)
+			prog.area_add(prog.area_of_formation(kind), "recovered", put)
+	_veh_rem[v.vehicle_id] = rem
+	if float(res["volume"]) > 0.0 and power_feedback_t <= 0.0:
+		power_feedback_t = 0.18
+		fx.impact(pt, str(props["resource"]), 0.9)
+		dig_audio.play("dig", mat_id, pt, 1.4)
+	if float(res["volume"]) > 0.0:
+		lt.settle_columns(pt, 1.0)
+		nav_dirty = true
 
 ## Phase 10.3: mineral pockets buried in a formation. When the block holding one is cut away, the pocket falls out: its
 ## minerals go in the bag (hand tools) or the bucket (excavator); crew and the companion leave them at the foot of the face.

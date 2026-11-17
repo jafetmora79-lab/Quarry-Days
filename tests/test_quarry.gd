@@ -17,12 +17,12 @@ func _initialize() -> void:
 func run_tests() -> void:
 	var cfg = JSON.parse_string(FileAccess.get_file_as_string("res://data/economy.json"))
 	var s := QuarryState.new(cfg)
-	check(s.money == 100 and s.capacity() == 18,"initial balance and weight capacity")
+	check(s.money == 100 and s.bucket_capacity() == 18 and s.capacity() == 18 * QuarryState.BUCKET_STACK,"initial balance and bucket capacity (a bucket holds 18; buckets stack)")
 	check(s.add_item("limestone",4)==4 and s.total(s.inventory)==4,"mining pickup enters inventory")
 	check(s.sell("limestone",2)==2 and s.money==106 and s.inventory["limestone"]==2,"selling removes exactly two and pays $6")
 	check(s.buy_upgrade("reinforced_pickaxe") and s.required_hits()==2,"reinforced pickaxe changes hits")
 	s.money += 100
-	check(s.buy_upgrade("larger_backpack") and s.capacity()==34,"backpack expands capacity")
+	check(s.buy_upgrade("larger_backpack") and s.bucket_capacity()==34,"the bigger backpack makes every bucket bigger")
 	check(not s.buy_upgrade("larger_backpack"),"upgrade cannot charge twice")
 	check(s.deposit_item("limestone",2)==2 and s.withdraw_item("limestone",1)==1,"storage transfer preserves quantities")
 	var s2 := QuarryState.new(cfg)
