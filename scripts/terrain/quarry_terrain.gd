@@ -33,6 +33,7 @@ var chunk_nodes := {}
 var dirty_chunks := {}
 var dirty_coll := {}
 var active := {}
+var view_distance := 190.0               ## chunks beyond this distance from the camera are culled
 var rebuilt_chunks := 0                  ## statistics for tests
 var refreshed_shapes := 0
 var material: ShaderMaterial
@@ -89,6 +90,8 @@ func setup(world_rect: Rect2, geology: QuarryGeology, natural_fn := Callable()) 
 			mi.mesh = ArrayMesh.new()
 			mi.material_override = material
 			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			mi.visibility_range_end = view_distance                 # far chunks are not drawn: the 244 m plain costs what is in front of you
+			mi.visibility_range_end_margin = 12.0
 			add_child(mi)
 			chunk_nodes[Vector2i(cx, cz)] = mi
 			dirty_chunks[Vector2i(cx, cz)] = true
@@ -454,6 +457,7 @@ func _dirty_vertex(i: int, j: int) -> void:
 				var cj: int = b / CHUNK
 				if ci < cols / CHUNK and cj < rows / CHUNK:
 					dirty_chunks[Vector2i(ci, cj)] = true
+					_nav_stale[Vector2i(ci, cj)] = true
 				var ki: int = a / CCHUNK
 				var kj: int = b / CCHUNK
 				if ki < cols / CCHUNK and kj < rows / CCHUNK:
@@ -586,6 +590,44 @@ func _update_shape(key: Vector2i) -> void:
 			data[z * w + x] = vheight(idx(key.x * CCHUNK + x, key.y * CCHUNK + z))
 	(coll_shapes[key] as HeightMapShape3D).map_data = data
 	refreshed_shapes += 1
+
+# ------------------------------------------------------------------ navigation
+
+const NAV_STEP := 2                               ## the navigation surface samples every 2nd vertex (1 m): the agents are 1 m wide
+var _nav_cache := {}                              ## chunk -> PackedVector3Array of its triangles (rebuilt only when the chunk changed)
+var _nav_stale := {}
+
+## Adds the terrain's walkable surface to a navigation bake: one cached triangle list per chunk, only the changed chunks are rebuilt, so collecting costs a few milliseconds.
+## Returns how many chunks were added.
+func collect_nav(src: NavigationMeshSourceGeometryData3D) -> int:
+	var n := 0
+	for key in chunk_nodes.keys():
+		if _nav_stale.has(key) or not _nav_cache.has(key):
+			_nav_cache[key] = _nav_faces(key.x, key.y)
+			_nav_stale.erase(key)
+		src.add_faces(_nav_cache[key], Transform3D.IDENTITY)
+		n += 1
+	return n
+
+func _nav_faces(cx: int, cz: int) -> PackedVector3Array:
+	var out := PackedVector3Array()
+	for z in range(0, CHUNK, NAV_STEP):
+		for x in range(0, CHUNK, NAV_STEP):
+			var i := cx * CHUNK + x
+			var j := cz * CHUNK + z
+			var i2 := mini(i + NAV_STEP, cols)
+			var j2 := mini(j + NAV_STEP, rows)
+			var a := vertex_pos(i, j)
+			var b := vertex_pos(i2, j)
+			var c := vertex_pos(i2, j2)
+			var d := vertex_pos(i, j2)
+			out.append(a)
+			out.append(b)
+			out.append(c)
+			out.append(a)
+			out.append(c)
+			out.append(d)
+	return out
 
 ## Applies pending changes: slump a little, rebuild a few chunks, refresh dirty collision blocks at about 15 Hz. `force` does everything now (tests, start-up).
 func flush(force := false) -> void:

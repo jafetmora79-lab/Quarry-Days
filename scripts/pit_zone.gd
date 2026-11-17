@@ -769,8 +769,12 @@ func _collect_sources() -> NavigationMeshSourceGeometryData3D:
 			if c is CollisionShape3D and c.shape is BoxShape3D:
 				src.add_faces(game._box_faces((c.shape as BoxShape3D).size), b.global_transform * c.transform)
 	var n := 0
+	var on_terrain: Array = []
+	if game.get("live_terrain") != null and game.live_terrain.terrain != null:
+		n += game.live_terrain.terrain.collect_nav(src)                 # the real ground: workers walk on the heightfield, not on the column boxes under it
+		on_terrain = game.live_terrain.geo._formations
 	for f in formations:
-		if not is_instance_valid(f):
+		if not is_instance_valid(f) or on_terrain.has(f.fid):
 			continue
 		for c in f.get_children():
 			if c is CollisionShape3D and c.has_meta("column") and not c.disabled and game.prog.column_walkable(f.fid, int(c.get_meta("column"))):
