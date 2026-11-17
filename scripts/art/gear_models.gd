@@ -31,7 +31,7 @@ const POSE := {
 		"hands": [["R", Vector3(0, 0.05, 0)], ["L", Vector3(0, 0.3, 0.26), Vector3(0, 0, 1)]]},          # the off hand rides the lever arm (its axis is Z)
 	"powered_hammer": {"grip": Vector3(0.28, -0.32, -0.5), "scale": 0.75, "power": true, "rest_rot": Vector3(0.1, 0.2, 0.0), "tip": Vector3(0, 0.12, -0.5), "spin": "pump_z", "amp": 0.012,
 		"hands": [["R", Vector3(0, 0.0, 0.08)], ["L", Vector3(-0.12, 0.12, -0.17), Vector3.RIGHT]]},   # pistol grip, and the side grip on the clamp (axis X)
-	"shovel": {"grip": Vector3(-0.06, -0.34, -0.46), "scale": 1.0, "rest": -0.6, "rest_roll": -0.5, "twist": 0.0, "yaw": 0.0, "wind": -0.35, "strike": -1.6, "tip": Vector3(0, 0.84, -0.04), "style": "scoop", "impact_p": 0.5,
+	"shovel": {"grip": Vector3(-0.06, -0.34, -0.46), "scale": 1.0, "rest": -0.6, "rest_roll": -0.5, "twist": 0.0, "yaw": 0.0, "wind": -0.35, "strike": -1.15, "tip": Vector3(0, 0.84, -0.04), "style": "scoop", "impact_p": 0.5,
 		"hands": [["L", Vector3(0, 0.1, 0)], ["R", Vector3(0, 0.32, 0)]]},                 # the reference pose: the left fist low on the handle, the right fist higher, the blade up and to the right
 	"ramp_plan": {"grip": Vector3(0.28, -0.40, -0.52), "scale": 0.9, "rest": -0.45, "yaw": 0.15, "wind": -0.45, "strike": -0.5, "tip": Vector3(0, 0.5, -0.05), "hands": [["R", Vector3(0, 0.1, 0)]]},
 	"pneumatic_chisel": {"grip": Vector3(0.3, -0.14, -0.5), "scale": 0.75, "power": true, "rest_rot": Vector3(0.0, 0.3, 0.0), "model_pitch": 0.8, "tip": Vector3(0, -0.62, 0), "spin": "pump_y", "amp": 0.012,
