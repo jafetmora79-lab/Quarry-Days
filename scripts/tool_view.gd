@@ -37,9 +37,9 @@ var suppressed := false     ## the game keeps the tool out of sight (at the comp
 ## `tip` is the working point in model space: the pick point, the hammer face, the bit or chisel end.
 ## Power tools use `rest_rot` (euler) to aim their working end at the crosshair, and `model_pitch` leans the whole model.
 const TOOL := {
-	0: {"grip": Vector3(0.30, -0.42, -0.55), "scale": 0.8, "rest": -0.75, "yaw": 0.2, "wind": 0.0, "strike": -1.35, "follow": 0.025, "roll": 0.06, "lunge": 0.55, "kick": 0.5, "tip": Vector3(0, 0.36, -0.1)},        # the hammer: a short, compact, controlled blow
-	1: {"grip": Vector3(0.30, -0.42, -0.55), "scale": 0.8, "rest": -0.75, "yaw": 0.2, "wind": 0.2, "lift": 0.03, "strike": -1.35, "follow": 0.11, "roll": 0.24, "lunge": 1.15, "kick": 1.0, "tip": Vector3(0, 0.48, -0.27)},    # the pickaxe: a higher overhead arc with a follow-through
-	2: {"grip": Vector3(0.30, -0.42, -0.55), "scale": 0.75, "rest": -0.75, "yaw": 0.2, "wind": 0.3, "lift": 0.05, "strike": -1.35, "follow": 0.13, "roll": 0.26, "lunge": 1.2, "kick": 1.15, "tip": Vector3(0, 0.52, -0.32)},    # reinforced: the heaviest wind-up
+	0: {"rest_roll": -0.25, "grip": Vector3(0.18, -0.42, -0.55), "scale": 0.8, "rest": -0.75, "yaw": 0.2, "wind": 0.0, "strike": -1.35, "follow": 0.025, "roll": 0.06, "lunge": 0.55, "kick": 0.5, "tip": Vector3(0, 0.36, -0.1)},        # the hammer: a short, compact, controlled blow
+	1: {"rest_roll": -0.3, "grip": Vector3(0.14, -0.42, -0.55), "scale": 0.8, "rest": -0.75, "yaw": 0.2, "wind": 0.2, "lift": 0.03, "strike": -1.35, "follow": 0.11, "roll": 0.24, "lunge": 1.15, "kick": 1.0, "tip": Vector3(0, 0.48, -0.27)},    # the pickaxe: a higher overhead arc with a follow-through
+	2: {"rest_roll": -0.3, "grip": Vector3(0.14, -0.42, -0.55), "scale": 0.75, "rest": -0.75, "yaw": 0.2, "wind": 0.3, "lift": 0.05, "strike": -1.35, "follow": 0.13, "roll": 0.26, "lunge": 1.2, "kick": 1.15, "tip": Vector3(0, 0.52, -0.32)},    # reinforced: the heaviest wind-up
 	3: {"grip": Vector3(0.28, -0.3, -0.5), "scale": 0.7, "power": true, "spin": "rotate", "amp": 0.006, "rest_rot": Vector3(0.12, 0.2, 0.0), "tip": Vector3(0, 0.12, -0.54)},
 	4: {"grip": Vector3(0.3, -0.12, -0.5), "scale": 0.7, "power": true, "spin": "pump_y", "amp": 0.014, "rest_rot": Vector3(0.0, 0.3, 0.0), "model_pitch": 0.8, "tip": Vector3(0, -0.61, 0)},
 }
@@ -133,6 +133,7 @@ func _process(delta: float) -> void:
 	if not is_power:
 		rot.x = rest
 		rot.y = float(def.get("yaw", 0.0))
+		rot.z = float(def.get("rest_roll", 0.0))                      # the handle leans toward the middle of the screen (the reference pose)
 		if phase >= 0.0:
 			phase += delta / duration
 			var p := phase
@@ -187,7 +188,7 @@ func _process(delta: float) -> void:
 					on_impact.call()
 			rot.x = ang
 			rot.y = float(def.get("yaw", 0.0)) * (1.0 - 0.7 * weight)
-			rot.z = float(def.get("roll", 0.2)) * sin(clampf(p, 0.0, 1.0) * PI)
+			rot.z = float(def.get("rest_roll", 0.0)) + float(def.get("roll", 0.2)) * sin(clampf(p, 0.0, 1.0) * PI)
 			if phase >= 1.0:
 				phase = -1.0
 	else:
@@ -270,6 +271,7 @@ func _build(t: int, with_hands := true) -> Node3D:
 	if bm != null:                                 # the Blender-built model of this tool (tools/tool_models/build_tools.py)
 		if t == 4 or GearModels.id_of(t) == "pneumatic_chisel":
 			bm.rotation.x = float(_def(t).get("model_pitch", 0.0))      # the jackhammers lean forward so the chisel points down-range at the rock
+		bm.rotation.y = float(_def(t).get("twist", 0.0))                # a twist about the handle (the shovel shows the face of its blade)
 		if with_hands:
 			_add_hands(bm, t)
 		if GearModels.id_of(t) in ["pointed_chisel", "flat_chisel"]:
@@ -362,12 +364,12 @@ func _build(t: int, with_hands := true) -> Node3D:
 ## the screen edge (camera space, -Z is forward). Hands and sleeves are children of the model, so they swing, bob and
 ## vibrate with it and the tool is always visibly held. Single grip on the hammer; two hands on the pickaxes, the drill
 ## (pistol grip + body) and the jackhammer (T-handle).
-const HAND_R_DIR := Vector3(0.80, -0.55, 0.12)
-const HAND_L_DIR := Vector3(-0.80, -0.55, 0.12)
+const HAND_R_DIR := Vector3(0.62, -0.74, 0.12)
+const HAND_L_DIR := Vector3(-0.62, -0.74, 0.12)
 const HANDS := {
 	0: [["R", Vector3(0, 0.15, 0)]],
-	1: [["R", Vector3(0, 0.17, 0)], ["L", Vector3(0, 0.37, 0)]],
-	2: [["R", Vector3(0, 0.20, 0)], ["L", Vector3(0, 0.41, 0)]],
+	1: [["L", Vector3(0, 0.17, 0)], ["R", Vector3(0, 0.37, 0)]],
+	2: [["L", Vector3(0, 0.20, 0)], ["R", Vector3(0, 0.41, 0)]],
 	3: [["R", Vector3(0, 0.0, 0.05)], ["L", Vector3(-0.12, 0.07, -0.12), Vector3.RIGHT]],      # pistol grip; the side handle runs along X
 	4: [["R", Vector3(0.15, 0.0, 0), Vector3.RIGHT], ["L", Vector3(-0.15, 0.0, 0), Vector3.RIGHT]],   # the T-handle grips run along X
 }
@@ -378,8 +380,8 @@ const BAND := Color(0.86, 0.86, 0.78)          # reflective cuff band
 
 func _hand_frame(t: int) -> Array:
 	var def: Dictionary = _def(t)
-	var pivot_b := Basis.from_euler(def["rest_rot"]) if bool(def.get("power", false)) else Basis.from_euler(Vector3(float(def.get("rest", 0.0)), float(def.get("yaw", 0.0)), 0.0))
-	var model_b := Basis.from_euler(Vector3(float(def.get("model_pitch", 0.0)), 0.0, 0.0))
+	var pivot_b := Basis.from_euler(def["rest_rot"]) if bool(def.get("power", false)) else Basis.from_euler(Vector3(float(def.get("rest", 0.0)), float(def.get("yaw", 0.0)), float(def.get("rest_roll", 0.0))))
+	var model_b := Basis.from_euler(Vector3(float(def.get("model_pitch", 0.0)), float(def.get("twist", 0.0)), 0.0))
 	return [(pivot_b * model_b).inverse(), 1.0 / float(def.get("scale", 1.0))]
 
 func _add_hands(n: Node3D, t: int) -> void:
