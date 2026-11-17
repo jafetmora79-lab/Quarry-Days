@@ -209,6 +209,74 @@ func refresh_column(fid: String, col: int) -> void:
 				terrain._dirty_vertex(i, j)
 	synced_columns += 1
 
+## Puts the ground back to what the formations' bookkeeping says (nothing dug by hand, no loose material), for loading a save: the columns lower it again, then restore() of a
+## terrain snapshot (if the save has one) brings back everything that was dug and heaped on top of that.
+func reset_from_columns() -> void:
+	if terrain == null:
+		return
+	for k in range(terrain.V * terrain.VR):
+		terrain.dug[k] = 0.0
+		terrain.lsum[k] = 0.0
+		for m in range(QuarryTerrain.MAX_MATS):
+			terrain.loose[m][k] = 0.0
+	for id in geo._formations:
+		for i in range(prog.column_count(id)):
+			if prog.chunks_left(id, i) < prog.column_tiers(id, i):
+				refresh_column(id, i)
+	terrain.active.clear()
+	for key in terrain.chunk_nodes.keys():
+		terrain.dirty_chunks[key] = true
+	for key in terrain.coll_shapes.keys():
+		terrain.dirty_coll[key] = true
+	terrain.flush(true)
+
+const STRUCTURE_KINDS := ["crusher", "output", "conveyor", "storage", "sell", "upgrades", "rig", "shop", "office"]
+var _struct_sig := ""
+var locked_structures := 0
+
+## Locks the ground under every placed structure (crushers, output storages and the Cash Hopper, belts, the storage box, rigs) plus a 1 m margin, and unlocks it again when the
+## structure is sold or moved. Cheap when nothing changed (it compares the footprints); called whenever the navigation is rebuilt, which is exactly when structures change.
+func lock_structures() -> void:
+	if terrain == null:
+		return
+	var rects: Array = []
+	var sig := ""
+	for body in game.world.get_children():
+		if not body is StaticBody3D or not STRUCTURE_KINDS.has(str(body.get_meta("kind", ""))) or body.is_queued_for_deletion():
+			continue
+		if not terrain.in_bounds(body.global_position.x, body.global_position.z):
+			continue
+		var lo := Vector2(INF, INF)
+		var hi := Vector2(-INF, -INF)
+		for c in body.get_children():
+			if c is CollisionShape3D and c.shape is BoxShape3D:
+				var sz: Vector3 = (c.shape as BoxShape3D).size * 0.5
+				for sx in [-1.0, 1.0]:
+					for sz2 in [-1.0, 1.0]:
+						var w: Vector3 = body.global_transform * (c.transform * Vector3(sx * sz.x, 0.0, sz2 * sz.z))
+						lo = lo.min(Vector2(w.x, w.z))
+						hi = hi.max(Vector2(w.x, w.z))
+		if lo.x == INF:
+			continue
+		var r := Rect2(lo, hi - lo)
+		rects.append(r)
+		sig += "%d,%d,%d,%d;" % [roundi(r.position.x * 4.0), roundi(r.position.y * 4.0), roundi(r.size.x * 4.0), roundi(r.size.y * 4.0)]
+	if sig == _struct_sig:
+		return
+	_struct_sig = sig
+	# base mask: everything locked except the marked excavation, then the footprints on top
+	var dr: Array = prog.dig_rect("q_top")
+	var dig := Rect2(float(dr[0]), float(dr[1]), float(dr[2]) - float(dr[0]), float(dr[3]) - float(dr[1])) if not dr.is_empty() else Rect2(ORIGIN + Vector2(2, 4), SIZE - Vector2(4, 6))
+	for j in range(terrain.VR):
+		var z := terrain.origin.y + float(j) * QuarryTerrain.CELL
+		for i in range(terrain.V):
+			var x := terrain.origin.x + float(i) * QuarryTerrain.CELL
+			var edge := mini(mini(i, terrain.V - 1 - i), mini(j, terrain.VR - 1 - j)) < 4
+			terrain.locked[terrain.idx(i, j)] = 0 if (dig.has_point(Vector2(x, z)) and not edge) else 1
+	for r in rects:
+		terrain.lock_rect(r, 1.0)
+	locked_structures = rects.size()
+
 ## Footprint of a structure: flatten and lock it so nothing digs or slumps under it (and unlock when it is sold or moved).
 func lock_footprint(center: Vector3, half: Vector2) -> void:
 	if terrain == null:

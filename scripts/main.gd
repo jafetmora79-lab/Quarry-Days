@@ -4078,6 +4078,10 @@ func _save(quiet := false) -> void:
 	data["phase2"] = business.snapshot()
 	data["phase3"] = fleet.snapshot()
 	data["phase5"] = prog.snapshot()
+	if live_terrain != null and live_terrain.terrain != null:
+		data["terrain"] = live_terrain.terrain.snapshot()             # only the vertices that were dug or heaped, compressed
+		data["terrain_rem"] = terrain_rem.duplicate()
+		data["veh_rem"] = _veh_rem.duplicate(true)
 	# write to a temporary file first, keep the previous good save as a backup, then swap: a crash or a closed window
 	# in the middle of a save can no longer leave a broken or empty save behind
 	var tmp := SAVE_PATH + ".tmp"
@@ -4238,6 +4242,14 @@ func _load(quiet := false) -> void:
 	_set_expansion(business.expansion_unlocked)
 	excavation.set_open(prog.level_unlocked >= 2)
 	_sync_formations()
+	if live_terrain != null and live_terrain.terrain != null:
+		live_terrain.reset_from_columns()                                  # what the columns say ...
+		var tsnap = data.get("terrain", {})
+		if tsnap is Dictionary and not (tsnap as Dictionary).is_empty():
+			live_terrain.terrain.restore(tsnap)                            # ... plus everything dug and heaped by hand or machine (old saves have none)
+			live_terrain.terrain.flush(true)
+		terrain_rem = (data.get("terrain_rem", {}) as Dictionary).duplicate() if data.get("terrain_rem", {}) is Dictionary else {}
+		_veh_rem = (data.get("veh_rem", {}) as Dictionary).duplicate(true) if data.get("veh_rem", {}) is Dictionary else {}
 	_sync_rigs()
 	for kind in deposit_nodes:
 		_refresh_deposit(kind)
@@ -4414,6 +4426,8 @@ func _box_faces(size: Vector3) -> PackedVector3Array:
 ## deposits, conveyors). Called on start, load and after every placement / expansion.
 func _rebake_nav() -> void:
 	nav_dirty = false
+	if live_terrain != null:
+		live_terrain.lock_structures()                 # what has been built (or sold or moved) decides which ground is locked
 	nav_rebakes += 1
 	var source := NavigationMeshSourceGeometryData3D.new()
 	for body in world.get_children():

@@ -3,41 +3,45 @@
 Branch `claude/quarry-digging-integration` (started from `feature/intro-world-ui-polish`, NOT from the 274-commit-old prototype branch: the quarry has since become a filled
 244 x 92 m plain with 4 m formation columns, excavator, crews, contracts and saves, so the prototype was ported forward instead). Nothing is merged into another branch.
 
-## What exists now (measured by tests)
+## The engine (measured by tests)
 
 | Piece | Where | Tests |
 |---|---|---|
-| Heightfield terrain over any world rectangle, 0.5 m vertices, 16-cell mesh chunks (max 3 rebuilt a frame), **one HeightMapShape3D per 32 x 32-cell block** refreshed only when dirty (~15 Hz) | `scripts/terrain/quarry_terrain.gd` | `tests/test_terrain.gd` |
-| Geology: deterministic `layers_at(x, z)` built from the quarry's own formations (so every resource stays where the quarry puts it), topsoil split into topsoil/clay, plus `default_strata` and all material data in `data/geology.json` | `scripts/terrain/geology.gd` | contiguity, all 8 materials present, surface = topsoil |
-| Per-vertex storage is only `dug` and `loose[material]`; the natural ground is never stored | terrain | snapshot of a dug 64 x 64 field is ~1.7 k characters |
-| **Hardness**: `dig(..., max_hardness, mode)`. Shovel (hardness 0) scoops loose and soft ground and stops at rock with `blocked_by`; pickaxe/hammer **break** hard ground into loose rubble in place (no volume change) which the shovel then scoops | terrain | shovel stops exactly at the limestone surface; pickaxe breaks, shovel scoops; pickaxe cannot break iron+ harder than itself, hammer can |
-| **Volume is conserved**: dig returns exactly what it removed, `deposit` adds exactly what it is given, slumping only moves material, `flatten` (construction) reports its change | terrain | dig/deposit round trip, break+scoop, slump, arena accounting |
-| Locks and footprints: `lock_rect`, `unlock_rect`, `lock_ring`, `flatten` | terrain | locked ground cannot be dug, unlock works |
-| Collision follows the mesh, checked by ray on and beside the block seams | terrain | worst error 7 mm |
-| Save/load: only changed vertices, compressed; old saves have no block and load as untouched ground; loading twice duplicates nothing | `snapshot()` / `restore()` | totals, every loose material, sampled heights |
-| 8-material terrain shader (weights in COLOR/UV/UV2), flat projection on gentle ground, one side projection only on steep faces, materials sampled only where their weight is above a threshold | `assets/shaders/quarry_terrain.gdshader` | compiles (windowed run, no shader errors); **cost is not measured** |
-| Synthesised digging sounds (no recordings): `chink` (blocked), `thud_soil`, `squelch_clay`, `crunch_gravel`, `crack_rock` x3 variants each, `pour_dirt`, `pour_rock`, `scrape_metal` (loop) | `tools/make_sfx.py` -> `audio/dig_*.wav` | all files exist |
-| One audio entry point `DigAudio.play(event, material, pos, intensity)`: 8-player pool, pitch +-6 %, per-event cooldown, event log for tests | `scripts/terrain/dig_audio.gd` | each material plays its own set, blocked plays the chink, a held button is swallowed |
-| On-foot arena over the real terrain (real tool models, hints, particles, volume HUD) | `TerrainArena.tscn`, `scripts/terrain/terrain_arena.gd`, `QuarryDays.exe res://TerrainArena.tscn` (TerrainArena.bat) | `tests/test_terrain_arena.gd` |
+| Heightfield terrain over any world rectangle, 0.5 m vertices, 16-cell mesh chunks (max 3 rebuilt a frame), **one HeightMapShape3D per 32 x 32-cell block** refreshed only when dirty (~15 Hz) | `scripts/terrain/quarry_terrain.gd` | `tests/test_terrain.gd` (40 checks) |
+| Geology: deterministic `layers_at(x, z)` built from the quarry's own formations, topsoil split into topsoil/clay, plus `default_strata` and all material data in `data/geology.json` (hardness, repose, `units_per_m3`, sound set) | `scripts/terrain/geology.gd` | contiguity, all 8 materials present |
+| Per-vertex storage is only `dug` and `loose[material]`; natural ground is never stored | terrain | a dug 64 x 64 field snapshots to ~1.7 k characters |
+| **Hardness**: shovel scoops loose and soft ground and is stopped by rock (`blocked_by`, chink); pickaxe/hammer **break** hard ground into loose rubble in place (no volume change) which a shovel scoops | terrain | `test_terrain.gd` |
+| **Volume is conserved** (dig returns exactly what it removed, deposit adds exactly what it is given, slumping only moves material) | terrain | `test_terrain.gd`, `test_terrain_strike.gd` |
+| Locks and footprints: `lock_rect`, `unlock_rect`, `lock_ring`, `flatten` | terrain | `test_terrain.gd` |
+| 8-material shader (weights in COLOR/UV/UV2), flat projection on gentle ground and one side projection only on steep faces | `assets/shaders/quarry_terrain.gdshader` | compiles; **cost not measured** |
+| Synthesised digging sounds (`tools/make_sfx.py`) and one audio entry point `DigAudio.play(event, material, pos, intensity)` | `scripts/terrain/dig_audio.gd` | each material plays its own set, blocked plays the chink |
+| On-foot arena (`TerrainArena.bat`) | `scripts/terrain/terrain_arena.gd` | `test_terrain_arena.gd` |
 
-## What is NOT done (the live quarry still digs the old way)
+## Integration into the live quarry
 
-The live game (formation columns, excavator, crews, workers, companion, contracts, saves) is untouched. Replacing it is the large remaining job, in the brief's order:
+1. **Terrain as the live ground** (`scripts/terrain/live_terrain.gd`, `tests/test_live_terrain.gd`). The filled quarry's ground is the terrain: people, vehicles and workers walk on it,
+   the topsoil formation's colliders sit on the rays-only layer 32 and their skins are hidden. Only the marked excavation (`dig` rect) is unlocked. The formation columns remain
+   the **bookkeeping**: a cut column lowers the ground under it (border vertices follow the lower column so lanes keep their width; pit-level floors and haul ramps are matched), and
+   a hand-dug column is given up in the bookkeeping when its footprint is a whole tier down (`settle_columns`). Verified by the loaded-truck haul test.
+2. **Player digging** (`main._terrain_strike`, `tests/test_terrain_strike.gd`). Swings dig the terrain: shovel scoops, ground harder than the tool chinks, pickaxe/hammer break rock into
+   rubble (the pick also pulls loose rubble), volume -> units with a carried remainder (`terrain_rem`; nothing created or lost), the dig sound follows the material.
+3. **Buckets instead of a bag** (`scripts/bucket_view.gd`, Blender `bucket`): you start with the pail, carry any number of buckets (18 each; the backpack upgrades make each bucket bigger), the
+   pail in view shows its load, every full bucket slows the walk a little, E at the starter box dumps one bucket (hold E for all), the box holds 100 and shows its contents when aimed at, and
+   it empties its loose dirt into the Cash Hopper by itself (`business.starter_feed`; stone, coal and ore stay for the crusher chain). `tests/test_buckets.gd`.
+4. **Excavator** (`main._excavator_dig_terrain`, `tests/test_excavator_terrain.gd`): the bucket bites the highest ground of the column it works (so a column is taken down evenly), volume -> cargo
+   units with a per-vehicle remainder, and the bookkeeping follows. Crews, trucks, the companion and rigs still use the column bookkeeping, which lowers the terrain through the same hook.
+5. **Saves** (`tests/test_terrain_save.gd`): the save holds `terrain` (only changed vertices, compressed), `terrain_rem` and `veh_rem`; an old save loads as the columns say.
 
-* A. terrain as the live ground (formations' visuals/collision off, placement/conveyor/nav read the terrain, structures stamped and locked);
-* B. player digging in the live game (shovel/pickaxe/hammer through `dig`, converting volume to bag units at the boundary with a carried fractional remainder, `units_per_m3` in `data/geology.json`);
-* D. loader, excavator and truck on `cut_box` / `deposit` with volumes; contracts, stage progress and the Production Overview reading terrain volume instead of columns;
-* E. workers and crews digging real ground; navmesh fed from the terrain with a debounced rebake;
-* F. saves wired into the game save (`phase5` block), performance pass on real hardware.
+## Not done
 
-Each of these touches systems with their own test suites; they should land one at a time with the old suites green between steps.
+* Loader and bulldozer still work on the older soil field (`QuarrySoil`) in front of the quarry rather than on terrain piles; rubble piles are still scripted piles.
+* Workers, miners, crews and the dinosaur still dig through the column bookkeeping (the ground follows it, but they do not take free-form bites).
+* The navmesh is still baked from the column boxes (the terrain surface is close to it but not identical).
+* Structures placed on the terrain are not yet stamped flat and locked (only the outer ring and everything outside the marked excavation are locked).
+* Contracts and stage progress still count column units, not terrain volume.
+* No performance pass on real hardware.
 
-## Needs your visual / hardware test (never measured here)
+## Needs your visual / hardware test
 
-How it looks (strata colours in hole walls, the shader on integrated graphics), the feel of break-then-scoop, how loud and how stylised the sounds are, the slump speed on a
-large pile, frame time at quarry scale (the full dig lot would be about 448 x 192 cells = 86 k vertices and 84 collision blocks), and the particle look.
-
-## Defaults assumed for the owner's open questions
-
-Yard and roads locked; piles stay scripted for now; workers keep using deposit stock; strata topsoil / clay / gravel / limestone with coal, iron, copper and gold from the formations;
-tools shovel (0), pickaxe (up to iron), hammer (all), loader bucket (0), excavator bucket (1); sounds synthesised and retro.
+How it looks (strata colours in hole walls, the terrain shader on integrated graphics), the feel of break-then-scoop, how loud the sounds are, slump speed, frame time at quarry scale (99 k
+vertices, 96 collision blocks; building the terrain at start costs about 2 s on this machine), particle look, the bucket in view.

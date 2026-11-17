@@ -48,6 +48,9 @@ func run() -> void:
 	check(q_top.collision_layer == 32 and not q_top.skin_mi.visible, "the topsoil formation's colliders are on the rays-only layer and its skin is hidden")
 	check(t.body.get_meta("ground", false), "the terrain body is marked as ground for placement and conveyors")
 	check(t.is_locked_at(-115.0, -50.0) and t.is_locked_at(0.0, -12.5) and not t.is_locked_at(0.0, -50.0), "outside the marked excavation the ground is locked, inside it is not")
+	lt.lock_structures()
+	check(lt.locked_structures >= 1 and t.is_locked_at(9.0, -13.5), "placed structures (the storage box) lock the ground under them (%d footprints)" % lt.locked_structures)
+	check(not t.is_locked_at(0.0, -50.0), "and the marked excavation stays open")
 	# a cut column lowers the ground under it
 	game.prog.cleanup["done"] = true
 	var col: int = game.prog.cell_index_at("q_top", Vector3(0.0, 0.0, -50.0))
