@@ -4301,9 +4301,10 @@ func _load(quiet := false) -> void:
 			live_terrain.terrain.flush(true)
 		terrain_rem = (data.get("terrain_rem", {}) as Dictionary).duplicate() if data.get("terrain_rem", {}) is Dictionary else {}
 		_veh_rem = {}
-		if data.get("veh_rem", {}) is Dictionary:
-			for k in data["veh_rem"]:
-				_veh_rem[int(k) if str(k).is_valid_int() else k] = data["veh_rem"][k]       # (JSON turns the vehicle ids into text)
+		var vr = data.get("veh_rem", {})
+		if vr is Dictionary:
+			for k in vr:
+				_veh_rem[int(k) if str(k).is_valid_int() else k] = vr[k]                      # (JSON turns the vehicle ids into text)
 	_sync_rigs()
 	for kind in deposit_nodes:
 		_refresh_deposit(kind)
