@@ -85,11 +85,13 @@ func run() -> void:
 	game.state.inventory["limestone"] = 3
 	game.state.storage["limestone"] = 10
 	var money0: int = game.state.money
-	var got: int = game.sell_from_bag(["limestone"])
+	var got: int = int(game.business.sell_material("limestone")["money"])
 	var price: float = game.state.unit_price("limestone")
 	check(game.state.storage["limestone"] == 0 and game.state.inventory["limestone"] == 0 and got == int(round(13.0 * price)), "selling takes the bag AND the storage bin (%d earned for 13 units)" % got)
 	game.state.storage["coal"] = 6
-	var got2: int = game.sell_from_bag(game.RESOURCE_ORDER)
+	var got2 := 0
+	for sk in game.RESOURCE_ORDER:
+		got2 += int(game.business.sell_material(str(sk))["money"])
 	check(game.state.storage["coal"] == 0 and got2 > 0, "'sell all' includes everything in storage too")
 	# ---- 7: the tunnel gate's shutter fills its portal and hangs in it
 	var dl = game.delivery

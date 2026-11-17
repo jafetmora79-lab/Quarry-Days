@@ -59,28 +59,18 @@ func run() -> void:
 	var coal_mat = MeshKit.mat("RockCoal")
 	check((vis["raws"][0] as MeshInstance3D).material_override == coal_mat, "A they show the colour of what is there (coal is charcoal)")
 	check(not (body.get_meta("fill") as MeshInstance3D).visible, "A the old single heap no longer hides the table")
-	# ---- B: a clerk assigned to the table
+	# ---- B: the player sorts batches by hand (the sales clerk who used to run the table is retired)
 	game.state.clock_minutes = 600.0
-	biz.hire("petra")
-	game._sync_workers()
-	var e: Dictionary = biz.employees[0]
-	check(biz.assign(int(e["id"]), {"station": "sorter", "index": i}), "B a clerk can be assigned to the sorting table")
-	check(not biz.assign(int(e["id"]), {"station": "sorter", "index": 5}) and not biz.assign(int(e["id"]), {"station": "sorter"}), "B an invalid table is refused")
-	biz.assign(int(e["id"]), {"station": "sorter", "index": i})
-	var w = game.worker_nodes[int(e["id"])]
-	w.global_position = pos + Vector3(0, 0.1, 1.8)
 	var total0: int = game.state.total(o["items"])
-	var seen := {"sort": false, "hop": false}
+	var seen := {"hop": false}
 	var f := await frames(60 * 40, func():
-		if w.anim == "sort":
-			seen["sort"] = true
+		if not biz.sorter_busy(i):
+			biz.sorter_start(i)                      # the SORT A BATCH button
 		if (vis["hop"] as MeshInstance3D).visible:
 			seen["hop"] = true
 		return biz.sorter_sorted(i, "coal") >= 7)
-	var saw_sort: bool = seen["sort"]
 	var saw_hop: bool = seen["hop"]
-	print("sorted after %d frames, anim saw sort=%s hop=%s task=%s" % [f, str(saw_sort), str(saw_hop), str(e["task"])])
-	check(saw_sort, "B the clerk worked the table with the sorting pose while the batch ran")
+	print("sorted after %d frames, saw hop=%s" % [f, str(saw_hop)])
 	check(saw_hop, "B a rock visibly travelled from the raw tray to the sorting tray")
 	check(biz.sorter_sorted(i, "coal") == 7, "B the real sorting finished: 7 coal sorted")
 	check(game.state.total(o["items"]) == total0, "B no rock was created or lost (%d)" % total0)
@@ -88,14 +78,17 @@ func run() -> void:
 	check((vis["piles"]["coal"] as MeshInstance3D).visible and (vis["piles"]["coal"] as MeshInstance3D).material_override == coal_mat, "C the sorted coal lies in the coal tray, in charcoal")
 	check(not (vis["piles"]["iron_ore"] as MeshInstance3D).visible, "C other trays stay empty")
 	# ---- D: nothing to sort: the clerk waits, no sorting animation
-	await frames(600, func(): return biz.sorter_sorted(i, "limestone") >= 3)
+	await frames(600, func():
+		if not biz.sorter_busy(i):
+			biz.sorter_start(i)
+		return biz.sorter_sorted(i, "limestone") >= 3)
 	await frames(120)
-	check(w.anim != "sort" and not biz.sorter_busy(i), "D with nothing left to sort the clerk stops sorting")
+	check(not biz.sorter_busy(i), "D with nothing left to sort the table goes idle")
 	check(biz.sorter_sorted(i, "limestone") == 3 and game.state.total(o["items"]) == total0, "D limestone sorted too, still nothing created (%d)" % total0)
-	# ---- E: saving keeps the assignment
+	# ---- E: saving keeps what was sorted
 	var snap: Dictionary = biz.snapshot()
 	var b2 := QuarryBusiness.new(game.state, biz.cfg)
 	b2.restore(snap)
-	check(JSON.stringify(b2.employees[0]["assignment"]) == JSON.stringify({"station": "sorter", "index": i}), "E the table assignment survives a save")
+	check(b2.sorter_sorted(i, "coal") == 7 and b2.sorter_sorted(i, "limestone") == 3, "E the sorted rock survives a save")
 	print("RESULT: %d checks, %d failures" % [checks, failures.size()])
 	quit(1 if failures.size() > 0 else 0)

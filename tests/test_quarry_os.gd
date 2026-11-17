@@ -133,9 +133,13 @@ func run() -> void:
 	var before: int = game.state.money
 	var sales_page = os.window_of("sales").page
 	sales_page.refresh()
-	game.menu_act("sell", game.RESOURCE_ORDER.find("limestone"), false)
+	var hop_i: int = game.business.add_output(game.cash_hopper_pos(), 0.0, "cash_hopper")
+	game._create_output(hop_i)
+	game.cash_deposit(hop_i, [])
+	game.business.tick(7.0)
 	game.management.refresh()
-	check(game.state.money > before and int(game.state.inventory["limestone"]) == 0, "selling from the Sales app pays through the existing economy")
+	sales_page.refresh()
+	check(game.state.money > before and int(game.state.inventory["limestone"]) == 0, "the Cash Hopper pays through the existing economy and the Sales statistics page refreshes")
 	# --- employees: tabs inside one window
 	var emp = os.window_of("employees").page
 	emp._set_tab("hire")

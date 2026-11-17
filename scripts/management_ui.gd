@@ -8,7 +8,7 @@ const CARDS := [
 	["employees", "EMPLOYEES", "Your crew: who works for you, hiring and wages.", "workers", "staff"],
 	["machinery", "MACHINERY", "Your fleet and rigs, and ordering new machines.", "equipment", "equipment"],
 	["catalog", "EQUIPMENT CATALOG", "Order crushers, belts, a merger and bins into your Build Inventory.", "catalog", "catalog"],
-	["sales", "SALES", "Sell your stone and choose what the clerk may sell.", "payroll", "sales"],
+	["sales", "SALES", "Revenue, what was sold, and how the Cash Hopper is doing.", "payroll", "sales"],
 	["plan", "QUARRY PLAN", "The levels: depth, materials, how each one opens, and their access roads.", "plan", "plan"],
 	["production", "PRODUCTION", "What the quarry made and where it went.", "production", "production"],
 	["upgrades", "UPGRADES", "Rigs, the excavation permit and personal upgrades.", "upgrades", "upgrades"],
@@ -402,74 +402,62 @@ func _bar(frac: float, text: String, color: Color) -> HBoxContainer:
 
 # ------------------------------------------------------------------ sales
 
-## The Sales application: what you own, what each unit pays, sell it (bag, then the bin, then the output storages: the same business.sell_material the sales
-## window uses), choose what the clerk may sell, and the lifetime figures the game keeps. Prices come from the game's own table.
+## The Sales application: business statistics. Nothing is sold from here any more: the Cash Hopper by the office sells whatever you (or a belt) put in it.
+## Every figure comes from what the game really records (lifetime revenue, lifetime units sold, the daily log, the hoppers' own counters).
 func _sales(b: QuarryBusiness) -> void:
 	var st: QuarryState = game.state
-	var card := _card()
-	card.add_child(_label("SELLABLE MATERIALS", ACCENT))
-	var total := 0
-	var any := false
-	var head := _row()
-	for col in [["MATERIAL", 110], ["IN BAG", 50], ["IN BIN", 50], ["OUTPUT", 56], ["EACH", 52], ["TOTAL", 76]]:
-		var hl := _label(str(col[0]), DIM, QuarryTheme.SMALL, false)
-		hl.custom_minimum_size = Vector2(float(col[1]), 0)
-		if col[0] != "MATERIAL":
-			hl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		head.add_child(hl)
-	card.add_child(head)
-	for i in range(game.RESOURCE_ORDER.size()):
-		var key: String = game.RESOURCE_ORDER[i]
-		var nb := int(st.inventory[key])
-		var nbin := int(st.storage.get(key, 0))
-		var nout := b.output_units(key)
-		if nb + nbin + nout <= 0:
-			continue                                   # only what you actually own: no empty rows for materials you have not found
-		any = true
-		var value := st.payout(key, nb + nbin + nout)
-		total += value
-		var row := _row()
-		var cells := [[game.prog.display(key), 110, false], [str(nb), 50, true], [str(nbin), 50, true], [str(nout), 56, true], ["$" + game._price_text(st.unit_price(key)), 52, true], [QuarryTheme.money_text(value), 76, true]]
-		for c in cells:
-			var l := _label(str(c[0]), QuarryTheme.RES_COLORS.get(key, INK) if c[0] == cells[0][0] else INK, QuarryTheme.BODY, false)
-			l.custom_minimum_size = Vector2(float(c[1]), 0)
-			if bool(c[2]):
-				l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-			row.add_child(l)
-		var sp := Control.new()
-		sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(sp)
-		var idx := i
-		row.add_child(_button("SELL", func(): game.menu_act("sell", idx, false)))
-		card.add_child(row)
-	if not any:
-		card.add_child(_label("Nothing to sell yet. Mine some rock, or collect it from storage: whatever you own shows up here.", DIM))
-	var bar := _row()
-	card.add_child(bar)
-	bar.add_child(_button("SELL ALL  %s" % QuarryTheme.money_text(total), func(): game.menu_act("sell", game.RESOURCE_ORDER.size(), false), total > 0))
-	card.add_child(_label("A sale takes from your bag first, then the storage bin, then the output storages. Prices are the game's own table.", DIM, QuarryTheme.SMALL))
-	var clerk := _card()
-	clerk.add_child(_label("SALES CLERK MAY SELL", ACCENT))
-	var crow := HFlowContainer.new()
-	clerk.add_child(crow)
-	for res in QuarryState.RESOURCE_NAMES:
-		var cb := CheckBox.new()
-		cb.text = "%s" % game.prog.display(res)
-		cb.button_pressed = b.authorized[res]
-		var key2: String = res
-		cb.toggled.connect(func(on): b.authorized[key2] = on)
-		crow.add_child(cb)
-	var hist := _card()
-	hist.add_child(_label("SALES HISTORY", ACCENT))
-	hist.add_child(_label("Lifetime sales revenue: %s" % QuarryTheme.money_text(int(st.earned)), MONEY))
-	var sold: Dictionary = st.lifetime.get("sold", {})
-	var parts := []
-	for res in QuarryState.RESOURCE_NAMES:
-		if int(sold.get(res, 0)) > 0:
-			parts.append("%s %d" % [game.prog.display(res), int(sold[res])])
-	hist.add_child(_label("Units sold: " + (", ".join(parts) if not parts.is_empty() else "none yet"), INK, QuarryTheme.BODY))
 	var today := b.day_stats(b.current_day())
-	hist.add_child(_label("Sold by the clerk today: %d units, %s" % [int(today["sold"]), QuarryTheme.money_text(int(today["revenue"]))], DIM, QuarryTheme.BODY))
+	var sold: Dictionary = st.lifetime.get("sold", {})
+	var units := 0
+	for k in sold:
+		units += int(sold[k])
+	var card := _card()
+	card.add_child(_label("REVENUE", ACCENT))
+	card.add_child(_label("Total revenue: %s     Today: %s     Materials sold: %d units" % [QuarryTheme.money_text(int(st.earned)), QuarryTheme.money_text(int(today["revenue"])), units], MONEY))
+	var hc := _card()
+	hc.add_child(_label("CASH HOPPER", ACCENT))
+	var hoppers: Array = b.cash_hopper_indices()
+	if hoppers.is_empty():
+		hc.add_child(_label("No Cash Hopper in the yard.", DIM))
+	for i in hoppers:
+		var cur: String = b.cash_current(i)
+		hc.add_child(_label("%s:  %s   -   %.0f units / s   -   waiting %d / %d" % [str(b.cash_tier(i).get("name", "Hopper")), ("selling " + game.prog.display(cur).to_lower()) if cur != "" else "idle", b.cash_rate(i), b.cash_queue(i), b.output_capacity_of(i)], INK, QuarryTheme.BODY))
+		hc.add_child(_label("Today %s (%d units)   -   all time %s (%d units)" % [QuarryTheme.money_text(b.cash_today(i)), b.cash_today_units(i), QuarryTheme.money_text(int(b.outputs[i].get("total_money", 0))), int(b.outputs[i].get("total_units", 0))], DIM, QuarryTheme.BODY))
+	hc.add_child(_label("Put material in the hopper by hand, tip a cart into it, or run a belt to it. It sells one unit at a time, wherever you are.", DIM, QuarryTheme.SMALL))
+	var bym := _card()
+	bym.add_child(_label("BY MATERIAL (units sold x the price table)", ACCENT))
+	var any := false
+	for res in QuarryState.RESOURCE_NAMES:
+		var n := int(sold.get(res, 0))
+		if n <= 0:
+			continue
+		any = true
+		var row := _row()
+		var nm := _label(game.prog.display(res), QuarryTheme.RES_COLORS.get(res, INK), QuarryTheme.BODY, false)
+		nm.custom_minimum_size = Vector2(120, 0)
+		row.add_child(nm)
+		var cnt := _label("%d units" % n, INK, QuarryTheme.BODY, false)
+		cnt.custom_minimum_size = Vector2(90, 0)
+		row.add_child(cnt)
+		row.add_child(_label("%s" % QuarryTheme.money_text(st.payout(res, n)), MONEY, QuarryTheme.BODY, false))
+		bym.add_child(row)
+	if not any:
+		bym.add_child(_label("Nothing sold yet.", DIM))
+	var hist := _card()
+	hist.add_child(_label("EARNINGS BY DAY", ACCENT))
+	var keys: Array = b.daily.keys()
+	keys.sort_custom(func(x, y): return int(x) > int(y))
+	var shown := 0
+	for k in keys:
+		var d: Dictionary = b.daily[k]
+		if int(d.get("revenue", 0)) <= 0 and int(d.get("sold", 0)) <= 0:
+			continue
+		hist.add_child(_label("Day %d:  %s   (%d units)" % [int(k) + 1, QuarryTheme.money_text(int(d.get("revenue", 0))), int(d.get("sold", 0))], INK, QuarryTheme.BODY))
+		shown += 1
+		if shown >= 14:
+			break
+	if shown == 0:
+		hist.add_child(_label("No sales recorded yet.", DIM))
 
 # ------------------------------------------------------------------ staff
 
@@ -562,14 +550,6 @@ func _assignment_controls(b: QuarryBusiness, e: Dictionary, row: HBoxContainer) 
 			row.add_child(_option(dsts, a.get("dst", {}), func(v): _set_route(b, id, a.get("src", {}), v, dsts)))
 			var res := b.route_resource(a.get("src", {}), a.get("dst", {}))
 			row.add_child(_label(("carries " + res.replace("_", " ")) if res != "" else "invalid route", DIM if res != "" else WARN, QuarryTheme.BODY))
-		"clerk":
-			var copts := [["Office counter (sells)", {"station": "sell"}]]
-			for i in range(b.outputs.size()):
-				if b.variant_of(i) == "sorter":
-					copts.append(["Sorting table #%d" % (i + 1), {"station": "sorter", "index": i}])
-			if copts.size() > 1:
-				row.add_child(_label("Works at:", DIM, QuarryTheme.BODY, false))
-				row.add_child(_option(copts, a, func(v): _say(game.ui_assign(id, v))))
 			row.add_child(_label("Office: choose what may be sold in PRODUCTION. Sorting table: starts sort batches.", DIM, QuarryTheme.BODY))
 
 func _set_route(b: QuarryBusiness, id: int, src: Dictionary, dst: Dictionary, dsts: Array) -> void:
@@ -642,7 +622,6 @@ func _describe_profession(p: String) -> String:
 		"miner": return "Mines an assigned mineral at its deposits, picks up the pieces and carries them to the storage crate."
 		"operator": return "Runs one crusher: loads the hopper into the machine, starts and monitors it, hands output to an attached output storage."
 		"hauler": return "Carries materials along a chosen route (deposit pieces, storage, crusher, output storage) with limited capacity."
-		"clerk": return "Sells the materials you authorize from the storage crate and output storages at the office."
 	return ""
 
 # ------------------------------------------------------------------ payroll
@@ -651,7 +630,7 @@ func _payroll(b: QuarryBusiness) -> void:
 	var today := b.day_stats(b.current_day())
 	var card := _card()
 	card.add_child(_label("TODAY (DAY %d)" % (b.current_day() + 1), ACCENT))
-	card.add_child(_label("Wages paid $%d   -   Hiring fees $%d   -   Training $%d   -   Clerk revenue $%d" % [today["wages"], today.get("hire_fees", 0), today.get("upgrades", 0), today["revenue"]]))
+	card.add_child(_label("Wages paid $%d   -   Hiring fees $%d   -   Training $%d   -   Sales revenue $%d" % [today["wages"], today.get("hire_fees", 0), today.get("upgrades", 0), today["revenue"]]))
 	card.add_child(_label("Unpaid wages currently owed: $%.2f" % b.unpaid_total(), WARN if b.unpaid_total() >= 1.0 else DIM))
 	var staff := _card()
 	staff.add_child(_label("STAFF COSTS", ACCENT))
@@ -672,7 +651,7 @@ func _payroll(b: QuarryBusiness) -> void:
 	for k in keys:
 		var d: Dictionary = b.daily[k]
 		var labour := int(d["wages"]) + int(d.get("hire_fees", 0)) + int(d.get("upgrades", 0))
-		hist.add_child(_label("Day %d:  labour $%d (wages $%d)   clerk revenue $%d   net $%d" % [int(k) + 1, labour, d["wages"], d["revenue"], int(d["revenue"]) - labour], INK, QuarryTheme.BODY))
+		hist.add_child(_label("Day %d:  labour $%d (wages $%d)   sales revenue $%d   net $%d" % [int(k) + 1, labour, d["wages"], d["revenue"], int(d["revenue"]) - labour], INK, QuarryTheme.BODY))
 
 # ------------------------------------------------------------------ production
 
@@ -680,7 +659,7 @@ func _production(b: QuarryBusiness) -> void:
 	var today := b.day_stats(b.current_day())
 	var card := _card()
 	card.add_child(_label("TODAY'S PRODUCTION", ACCENT))
-	card.add_child(_label("Mined by staff %d   -   Hauled %d   -   Conveyed %d   -   Crushed (automated) %d   -   Sold by clerk %d" % [today["mined"], today["hauled"], today["conveyed"], today["crushed"], today["sold"]]))
+	card.add_child(_label("Mined by staff %d   -   Hauled %d   -   Conveyed %d   -   Crushed (automated) %d   -   Sold %d" % [today["mined"], today["hauled"], today["conveyed"], today["crushed"], today["sold"]]))
 	var ov := _card()
 	var rows: Array = b.production_overview()
 	var counts := {"running": 0, "idle": 0, "blocked": 0}
@@ -699,17 +678,6 @@ func _production(b: QuarryBusiness) -> void:
 		nm.custom_minimum_size = Vector2(150, 0)
 		line.add_child(nm)
 		line.add_child(_label(str(r["reason"]), DIM, QuarryTheme.BODY))
-	var auth := _card()
-	auth.add_child(_label("SALES CLERK MAY SELL", ACCENT))
-	var row := _row()
-	auth.add_child(row)
-	for res in QuarryState.RESOURCE_NAMES:
-		var cb := CheckBox.new()
-		cb.text = "%s %d" % [game.prog.display(res), b.stock(res)]
-		cb.button_pressed = b.authorized[res]
-		var key: String = res
-		cb.toggled.connect(func(on): b.authorized[key] = on)
-		row.add_child(cb)
 	var st := _card()
 	st.add_child(_label("STRUCTURES", ACCENT))
 	var held := []
@@ -724,7 +692,7 @@ func _production(b: QuarryBusiness) -> void:
 		var c: Dictionary = game.state.crushers[i]
 		st.add_child(_label("Crusher #%d: hopper %d, input %d, output %d, %s" % [i + 1, c.get("hopper", 0), c["input"], c["output"], ("running %.0fs" % float(c["remaining"])) if c["running"] else "idle"], INK, QuarryTheme.BODY))
 	for i in range(b.outputs.size()):
-		st.add_child(_label("%s #%d: %d/%d%s" % [{"output": "Output storage", "hopper": "Small hopper", "sorter": "Sorting table"}[b.variant_of(i)], i + 1, b.output_total(i), b.output_capacity_of(i), " crushed stone" if b.variant_of(i) == "output" else " units"], INK, QuarryTheme.BODY))
+		st.add_child(_label("%s #%d: %d/%d%s" % [{"output": "Output storage", "hopper": "Small hopper", "sorter": "Sorting table", "cash_hopper": "Cash Hopper"}.get(b.variant_of(i), "Storage"), i + 1, b.output_total(i), b.output_capacity_of(i), " crushed stone" if b.variant_of(i) == "output" else " units"], INK, QuarryTheme.BODY))
 	for i in range(b.conveyors.size()):
 		var link: Dictionary = b.links[i] if i < b.links.size() else {"src": {}, "dst": {}}
 		st.add_child(_label("Conveyor #%d: %s -> %s, carrying %d" % [i + 1, b.describe_ep(link["src"]), b.describe_ep(link["dst"]), b.conveyors[i]["items"]], INK, QuarryTheme.BODY))
@@ -823,7 +791,7 @@ func _milestones(b: QuarryBusiness) -> void:
 	var info := [
 		["first_employee", "1. FIRST EMPLOYEE", "Hire your first worker.", "Remote management with M anywhere and +5% staff productivity."],
 		["mechanized", "2. MECHANIZED QUARRY", "Own a crusher and employ a machine operator.", "Conveyor belts under MACHINERY."],
-		["automated", "3. AUTOMATED BUSINESS", "Run an automated production chain: Miner -> Storage -> Hauler/Conveyor -> Crusher -> Output storage -> Sales clerk, until the clerk has sold %d crushed stone." % b.sales_goal(), "Opens the east quarry expansion (new deposits, rubble piles and building space) and the Dump Truck."],
+		["automated", "3. AUTOMATED BUSINESS", "Run an automated production chain: Miner -> Storage -> Hauler/Conveyor -> Crusher -> Output storage or Cash Hopper, until the Cash Hopper has sold %d crushed stone." % b.sales_goal(), "Opens the east quarry expansion (new deposits, rubble piles and building space) and the Dump Truck."],
 	]
 	for m in info:
 		var card := _card()
@@ -832,11 +800,11 @@ func _milestones(b: QuarryBusiness) -> void:
 		card.add_child(_label(m[2], INK, QuarryTheme.BODY))
 		card.add_child(_label("Reward: " + m[3], DIM, QuarryTheme.BODY))
 		if m[0] == "automated" and not done:
-			var names := {"mined": "Miner delivers ore to storage", "fed": "Limestone fed into a crusher by hauler or conveyor", "processed": "Operator completes a crushing run", "stored": "Crushed stone reaches an output storage automatically", "sold": "Clerk sells crushed stone"}
+			var names := {"mined": "Miner delivers ore to storage", "fed": "Limestone fed into a crusher by hauler or conveyor", "processed": "Operator completes a crushing run", "stored": "Crushed stone reaches an output storage automatically", "sold": "The Cash Hopper sells crushed stone"}
 			for step in QuarryBusiness.CHAIN_STEPS:
 				card.add_child(_label(("  [x] " if b.chain[step] else "  [ ] ") + names[step], GOOD if b.chain[step] else DIM, QuarryTheme.BODY))
 			var sold_ok := b.auto_crushed_sold >= b.sales_goal()
-			card.add_child(_label(("  [x] " if sold_ok else "  [ ] ") + "Clerk sales of crushed stone: %d / %d" % [mini(b.auto_crushed_sold, b.sales_goal()), b.sales_goal()], GOOD if sold_ok else DIM, QuarryTheme.BODY))
+			card.add_child(_label(("  [x] " if sold_ok else "  [ ] ") + "Cash Hopper sales of crushed stone: %d / %d" % [mini(b.auto_crushed_sold, b.sales_goal()), b.sales_goal()], GOOD if sold_ok else DIM, QuarryTheme.BODY))
 
 # ------------------------------------------------------------------ equipment (Phase 3)
 

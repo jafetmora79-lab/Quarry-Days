@@ -5,8 +5,10 @@ class_name QuarryBusiness
 ## Scene nodes (workers, machines) call into this class; it never touches nodes itself.
 
 signal milestone_reached(id: String)
+## A Cash Hopper finished selling `units` of `res` (one signal per material per tick, so a fast hopper groups its feedback; every unit is still accounted for).
+signal cash_sold(index: int, res: String, units: int, money: int)
 
-const PROFESSIONS := ["miner", "operator", "hauler", "clerk"]
+const PROFESSIONS := ["miner", "operator", "hauler"]      ## the sales clerk was retired: the Cash Hopper sells the stone (old saves drop their clerks on load)
 const MINERALS := ["limestone", "coal", "iron_ore", "copper_ore", "gold_ore", "topsoil", "gravel"]
 const SELL_ORDER := ["gold_ore", "copper_ore", "crushed_stone", "iron_ore", "coal", "limestone", "gravel", "topsoil"]
 const MILESTONES := ["first_employee", "mechanized", "automated"]
@@ -31,7 +33,7 @@ var outstanding_debt := 0.0
 var payroll_minute := -1
 var daily := {}
 var storage_pos := STORAGE_POS        # Phase 3: the storage crate can be relocated
-var auto_crushed_sold := 0            # crushed stone sold by clerks (milestone 3 goal)
+var auto_crushed_sold := 0            # crushed stone sold through a Cash Hopper (milestone 3 goal; it was the clerk's before)
 var prog                               # Phase 5 QuarryProgression (rig endpoints); set by main
 
 func _init(quarry_state: QuarryState, settings: Dictionary = {}) -> void:
@@ -62,7 +64,7 @@ func is_hired(candidate_id: String) -> bool:
 func available_candidates() -> Array:
 	var result := []
 	for c in cfg.get("candidates", []):
-		if not is_hired(str(c["id"])):
+		if not is_hired(str(c["id"])) and str(c.get("profession", "")) in PROFESSIONS:
 			result.append(c)
 	return result
 
@@ -177,7 +179,6 @@ func default_assignment(prof: String) -> Dictionary:
 		"miner": return {"resource": "limestone"}
 		"operator": return {"crusher": 0}
 		"hauler": return {"src": {"type": "storage"}, "dst": {"type": "crusher", "index": 0}}
-		"clerk": return {"station": "sell"}
 	return {}
 
 func assignment_valid(prof: String, a: Dictionary) -> bool:
@@ -188,11 +189,6 @@ func assignment_valid(prof: String, a: Dictionary) -> bool:
 			return a.size() == 1 and a.has("crusher") and int(a["crusher"]) >= 0
 		"hauler":
 			return a.size() == 2 and a.get("src") is Dictionary and a.get("dst") is Dictionary and route_resource(a["src"], a["dst"]) != ""
-		"clerk":
-			if a.size() == 1:
-				return str(a.get("station", "")) == "sell"
-			# or the clerk works a sorting table: {"station": "sorter", "index": n}
-			return a.size() == 2 and str(a.get("station", "")) == "sorter" and int(a.get("index", -1)) >= 0 and variant_of(int(a.get("index", -1))) == "sorter"
 	return false
 
 func assign(id: int, a: Dictionary) -> bool:
@@ -323,6 +319,7 @@ func tick(seconds: float) -> void:
 	tick_sorters(seconds)
 	_process_payroll()
 	tick_conveyors(seconds)
+	tick_cash_hoppers(seconds)
 	_scan_crushers()
 
 func _process_payroll() -> void:
@@ -425,12 +422,14 @@ func output_capacity_of(i: int) -> int:
 	match variant_of(i):
 		"hopper": return int(cfg.get("hopper_capacity", 60))
 		"sorter": return int(cfg.get("sorter_capacity", 36))
+		"cash_hopper": return int(cash_tier(i).get("capacity", 300))
 	return output_capacity()
 
 func variant_accepts(i: int, res: String) -> bool:
 	match variant_of(i):
 		"hopper": return true
 		"sorter": return res in SORTABLE
+		"cash_hopper": return res in QuarryState.RESOURCE_NAMES
 	return res == "crushed_stone"
 
 ## Sorted units are a flag on units that stay in the table's items: they are never created, and leave with the items.
@@ -586,6 +585,11 @@ func route_resource(src: Dictionary, dst: Dictionary) -> String:
 			match dt:
 				"crusher": res = "limestone"
 				"output": res = "crushed_stone"
+	var to_cash := dt == "output" and is_cash_hopper(int(dst.get("index", -1)))
+	if to_cash and st == "storage":
+		return "auto"                      # a belt from the crate to a Cash Hopper carries whatever the crate holds (see _auto_resource)
+	if to_cash and st in ["deposit", "rig"] and res != "":
+		return res
 	if res == "" or not dt in ["storage", "crusher", "output"]:
 		return ""
 	if dt == "crusher" and res != "limestone":
@@ -644,7 +648,7 @@ func _scan_crushers() -> void:
 func output_units(res: String) -> int:
 	var n := 0
 	for i in range(outputs.size()):
-		if variant_of(i) != "sorter":
+		if variant_of(i) != "sorter" and variant_of(i) != "cash_hopper":      # a Cash Hopper's queue is already on its way to being sold
 			n += int(outputs[i]["items"].get(res, 0))
 	return n
 
@@ -669,7 +673,7 @@ func sell_material(res: String, limit := 1 << 30) -> Dictionary:
 	for i in range(outputs.size()):
 		if left <= 0:
 			break
-		if variant_of(i) == "sorter":
+		if variant_of(i) == "sorter" or variant_of(i) == "cash_hopper":
 			continue
 		var t := mini(left, int(outputs[i]["items"].get(res, 0)))
 		if t > 0:
@@ -689,41 +693,197 @@ func sell_material(res: String, limit := 1 << 30) -> Dictionary:
 	out["output"] = no
 	return out
 
-# ---------------------------------------------------------------- clerk sales
+# ---------------------------------------------------------------- the Cash Hopper (replaces the sales clerk)
+# A Cash Hopper is an "output" structure with variant "cash_hopper": the same placement, belts (links), mergers, backpressure and saving as every other bin.
+# Whatever sits in its queue is sold one unit at a time at the tier's rate. The price is state.payout (the game's one price table). A unit leaves the queue
+# and is paid for in the same step, so it can be removed once and credited once; the hopper never sells from the bag, the crate or other bins by itself.
 
-func stock(res: String) -> int:
-	var n := int(state.storage.get(res, 0))
-	for o in outputs:
-		n += int(o["items"].get(res, 0))
-	return n
+func is_cash_hopper(i: int) -> bool:
+	return variant_of(i) == "cash_hopper"
 
-## One clerk transaction: sells up to `batch` units of the first authorized material in stock.
-func clerk_sell(e: Dictionary) -> Dictionary:
-	if str(e.get("profession", "")) != "clerk" or not can_work(e):
-		return {"units": 0, "money": 0, "resource": ""}
+func cash_hopper_indices() -> Array:
+	var out := []
+	for i in range(outputs.size()):
+		if is_cash_hopper(i):
+			out.append(i)
+	return out
+
+func cash_tiers() -> Array:
+	var t = cfg.get("cash_hopper", {}).get("tiers", [])
+	if t is Array and not t.is_empty():
+		return t
+	return [{"name": "Old Hopper", "rate": 1.0, "capacity": 300, "upgrade_cost": 0}]
+
+func cash_tier_index(i: int) -> int:
+	if not is_cash_hopper(i):
+		return 0
+	return clampi(int(outputs[i].get("tier", 0)), 0, cash_tiers().size() - 1)
+
+func cash_tier(i: int) -> Dictionary:
+	return cash_tiers()[cash_tier_index(i)]
+
+func cash_rate(i: int) -> float:
+	return maxf(0.0, float(cash_tier(i).get("rate", 1.0)))
+
+## Cost of the next tier, or -1 at the top.
+func cash_upgrade_cost(i: int) -> int:
+	if not is_cash_hopper(i) or cash_tier_index(i) >= cash_tiers().size() - 1:
+		return -1
+	return int(cash_tiers()[cash_tier_index(i) + 1].get("upgrade_cost", 0))
+
+func cash_upgrade_block_reason(i: int) -> String:
+	if not is_cash_hopper(i):
+		return "Not a Cash Hopper"
+	var cost := cash_upgrade_cost(i)
+	if cost < 0:
+		return "Already the best hopper"
+	if state.money < cost:
+		return "Need $%d" % cost
+	return ""
+
+func cash_upgrade(i: int) -> bool:
+	if cash_upgrade_block_reason(i) != "":
+		return false
+	state.money -= cash_upgrade_cost(i)
+	outputs[i]["tier"] = cash_tier_index(i) + 1
+	return true
+
+## Units waiting in the hopper's queue.
+func cash_queue(i: int) -> int:
+	return output_total(i) if is_cash_hopper(i) else 0
+
+## The material it is selling right now ("" when idle).
+func cash_current(i: int) -> String:
+	return str(outputs[i].get("current", "")) if is_cash_hopper(i) else ""
+
+## The queue's next unit: stay on the material in progress, otherwise the dearest material first.
+func _cash_next(o: Dictionary) -> String:
+	var cur := str(o.get("current", ""))
+	if cur != "" and int(o["items"].get(cur, 0)) > 0:
+		return cur
 	for res in SELL_ORDER:
-		if not authorized.get(res, false) or stock(res) <= 0:
+		if int(o["items"].get(res, 0)) > 0:
+			return res
+	for res in o["items"]:
+		if int(o["items"][res]) > 0:
+			return str(res)
+	return ""
+
+func cash_today(i: int) -> int:
+	if not is_cash_hopper(i) or int(outputs[i].get("today_day", -1)) != current_day():
+		return 0
+	return int(outputs[i].get("today_money", 0))
+
+func cash_today_units(i: int) -> int:
+	if not is_cash_hopper(i) or int(outputs[i].get("today_day", -1)) != current_day():
+		return 0
+	return int(outputs[i].get("today_units", 0))
+
+## Sells what the hopper's rate allows during `seconds`: each unit leaves the queue and is paid in one step. Works wherever the player is.
+func tick_cash_hoppers(seconds: float) -> void:
+	for i in range(outputs.size()):
+		if not is_cash_hopper(i):
 			continue
-		var want := mini(int(stat(e, "batch")), stock(res))
-		var left := want
-		left -= ep_take({"type": "storage"}, res, left)
-		for i in range(outputs.size()):
-			if left <= 0:
+		var o: Dictionary = outputs[i]
+		if state.total(o["items"]) <= 0:
+			o["progress"] = 0.0
+			o["current"] = ""
+			continue
+		o["progress"] = minf(float(o.get("progress", 0.0)) + cash_rate(i) * seconds, float(output_capacity_of(i)) + 1.0)
+		var sold := {}
+		while float(o["progress"]) >= 1.0:
+			var res := _cash_next(o)
+			if res == "":
+				o["progress"] = 0.0
 				break
-			left -= ep_take({"type": "output", "index": i}, res, left)
-		var units := want - left
-		var earned := state.payout(res, units, stat(e, "price_mult"))
-		state.add_income(earned, "clerk")
-		state.note_lifetime("sold", res, units)
-		_add_daily("revenue", earned)
-		_add_daily("sold", units)
-		record_units(e, units)
-		if res == "crushed_stone":
-			chain["sold"] = true
-			auto_crushed_sold += units
+			o["progress"] = float(o["progress"]) - 1.0
+			o["current"] = res
+			o["items"][res] = int(o["items"][res]) - 1
+			var pay := state.payout(res, 1)
+			state.note_lifetime("sold", res, 1)
+			state.add_income(pay, "hopper")
+			_add_daily("revenue", pay)
+			_add_daily("sold", 1)
+			if int(o.get("today_day", -1)) != current_day():
+				o["today_day"] = current_day()
+				o["today_money"] = 0
+				o["today_units"] = 0
+			o["today_money"] = int(o["today_money"]) + pay
+			o["today_units"] = int(o["today_units"]) + 1
+			o["total_money"] = int(o.get("total_money", 0)) + pay
+			o["total_units"] = int(o.get("total_units", 0)) + 1
+			if res == "crushed_stone":
+				chain["sold"] = true
+				auto_crushed_sold += 1
+			if not sold.has(res):
+				sold[res] = [0, 0]
+			sold[res][0] += 1
+			sold[res][1] += pay
+		if state.total(o["items"]) <= 0:
+			o["current"] = ""
+			o["progress"] = 0.0
+		for res in sold:
+			cash_sold.emit(i, str(res), int(sold[res][0]), int(sold[res][1]))
+		if not sold.is_empty():
 			check_milestones()
-		return {"units": units, "money": earned, "resource": res}
-	return {"units": 0, "money": 0, "resource": ""}
+
+## Moves material from the bag into the queue (one transaction per material, clamped to the room left, so nothing is created or lost).
+## `keys` = the materials to deposit (empty = every material the bag holds). Returns {material: units}.
+func cash_deposit_bag(i: int, keys := []) -> Dictionary:
+	var moved := {}
+	if not is_cash_hopper(i):
+		return moved
+	var ep := {"type": "output", "index": i}
+	for res in (keys if not keys.is_empty() else state.inventory.keys()):
+		var r := str(res)
+		var n := mini(int(state.inventory.get(r, 0)), ep_space(ep, r))
+		if n <= 0:
+			continue
+		state.inventory[r] = int(state.inventory[r]) - n
+		ep_put(ep, r, n, false)
+		moved[r] = n
+	return moved
+
+## The same from the storage crate (an explicit choice by the player: the crate never sells by itself).
+func cash_deposit_crate(i: int, keys := []) -> Dictionary:
+	var moved := {}
+	if not is_cash_hopper(i):
+		return moved
+	var ep := {"type": "output", "index": i}
+	for res in (keys if not keys.is_empty() else state.storage.keys()):
+		var r := str(res)
+		var n := mini(int(state.storage.get(r, 0)), ep_space(ep, r))
+		if n <= 0:
+			continue
+		state.storage[r] = int(state.storage[r]) - n
+		ep_put(ep, r, n, false)
+		moved[r] = n
+	return moved
+
+## Tips (part of) a cart's load into the queue; returns the units moved.
+func cash_deposit_cart(i: int, cart_id: String, res: String, n: int) -> int:
+	if not is_cash_hopper(i):
+		return 0
+	var ep := {"type": "output", "index": i}
+	var m := mini(mini(n, state.cart_units(cart_id, res)), ep_space(ep, res))
+	if m <= 0:
+		return 0
+	state._cart_pull(cart_id, res, m)
+	ep_put(ep, res, m, false)
+	return m
+
+## Totals over every Cash Hopper, for the Sales application.
+func cash_summary() -> Dictionary:
+	var q := 0
+	var today := 0
+	var total := 0
+	var rate := 0.0
+	for i in cash_hopper_indices():
+		q += cash_queue(i)
+		today += cash_today(i)
+		total += int(outputs[i].get("total_money", 0))
+		rate += cash_rate(i)
+	return {"hoppers": cash_hopper_indices().size(), "queue": q, "today": today, "total": total, "rate": rate}
 
 # ---------------------------------------------------------------- structures & conveyors
 
@@ -737,7 +897,10 @@ func add_output(pos: Vector3, yaw: float, variant := "output") -> int:
 	var items := {}
 	for k in QuarryState.RESOURCE_NAMES:
 		items[k] = 0
-	outputs.append({"position": [pos.x, pos.y, pos.z], "yaw": yaw, "items": items, "variant": variant, "sorted": {}, "sort_left": 0.0, "sort_job": {}})
+	var rec := {"position": [pos.x, pos.y, pos.z], "yaw": yaw, "items": items, "variant": variant, "sorted": {}, "sort_left": 0.0, "sort_job": {}}
+	if variant == "cash_hopper":
+		rec.merge({"tier": 0, "progress": 0.0, "current": "", "today_day": -1, "today_money": 0, "today_units": 0, "total_money": 0, "total_units": 0})
+	outputs.append(rec)
 	compute_links()
 	return outputs.size() - 1
 
@@ -952,6 +1115,8 @@ func tick_conveyors(seconds: float) -> void:
 					break
 		var res := str(link["resource"])
 		var src: Dictionary = link["src"]
+		if res == "auto":
+			res = _auto_resource(src, c)
 		if res != "" and int(c["items"]) < capacity and (int(c["items"]) == 0 or str(c["resource"]) == res):
 			c["pull"] = float(c["pull"]) + rate * seconds
 			if float(c["pull"]) >= 1.0:
@@ -963,6 +1128,16 @@ func tick_conveyors(seconds: float) -> void:
 					c["resource"] = res
 		else:
 			c["pull"] = 0.0
+
+## A belt out of the storage crate toward a Cash Hopper: it keeps carrying the material already on it while the crate has more of it, then the dearest one.
+func _auto_resource(src: Dictionary, c: Dictionary) -> String:
+	var cur := str(c.get("resource", ""))
+	if int(c["items"]) > 0 and cur != "":
+		return cur if ep_available(src, cur) > 0 else ""
+	for res in SELL_ORDER:
+		if ep_available(src, res) > 0:
+			return res
+	return ""
 
 ## What a belt piece is doing, for its lamp and belt colour: "disconnected" (nothing feeds it or it leads nowhere),
 ## "blocked" (holds material that has reached the end but the next piece is full), "active" (carrying or loading)
@@ -1033,6 +1208,12 @@ func machine_status(kind: String, index: int) -> Dictionary:
 			if index < 0 or index >= outputs.size():
 				return {"state": "idle", "reason": "Not placed"}
 			var total := output_total(index)
+			if is_cash_hopper(index):
+				if total >= output_capacity_of(index):
+					return {"state": "blocked", "reason": "Queue full (%d): the belts feeding it wait until it has sold some" % total}
+				if total > 0:
+					return {"state": "running", "reason": "Selling %s: %d waiting, %.0f units / s" % [cash_current(index).replace("_", " "), total, cash_rate(index)]}
+				return {"state": "idle", "reason": "Waiting for material to sell"}
 			if total >= output_capacity_of(index):
 				return {"state": "blocked", "reason": "Full: sell or empty it, or the belts feeding it stop"}
 			if total > 0:
@@ -1051,7 +1232,7 @@ func production_overview() -> Array:
 		rows.append({"kind": "conveyor", "index": i, "name": ({"merger": "Merger #%d", "splitter": "Splitter #%d", "short": "Short conveyor #%d", "incline": "Incline conveyor #%d"}.get(str(conveyors[i].get("kind", "straight")), "Conveyor #%d")) % (i + 1), "state": s["state"], "reason": s["reason"]})
 	for i in range(outputs.size()):
 		var s := machine_status("output", i)
-		rows.append({"kind": "output", "index": i, "name": "%s #%d" % [{"output": "Output storage", "hopper": "Small hopper", "sorter": "Sorting table"}.get(variant_of(i), "Storage"), i + 1], "state": s["state"], "reason": s["reason"]})
+		rows.append({"kind": "output", "index": i, "name": "%s #%d" % [{"output": "Output storage", "hopper": "Small hopper", "sorter": "Sorting table", "cash_hopper": "Cash Hopper"}.get(variant_of(i), "Storage"), i + 1], "state": s["state"], "reason": s["reason"]})
 	return rows
 
 ## Units currently on belts; used to prove conservation in tests.
@@ -1149,7 +1330,7 @@ func restore(data: Dictionary) -> void:
 		for k in QuarryState.RESOURCE_NAMES:
 			items[k] = maxi(0, int(o.get("items", {}).get(k, 0)))
 		var var_name := str(o.get("variant", "output"))
-		if not var_name in ["output", "hopper", "sorter"]:
+		if not var_name in ["output", "hopper", "sorter", "cash_hopper"]:
 			var_name = "output"
 		var sorted := {}
 		for k in SORTABLE:
@@ -1160,8 +1341,18 @@ func restore(data: Dictionary) -> void:
 		for k in o.get("sort_job", {}):
 			if str(k) in SORTABLE and var_name == "sorter":
 				job[str(k)] = mini(maxi(0, int(o["sort_job"][k])), int(items[str(k)]))
-		outputs.append({"position": o["position"].duplicate(), "yaw": float(o.get("yaw", 0.0)), "items": items, "variant": var_name, "sorted": sorted,
-			"sort_left": maxf(0.0, float(o.get("sort_left", 0.0))) if not job.is_empty() else 0.0, "sort_job": job})
+		var orec := {"position": o["position"].duplicate(), "yaw": float(o.get("yaw", 0.0)), "items": items, "variant": var_name, "sorted": sorted,
+			"sort_left": maxf(0.0, float(o.get("sort_left", 0.0))) if not job.is_empty() else 0.0, "sort_job": job}
+		if var_name == "cash_hopper":
+			orec["tier"] = clampi(int(o.get("tier", 0)), 0, cash_tiers().size() - 1)
+			orec["progress"] = clampf(float(o.get("progress", 0.0)), 0.0, 1.0e6)
+			orec["current"] = str(o.get("current", "")) if int(items.get(str(o.get("current", "")), 0)) > 0 else ""
+			orec["today_day"] = int(o.get("today_day", -1))
+			orec["today_money"] = maxi(0, int(o.get("today_money", 0)))
+			orec["today_units"] = maxi(0, int(o.get("today_units", 0)))
+			orec["total_money"] = maxi(0, int(o.get("total_money", 0)))
+			orec["total_units"] = maxi(0, int(o.get("total_units", 0)))
+		outputs.append(orec)
 	inventory = {}
 	var inv = data.get("inventory", {})
 	if inv is Dictionary:
@@ -1290,6 +1481,8 @@ func _return_plan(kind: String, index: int) -> Array:
 func sell_block_reason(kind: String, index: int) -> String:
 	if kind == "storage":
 		return "The main storage crate can be moved but not sold"
+	if kind == "output" and is_cash_hopper(index):
+		return "Grandpa's hopper is bolted to the ground"
 	if structure_record(kind, index).is_empty():
 		return "Nothing to sell"
 	if not bool(_return_plan(kind, index)[0]):
@@ -1337,6 +1530,8 @@ func inventory_key_of(kind: String, index: int) -> String:
 func store_block_reason(kind: String, index: int) -> String:
 	if kind == "storage":
 		return "The main storage crate can be moved but not stored"
+	if kind == "output" and is_cash_hopper(index):
+		return "Grandpa's hopper is bolted to the ground"
 	if structure_record(kind, index).is_empty():
 		return "Nothing to store"
 	if not bool(_return_plan(kind, index)[0]):
@@ -1382,7 +1577,7 @@ func move_structure(kind: String, index: int, pos: Vector3, yaw: float) -> bool:
 		storage_pos = Vector3(pos.x, 0, pos.z)
 	else:
 		var r := structure_record(kind, index)
-		if r.is_empty():
+		if r.is_empty() or (kind == "output" and is_cash_hopper(index)):
 			return false
 		r["position"] = [pos.x, 0.0, pos.z]
 		r["yaw"] = yaw

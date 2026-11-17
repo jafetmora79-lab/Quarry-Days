@@ -370,7 +370,7 @@ func scene() -> void:
 	var mined2: int = game.player_mine("stone_mountain", 1, 40.0)
 	check(mined2 > 0 and int(st.inventory["limestone"]) == mined2, "F manual mining of the original stone pile still pays out")
 	var m0: int = st.money
-	game.sell_from_bag(["limestone"])
+	game.business.sell_material("limestone")
 	check(st.money > m0 and int(st.inventory["limestone"]) == 0, "F selling still works")
 	game.queue_free()
 	await process_frame

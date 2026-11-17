@@ -522,7 +522,6 @@ func step(delta: float) -> void:
 			"miner": _miner(delta)
 			"operator": _operator(delta)
 			"hauler": _hauler(delta)
-			"clerk": _clerk(delta)
 	_after_step(delta)
 
 func _after_step(delta: float) -> void:
@@ -807,84 +806,9 @@ func _operator(delta: float) -> void:
 	else:
 		e["task"] = "Waiting for limestone in hopper"
 
-# --- sales clerk ---
-## A clerk assigned to a sorting table: walks to it, and while the table's real sorting timer runs (business.tick_sorters) works the rocks with a
-## sorting motion; when the table is idle and holds unsorted rock the clerk starts the next batch (the same call as the SORT A BATCH button).
-func _sorter_clerk(delta: float) -> void:
-	var idx := int(e["assignment"].get("index", -1))
-	var ep := {"type": "output", "index": idx}
-	if idx < 0 or idx >= business.outputs.size() or business.variant_of(idx) != "sorter":
-		e["warning"] = "Assigned sorting table unavailable"
-		_wait(delta, "No sorting table")
-		return
-	if str(e["warning"]).begins_with("Assigned sorting"):
-		e["warning"] = ""
-	var tpos := QuarryBusiness.v3(business.outputs[idx]["position"])
-	var r := ARRIVED
-	if _flat(global_position, tpos) < 2.3:
-		_halt(delta)                       # already at the bench: stand and work, no shuffling about for the exact spot
-	else:
-		r = goto_workplace(ep, delta)
-	if r == MOVING:
-		e["task"] = "Walking to sorting table #%d" % (idx + 1)
-	if r != ARRIVED:
-		return
-	_face(tpos)
-	if business.sorter_busy(idx):
-		anim = "sort"
-		anim_phase = 0.0
-		var left := float(business.outputs[idx].get("sort_left", 0.0))
-		e["task"] = "Sorting rock (%.0fs)" % left
-		return
-	var any := false
-	for res in QuarryBusiness.SORTABLE:
-		if business.sorter_unsorted(idx, res) > 0:
-			any = true
-	if any and can_work_now():
-		business.sorter_start(idx)
-		e["task"] = "Starting a batch"
-		return
-	anim = "paperwork"
-	e["task"] = "Waiting for rock on the table" if not any else "Waiting"
-
 func can_work_now() -> bool:
 	return business.can_work(e)
 
-func _clerk(delta: float) -> void:
-	if str(e["assignment"].get("station", "sell")) == "sorter":
-		_sorter_clerk(delta)
-		return
-	var ep := {"type": "sell"}
-	var r := goto_workplace(ep, delta)
-	if r == MOVING:
-		e["task"] = "Walking to the office"
-	if r != ARRIVED:
-		return
-	var any := false
-	for res in business.authorized:
-		if business.authorized[res] and business.stock(res) > 0:
-			any = true
-	if not any:
-		phase = ""
-		anim = "paperwork"
-		e["task"] = "No authorized stock to sell"
-		return
-	e["task"] = "Serving a customer"
-	var done := _act(delta, business.stat(e, "sell_interval"), "sell")
-	if not done and anim == "work":
-		# paperwork while the customer waits; the hand-over plays in the last 1.2 s, ending on the sale
-		if timer > 1.2:
-			anim = "paperwork"
-		else:
-			anim_phase = clampf(1.0 - timer / 1.2, 0.0, 1.0)
-	if done:
-		var sale := business.clerk_sell(e)
-		if int(sale["units"]) > 0:
-			e["task"] = "Sold %d %s (+$%d)" % [sale["units"], str(sale["resource"]).replace("_", " "), sale["money"]]
-			game.worker_sale_feedback(self)
-
-
-## A short remark above the head now and then, only when the player is near and the worker is not in conversation.
 func _bark_tick(delta: float) -> void:
 	if bark_label != null and bark_label.visible:
 		bark_label.modulate.a -= delta * 0.3

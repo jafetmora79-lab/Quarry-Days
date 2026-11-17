@@ -143,7 +143,8 @@ func run() -> void:
 	# ---- sales: the action bar is docked (outside the scrolling list) and fully inside the panel
 	game.state.inventory["limestone"] = 7
 	game.state.storage["coal"] = 12
-	game._open_menu("sell")
+	game._create_output(game.business.add_output(game.cash_hopper_pos(), 0.0, "cash_hopper"))
+	game._open_menu("sell")                          # (the Cash Hopper's panel)
 	await frames(6)
 	var p = game.panel
 	var bar: HBoxContainer = p.bar_box
@@ -152,7 +153,7 @@ func run() -> void:
 	for ch in bar.get_children():
 		if not pr.encloses((ch as Control).get_global_rect()):
 			inside = false
-	check(inside and not p.scroll.is_ancestor_of(bar), "SELL ALL and OFFICE COMPUTER sit in a docked bar inside the panel, never cut off by the list")
+	check(inside and not p.scroll.is_ancestor_of(bar), "DEPOSIT ALL, DEPOSIT SELECTED and CLOSE sit in a docked bar inside the panel, never cut off by the list")
 	game._close_menu()
 	print("RESULT: %d checks, %d failures" % [checks, failures.size()])
 	quit(1 if failures.size() > 0 else 0)

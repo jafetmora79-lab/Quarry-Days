@@ -71,8 +71,8 @@ func run() -> void:
 	st.storage["coal"] = 2
 	biz.outputs[0]["items"]["coal"] = 1
 	var m1: int = st.money
-	game.sell_from_bag(["coal"])
-	check(st.money - m1 == st.payout("coal", 3) and biz.sellable_units("coal") == 0, "3 the sales booth sells storage and output storage without moving anything to the bag")
+	biz.sell_material("coal")
+	check(st.money - m1 == st.payout("coal", 3) and biz.sellable_units("coal") == 0, "3 a sale takes storage and output storage without moving anything to the bag")
 
 	# ---- the booth lists only what you own
 	st.inventory["limestone"] = 3
@@ -81,10 +81,12 @@ func run() -> void:
 		st.storage[k] = 0
 		biz.outputs[0]["items"][k] = 0
 	biz.outputs[0]["items"]["crushed_stone"] = 2
-	game._open_menu("sell", -1)
+	game._create_output(0)                            # (the test added output 0 as data only)
+	game._create_output(biz.add_output(game.cash_hopper_pos(), 0.0, "cash_hopper"))
+	game._open_menu("sell", -1)                       # the Cash Hopper's panel
 	await frames(3)
-	check(game.panel.buttons.has("sell_limestone") and game.panel.buttons.has("sell_crushed_stone"), "4 rows exist for what you own, wherever it is stored")
-	check(not game.panel.buttons.has("sell_iron_ore") and not game.panel.buttons.has("sell_gold_ore"), "4 no empty rows for materials you do not have")
+	check(game.panel.buttons.has("ch_pick_limestone"), "4 a row exists for what you carry")
+	check(not game.panel.buttons.has("ch_pick_iron_ore") and not game.panel.buttons.has("ch_pick_gold_ore"), "4 no empty rows for materials you do not have")
 	game._close_menu()
 
 	# ---- soil: never a script error, never stored, never paid
