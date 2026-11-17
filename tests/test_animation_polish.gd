@@ -45,12 +45,12 @@ func run() -> void:
 	# ---- the starter excavator: attached parts follow the crane
 	var ex = game._starter_vehicle()
 	check(ex != null and ex.turret != null, "the starter excavator exists with an upper body")
-	var parts: Node3D = ex.turret.get_node_or_null("OpeningParts")
-	var ground: Node3D = ex.model_root.get_node_or_null("OpeningGround")
-	check(parts != null and ex.model_root.get_node_or_null("OpeningParts") == null, "the battery tray, hose and filler are fitted to the rotating cab, not the tracks")
-	check(ground != null, "the oil on the ground stays with the undercarriage")
-	var a0: Vector3 = mesh_center(parts.get_child(0))
-	var g0: Vector3 = mesh_center(ground.get_child(0))
+	var kit: RepairKit = ex.repair_kit
+	var parts: Node3D = kit.turret_part
+	check(parts != null and ex.turret.is_ancestor_of(parts), "the battery tray, hose ports and filler are fitted to the rotating cab")
+	var ground := ex.model_root.get_child(0) as Node3D
+	var a0: Vector3 = mesh_center(parts.find_children("*", "MeshInstance3D", true, false)[0])
+	var g0: Vector3 = ground.global_position
 	ex.swing = 1.3
 	ex.joint_in["swing"] = 0.0
 	await frames(1)
@@ -58,12 +58,12 @@ func run() -> void:
 	await frames(40)
 	check(early > 0.5, "the cab eases into the turn instead of snapping (%.2f rad still to go after one frame)" % early)
 	check(absf(angle_difference(ex.turret.rotation.y, 1.3)) < 0.02, "and settles on the target (%.3f)" % ex.turret.rotation.y)
-	var a1: Vector3 = mesh_center(parts.get_child(0))
+	var a1: Vector3 = mesh_center(parts.find_children("*", "MeshInstance3D", true, false)[0])
 	var ax: Vector3 = ex.global_position
 	var r0 := Vector2(a0.x - ax.x, a0.z - ax.z)
 	var r1 := Vector2(a1.x - ax.x, a1.z - ax.z)
 	check(a1.distance_to(a0) > 0.3 and absf(r0.length() - r1.length()) < 0.05, "the fitted parts swung round with the cab on the slewing ring (moved %.2f m, radius kept)" % a1.distance_to(a0))
-	check(mesh_center(ground.get_child(0)).distance_to(g0) < 0.001, "while the oil stain on the ground did not move")
+	check(ground.global_position.distance_to(g0) < 0.001, "while the undercarriage did not move")
 	# ---- the boom cylinder telescopes and stays joined to base and boom (the procedural excavator; the Blender one pins its cylinders, see test_excavator_rig)
 	if ex.has_meta("boom_ram"):
 		var ram: Node3D = ex.get_meta("boom_ram")

@@ -82,7 +82,6 @@ func run() -> void:
 	for id in game.opening_parts:
 		near_ok = near_ok and game.opening_parts[id].global_position.distance_to(ex.global_position) < 7.5
 	check(near_ok, "B every part lies within a few steps of the machine")
-	var deco0: int = ex.turret.get_node("OpeningParts").find_children("*", "MeshInstance3D", true, false).size()
 	game._pick_up_part("battery")
 	check(prog.carried_part() == "battery" and not game.opening_parts.has("battery"), "B the battery is picked up and leaves the ground")
 	game._pick_up_part("hose")
@@ -94,8 +93,7 @@ func run() -> void:
 		waited += 1
 	await frames(20)
 	check(prog.repair_done("battery") and prog.carried_part() == "" and not game.repair_busy and not game.player.locked, "B the battery is fitted after the short repair, and play resumes")
-	var deco1: Node = ex.turret.get_node("OpeningParts")
-	check(deco1 != null and deco1.find_children("*", "MeshInstance3D", true, false).size() >= 1, "B the machine shows the fitted battery")
+	check(ex.repair_kit != null and (ex.repair_kit.battery_node as Node3D).visible and absf(ex.repair_kit.cover.rotation.x) < 0.05, "B the machine shows the fitted battery in its closed tray")
 	game._use_starter(ex)
 	check(prog.repairs_done() == 1, "B pressing E with nothing in hand only reports what is missing")
 	# ---- C: saves in the middle of the repairs
