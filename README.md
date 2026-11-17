@@ -94,6 +94,22 @@ Workers path around machines, walls, parked vehicles and each other, and step ov
 - **Front loader:** about 1.5–2.5 in-game days of savings. With the two main-pit piles, it adds up to about 180 units per pile per day.
 - **Dump truck:** expect a few more days of savings after the loader.
 
+## Digging prototype (experimental, separate from the quarry)
+
+`DigTest_Prototype.bat` (next to the exe) opens a small 40 m x 40 m test arena. It is not part of the main game yet. It has a dirt pile, a rock pile, a collection box and a front loader, and the ground can be dug and piled up for real.
+
+- **How it works:**
+  - The ground is a deformable heightfield. Digging removes real volume from it and puts exactly that volume on the shovel or in the bucket; dumping adds it back.
+  - Loose piles slump toward a believable slope: dirt about 36 degrees, rock about 49 degrees. Digging takes loose material first and natural ground after.
+  - The HUD shows ground, bucket, shovel and box volumes, and a line confirming that nothing is lost or created.
+- **On foot:** WASD, Shift sprint, mouse look. LMB digs where you aim (0.09 m3 per shovelful). RMB throws the shovelful where you aim; aim at the box wall to throw it in. E enters the loader when you stand next to it, R resets the arena, Esc quits.
+- **Loader:** WASD drive, Space brake. Hold LMB to lower the bucket and drive into a pile to dig. Release to carry. Hold RMB to raise and tip it over the box or the ground. The bucket holds 1.6 m3. E gets out, R nudges a stuck loader.
+- **Particles** (dirt chunks and dust) are visual only and never affect quantities.
+- **Limits:**
+  - No saving.
+  - The prototype loader and shovel are not connected to the main game's economy, workers or storage.
+  - Ground resolution is 0.5 m.
+
 ## Data
 
 - `data/economy.json`: Phase 1 prices, crusher and storage settings.
@@ -119,6 +135,7 @@ godot --headless -s tests/test_quarry.gd                     # Phase 1 (21 check
 godot --headless --fixed-fps 60 -s tests/test_phase2.gd      # Phase 2 (100 checks, accelerated time)
 godot --headless --fixed-fps 60 -s tests/test_phase3.gd      # Phase 3 (75 checks, accelerated time)
 godot --headless --fixed-fps 60 -s tests/test_phase4.gd      # Phase 4 (43 checks: resources, art integrity, navigation, driving, saves)
+godot --headless --fixed-fps 60 -s tests/test_dig.gd         # digging prototype (32 checks)
 ```
 
 ## Known limitations

@@ -74,6 +74,12 @@ var scripted_input := false
 var art: QuarryArt # Phase 4 visual layer (THE VEIL style); gameplay never depends on it # tests drive vehicles by setting QuarryVehicle.input directly
 
 func _ready() -> void:
+	# `QuarrySimulator.exe -- --dig-test` opens the separate digging prototype arena instead of the quarry.
+	if "--dig-test" in OS.get_cmdline_user_args():
+		set_physics_process(false)
+		set_process_unhandled_input(false)
+		get_tree().change_scene_to_file.call_deferred("res://DigTest.tscn")
+		return
 	var cfg = JSON.parse_string(FileAccess.get_file_as_string("res://data/economy.json"))
 	state = State.new(cfg)
 	var bcfg = JSON.parse_string(FileAccess.get_file_as_string("res://data/business.json"))

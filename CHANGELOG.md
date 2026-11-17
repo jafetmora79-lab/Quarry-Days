@@ -1,5 +1,12 @@
 # Changelog
 
+## Quarry Days — Digging prototype (experimental)
+
+- Separate test arena (`DigTest_Prototype.bat`): deformable heightfield ground with real dirt and rock volume. Hand shovel and front loader dig it up and dump it into a box or onto the ground, where piles slump to an angle of repose. Dirt chunk and dust particles are visual only.
+- The terrain is a chunked mesh with a triplanar pixel shader (dirt and rock by content), and collision that follows the deformation.
+- `tests/test_dig.gd`: 32 checks, including conservation of every cubic metre.
+- The real quarry is unchanged. `QuarrySimulator.exe -- --dig-test` opens the arena.
+
 ## Quarry Days — Phase 4: THE VEIL Art Style & Sustainable Resources
 
 - **Resources fixed:**
