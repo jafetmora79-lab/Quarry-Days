@@ -75,7 +75,7 @@ func _vantage() -> Transform3D:
 	match part:
 		"fuel":
 			focus = kit.m("FuelFiller").global_position + tb * Vector3(0.0, 0.06, 0.0)
-			off = Vector3(0.95, 0.65, 0.65)
+			off = Vector3(-0.75, 0.75, 0.75)
 		"battery":
 			focus = kit.m("BatteryTray").global_position + tb * Vector3(0.0, 0.1, 0.0)
 			off = Vector3(-1.0, 1.0, 0.3)

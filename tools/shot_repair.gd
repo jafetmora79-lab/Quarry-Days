@@ -49,7 +49,7 @@ func run():
 			var t: Transform3D = kit.turret_part.global_transform
 			var views := {"fuel": [kit.m("FuelFiller").global_position + t.basis * Vector3(0.9, 0.6, 0.9), kit.m("FuelFiller").global_position],
 				"battery": [kit.m("BatteryTray").global_position + t.basis * Vector3(-0.2, 0.9, 0.95), kit.m("BatteryTray").global_position + Vector3(0, 0.1, 0)],
-				"hose": [kit.m("HoseStart").global_position + t.basis * Vector3(1.9, 0.5, 0.2), (kit.m("HoseStart").global_position + kit.m("HoseEnd").global_position) * 0.5]}
+				"hose": [kit.m("HydraulicHoseStart").global_position + t.basis * Vector3(1.9, 0.5, 0.2), (kit.m("HydraulicHoseStart").global_position + kit.m("HydraulicHoseEnd").global_position) * 0.5]}
 			for k in views:
 				look(cam, views[k][0], views[k][1])
 				await shot("%s_%s" % [k, st[3]], out)
