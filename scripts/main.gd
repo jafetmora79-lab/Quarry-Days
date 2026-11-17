@@ -1704,7 +1704,7 @@ func _conversation_active() -> bool:
 
 func _update_highlight() -> void:
 	var t: Node3D = last_target
-	var ok := t != null and is_instance_valid(t) and not driving and menu == "" and not placement and not construction \
+	var ok := t != null and is_instance_valid(t) and not driving and menu == "" and not placement and not construction and not repair_busy \
 		and not (hud and hud.card_open()) and not _conversation_active() and HIGHLIGHT_KINDS.has(str(t.get_meta("kind", "")))     # no "interact" outline round someone mid-conversation
 	if ok and str(t.get_meta("kind", "")) == "walter" and walter_mode != "waiting":
 		ok = false
@@ -3194,6 +3194,9 @@ func _ensure_opening() -> void:
 func _decorate_starter() -> void:
 	var v := _starter_vehicle()
 	if v == null or v.model_root == null:
+		return
+	if v.repair_kit != null:
+		v.repair_kit.apply_state(prog.repair_done("battery"), prog.repair_done("hose"), prog.repair_done("fuel"))       # the real kit on the real machine
 		return
 	var cab: Node3D = v.turret if v.turret != null else v.model_root
 	var old_hose: Node = v.arm.get_node_or_null("BoomHose") if v.arm != null else null

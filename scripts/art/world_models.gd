@@ -32,6 +32,9 @@ const COLOURS := {
 	"ClodDark": Color(0.27, 0.18, 0.12), "ClodMid": Color(0.40, 0.28, 0.18), "ClodLight": Color(0.52, 0.37, 0.25), "ClodStone": Color(0.62, 0.57, 0.49),
 	"BucketSteel": Color(0.46, 0.49, 0.51), "BucketRim": Color(0.30, 0.32, 0.35), "BucketRust": Color(0.50, 0.28, 0.14), "BucketBand": Color(0.36, 0.38, 0.40),
 	"BucketHandle": Color(0.16, 0.16, 0.17), "BucketDirt": Color(0.40, 0.28, 0.18), "BucketInner": Color(0.12, 0.11, 0.10),
+	"RkPaint": Color(0.70, 0.58, 0.22), "RkSteel": Color(0.47, 0.49, 0.52), "RkDark": Color(0.08, 0.08, 0.09), "RkBrass": Color(0.80, 0.60, 0.22), "RkRed": Color(0.72, 0.12, 0.10),
+	"RkCream": Color(0.90, 0.85, 0.70), "RkRubber": Color(0.13, 0.14, 0.17), "RkRust": Color(0.42, 0.22, 0.12), "RkYellow": Color(0.92, 0.72, 0.14), "RkTerminal": Color(0.62, 0.64, 0.66),
+	"RkPlus": Color(0.80, 0.14, 0.10), "RkMinus": Color(0.06, 0.06, 0.07),
 	"Timber": Color(0.45, 0.31, 0.18), "Steel": Color(0.38, 0.40, 0.42), "Concrete": Color(0.55, 0.55, 0.53), "Hazard": Color(0.90, 0.72, 0.10), "Paint": Color(0.90, 0.78, 0.20)}
 const FOLIAGE := {
 	"Pine": Color(0.16, 0.33, 0.20), "PineLight": Color(0.25, 0.43, 0.24), "Leaf": Color(0.42, 0.55, 0.20), "LeafWarm": Color(0.68, 0.58, 0.20),
@@ -186,6 +189,25 @@ static func ore_piece(res: String, variant: int) -> ArrayMesh:
 			_ore_parts[k] = ((a["parts"][k] as Node3D).get_node("Mesh") as MeshInstance3D).mesh
 		(a["root"] as Node).free()
 	return _ore_parts.get("%s_%d" % [res, variant % 3], null)
+
+## A model with its node hierarchy kept (holders, markers, named parts) and the game's materials on every surface: for models whose named parts and empties matter
+## (the excavator's repair kit). Returns a fresh Node3D each call, or null when the file is missing.
+static func dressed(key: String) -> Node3D:
+	var n := _instance(key)
+	if n == null:
+		return null
+	n.name = key
+	for mi in n.find_children("*", "MeshInstance3D", true, false):
+		var m := mi as MeshInstance3D
+		if m.mesh == null:
+			continue
+		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		for si in m.mesh.get_surface_count():
+			var src := m.mesh.surface_get_material(si)
+			var mat := material_for(src.resource_name if src != null else "")
+			if mat != null:
+				m.set_surface_override_material(si, mat)
+	return n
 
 ## A static mesh of model `key` (its Body), cached; null when the file is missing.
 static func mesh(key: String) -> ArrayMesh:

@@ -156,5 +156,73 @@ def main():
     print("wrote", len(made), "files to", OUT)
 
 
+# ------------------------------------------------------------------ repair sounds (the excavator's three repairs)
+def click_ratchet(rng, n=4, gap=0.11, pitch=1.0, sec=0.8):
+    out = np.zeros(int(SR * sec))
+    for i in range(n):
+        st = int(SR * (0.02 + gap * i))
+        t = t_axis(0.05)
+        f = (1500 + 120 * i) * pitch
+        c = (np.sin(2 * np.pi * f * t) * np.exp(-t / 0.006) + 0.6 * highpass(rng.standard_normal(len(t)), 2500) * np.exp(-t / 0.002))
+        out[st:st + len(c)] += c
+    return norm(out, 0.7)
+
+
+def glug(rng, sec=1.4):
+    t = t_axis(sec)
+    out = np.zeros(len(t))
+    k = 0.0
+    while k < sec - 0.2:
+        n = int(SR * rng.uniform(0.09, 0.16))
+        tt = np.arange(n) / SR
+        f = rng.uniform(260, 420)
+        g = np.sin(2 * np.pi * f * tt * (1 - 0.35 * tt / (n / SR))) * np.exp(-tt / 0.05)
+        st = int(SR * k)
+        out[st:st + n] += g * rng.uniform(0.6, 1.0)
+        k += rng.uniform(0.17, 0.26)
+    wash = lowpass(highpass(rng.standard_normal(len(t)), 400), 1800) * 0.25
+    env = np.minimum(1, t / 0.1) * np.minimum(1, (sec - t) / 0.2)
+    return norm((out + wash) * env, 0.6)
+
+
+def seat_click(rng):
+    t = t_axis(0.25)
+    a = np.sin(2 * np.pi * 2800 * t) * np.exp(-t / 0.012) + 0.7 * np.sin(2 * np.pi * 1700 * t) * np.exp(-t / 0.03)
+    b = np.sin(2 * np.pi * 140 * t) * np.exp(-t / 0.05) * 0.8                                   # the soft thunk behind it
+    return norm(a + b + 0.3 * highpass(rng.standard_normal(len(t)), 3000) * np.exp(-t / 0.004), 0.75)
+
+
+def clank(rng):
+    t = t_axis(0.35)
+    x = (np.sin(2 * np.pi * 420 * t) + 0.6 * np.sin(2 * np.pi * 1130 * t) + 0.4 * np.sin(2 * np.pi * 2310 * t)) * np.exp(-t / 0.07)
+    return norm(x + 0.4 * rng.standard_normal(len(t)) * np.exp(-t / 0.004), 0.7)
+
+
+def thud(rng):
+    t = t_axis(0.3)
+    x = np.sin(2 * np.pi * 70 * t * (1 - 0.3 * t)) * np.exp(-t / 0.08) + 0.5 * lowpass(rng.standard_normal(len(t)), 500) * np.exp(-t / 0.03)
+    return norm(x, 0.85)
+
+
+def zap(rng):
+    t = t_axis(0.22)
+    x = highpass(rng.standard_normal(len(t)), 1800) * np.exp(-t / 0.03) + 0.5 * np.sin(2 * np.pi * 3200 * t * (1 - 0.6 * t)) * np.exp(-t / 0.05)
+    return norm(x, 0.6)
+
+
+def main_repair():
+    made = []
+    made.append(save("repair_unscrew", click_ratchet(np.random.default_rng(81), 5, 0.12, 1.0, 0.9)))
+    made.append(save("repair_screw", click_ratchet(np.random.default_rng(82), 5, 0.12, 0.85, 0.9)))
+    made.append(save("repair_tighten", click_ratchet(np.random.default_rng(83), 4, 0.1, 0.9, 0.7)))
+    made.append(save("repair_glug", glug(np.random.default_rng(84))))
+    made.append(save("repair_click", seat_click(np.random.default_rng(85))))
+    made.append(save("repair_clank", clank(np.random.default_rng(86))))
+    made.append(save("repair_thud", thud(np.random.default_rng(87))))
+    made.append(save("repair_zap", zap(np.random.default_rng(88))))
+    print("wrote", len(made), "repair sounds")
+
+
 if __name__ == "__main__":
     main()
+    main_repair()

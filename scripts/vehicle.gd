@@ -43,6 +43,7 @@ const OPENING_OFFSET := Vector3(0.0, -0.99, 0.0)   ## procedural turret space ->
 const USE_RIG_EXCAVATOR := true
 const USE_RIG_TRUCK := true       ## Blender dump truck (scripts/art/truck_rig.gd); false = the old procedural truck
 var rig: ExcavatorRig
+var repair_kit            ## RepairKit: the excavator's fuel tank + filler cap, battery tray and hydraulic hose ports (scripts/repair_kit.gd)
 var trig: TruckRig
 const USE_RIG_LOADER := true       ## Blender wheel loader (scripts/art/loader_rig.gd); false = the old procedural loader
 var lrig: LoaderRig
@@ -228,8 +229,14 @@ func _build_excavator() -> void:
 			frame.name = "OpeningFrame"
 			frame.position = OPENING_OFFSET
 			r.turret.add_child(frame)
-			if vtype != "starter_excavator":
-				OpeningModels.fitted(r.turret, true, false, true, null, null, true)       # a bought machine has its battery in the pocket from the start
+			var kit := RepairKit.attach_to(self)
+			if kit != null:
+				if vtype != "starter_excavator":
+					kit.apply_state(true, true, true)                      # a bought machine is fully fitted from the start
+				else:
+					kit.apply_state(false, false, false)                   # Grandpa's: the story sets the real state (_decorate_starter)
+			elif vtype != "starter_excavator":
+				OpeningModels.fitted(r.turret, true, false, true, null, null, true)       # (no repair kit model: the old procedural pocket)
 			_make_dust()
 			return
 		r.queue_free()
