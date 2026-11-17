@@ -32,16 +32,30 @@ Branch `claude/quarry-digging-integration` (started from `feature/intro-world-ui
    units with a per-vehicle remainder, and the bookkeeping follows. Crews, trucks, the companion and rigs still use the column bookkeeping, which lowers the terrain through the same hook.
 5. **Saves** (`tests/test_terrain_save.gd`): the save holds `terrain` (only changed vertices, compressed), `terrain_rem` and `veh_rem`; an old save loads as the columns say.
 
+6. **Loader and bulldozer** (`tests/test_loader_terrain.gd`): the loader scoops heaps and soft ground off the terrain into its bucket and can tip a load on the ground as a heap; the
+   bulldozer pushes loose material into its blade (as "soil", loose material only). Volume is conserved through every step. The older soil field (the tutorial's cells) still exists beside it.
+7. **Navigation** (`tests/test_terrain_nav.gd`): the pit's navmesh is baked from the terrain (a cached triangle list per chunk, only changed chunks rebuilt, so collecting costs milliseconds),
+   not from the column boxes.
+8. **Staff and the dinosaur** (`tests/test_staff_terrain.gd`): crew strikes and the dinosaur's club bite the highest ground of their column with the same damage per unit as before; units fall as loose
+   pieces; the bookkeeping follows. Mineral pockets are handed out when a dig gives a tier up.
+9. **The bucket is a hotbar item** (slot 4): the pail in hand shows its load, the slot shows how many buckets you carry, left click pours a bucket onto the ground or into the box.
+10. **Performance on this PC** (Radeon RX550, 1280x720, `tools/perf_probe.gd`): 57 fps with the terrain against 58 without while digging (vsync bound); draw calls 568 vs 357; the 31 ms 95th-percentile
+    frames are in the base game with the terrain off too. Far chunks are culled beyond 190 m.
+
 ## Not done
 
-* Loader and bulldozer still work on the older soil field (`QuarrySoil`) in front of the quarry rather than on terrain piles; rubble piles are still scripted piles.
-* Workers, miners, crews and the dinosaur still dig through the column bookkeeping (the ground follows it, but they do not take free-form bites).
-* The navmesh is still baked from the column boxes (the terrain surface is close to it but not identical).
-* Structures placed on the terrain are not yet stamped flat and locked (only the outer ring and everything outside the marked excavation are locked).
-* Contracts and stage progress still count column units, not terrain volume.
-* No performance pass on real hardware.
+* The scripted rubble piles (legacy yard only) and the tutorial's older soil field are still separate from the terrain.
+* Contracts and stage progress still count column units; the terrain feeds them through the bookkeeping (a tier is given up when its footprint is a whole tier down).
+* Workers still choose what to mine from the column bookkeeping (they dig the real ground, but the target choice is the old one).
+* Structures are locked (not flattened) where they stand.
+* A frame-time report with a larger quarry dug out, and on a slower machine, is still to be measured.
 
 ## Needs your visual / hardware test
 
 How it looks (strata colours in hole walls, the terrain shader on integrated graphics), the feel of break-then-scoop, how loud the sounds are, slump speed, frame time at quarry scale (99 k
 vertices, 96 collision blocks; building the terrain at start costs about 2 s on this machine), particle look, the bucket in view.
+
+## Heaps by material (PileModels)
+* Soil lies as a smooth rounded **cone** (the spoil heap, `PileModels.dirt_mesh`); rock lies as a **rocky mound of blocky chunks** with loose pieces at the foot (`rock_mesh`, used by the rubble piles); ore is the same mound with bright mineral chunks (`ore_mesh`).
+* In the terrain, the angle of repose already differs per material (soil 36 degrees, rock 45-49). Loose rock and ore are now also *drawn* rough (coarse 1 m chunk jitter that grows with the rubble's depth, `QuarryTerrain.vheight_vis`); collision stays smooth. Soil, clay and gravel stay smooth.
+* Still the old look: the tutorial's soil field (flat stepped cells with vertical faces) and the column formations' block faces.

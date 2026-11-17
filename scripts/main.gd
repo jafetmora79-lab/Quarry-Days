@@ -3340,7 +3340,7 @@ func _build_soil() -> void:
 	MeshKit.inst(spoil_node, wash.mesh(), tint).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	spoil_node.set_meta("glow", glow)
 	# the pile itself (one low-poly mound that grows in height and footprint; its own size at full growth fills most of the pad)
-	var mound := MeshKit.inst(spoil_node, MeshKit.rock(Vector3(6.6, 3.2, 6.6), 77, 3, 8), MeshKit.mat("ExcavatedDirt"))
+	var mound := MeshKit.inst(spoil_node, PileModels.dirt_mesh(3.3, 2.3, 77), MeshKit.mat("ExcavatedDirt"))          # loose soil lies as a smooth cone (see PileModels)
 	spoil_node.set_meta("mound", mound)
 	for sx in [-1.0, 1.0]:                                                  # a post at each corner with a flag, so the corners read from far away
 		for sz in [-1.0, 1.0]:

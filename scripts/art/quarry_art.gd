@@ -1099,12 +1099,9 @@ func dress_pile(body: StaticBody3D, res: String, seed: int) -> void:
 	var mound: Node3D = body.get_meta("mound")
 	for c in mound.get_children():
 		c.queue_free()
-	var s := MeshKit.Soup.new()
-	MeshKit.rock_into(s, Vector3.ZERO, Vector3(2.9, 1.0, 2.6), seed, 3, 9)
-	for k in range(5):
-		var a := TAU * k / 5.0 + 0.4
-		MeshKit.rock_into(s, Vector3(cos(a) * 1.0, 0, sin(a) * 0.9), Vector3(0.9, 0.6, 0.8), seed + k + 1, 3, 6)
-	MeshKit.inst(mound, s.mesh(), _material(ROCK_MAT.get(res, "RockLimestone")))
+	var kind := PileModels.kind_of(res)                          # rock lies as a rocky mound of chunks, ore shows its mineral, soil would be a cone
+	var heap := PileModels.heap(kind, 1.5, 0.95, seed, ROCK_MAT.get(res, "RockLimestone"), QuarryTheme.RES_COLORS.get(res, Color(0.9, 0.7, 0.2)))
+	mound.add_child(heap)
 	_hide(body)
 	mound.visible = true
 

@@ -116,6 +116,25 @@ func vertex_xz(i: int, j: int) -> Vector2:
 func vheight(k: int) -> float:
 	return ntop[k] - dug[k] + lsum[k]
 
+## What is drawn (the collision stays smooth): loose ROCK and ORE lie as a rough mound of chunks - the surface is broken up by a coarse, repeatable per-vertex jitter that grows
+## with the depth of the rubble - while loose soil, clay and gravel keep their smooth, rounded slopes.
+func vheight_vis(i: int, j: int) -> float:
+	var k := idx(i, j)
+	var h := vheight(k)
+	var t: float = lsum[k]
+	if t < 0.06:
+		return h
+	var top := top_material(k)
+	if int(geo.props(top).get("hardness", 0)) < 1:
+		return h
+	var r := 0.6 * _hash2(i >> 1, j >> 1) + 0.4 * _hash2(i, j)                  # 1 m chunks with a little per-vertex break-up
+	return h + r * minf(t, 0.9) * 0.6
+
+static func _hash2(i: int, j: int) -> float:
+	var n := (i * 73856093) ^ (j * 19349663)
+	n = (n ^ (n >> 13)) * 1274126177
+	return float((n >> 8) & 0xffff) / 65535.0 * 2.0 - 1.0
+
 func vertex_pos(i: int, j: int) -> Vector3:
 	var p := vertex_xz(i, j)
 	return Vector3(p.x, vheight(j * V + i), p.y)
@@ -556,11 +575,11 @@ func _build_chunk(cx: int, cz: int) -> void:
 			var j := cz * CHUNK + z
 			var k := idx(i, j)
 			var xz := vertex_xz(i, j)
-			pos[z * w + x] = Vector3(xz.x, vheight(k), xz.y)
-			var hl := vheight(idx(maxi(i - 1, 0), j))
-			var hr := vheight(idx(mini(i + 1, cols), j))
-			var hu := vheight(idx(i, maxi(j - 1, 0)))
-			var hd := vheight(idx(i, mini(j + 1, rows)))
+			pos[z * w + x] = Vector3(xz.x, vheight_vis(i, j), xz.y)
+			var hl := vheight_vis(maxi(i - 1, 0), j)
+			var hr := vheight_vis(mini(i + 1, cols), j)
+			var hu := vheight_vis(i, maxi(j - 1, 0))
+			var hd := vheight_vis(i, mini(j + 1, rows))
 			nor[z * w + x] = Vector3(hl - hr, 2.0 * CELL, hu - hd).normalized()
 			var wts := PackedFloat32Array([0, 0, 0, 0, 0, 0, 0, 0])
 			wts[geo.index_of(top_material(k))] = 1.0
