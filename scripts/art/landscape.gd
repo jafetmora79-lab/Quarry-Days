@@ -357,7 +357,7 @@ func _plant(rects: Array, seed: int, ground_y: Callable, centre := Vector2(0.0, 
 		while tries < int(z[4]):
 			tries += 1
 			var p2 := Vector2(r.randf_range(float(z[0]), float(z[2])), r.randf_range(float(z[1]), float(z[3])))
-			if forest_blocked(p2):
+			if forest_blocked(p2) or preload("res://scripts/forest_aura_battle.gd").in_clearing(p2):
 				continue
 			var d := p2.distance_to(centre)
 			var far := smoothstep(45.0, 170.0, d)

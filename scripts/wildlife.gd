@@ -7,6 +7,7 @@ class_name QuarryWildlife
 ## of you, and it keeps away from machines (it flees from any vehicle that is moving or close). Nothing here is saved or touches the economy.
 
 var game
+var aura_battle: Node3D
 var animals: Array = []
 var t := 0.0
 var enabled := true
@@ -43,6 +44,9 @@ func setup(g) -> void:
 	if not game.blueprint or game.landscape == null:
 		enabled = false
 		return
+	aura_battle = preload("res://scripts/forest_aura_battle.gd").new()
+	add_child(aura_battle)
+	aura_battle.setup(game)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 2026
 	var picked: Array = []
