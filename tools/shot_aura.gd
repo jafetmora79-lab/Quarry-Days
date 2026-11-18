@@ -22,14 +22,14 @@ func run():
 	game._remove_walter()
 	var b = game.wildlife.aura_battle
 	b.set_process(false)
-	game.player.global_position = b.global_position + Vector3(7.0, 0.3, 3.0)
-	game.player.rotation.y = PI * 0.5 + 0.25
-	game.player.camera.rotation.x = -0.12
-	game.player.locked = true
-	game.ui.visible = false
+	game.player.global_position = Vector3(-120.0, 0.3, -58.0)
 	for i in 20: await physics_frame
-	for time in [1.0, 4.0, 5.5, 10.0, 17.0, 21.0]:
+	b.elapsed = 0.0
+	b._cine_start()
+	for time in [1.0, 4.5, 7.0, 10.0, 13.5, 17.0, 21.5]:
+		b.elapsed = time
 		b._pose(time)
+		b._cine_update(time)
 		for i in 3: await physics_frame
 		await RenderingServer.frame_post_draw
 		root.get_viewport().get_texture().get_image().save_png(out + "/aura_%d.png" % int(time * 10))

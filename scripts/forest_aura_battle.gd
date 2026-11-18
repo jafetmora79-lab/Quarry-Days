@@ -16,6 +16,13 @@ var gaze := 0.0
 var elapsed := -1.0
 var cooldown := 0.0
 var unseen := 0.0
+var cinematic := true                  ## the showdown takes over the camera (letterbox, cuts, slow moves) from the moment it starts; SPACE / E skips
+var _cam: Camera3D
+var _bars: CanvasLayer
+var _bar_t: ColorRect
+var _bar_b: ColorRect
+var _ui_was := true
+var _in_cine := false
 var _caption_nodes: Array = []
 var _shades: Array = []
 ## Where the shades sit on each head (local to the Head hinge; tuned by eye with tools/shot_aura.gd).
@@ -161,14 +168,24 @@ func step(delta: float, looking: bool) -> void:
 			elapsed = 0.0
 			gaze = 0.0
 			unseen = 0.0
+			if cinematic:
+				_cine_start()
 		return
-	unseen = 0.0 if looking else unseen + delta
+	if _in_cine:
+		unseen = 0.0                                            # the camera is ours: nobody can look away
+		if Input.is_action_just_pressed("jump") or Input.is_action_just_pressed("interact"):
+			finish()
+			return
+	else:
+		unseen = 0.0 if looking else unseen + delta
 	elapsed += delta
 	# Three seconds' grace lets the player glance away without restarting it.
 	if elapsed >= DURATION or unseen >= 3.0:
 		finish()
 		return
 	_pose(elapsed)
+	if _in_cine:
+		_cine_update(elapsed)
 
 ## Split only the Easter egg's instanced rabbit foreleg mesh at its centre.
 ## The original GLB has both paws in one hinge; no source asset is changed.
@@ -257,6 +274,8 @@ func _pose(t: float) -> void:
 				limb.position.y += 0.09 * rise
 		var head: Node3D = parts["Head"]
 		var nod := (0.08 * sin(beat * 2.0) if stage in ["six_seven", "boat_roll"] else 0.0) * rise
+		if stage == "six_seven":
+			nod += 0.05 * sin(t * TAU * 1.5) * rise
 		var chin := Basis(Vector3.RIGHT, (-0.25 if stage in ["crossed", "pockets"] else -0.10) * rise + nod)
 		for key in ["Head", "Antlers", "EarL", "EarR"]:
 			if parts.has(key):
@@ -279,21 +298,26 @@ func _arms(stage: String, t: float, beat: float) -> Array:
 	var right := Vector3(0.85, 0.0, 0.2)
 	match stage:
 		"six_seven":
-			left = Vector3(1.3 + sin(beat) * 0.22, sin(beat) * 0.25, -0.5)
-			right = Vector3(1.3 - sin(beat) * 0.22, sin(beat) * 0.25, 0.5)
+			# palms out in front, level with the chest, pumping up and down in opposition: one rises while the other drops (the "six, seven" see-saw), a touch faster than the sway
+			var pump := sin(t * TAU * 1.5)
+			left = Vector3(1.25 + pump * 0.5, 0.1, -0.45 - pump * 0.08)
+			right = Vector3(1.25 - pump * 0.5, -0.1, 0.45 + pump * 0.08)
 		"boat_roll":
 			var local_t := t - 8.0
 			var active_right := local_t < 4.0
 			var flick := sin(local_t * TAU * 2.0)
-			left = Vector3(1.2, -0.25, -0.65)
-			right = Vector3(1.2, 0.25, 0.65)
+			# one paw laid over the other at the middle of the chest; the top one flicks from the "wrist" (small fast turns on every axis) and rolls, the other holds still
+			left = Vector3(1.35, -0.1, -0.18)
+			right = Vector3(1.45, 0.1, 0.22)
+			var wob := Vector3(0.3 * sin(local_t * TAU * 2.0), 0.35 * cos(local_t * TAU * 2.0), 0.3 * sin(local_t * TAU * 2.0 + 1.0))
 			if active_right:
-				right += Vector3(0.15 * cos(local_t * TAU), flick * 0.5, flick * 0.25)
+				right += wob
 			elif local_t < 6.5:
-				left += Vector3(0.15 * cos(local_t * TAU), flick * 0.5, flick * 0.25)
+				left += wob * Vector3(1, -1, -1)
 		"crossed":
-			left = Vector3(0.9, -0.45, -1.1)
-			right = Vector3(0.9, 0.45, 1.1)
+			# crossed over the chest: each paw reaches across to the other side, the left over the right
+			left = Vector3(1.05, -0.45, 0.85)
+			right = Vector3(1.0, 0.45, -0.7)
 		"pockets":
 			left = Vector3(-0.2, 0.0, -0.12)
 			right = Vector3(-0.2, 0.0, 0.12)
@@ -317,6 +341,7 @@ func _captions(t: float) -> void:
 		lb.modulate = Color(1.0, 0.95, 0.6, clampf(minf(age * 6.0, (1.6 - age) * 2.5), 0.0, 1.0))
 
 func finish() -> void:
+	_cine_end()
 	elapsed = -1.0
 	cooldown = COOLDOWN
 	gaze = 0.0
@@ -330,3 +355,77 @@ func finish() -> void:
 		actor.rotation = Vector3(0, made["yaw"], 0)
 		for key in made["parts"]:
 			(made["parts"][key] as Node3D).transform = made["rest"][key]
+
+# ------------------------------------------------------------------ the cinematic
+
+## Shots: [from, to, camera start, camera end, look-at start, look-at end, fov]; positions are relative to the clearing's centre, +x toward the quarry fence.
+const SHOTS := [
+	[0.0, 2.4, Vector3(10.0, 1.7, 1.0), Vector3(7.2, 1.5, 0.4), Vector3(0, 1.0, 0), Vector3(0, 1.1, 0), 55.0],            # establishing, easing in
+	[2.4, 6.0, Vector3(6.0, 1.7, -5.6), Vector3(5.0, 1.8, -4.7), Vector3(0, 1.5, -2.0), Vector3(0, 1.6, -2.0), 45.0],      # the deer, chest up
+	[6.0, 8.0, Vector3(5.0, 1.2, 5.4), Vector3(4.2, 1.3, 4.6), Vector3(0, 1.1, 2.0), Vector3(0, 1.2, 2.0), 45.0],          # the rabbit answers
+	[8.0, 12.0, Vector3(4.2, 1.1, 0.8), Vector3(3.4, 1.2, 1.1), Vector3(0, 1.2, 2.0), Vector3(0, 1.25, 2.0), 42.0],        # close on the rabbit's flicking paws
+	[12.0, 15.0, Vector3(6.5, 1.4, 0.0), Vector3(5.0, 1.3, 3.6), Vector3(0, 1.1, 0), Vector3(0, 1.1, 0.4), 50.0],          # a two-shot drifting round
+	[15.0, 20.0, Vector3(8.5, 1.3, 0.0), Vector3(4.6, 1.5, 0.0), Vector3(0, 1.2, 0), Vector3(0, 1.3, 0), 52.0],            # crossed arms: a slow push-in on both
+	[20.0, 23.0, Vector3(3.2, 0.45, -4.4), Vector3(2.5, 0.55, -3.6), Vector3(0, 1.7, -2.0), Vector3(0, 1.8, -2.0), 50.0],  # hero shot of the deer from low down
+	[23.0, 24.1, Vector3(5.0, 1.4, 0.0), Vector3(9.5, 1.8, 0.0), Vector3(0, 1.1, 0), Vector3(0, 1.1, 0), 55.0],            # pull back
+]
+
+func _cine_start() -> void:
+	if game == null or game.player == null or not is_inside_tree():
+		return
+	_in_cine = true
+	game.player.locked = true
+	_cam = Camera3D.new()
+	_cam.far = 700.0
+	add_child(_cam)
+	_cam.current = true
+	_bars = CanvasLayer.new()
+	_bars.layer = 45
+	add_child(_bars)
+	for top in [true, false]:
+		var r := ColorRect.new()
+		r.color = Color(0.02, 0.02, 0.03)
+		r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		r.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE if top else Control.PRESET_BOTTOM_WIDE)
+		_bars.add_child(r)
+		if top:
+			_bar_t = r
+		else:
+			_bar_b = r
+	var ui = game.get("ui")
+	if ui != null:
+		_ui_was = ui.visible
+		ui.visible = false
+	_cine_update(0.0)
+
+func _cine_update(t: float) -> void:
+	if _cam == null:
+		return
+	for sh in SHOTS:
+		if t >= float(sh[0]) and t < float(sh[1]) + (0.1 if sh == SHOTS[SHOTS.size() - 1] else 0.0):
+			var k := smoothstep(0.0, 1.0, (t - float(sh[0])) / (float(sh[1]) - float(sh[0])))
+			_cam.global_position = global_position + (sh[2] as Vector3).lerp(sh[3], k)
+			_cam.look_at(global_position + (sh[4] as Vector3).lerp(sh[5], k), Vector3.UP)
+			_cam.fov = float(sh[6])
+			break
+	var h := 70.0 * clampf(t / 0.6, 0.0, 1.0) * clampf((DURATION - t) / 0.6, 0.0, 1.0)
+	_bar_t.offset_bottom = h
+	_bar_b.offset_top = -h
+
+func _cine_end() -> void:
+	if not _in_cine:
+		return
+	_in_cine = false
+	if _cam != null and is_instance_valid(_cam):
+		_cam.queue_free()
+	_cam = null
+	if _bars != null and is_instance_valid(_bars):
+		_bars.queue_free()
+	_bars = null
+	var ui = game.get("ui")
+	if ui != null:
+		ui.visible = _ui_was
+	if game.player != null:
+		game.player.camera.current = true
+		game.player.locked = false
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED

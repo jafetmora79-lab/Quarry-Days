@@ -37,6 +37,7 @@ func run() -> void:
 	game.add_child(battle)
 	battle.setup(game)
 	battle.set_process(false)
+	battle.cinematic = false                  # the trigger / pose / occlusion logic is tested without the camera takeover
 	check(battle.actors.size() == 2, "both original wildlife GLBs instantiate")
 	check(battle.actors[0]["parts"].has("Antlers") and battle.actors[1]["parts"].has("LegB"), "real deer and rabbit animation hinges exist")
 	game.player.position = Vector3(-121, 0, -58)
