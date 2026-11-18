@@ -190,7 +190,7 @@ func _build_extras() -> void:
 	sale_display.name = "SaleDisplay"
 	sale_display.setup(Vector2(0.48, 0.185), Vector2i(260, 100), 44, Color(0.45, 1.0, 0.6), HORIZONTAL_ALIGNMENT_CENTER)
 	sale_display.rotation = Vector3(-0.336, 0, 0)
-	sale_display.position = Vector3(0, -0.001, -0.026)                         # (on the glass: its centre is 2.6 cm in front of the marker, along the slope)
+	sale_display.position = Vector3(0, 0.02, -0.075)                         # (on the glass: its centre is 2.6 cm in front of the marker, along the slope)
 	points["Attach_SaleDisplay"].add_child(sale_display)
 	_sale_text("READY", 0.5)
 	var sign_l := ScreenFace.new()                                         # the name, painted on the strip under the emblem (a plate, not a screen)

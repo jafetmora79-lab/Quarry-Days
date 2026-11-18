@@ -18,6 +18,13 @@ var pickaxe: Node3D # kept for older callers: the tool view node
 var shake := 0.0
 var kick := 0.0
 var _shake_t := 0.0
+var crouching := false        ## Ctrl held (stays down under a low ceiling)
+var _crouch := 0.0            ## 0 standing .. 1 fully crouched (eased)
+var _capsule: CapsuleShape3D
+var _collider: CollisionShape3D
+const CROUCH_DROP := 0.6      ## how far the eyes sink (m)
+const CROUCH_HEIGHT := 1.15   ## capsule height while crouched (m)
+const STAND_HEIGHT := 1.75
 
 func _ready() -> void:
 	var collider := CollisionShape3D.new()
@@ -26,6 +33,8 @@ func _ready() -> void:
 	capsule.height = 1.75
 	collider.shape = capsule
 	collider.position.y = 0.9
+	_capsule = capsule
+	_collider = collider
 	add_child(collider)
 	camera = Camera3D.new()
 	camera.position.y = 1.58
@@ -85,7 +94,12 @@ func _physics_process(delta: float) -> void:
 	else:
 		var dir := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 		var wish := global_transform.basis * Vector3(dir.x, 0, dir.y)
-		var speed := 6.0 if Input.is_action_pressed("sprint") else 4.2
+		var want := Input.is_action_pressed("crouch") and _input_ok()
+		if want != crouching and (want or _can_stand()):
+			crouching = want
+		var speed := 6.0 if Input.is_action_pressed("sprint") and not crouching else 4.2
+		if crouching:
+			speed = 2.2
 		if drive_wish != Vector3.INF:        # scripted walking (tests): a world-space direction instead of the keyboard
 			wish = drive_wish.normalized() if drive_wish.length() > 0.01 else Vector3.ZERO
 			speed = 4.2
@@ -93,6 +107,7 @@ func _physics_process(delta: float) -> void:
 		velocity.x = move_toward(velocity.x, wish.x * speed, delta * 18)
 		velocity.z = move_toward(velocity.z, wish.z * speed, delta * 18)
 		_wish_flat = Vector3(wish.x, 0.0, wish.z)
+	_update_crouch(delta)
 	_jump_buf = maxf(0.0, _jump_buf - delta)
 	if _mantle_t > 0.0:
 		# climbing onto a ledge: up the face, then over the edge, eased, with the head dipping toward the ledge
@@ -111,7 +126,7 @@ func _physics_process(delta: float) -> void:
 	velocity.y -= GRAVITY * delta
 	var input_ok := _input_ok()
 	if not locked and input_ok:
-		if _jump_buf > 0.0 and on_floor_before:
+		if _jump_buf > 0.0 and on_floor_before and not crouching:
 			if _try_mantle(true):                  # Space at a reachable ledge climbs it; anywhere else it jumps
 				_jump_buf = 0.0
 				return
@@ -126,6 +141,31 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	if is_on_floor() and not on_floor_before and fall_v < -3.0:
 		_land(-fall_v)
+
+## Eases the body down / up: the capsule shrinks from the head (feet stay put) and the eyes sink. Cinematics that set the camera height themselves are left alone while standing.
+func _update_crouch(delta: float) -> void:
+	var target := 1.0 if crouching else 0.0
+	if _crouch == target:
+		return
+	_crouch = move_toward(_crouch, target, delta * 6.0)
+	var h := lerpf(STAND_HEIGHT, CROUCH_HEIGHT, _crouch)
+	_capsule.height = h
+	_collider.position.y = h * 0.5 + 0.025
+	camera.position.y = 1.58 - CROUCH_DROP * _crouch
+
+## Is there room overhead to stand up?
+func _can_stand() -> bool:
+	if _capsule == null:
+		return true
+	var shape := CapsuleShape3D.new()
+	shape.radius = _capsule.radius - 0.02
+	shape.height = STAND_HEIGHT
+	var q := PhysicsShapeQueryParameters3D.new()
+	q.shape = shape
+	q.transform = Transform3D(Basis.IDENTITY, global_position + Vector3(0, STAND_HEIGHT * 0.5 + 0.06, 0))
+	q.exclude = [get_rid()]
+	q.collision_mask = collision_mask
+	return get_world_3d().direct_space_state.intersect_shape(q, 1).is_empty()
 
 ## Is the game giving the player control (no dialogue, card, menu or cinematic)?
 func _input_ok() -> bool:

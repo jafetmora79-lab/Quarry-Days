@@ -48,15 +48,12 @@ func _show_tab(t: String) -> void:
 		b.name = "Tab_" + nm
 		b.custom_minimum_size = Vector2(90, 26)
 		b.focus_mode = Control.FOCUS_ALL
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color(0.30, 0.21, 0.08, 0.95) if on else Color(0.17, 0.13, 0.095, 0.95)
-		sb.border_color = Color(1.0, 0.82, 0.36) if on else Color(0.5, 0.38, 0.22)
-		sb.set_border_width_all(2 if on else 1)
-		sb.set_corner_radius_all(4)
-		sb.set_content_margin_all(4)
+		var art := "btn_primary" if on else "btn_main"                      # the drawn plate art: the open tab is the orange one
+		var flat := StyleBoxFlat.new()
+		flat.bg_color = Color(0.30, 0.21, 0.08, 0.95) if on else Color(0.17, 0.13, 0.095, 0.95)
 		for st in ["normal", "hover", "pressed", "focus", "disabled"]:
-			b.add_theme_stylebox_override(st, sb)
-		b.add_theme_color_override("font_color", Color(1.0, 0.86, 0.45) if on else Color(0.82, 0.74, 0.58))
+			b.add_theme_stylebox_override(st, UiSkin.box(art, flat, [8, 3, 8, 4], Color(1.2, 1.2, 1.2) if st == "hover" else Color.WHITE))
+		b.add_theme_color_override("font_color", Color(0.14, 0.08, 0.02) if on else Color(0.96, 0.93, 0.84))
 		b.add_theme_font_override("font", QuarryTheme.bold())
 		var nm_copy: String = nm
 		b.pressed.connect(func(): if nm_copy != tab: _show_tab(nm_copy))
@@ -134,7 +131,7 @@ func _display_page() -> void:
 	ob.item_selected.connect(func(i: int): GameSettings.set_retro(i))
 	_page.add_child(ob)
 	controls["retro"] = ob
-	_page.add_child(_label("The picture always keeps the game's pixel look: only the window changes.", true))
+	_page.add_child(_label("Retro colour is off by default. Subtle is almost invisible; Strong gives a grainy console look.", true))
 
 func _controls_page() -> void:
 	var sc := ScrollContainer.new()

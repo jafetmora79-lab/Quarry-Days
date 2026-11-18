@@ -8173,7 +8173,7 @@ func _hint_text() -> String:
 		return "Left click place  R rotate  G grid snap  Esc cancel"
 	if construction:
 		return "Left click move a machine (construction mode)  I store it  X sell it  [ ] pick from inventory  P place  Esc leave"
-	return "WASD move  SHIFT sprint  left click mine  E use  M manage  B build  F5 save  ESC pause" + ("  J auto crew" if crew.eligible(crew_candidate()) == "" else "") + ("  K skip delivery" if delivery and not delivery.jobs.is_empty() else "")
+	return "WASD move  SHIFT sprint  CTRL crouch  left click mine  E use  M manage  B build  F5 save  ESC pause" + ("  J auto crew" if crew.eligible(crew_candidate()) == "" else "") + ("  K skip delivery" if delivery and not delivery.jobs.is_empty() else "")
 
 ## Small status lines under the clock: deliveries waiting in the construction inventory, vehicles on their way, belts
 ## that are not connected at both ends.

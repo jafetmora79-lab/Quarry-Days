@@ -22,7 +22,7 @@ var _bag_target := 0.0
 var _pow_target := 0.0
 var income_label: Label
 var badge_label: Label
-var hint_text := "WASD move  SHIFT sprint  left click mine  E use  M manage  B build  F5 save  ESC pause"
+var hint_text := "WASD move  SHIFT sprint  CTRL crouch  left click mine  E use  M manage  B build  F5 save  ESC pause"
 var _income_override := ""
 var minimap: QuarryMinimap
 var map_plate: QuarryPlate
