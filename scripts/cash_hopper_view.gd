@@ -227,6 +227,32 @@ func _build_extras() -> void:
 	if lamp2 != null:
 		lamp2.material_override = _lamp_mat
 	_set_lamp(0.5)
+	dust = CPUParticles3D.new()                                            # a puff where a big load lands
+	dust.name = "Dust"
+	dust.one_shot = true
+	dust.emitting = false
+	dust.amount = 10
+	dust.lifetime = 0.7
+	dust.explosiveness = 0.85
+	dust.direction = Vector3(0, 1, 0)
+	dust.spread = 70.0
+	dust.initial_velocity_min = 0.25
+	dust.initial_velocity_max = 0.7
+	dust.gravity = Vector3(0, 0.15, 0)
+	dust.scale_amount_min = 1.0
+	dust.scale_amount_max = 1.8
+	var dq := QuadMesh.new()
+	dq.size = Vector2(0.16, 0.16)
+	dust.mesh = dq
+	var dm := StandardMaterial3D.new()
+	dm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	dm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	dm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	dm.vertex_color_use_as_albedo = true
+	dm.albedo_color = Color(1, 1, 1, 0.35)
+	dust.material_override = dm
+	dust.position = (points["Attach_InputFunnel"] as Node3D).position + Vector3(0, 0.75, 0)
+	add_child(dust)
 	sparks = CPUParticles3D.new()                                         # a few tiny golden sparks at the drawer
 	sparks.name = "Sparks"
 	sparks.one_shot = true
@@ -506,16 +532,21 @@ func _check_intake(delta: float) -> void:
 	var items: Dictionary = game.business.outputs[index].get("items", {})
 	var best := 0
 	var res := ""
+	if not _skip.is_empty() and Time.get_ticks_msec() > _skip_until:
+		_skip.clear()                                                         # (an intake that moved no stock - nothing to match - must not swallow a later real arrival)
 	for r in items:
 		var gain := int(items[r]) - int(_last_items.get(r, 0))
+		if gain > 0 and int(_skip.get(r, 0)) > 0:                          # (an intake animation already showed these units)
+			var used := mini(gain, int(_skip[r]))
+			_skip[r] = int(_skip[r]) - used
+			gain -= used
 		if gain > best:
 			best = gain
 			res = str(r)
 	if best > 0 and _intake_cd <= 0.0 and _items_seen:
-		_intake_cd = 0.16
-		for k in range(clampi(1 + best / 6, 1, 7)):
-			_drop_rock(res, 0.07 * float(k))
-		_vibe = maxf(_vibe, 0.35)                            # the housing hums when rock lands
+		_intake_cd = 0.3
+		var belt: Node3D = points["Attach_ConveyorIn"]
+		intake("belt", res, best, belt.global_position + Vector3(0.0, 0.85, 0.35))
 	_items_seen = true
 	_last_items = items.duplicate()
 
@@ -730,6 +761,156 @@ func _sfx(stream: AudioStream, pitch: float, vol: float, secs := 0.0) -> void:
 func _coin_sound(units: int) -> void:
 	_sfx(coin_stream, _rng.randf_range(0.95, 1.2), -7.0 + minf(4.0, float(units) * 0.4))
 
+## ------------------------------------------------------------------ material going IN: one animation per way of putting it in
+## Called by main.gd at the moment a transaction has moved material into this hopper (the stock is already booked; this only shows it). Sources:
+##   "hand"    a bag or crate deposit: a handful tossed in a few arcs from the player's hands
+##   "shovel"  the shovel's load flung in with one flick: a tight bunch, fast
+##   "bucket"  the carried bucket tipped over the funnel: a steady stream pours from its lip (timed to the tip)
+##   "machine" a loader's or excavator's bucket tipped: a wide cascade of big chunks and a puff of dust
+##   "truck"   a truck bed raised over it: an avalanche, a heavy thump, a bigger cloud
+##   "belt"    anything that arrives by belt (or by any unknown way): one or two pieces dropping off the belt end
+## The heap in the funnel only grows when the pieces land (`_inflight` holds the units back), and the first piece of every pour makes the pour sound.
+var _skip_until := 0
+var _skip := {}                          ## material -> units an intake animation has already shown (the detector below must not show them again)
+var _vis := {}                           ## material -> units visibly on the heap
+var _vis_init := false
+var _inflight := {}                      ## material -> units still falling toward the heap
+var dust: CPUParticles3D
+
+func _after(t: float, f: Callable) -> void:
+	if not is_inside_tree():
+		return
+	get_tree().create_timer(t).timeout.connect(func():
+		if is_instance_valid(self) and is_inside_tree():
+			f.call())
+
+func _funnel_top(spread := 0.0) -> Vector3:
+	var fp: Node3D = points["Attach_InputFunnel"]
+	return fp.position + Vector3(_rng.randf_range(-spread, spread), 0.3 + 0.35 * clampf(_heap_amt, 0.0, 1.0), _rng.randf_range(-spread, spread))
+
+var last_source := ""                    ## the way the latest intake arrived (tests and debugging)
+
+func intake(source: String, res: String, units: int, origin: Vector3) -> void:
+	if units <= 0 or points.is_empty() or not is_inside_tree():
+		return
+	last_source = source
+	_skip[res] = int(_skip.get(res, 0)) + units
+	_skip_until = Time.get_ticks_msec() + 2000
+	_inflight[res] = int(_inflight.get(res, 0)) + units
+	var from := to_local(origin)
+	var n := 3
+	var delay := 0.0
+	var span := 0.0
+	var dur := 0.4
+	var height := 0.5
+	var spread := 0.18
+	var size := 0.07
+	var shake := 0.3
+	match source:
+		"shovel":
+			n = clampi(units / 2, 5, 9)
+			delay = 0.28
+			span = 0.06
+			dur = 0.32
+			height = 0.45
+			spread = 0.1
+			size = 0.08
+		"bucket":
+			n = clampi(units / 2, 6, 16)
+			delay = 0.4
+			span = 0.75
+			dur = 0.3
+			height = 0.12
+			spread = 0.12
+			size = 0.065
+			shake = 0.35
+		"machine":
+			n = clampi(units, 8, 22)
+			delay = 0.1
+			span = 0.9
+			dur = 0.38
+			height = 0.25
+			spread = 0.3
+			size = 0.11
+			shake = 0.8
+		"truck":
+			n = clampi(units * 2 / 3, 12, 26)
+			delay = 0.0
+			span = 1.3
+			dur = 0.45
+			height = 0.35
+			spread = 0.38
+			size = 0.14
+			shake = 1.0
+		"belt":
+			n = clampi(units, 1, 2)
+			dur = 0.38
+			height = 0.2
+			spread = 0.15
+			size = 0.07
+			shake = 0.15
+		_:                                                                  # "hand" and "crate": a handful, a few arcs
+			n = clampi(units / 4, 3, 7)
+			delay = 0.12
+			span = 0.35
+			dur = 0.45
+			height = 0.65
+			spread = 0.2
+			size = 0.075
+	var land_t := delay + span + dur
+	var per_unit := float(units) / float(n)
+	for k in range(n):
+		var chunk := _make_chunk(res, size * 1.4 * _rng.randf_range(0.7, 1.35))
+		chunk.position = from + Vector3(_rng.randf_range(-0.05, 0.05), _rng.randf_range(-0.05, 0.05), _rng.randf_range(-0.05, 0.05))
+		chunk.scale = Vector3.ZERO
+		var end := _funnel_top(spread)
+		var t0 := delay + (span * float(k) / float(maxi(n - 1, 1)) if n > 1 else 0.0)
+		var spin := Vector3(_rng.randf_range(-9.0, 9.0), _rng.randf_range(-6.0, 6.0), _rng.randf_range(-9.0, 9.0))
+		var tw := create_tween()
+		tw.tween_interval(t0)
+		tw.tween_property(chunk, "scale", Vector3.ONE, 0.04)
+		tw.tween_method(_coin_arc_free.bind(chunk, chunk.position, end, height + _rng.randf_range(0.0, 0.2), spin), 0.0, 1.0, dur)
+		tw.tween_callback(_landed.bind(res, per_unit, source, k == 0))
+		tw.tween_property(chunk, "scale", Vector3.ZERO, 0.1)
+		tw.tween_callback(chunk.queue_free)
+	_after(land_t, _intake_done.bind(res, units, source, shake))
+
+## One point on a thrown chunk's path (a parabola over the straight line).
+func _coin_arc_free(t: float, chunk: Node3D, a: Vector3, b: Vector3, h: float, spin: Vector3) -> void:
+	if not is_instance_valid(chunk):
+		return
+	chunk.position = a.lerp(b, t) + Vector3(0.0, 4.0 * h * t * (1.0 - t), 0.0)
+	chunk.rotation += spin * 0.016 * (1.0 - t * 0.6)
+
+## A piece lands on the heap: its share of the units joins the visible heap; the first piece of a pour makes the sound.
+func _landed(res: String, per_unit: float, source: String, first: bool) -> void:
+	_inflight[res] = maxf(0.0, float(_inflight.get(res, 0)) - per_unit)
+	_vis[res] = float(_vis.get(res, 0.0)) + per_unit
+	_disp_t = 0.0                                                           # (look at the heap now)
+	_vibe = maxf(_vibe, 0.18)
+	if first:
+		_sfx(load("res://audio/dig_pour_dirt.wav" if BucketView.kind_of(res) == "dirt" else "res://audio/dig_pour_rock.wav"), _rng.randf_range(0.9, 1.1), -9.0 if source in ["hand", "shovel", "belt"] else -4.0)
+
+func _intake_done(res: String, units: int, source: String, shake: float) -> void:
+	_inflight[res] = 0
+	_vibe = maxf(_vibe, shake)
+	if dust != null and source in ["machine", "truck", "bucket"]:
+		dust.amount = 18 if source == "truck" else 10
+		dust.color = (PILE_TINT.get(res, Color(0.7, 0.68, 0.62)) as Color).lightened(0.25)
+		dust.restart()
+		dust.emitting = true
+
+func _make_chunk(res: String, size: float) -> MeshInstance3D:
+	var m := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(size * 1.3, size, size * 1.15)
+	m.mesh = bm
+	m.material_override = _rock_mat(res)
+	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	m.rotation = Vector3(_rng.randf(), _rng.randf(), _rng.randf()) * 3.0
+	add_child(m)
+	return m
+
 ## The piles in the funnel: the top three materials of what is waiting, each in its own look (soil as a smooth mound, gravel as small chunks, rock as bigger blocks, ore with the mineral
 ## showing), built when the mix or the fullness changes by a step and scaled smoothly in between.
 func _refresh_heap() -> void:
@@ -738,10 +919,16 @@ func _refresh_heap() -> void:
 	var cap := float(maxi(1, b.output_capacity_of(index)))
 	var total := 0
 	var list: Array = []
+	if not _vis_init:
+		_vis_init = true
+		for r in items:
+			_vis[r] = float(items[r])                                          # (a loaded game: what is in the hopper is already on the heap)
 	for r in items:
-		if int(items[r]) > 0:
-			list.append([str(r), int(items[r])])
-			total += int(items[r])
+		_vis[r] = minf(float(_vis.get(r, 0.0)), float(items[r]))              # selling takes units off the heap; units only join it when their pieces land
+		var shown := int(ceil(float(_vis[r])))
+		if shown > 0:
+			list.append([str(r), shown])
+			total += shown
 	if total <= 0:
 		_heap_amt = 0.0
 		if _heap != null and _heap.visible and _heap.scale.x < 0.4:

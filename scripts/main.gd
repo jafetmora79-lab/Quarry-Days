@@ -1787,6 +1787,7 @@ func deliver_hand_to_hopper(idx: int) -> int:
 	if n > 0:
 		pickup_audio.play()
 		player.tool_view.tip_bucket()
+		_hopper_intake_fx(idx, "bucket", moved, _hand_origin())
 		hud.toast("Into the hopper: %d units" % n, "It sells them one by one", "sale")
 	else:
 		_notify("The hopper is full: let it work a bit." if state.hand_bucket.size() > 0 else "The bucket is empty.")
@@ -2913,12 +2914,31 @@ func _draw_sell(p: QuarryStationUI) -> void:
 
 ## One action puts material in the hopper, however much it is; the hopper then sells it by itself at its own speed (see Business.tick_cash_hoppers).
 ## `keys` empty = everything the bag holds. `from_crate` takes from the storage crate instead (an explicit choice: the crate never sells by itself).
+## Tells the hopper's view where material just came from, so it plays that way of putting it in (see CashHopperView.intake).
+func _hopper_intake_fx(idx: int, source: String, moved: Dictionary, origin: Vector3) -> void:
+	if idx < 0 or idx >= output_nodes.size():
+		return
+	var v = output_nodes[idx].get_node_or_null("CashHopperView")
+	if v == null:
+		return
+	for res in moved:
+		if int(moved[res]) > 0:
+			v.intake(source, str(res), int(moved[res]), origin)
+
+## Where the player's hands are, for the animations of tossing and pouring (a little in front of and below the eyes).
+func _hand_origin() -> Vector3:
+	var cam := player.camera
+	return cam.global_position + (-cam.global_transform.basis.z) * 0.75 + Vector3(0.0, -0.3, 0.0)
+
 func cash_deposit(idx: int, keys: Array, from_crate := false) -> int:
 	var moved: Dictionary = business.cash_deposit_crate(idx, keys) if from_crate else business.cash_deposit_bag(idx, keys)
 	var n := 0
 	for k in moved:
 		n += int(moved[k])
 	if n > 0:
+		_hopper_intake_fx(idx, "shovel" if (not from_crate and state.equipped == "shovel") else "hand", moved, _hand_origin())
+		if player != null and player.tool_view != null:
+			player.tool_view.throw_motion()
 		pickup_audio.play()
 		hud.toast("Into the hopper: %d units" % n, "It sells them one by one", "sale")
 		cash_sel.clear()
@@ -6512,8 +6532,14 @@ func vehicle_dump(v: QuarryVehicle, quiet := false) -> int:
 	elif t.has("truck"):
 		moved = fleet.transfer(rec, fleet.vehicle(t["truck"].vehicle_id))       # loading a truck is not a shipment: the rock keeps its area and is counted when it is delivered
 	else:
+		var before: Dictionary = rec["cargo"].duplicate()
 		moved = fleet.dump_to(rec, t["ep"])
 		_credit_delivery(rec)
+		if moved > 0 and str(t["ep"].get("type", "")) == "output" and business.is_cash_hopper(int(t["ep"].get("index", -1))):
+			var gone := {}
+			for r in before:
+				gone[r] = int(before[r]) - int(rec["cargo"].get(r, 0))
+			_hopper_intake_fx(int(t["ep"]["index"]), "machine", gone, v.work_point() + Vector3(0.0, 0.4, 0.0))
 	v.dump_timer = 1.0
 	if t.has("truck") and t.has("aim"):
 		v.truck_aim = t["aim"]                                  # the bucket goes to the bed and tips there
@@ -6651,8 +6677,14 @@ func truck_finish_unload(v: QuarryVehicle, t: Dictionary) -> int:
 		return sm
 	if rec.is_empty() or not t.has("ep") or not business.ep_valid(t["ep"]):
 		return 0
+	var before: Dictionary = rec["cargo"].duplicate()
 	var moved := fleet.dump_to(rec, t["ep"])
 	_credit_delivery(rec)
+	if moved > 0 and str(t["ep"].get("type", "")) == "output" and business.is_cash_hopper(int(t["ep"].get("index", -1))):
+		var gone := {}
+		for r in before:
+			gone[r] = int(before[r]) - int(rec["cargo"].get(r, 0))
+		_hopper_intake_fx(int(t["ep"]["index"]), "truck", gone, v.bed_center() + Vector3(0.0, 0.6, 0.0))
 	if moved > 0:
 		fx.chunk_break(v.work_point() + Vector3(0, 0.8, 0), "limestone")
 	_notify("Unloaded %d into %s.%s%s" % [moved, _target_name(t), (" %d stays on the truck (target full or wrong material)." % fleet.cargo_total(rec)) if fleet.cargo_total(rec) > 0 else "", (" Loose soil cannot be stored: take it to the spoil heap.") if int(rec["cargo"].get("soil", 0)) > 0 else ""])
