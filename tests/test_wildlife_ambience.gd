@@ -34,7 +34,7 @@ func run() -> void:
 	game._remove_walter()
 	await process_frame
 	var w: QuarryWildlife = game.wildlife
-	check(w != null and w.enabled and w.animals.size() == 6, "six animals exist")
+	check(w != null and w.enabled and w.animals.size() == 12, "twelve animals exist")
 	var deer := 0
 	var rabbits := 0
 	for b in w.animals:
@@ -42,7 +42,7 @@ func run() -> void:
 			deer += 1
 		else:
 			rabbits += 1
-	check(deer == 2 and rabbits == 4, "two deer and four rabbits (a small number)")
+	check(deer == 4 and rabbits == 8, "four deer and eight rabbits (still a handful)")
 	w.enabled = false                         # driven by hand from here (the live loop would also step them)
 	# park the player far from everything so nothing flees during the walk-about
 	game.player.global_position = Vector3(0, 1.0, 14.0)
@@ -71,7 +71,7 @@ func run() -> void:
 						head_moved = true
 				elif b.root.global_position.y > 0.05:
 					hopped = true
-	check(max_out <= 6 and max_out >= 1, "animals appear and leave: never more than the six exist, %d were out at once at most" % max_out)
+	check(max_out <= 12 and max_out >= 1, "animals appear and leave: never more than the twelve exist, %d were out at once at most" % max_out)
 	check(bad_spot == 0, "they never stood on the yard, a road, the tunnel approach, the quarry or beyond the strips (%d bad samples)" % bad_spot)
 	check(seen_states.has("walk") and seen_states.has("graze") and seen_states.has("idle") and seen_states.has("leave"), "deer idle, graze, walk and leave (%s)" % str(seen_states.keys()))
 	check(legs_moved and head_moved, "the deer's legs swing when walking and its head goes down to graze")

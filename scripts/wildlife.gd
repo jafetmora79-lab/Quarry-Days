@@ -8,6 +8,9 @@ class_name QuarryWildlife
 
 var game
 var animals: Array = []
+var duel: QuarryDuel
+var _duel_timer := 75.0             ## seconds until the next deer-versus-rabbit showdown (a rare easter egg; see wildlife_duel.gd)
+var duel_enabled := DisplayServer.get_name() != "headless"
 var t := 0.0
 var enabled := true
 const DEER_FLEE := 17.0
@@ -46,7 +49,7 @@ func setup(g) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 2026
 	var picked: Array = []
-	var want := [["deer", 62.0], ["deer", 62.0], ["rabbit", 48.0], ["rabbit", 48.0], ["rabbit", 48.0], ["rabbit", 48.0]]
+	var want := [["deer", 55.0], ["deer", 55.0], ["deer", 70.0], ["deer", 90.0], ["rabbit", 40.0], ["rabbit", 40.0], ["rabbit", 48.0], ["rabbit", 48.0], ["rabbit", 60.0], ["rabbit", 60.0], ["rabbit", 75.0], ["rabbit", 90.0]]
 	for w in want:
 		var spot := _pick_anchor(rng, picked, float(w[1]))
 		picked.append(spot)
@@ -74,7 +77,7 @@ func _pick_anchor(rng: RandomNumberGenerator, taken: Array, from_yard: float) ->
 			continue                                    # an open patch of ground, so the animal can be seen and has room
 		var ok := true
 		for o in taken:
-			if Vector2((o as Vector3).x, (o as Vector3).z).distance_to(p) < 35.0:
+			if Vector2((o as Vector3).x, (o as Vector3).z).distance_to(p) < 26.0:
 				ok = false
 		if ok:
 			return Vector3(p.x, 0.0, p.y)
@@ -95,6 +98,7 @@ func _process(delta: float) -> void:
 ## One tick of every animal (also called by tests with a fixed delta).
 func step(delta: float) -> void:
 	t += delta
+	_duel_tick(delta)
 	var threats := _threats()
 	for b in animals:
 		_tick(b, delta, threats)
@@ -376,3 +380,35 @@ func active_count() -> int:
 		if b.root != null and b.root.visible:
 			n += 1
 	return n
+
+## The rare showdown: every 4 to 8 minutes, when the player is somewhere with a clear view of a forest-edge clearing 35 to 85 m away, a deer and a rabbit square off there.
+func _duel_tick(delta: float) -> void:
+	if not duel_enabled or game == null or game.player == null:
+		return
+	if duel != null and is_instance_valid(duel):
+		duel.step(delta)
+		return
+	duel = null
+	_duel_timer -= delta
+	if _duel_timer > 0.0:
+		return
+	_duel_timer = 20.0                                         # (try again soon if no spot suits)
+	var ls = game.landscape
+	if ls == null:
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var here: Vector3 = game.player.global_position
+	for tries in 60:
+		var ang := rng.randf() * TAU
+		var dist := rng.randf_range(35.0, 85.0)
+		var p := Vector2(here.x + cos(ang) * dist, here.z + sin(ang) * dist)
+		if ls.forest_blocked(p) or absf(p.x) > 200.0 or p.y > 76.0 or p.y < -125.0 or _tree_near(p, 7.0):
+			continue
+		var d := QuarryDuel.new()
+		if d.setup(game, Vector3(p.x, 0.0, p.y), rng.randf() * TAU):
+			add_child(d)
+			duel = d
+			_duel_timer = rng.randf_range(240.0, 480.0)
+			return
+		d.free()

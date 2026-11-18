@@ -248,13 +248,20 @@ func _embankment_height(r: float) -> float:
 var _mm_nodes := {}
 var young_positions: Array = []
 
+## The mountains' feet (x, z, radius): nothing is planted on or against the foothills and peaks that stand on the forest strips.
+const FOOT_ZONES := [[-170.0, -128.0, 38.0], [-120.0, -134.0, 32.0], [-62.0, -132.0, 28.0], [52.0, -134.0, 30.0], [112.0, -130.0, 32.0], [168.0, -126.0, 38.0],
+	[-200.0, -120.0, 34.0], [190.0, -145.0, 34.0], [212.0, -40.0, 30.0], [-214.0, 8.0, 30.0], [205.0, 30.0, 32.0], [-200.0, -20.0, 32.0]]
+
 ## True where nothing may grow (xz in world metres).
 func forest_blocked(p: Vector2) -> bool:
 	var hub: Rect2 = game.hub_rect()
 	if hub.grow(7.0).has_point(p):
 		return true
-	if p.x > -134.0 and p.x < 134.0 and p.y > -115.0 and p.y < -2.0:
-		return true                                              # the quarry and its fence
+	if p.x > -142.0 and p.x < 142.0 and p.y > -122.0 and p.y < -2.0:
+		return true                                              # the quarry, its fence and a clear band outside it (the view past the fence is open)
+	for ft in FOOT_ZONES:
+		if p.distance_to(Vector2(ft[0], ft[1])) < ft[2]:
+			return true                                          # the foot of a mountain: trees there stood half inside the rock
 	if p.x > -78.0 and p.x < -18.0 and p.y > 12.0 and p.y < 40.0:
 		return true                                              # the service lane and the tunnel approach
 	if p.x > -126.0 and p.x < -26.0 and p.y > -16.0 and p.y < 68.0:

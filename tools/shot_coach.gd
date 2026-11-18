@@ -36,7 +36,7 @@ func run():
 	for i in 20: await physics_frame
 	game.player.global_position = Vector3(0.0, 0.3, -12.0)
 	game.player.rotation.y = 0.0
-	game.player.camera.rotation.x = -0.35
+	game.player.camera.rotation.x = -0.25
 	for i in 60: await physics_frame
 	await RenderingServer.frame_post_draw
 	root.get_viewport().get_texture().get_image().save_png(out + "/coach_panel.png")

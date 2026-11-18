@@ -103,8 +103,6 @@ static func build_tool(id: String) -> Node3D:
 		"ramp_plan":           # a survey staff with a striped marker flag and a rolled plan under the arm of the grip: the surveyor's tool
 			b.box("wood", Vector3(0, 0.3, 0), Vector3(0.03, 0.66, 0.03))
 			b.cyl("steel", Vector3(0, -0.02, 0), 0.02, 0.012, 0.06, 6)
-			b.box("orange", Vector3(0.0, 0.58, -0.07), Vector3(0.012, 0.13, 0.15))        # the flag
-			b.box("yellow", Vector3(0.0, 0.58, -0.07), Vector3(0.014, 0.04, 0.15))        # its stripe
 			b.cyl("rope", Vector3(0, 0.12, 0), 0.04, 0.04, 0.2, 8, Transform3D(Basis(Vector3(0, 0, 1), PI * 0.5), Vector3(0.0, 0.16, 0.0)))   # the rolled plan
 		"shovel":              # a spade: ash shaft with a D-grip, a socket, and a wide steel blade bent a little forward into a scoop
 			b.box("wood", Vector3(0, 0.34, 0), Vector3(0.036, 0.7, 0.036))

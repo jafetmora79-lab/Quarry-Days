@@ -129,7 +129,7 @@ func setup(main_node, p: QuarryProgression, id: String) -> void:
 				mi.scale = Vector3(sc, rng.randf_range(0.95, 1.08), sc)
 			mi.set_meta("base_pos", mi.position)
 			mi.set_meta("base_scale", mi.scale)
-			mi.visibility_range_end = 120.0
+			mi.visibility_range_end = 420.0
 			stack.append(mi)
 		chunks.append(stack)
 		shown.append(prog.column_tiers(id, i) if skin else stack.size())
@@ -235,7 +235,7 @@ func _build_decor(dd: Dictionary) -> void:
 		mmi.name = "Decor%d" % ki
 		mmi.material_override = null if (ki == 4 and clod_model) else _decor_material()
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		mmi.visibility_range_end = 110.0
+		mmi.visibility_range_end = 420.0
 		add_child(mmi)
 		var on: Array = []
 		on.resize(xfs.size())
@@ -281,7 +281,7 @@ func _build_ore_decor() -> void:
 		mmi.multimesh = mm
 		mmi.name = "Ore%d" % v
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		mmi.visibility_range_end = 90.0
+		mmi.visibility_range_end = 420.0
 		add_child(mmi)
 		var on: Array = []
 		on.resize(xfs.size())

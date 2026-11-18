@@ -37,11 +37,18 @@ var _rect: ColorRect
 var _mat: ShaderMaterial
 var _twins: Array = []
 var _source: Camera3D
+var mask_layer := MASK_LAYER          ## each instance has its own mask layer, so two outlines (the E target, the cleanup markers) never show each other's shapes
+var color := COLOR
+var pulse := 0.0                      ## 0 steady; > 0 the line breathes between dim and bright at this many cycles a second
+var _pt := 0.0
 
-func setup(main_camera: Camera3D) -> void:
+func setup(main_camera: Camera3D, layer := MASK_LAYER, col := COLOR, pulse_hz := 0.0) -> void:
 	name = "HighlightOutline"
+	mask_layer = layer
+	color = col
+	pulse = pulse_hz
 	_source = main_camera
-	_source.cull_mask = _source.cull_mask & ~MASK_LAYER                       # the player's own camera never sees the mask twins
+	_source.cull_mask = _source.cull_mask & ~mask_layer                       # the player's own camera never sees the mask twins
 	_vp = SubViewport.new()
 	_vp.transparent_bg = true
 	_vp.own_world_3d = false
@@ -51,7 +58,7 @@ func setup(main_camera: Camera3D) -> void:
 	_vp.gui_disable_input = true
 	add_child(_vp)
 	_cam = Camera3D.new()
-	_cam.cull_mask = MASK_LAYER
+	_cam.cull_mask = mask_layer
 	_vp.add_child(_cam)
 	_layer = CanvasLayer.new()
 	_layer.layer = -1                                                          # above the 3D picture, below every HUD layer
@@ -81,7 +88,7 @@ func show_for(meshes: Array) -> void:
 		var twin := MeshInstance3D.new()
 		twin.name = "OutlineMask"
 		twin.mesh = m.mesh
-		twin.layers = MASK_LAYER
+		twin.layers = mask_layer
 		twin.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		var white := StandardMaterial3D.new()
 		white.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -106,7 +113,8 @@ func clear() -> void:
 	_vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	set_process(false)
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_pt += delta
 	_sync()
 
 func _sync() -> void:
@@ -124,4 +132,8 @@ func _sync() -> void:
 	_mat.set_shader_parameter("mask", _vp.get_texture())
 	_mat.set_shader_parameter("texel", Vector2(1.0 / float(isz.x), 1.0 / float(isz.y)))
 	_mat.set_shader_parameter("width", WIDTH_PX * maxf(1.0, float(isz.y) / 720.0))
-	_mat.set_shader_parameter("col", COLOR)
+	var c := color
+	if pulse > 0.0:
+		var k := 0.5 + 0.5 * sin(_pt * TAU * pulse)
+		c = Color(color.r * (0.55 + 0.45 * k), color.g * (0.55 + 0.45 * k), color.b * (0.55 + 0.45 * k), color.a)
+	_mat.set_shader_parameter("col", c)

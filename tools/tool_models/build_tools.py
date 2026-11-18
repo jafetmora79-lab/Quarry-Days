@@ -303,8 +303,6 @@ def ramp_plan(root):
     t.cyl((0, 0.3, 0), 0.016, 0.014, 0.68, "Wood", seg=8)                                      # surveyor's staff
     t.cyl((0, -0.03, 0), 0.02, 0.006, 0.07, "Steel", seg=6)                                    # spike
     t.cyl((0, 0.01, 0), 0.025, 0.025, 0.04, "Rubber", seg=8)
-    t.box((0.0, 0.58, -0.07), (0.012, 0.13, 0.15), "Orange")                                   # flag
-    t.box((0.0, 0.58, -0.07), (0.014, 0.04, 0.15), "Yellow")                                   # stripe
     t.cyl((0, 0.16, 0), 0.04, 0.04, 0.2, "Paper", seg=8, axis='x')                             # rolled plan
     t.cyl((0, 0.16, 0), 0.043, 0.043, 0.02, "Rope", seg=8, axis='x')                           # its tie
     t.finish()

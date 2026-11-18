@@ -745,46 +745,46 @@ func _pulse_cleanup(delta: float) -> void:
 	_cleanup_glow_mat.albedo_color = Color(1.0, 0.2, 0.15, 0.14 + 0.3 * k)
 	_cleanup_glow_mat.emission_energy_multiplier = 0.5 + 1.1 * k
 
-func _cleanup_beacon(body: Node3D, weed: bool) -> void:
-	_cleanup_materials()
-	var vis := body.get_node_or_null("Visual") as MeshInstance3D
-	if vis != null:
-		vis.material_overlay = _cleanup_outline_mat                  # outlines the weed / heap itself, pulsing
-	var beam := MeshInstance3D.new()
-	var cm := CylinderMesh.new()
-	cm.top_radius = 0.03
-	cm.bottom_radius = 0.05
-	cm.height = 7.0
-	cm.radial_segments = 6
-	beam.mesh = cm
-	beam.material_override = _cleanup_glow_mat
-	beam.position = Vector3(0, 3.5, 0)
-	beam.name = "Beacon"
-	beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	body.add_child(beam)
-	var ring := MeshInstance3D.new()                                  # a thin ring on the ground, not a filled disc
-	var rm := TorusMesh.new()
-	rm.inner_radius = (1.0 if weed else 1.3) - 0.05
-	rm.outer_radius = (1.0 if weed else 1.3)
-	rm.rings = 20
-	rm.ring_segments = 4
-	ring.mesh = rm
-	ring.material_override = _cleanup_glow_mat
-	ring.scale = Vector3(1, 0.15, 1)
-	ring.position = Vector3(0, 0.04, 0)
-	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	body.add_child(ring)
-	var lb := PixelLabel.new()
-	lb.text = "WEEDS" if weed else "RUBBLE"
-	lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	lb.no_depth_test = true
-	lb.font_size = 28
-	lb.pixel_size = 0.008
-	lb.outline_size = 8
-	lb.modulate = Color(1.0, 0.62, 0.55)
-	lb.position = Vector3(0, 2.2, 0)
-	lb.visibility_range_end = 45.0
-	body.add_child(lb)
+func _cleanup_beacon(_body: Node3D, _weed: bool) -> void:
+	_debris_outline_dirty = true                                  # the red silhouette (no beam, ring or name) is drawn by _update_debris_outline()
+
+## Every weed clump and rubble heap near the player is outlined by its overall silhouette in a breathing red line (the same mask-pass outline as the E target, own layer and colour).
+var _debris_outline: HighlightOutline
+var _debris_outline_dirty := true
+var _debris_outline_t := 0.0
+var _debris_outline_ids := ""
+const DEBRIS_OUTLINE_RANGE := 55.0
+
+func _update_debris_outline(delta: float) -> void:
+	if DisplayServer.get_name() == "headless" or player == null or player.camera == null:
+		return
+	_debris_outline_t -= delta
+	if _debris_outline_t > 0.0 and not _debris_outline_dirty:
+		return
+	_debris_outline_t = 0.5
+	_debris_outline_dirty = false
+	if _debris_outline == null:
+		_debris_outline = HighlightOutline.new()
+		add_child(_debris_outline)
+		_debris_outline.setup(player.camera, 1 << 18, Color(1.0, 0.25, 0.18, 1.0), 0.7)
+	var here: Vector3 = driving.global_position if driving else player.global_position
+	var meshes: Array = []
+	var ids := ""
+	for id in cleanup_nodes:
+		var n: Node3D = cleanup_nodes[id]
+		if not is_instance_valid(n) or n.global_position.distance_to(here) > DEBRIS_OUTLINE_RANGE:
+			continue
+		var vis := n.get_node_or_null("Visual") as MeshInstance3D
+		if vis != null:
+			meshes.append(vis)
+			ids += str(id) + ","
+	if ids == _debris_outline_ids:
+		return
+	_debris_outline_ids = ids
+	if meshes.is_empty():
+		_debris_outline.clear()
+	else:
+		_debris_outline.show_for(meshes)
 
 ## 8-point compass word for a world offset (north is -Z, east is +X).
 func _compass(d: Vector3) -> String:
@@ -868,6 +868,7 @@ func hit_debris(node: Node3D, damage: float, point: Vector3, continuous := false
 		vis.scale = Vector3.ONE * lerpf(0.5, 1.0, float(prog.heap_units_left(id)) / total)
 
 func _finish_debris(id: String, node: Node3D, what: String) -> void:
+	_debris_outline_dirty = true
 	node.collision_layer = 0
 	for c in node.get_children():
 		if c is CollisionShape3D:
@@ -1470,6 +1471,9 @@ func _player_mining(delta: float) -> void:
 	if str(prog.tool().get("class", "")) == "survey":
 		_ramp_tool(lmb)                                # the ramp tool plans and builds; it never swings
 		return
+	if ramps != null and ramps.ghost != null and ramps.ghost.visible:
+		ramps.hide_ghost()                             # the ramp plan only exists while the ramp tool is in hand
+	ramp_prompt = ""
 	if str(prog.tool().get("class", "")) == "carry":
 		tv.operating = false
 		_bucket_tool(lmb)                              # the bucket is put down where you aim; it is not a scoop
@@ -2333,6 +2337,7 @@ func _physics_process(delta: float) -> void:
 	hud.set_prompt(_fmt_prompt(prompt))
 	hud.conversation = _conversation_active()
 	_pulse_cleanup(delta)
+	_update_debris_outline(delta)
 	hud.hint_text = _hint_text()
 	hud.tutorial = tutorial_visible and not driving
 	hud_refresh_t -= delta

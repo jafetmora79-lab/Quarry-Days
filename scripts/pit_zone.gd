@@ -439,8 +439,12 @@ func _build_fence_art(vis: Node3D) -> void:
 
 ## The survey line of the marked excavation: orange stakes every 8 m with hazard tape between them, all round the one rectangle the topsoil may be dug in
 ## (progression.dig_rect), two merged meshes. The ground outside it is left alone.
+## The dig line is now ONLY the white painted survey line on the ground (scripts/survey.gd): it is the same everywhere and never in the way. The orange stakes and hazard tape were
+## see-through, came and went with distance, and could be walked through, so they are off (flip this to bring them back).
+const DIG_STAKES := false
+
 func _build_dig_boundary(vis: Node3D) -> void:
-	if game == null or game.prog == null:
+	if not DIG_STAKES or game == null or game.prog == null:
 		return
 	var r: Array = game.prog.dig_rect("q_top")
 	if r.is_empty():

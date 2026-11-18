@@ -60,7 +60,7 @@ func run() -> void:
 	check(prog.column_units("q_top", outside_side) == before_side, "nor at the far side")
 	# ---- the survey stakes and tape
 	var vis: Node = game.pit_zone.get_node("PitZoneVisuals")
-	check(vis.get_node_or_null("DigStakes") != null and vis.get_node_or_null("DigTape") != null, "the excavation is staked out with stakes and hazard tape (two merged meshes)")
+	check(vis.get_node_or_null("DigStakes") == null and vis.get_node_or_null("DigTape") == null, "the excavation line is the painted survey line only: no stakes or tape that can be walked through")
 	# ---- the Blender ground set
 	for res in ["limestone", "coal", "iron_ore", "copper_ore", "gold_ore", "gravel", "soil"]:
 		var ok := true

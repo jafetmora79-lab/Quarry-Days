@@ -161,7 +161,7 @@ func _start_fly() -> void:
 	_lines = [
 		[0.4, 3.6, "GRANDPA WALT'S QUARRY"],
 		[3.9, 8.0, "Before you can cut any rock, the ground has to be cleared. Weeds, loose earth and heaps of broken stone lie over the rock."],
-		[8.3, 12.6, "The red markers show what is left. Clear it first: then the stone below is yours."],
+		[8.3, 12.6, "The red outlines show what is left. Clear it first: then the stone below is yours."],
 	]
 	_panel.visible = false
 	_ui_was = game.ui.visible
@@ -235,7 +235,7 @@ func _show_step(step: String) -> void:
 		_set_beacon(false)
 		return
 	var t: Array = {
-		"clear": ["STEP 1", "Clear the overburden", "Take out the HAMMER (press 2) and hit a heap of stones. Use the SHOVEL (1) on weeds. Follow the red markers."],
+		"clear": ["STEP 1", "Clear the overburden", "Take out the HAMMER (press 2) and hit a heap of stones. Use the SHOVEL (1) on weeds. Follow the red outlines."],
 		"stone": ["STEP 2", "Pick up the stones", "Look at a stone on the ground and press E to pick it up. Keep hitting the heaps with the hammer for more."],
 		"bucket": ["STEP 3", "Fill a bucket", "Press 4 for the bucket and click on the ground to set it down, then press E on it to toss your stones in."],
 		"carry": ["STEP 4", "Take the bucket", "Press E on the full bucket to pick it up, then carry it to the Cash Hopper in the yard (the yellow beam)."],
