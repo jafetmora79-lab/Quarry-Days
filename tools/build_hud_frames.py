@@ -352,30 +352,50 @@ def menu_logo():
 
 
 def menu_icon(kind):
+    """The five menu glyphs: drawn big (128 px) with exact geometry, shrunk to 16 px and thresholded, so every one is a clean, centred, symmetric pixel icon (no hand-nudged pixels)."""
     from PIL import ImageDraw
-    im = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
-    d = ImageDraw.Draw(im)
-    cream = (244, 236, 214, 255)
+    S = 128
+    big = Image.new("L", (S, S), 0)
+    d = ImageDraw.Draw(big)
+    ink = Image.new("L", (S, S), 0)                              # a second layer: the parts that are dark ink on the glyph (the "i")
+    di = ImageDraw.Draw(ink)
+    cx = cy = S / 2
     if kind == "play":
-        d.polygon([(4, 2), (13, 8), (4, 14)], fill=cream)
+        d.polygon([(34, 14), (112, 64), (34, 114)], fill=255)
+        d.ellipse((28, 8, 44, 24), fill=255)
+        d.ellipse((28, 104, 44, 120), fill=255)
+        d.ellipse((104, 56, 120, 72), fill=255)
     elif kind == "plus":
-        d.rectangle((6, 2, 9, 13), fill=cream)
-        d.rectangle((2, 6, 13, 9), fill=cream)
+        d.rounded_rectangle((52, 14, 76, 114), radius=6, fill=255)
+        d.rounded_rectangle((14, 52, 114, 76), radius=6, fill=255)
     elif kind == "gear":
-        for a in range(8):
-            ang = a * math.pi / 4
-            cx, cy = 8 + math.cos(ang) * 6, 8 + math.sin(ang) * 6
-            d.rectangle((cx - 1, cy - 1, cx + 1, cy + 1), fill=cream)
-        d.ellipse((3, 3, 12, 12), fill=cream)
-        d.ellipse((6, 6, 9, 9), fill=(0, 0, 0, 0))
+        for k in range(8):
+            ang = k * math.pi / 4
+            ca, sa = math.cos(ang), math.sin(ang)
+            hw, r0, r1 = 13, 40, 62
+            pts = [(cx + ca * r0 - sa * hw, cy + sa * r0 + ca * hw), (cx + ca * r1 - sa * hw, cy + sa * r1 + ca * hw),
+                   (cx + ca * r1 + sa * hw, cy + sa * r1 - ca * hw), (cx + ca * r0 + sa * hw, cy + sa * r0 - ca * hw)]
+            d.polygon(pts, fill=255)
+        d.ellipse((cx - 46, cy - 46, cx + 46, cy + 46), fill=255)
+        d.ellipse((cx - 19, cy - 19, cx + 19, cy + 19), fill=0)
     elif kind == "power":
-        d.ellipse((2, 3, 13, 14), outline=cream, width=2)
-        d.rectangle((7, 0, 8, 7), fill=cream)
-        d.rectangle((6, 0, 9, 0), fill=(0, 0, 0, 0))
+        d.ellipse((cx - 56, cy - 48, cx + 56, cy + 64), fill=255)
+        d.ellipse((cx - 36, cy - 28, cx + 36, cy + 44), fill=0)
+        d.rectangle((cx - 22, 0, cx + 22, 58), fill=0)             # the gap at the top of the ring
+        d.rounded_rectangle((cx - 9, 6, cx + 9, 74), radius=8, fill=255)
     elif kind == "info":
-        d.ellipse((1, 1, 14, 14), fill=cream)
-        d.rectangle((7, 6, 8, 11), fill=(40, 46, 54, 255))
-        d.rectangle((7, 3, 8, 4), fill=(40, 46, 54, 255))
+        d.ellipse((6, 6, S - 6, S - 6), fill=255)
+        di.ellipse((cx - 9, 28, cx + 9, 46), fill=255)
+        di.rounded_rectangle((cx - 9, 56, cx + 9, 104), radius=4, fill=255)
+    mask = big.resize((16, 16), Image.BOX).point(lambda v: 255 if v >= 128 else 0)
+    inkm = ink.resize((16, 16), Image.BOX).point(lambda v: 255 if v >= 110 else 0)
+    im = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+    cream = (244, 236, 214, 255)
+    mp, ip, op = mask.load(), inkm.load(), im.load()
+    for y in range(16):
+        for x in range(16):
+            if mp[x, y]:
+                op[x, y] = (40, 46, 54, 255) if ip[x, y] else cream
     return _outline_rgba(im)
 
 

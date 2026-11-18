@@ -758,6 +758,14 @@ const DEBRIS_OUTLINE_RANGE := 55.0
 func _update_debris_outline(delta: float) -> void:
 	if DisplayServer.get_name() == "headless" or player == null or player.camera == null:
 		return
+	var quiet: bool = title != null or (opening_scene != null and is_instance_valid(opening_scene)) or not bool(prog.story.get("intro_seen", false)) or est_running or menu != "" \
+		or (coach != null and coach.flying()) or (wildlife != null and wildlife.aura_battle != null and wildlife.aura_battle._in_cine)
+	if quiet:                                                      # no red outlines over the main menu, the intro, a fly-over or any cinematic
+		if _debris_outline != null and _debris_outline.active():
+			_debris_outline.clear()
+			_debris_outline_ids = ""
+		_debris_outline_dirty = true
+		return
 	_debris_outline_t -= delta
 	if _debris_outline_t > 0.0 and not _debris_outline_dirty:
 		return

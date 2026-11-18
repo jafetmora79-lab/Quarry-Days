@@ -6,6 +6,7 @@ const WATCH_SECONDS := 2.0
 const DURATION := 36.0                 ## in pose time: the poses run 24 s, then the result (the deer's sad walk, the bunnies carrying the winner off)
 const SPEED := 1.3                     ## pose time per real second: a little brisker than the first cut
 const COOLDOWN := 18.0
+const DAYS_BETWEEN := 5                ## it happens once, then not again for five game days
 const BLUE := Color(0.16, 0.75, 1.0)
 const GOLD := Color(1.0, 0.64, 0.12)
 
@@ -30,6 +31,8 @@ var _rain: CPUParticles3D
 var _confetti: CPUParticles3D
 var _burst_done := false
 var _music: AudioStreamPlayer
+var day_override := -1                 ## tests: pretend it is this game day
+var _next_day := 0                     ## the first game day it may happen (again)
 const MUSIC := "res://audio/aura_battle.wav"          ## an original meme-phonk track (tools/make_aura_music.py), timed to the choreography at SPEED
 var _caption_nodes: Array = []
 var _shades: Array = []
@@ -208,7 +211,33 @@ func _mesh(parent: Node3D, mesh: Mesh, colour: Color) -> MeshInstance3D:
 
 ## A broad stretch of the LEFT fence can discover it, but only by looking at the
 ## clearing. Distance, camera direction and solid occlusion all matter.
+func _day() -> int:
+	if day_override >= 0:
+		return day_override
+	var st = game.get("state") if game != null else null
+	return int(st.clock_minutes / 1440.0) if st != null else 0
+
+func _read_next_day() -> int:
+	var pr = game.get("prog") if game != null else null
+	if pr != null and pr.story.has("aura_next_day"):
+		return int(pr.story["aura_next_day"])
+	return _next_day
+
+func available() -> bool:
+	return _day() >= _read_next_day()
+
+## Present only while it can happen: after the show the two leave the clearing and stay away for DAYS_BETWEEN game days.
+func _sync_presence() -> void:
+	var here := available() and elapsed < 0.0
+	if elapsed < 0.0:
+		for made in actors:
+			(made["root"] as Node3D).visible = here
+		if not here:
+			_set_finale_visible(false)
+
 func watched() -> bool:
+	if not available():
+		return false
 	if game.player == null or game.driving != null or game.menu != "" or game.sleeping or game.player.locked:
 		return false
 	var p: Vector3 = game.player.global_position
@@ -247,6 +276,7 @@ func _process(delta: float) -> void:
 
 func step(delta: float, looking: bool) -> void:
 	cooldown = maxf(0.0, cooldown - delta)
+	_sync_presence()
 	if elapsed < 0.0:
 		gaze = gaze + delta if looking and cooldown <= 0.0 else 0.0
 		if gaze >= WATCH_SECONDS:
@@ -536,6 +566,10 @@ func finish() -> void:
 		(sh as Node3D).visible = false
 	_set_finale_visible(false)
 	_burst_done = false
+	_next_day = _day() + DAYS_BETWEEN
+	var pr = game.get("prog") if game != null else null
+	if pr != null:
+		pr.story["aura_next_day"] = _next_day
 	for made in actors:
 		var actor: Node3D = made["root"]
 		actor.position = made["home"]

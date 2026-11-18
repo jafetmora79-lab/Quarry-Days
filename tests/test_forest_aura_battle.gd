@@ -78,6 +78,11 @@ func run() -> void:
 	check(restored, "all original and split-paw transforms restore after the dance")
 	battle.step(2.1, true)
 	check(battle.elapsed < 0, "continued watching cannot immediately retrigger")
+	check(not battle.available() and not (battle.actors[0]["root"] as Node3D).visible, "after the show the deer and rabbit are gone and it will not happen again soon")
+	battle.day_override = 3
+	check(not battle.available(), "still nothing three game days later")
+	battle.day_override = 6
+	check(battle.available(), "it can happen again after five game days")
 	battle.step(20.0, false)
 	battle.step(2.1, true)
 	battle.step(1.0, false)
@@ -85,6 +90,7 @@ func run() -> void:
 	battle.step(2.1, false)
 	check(battle.elapsed < 0 and not battle.effects.visible, "leaving the viewpoint cancels and clears effects")
 	game.player.camera.look_at(Vector3(-90, 1.6, -58))
+	battle.day_override = 99                  # (a later game day: it is available again)
 	check(not battle.watched(), "looking away from the forest cannot trigger it")
 	game.player.camera.look_at(battle.global_position + Vector3(0, 1.2, 0))
 	game.menu = "pause"
