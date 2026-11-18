@@ -1,10 +1,15 @@
 extends Node3D
 class_name QuarrySoil
-## Phase 10.2: the loose soil that covers the working ground. A fixed grid of cells (data "soil"), each holding a number of soil units
-## (units_per_cell = layers x units_per_layer); the surface height of a cell is its fraction of full depth times the full depth.
-## Digging only ever takes units out of a cell: the units become cargo, are dumped on the spoil heap, and are counted - nothing appears
-## from nowhere. Collision is one box per cell inside ONE static body (a box is switched off when its cell is empty); the visible surface
-## is ONE mesh rebuilt when cells change; where a cell is empty nothing is drawn and the topsoil layer under it (the formation q_top) shows.
+## The soil field of the working ground (data "soil": 22 x 10 cells of 2 m, 3 layers of 0.3 m, 4 units a layer), now REAL GROUND: the soil is a layer of loose topsoil lying on the
+## quarry terrain (QuarryTerrain), not a grid of boxes drawn over it. Walking on it, digging it with a shovel, scooping it with a loader, pushing it with a dozer, its edges slumping to
+## the angle of repose - all of that is the terrain's. This class is the bookkeeping VIEW of that ground that contracts, machines, crew and saves already speak: cells, units per cell,
+## a cell's height, "take n units", "put n units", the cells a machine stands on. One soil unit = cell x cell x full depth / max units = 0.3 m3 of loose topsoil, exactly the volume the
+## old field gave per unit, so every contract number (soil removed, soil hauled) means what it always meant.
+##
+## units[i] is DERIVED from the terrain (sync()): the loose topsoil over the cell's 16 vertices. A saved game keeps the terrain snapshot; an older save (cells only) is applied to the
+## terrain at load (apply()). Without a terrain (legacy layouts) the field is units-only bookkeeping.
+
+signal cells_changed(cells: Array)
 
 var cols := 0
 var rows := 0
@@ -15,18 +20,21 @@ var units_per_layer := 4
 var layer_h := 0.3
 var units := PackedInt32Array()
 var active := PackedByteArray()          ## 1 = the cell is part of the soil field (clear of rocks, paths and the spoil heap)
-var body: StaticBody3D
-var shapes: Array = []
-var surface: MeshInstance3D
-var _dirty := true
-var _dirty_cells := {}
+var terrain: QuarryTerrain               ## the ground the soil lies on (set before setup())
 var removed_total := 0
+var _dirty_cells := {}
+var _dirty := true
+var _since_sync := 0.0
 
 func max_units() -> int:
 	return layers * units_per_layer
 
 func full_depth() -> float:
 	return float(layers) * layer_h
+
+## m3 of loose topsoil in one soil unit.
+func unit_volume() -> float:
+	return cell * cell * full_depth() / float(max_units())
 
 func setup(cfg: Dictionary, mask: PackedByteArray, saved: Array) -> void:
 	name = "SoilField"
@@ -40,35 +48,62 @@ func setup(cfg: Dictionary, mask: PackedByteArray, saved: Array) -> void:
 	active = mask
 	units = PackedInt32Array()
 	units.resize(cols * rows)
-	for i in range(cols * rows):
-		var u := max_units() if int(active[i]) == 1 else 0
-		if saved.size() == cols * rows and int(active[i]) == 1:
-			u = clampi(int(saved[i]), 0, max_units())
-		units[i] = u
-	body = StaticBody3D.new()
-	body.name = "SoilBody"
-	body.set_meta("climbable", true)         # a low heap can be climbed like a ledge
-	add_child(body)
-	for i in range(cols * rows):
-		var cs := CollisionShape3D.new()
-		var box := BoxShape3D.new()
-		cs.shape = box
-		body.add_child(cs)
-		shapes.append(cs)
-	surface = MeshInstance3D.new()
-	surface.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	surface.material_override = MeshKit.mat("ExcavatedDirt")
-	add_child(surface)
-	refresh(true)
+	apply(saved)
 
-## Sets every cell from a saved list (an empty or mismatched list means untouched ground: full depth).
+func _cell_rect(i: int) -> Rect2:
+	return Rect2(origin.x + float(i % cols) * cell, origin.y + float(i / cols) * cell, cell, cell)
+
+## Sets every cell from a saved list (an empty or mismatched list means untouched ground: full depth). The terrain's loose topsoil over each cell is raised or lowered to match, then the
+## whole field settles to its angle of repose (the hard square edges slump into real slopes). A newer save restores the terrain itself afterwards and sync() reads it back.
 func apply(saved: Array) -> void:
 	for i in range(units.size()):
 		var u := max_units() if int(active[i]) == 1 else 0
 		if saved.size() == units.size() and int(active[i]) == 1:
 			u = clampi(int(saved[i]), 0, max_units())
 		units[i] = u
-	refresh(true)
+		if terrain != null and int(active[i]) == 1:
+			_match_terrain(i, u)
+	if terrain != null:
+		terrain.flush(true)
+		sync()
+	_dirty = true
+	_dirty_cells.clear()
+
+func _match_terrain(i: int, u: int) -> void:
+	if _read_cell(i) == u:
+		return                                   # the ground already holds exactly this many units (a saved terrain restores itself: do not round it)
+	var want := float(u) * unit_volume()
+	var r := _cell_rect(i)
+	var have := terrain.loose_rect_volume(r, "topsoil")
+	if want > have + 0.000001:
+		terrain.loose_rect_add(r, "topsoil", want - have)
+	elif have > want + 0.000001:
+		terrain.loose_rect_take(r, "topsoil", have - want)
+
+func _read_cell(i: int) -> int:
+	return clampi(int(round(terrain.loose_rect_volume(_cell_rect(i), "topsoil") / unit_volume())), 0, max_units())
+
+## Reads every cell's units back from the ground.
+func sync() -> void:
+	if terrain == null:
+		return
+	for i in range(units.size()):
+		if int(active[i]) == 1:
+			units[i] = _read_cell(i)
+
+## Reads the cells within `radius` of `p` back from the ground.
+func sync_near(p: Vector3, radius: float) -> void:
+	if terrain == null:
+		return
+	var c0 := cell_at(p)
+	var span := int(ceil(radius / cell)) + 1
+	var cx0 := (c0 % cols) if c0 >= 0 else clampi(int(floor((p.x - origin.x) / cell)), 0, cols - 1)
+	var cz0 := (c0 / cols) if c0 >= 0 else clampi(int(floor((p.z - origin.y) / cell)), 0, rows - 1)
+	for cz in range(maxi(0, cz0 - span), mini(rows, cz0 + span + 1)):
+		for cx in range(maxi(0, cx0 - span), mini(cols, cx0 + span + 1)):
+			var i := cz * cols + cx
+			if int(active[i]) == 1:
+				units[i] = _read_cell(i)
 
 func total() -> int:
 	var n := 0
@@ -86,11 +121,14 @@ func cell_at(p: Vector3) -> int:
 		return -1
 	return cz * cols + cx
 
+## Depth of the loose soil in a cell (what its units stand for), m.
 func height(i: int) -> float:
 	return float(units[i]) / float(max_units()) * full_depth()
 
-## Highest ground of the cell under a point (0 where there is no soil).
+## The ground height under a point (the real surface).
 func surface_y(p: Vector3) -> float:
+	if terrain != null and terrain.in_bounds(p.x, p.z):
+		return terrain.height_at(p.x, p.z)
 	var i := cell_at(p)
 	return height(i) if i >= 0 else 0.0
 
@@ -98,6 +136,7 @@ func surface_y(p: Vector3) -> float:
 func nearest_cell(p: Vector3, reach: float, exclude := {}) -> int:
 	var best := -1
 	var best_d := reach
+	sync_near(p, reach)
 	var c0 := cell_at(p)
 	var span := int(ceil(reach / cell)) + 1
 	var cx0 := (c0 % cols) if c0 >= 0 else clampi(int(floor((p.x - origin.x) / cell)), 0, cols - 1)
@@ -131,9 +170,13 @@ func cells_under(xf: Transform3D, half: Vector2) -> Dictionary:
 func add(i: int, n: int) -> int:
 	if i < 0 or i >= units.size() or n <= 0 or int(active[i]) != 1:
 		return 0
+	if terrain != null:
+		units[i] = _read_cell(i)
 	var put := mini(n, max_units() - int(units[i]))
 	if put <= 0:
 		return 0
+	if terrain != null:
+		terrain.loose_rect_add(_cell_rect(i), "topsoil", float(put) * unit_volume())
 	units[i] = int(units[i]) + put
 	removed_total = maxi(0, removed_total - put)
 	_dirty_cells[i] = true
@@ -144,91 +187,34 @@ func add(i: int, n: int) -> int:
 func remove(i: int, n: int) -> int:
 	if i < 0 or i >= units.size() or n <= 0:
 		return 0
+	if terrain != null:
+		units[i] = _read_cell(i)
 	var take := mini(n, int(units[i]))
 	if take <= 0:
 		return 0
+	if terrain != null:
+		terrain.loose_rect_take(_cell_rect(i), "topsoil", float(take) * unit_volume())
 	units[i] = int(units[i]) - take
 	removed_total += take
 	_dirty_cells[i] = true
 	_dirty = true
 	return take
 
-signal cells_changed(cells: Array)
-
+## Tells whoever cares which cells changed (vehicles standing on them wake up). The ground itself is drawn and collided by the terrain.
 func refresh(force := false) -> void:
 	if not _dirty and not force:
 		return
 	var changed := _dirty_cells.keys()
-	for i in range(units.size()):
-		if force or _dirty_cells.has(i):
-			var cs: CollisionShape3D = shapes[i]
-			var h := height(i)
-			cs.disabled = h < 0.05
-			(cs.shape as BoxShape3D).size = Vector3(cell, maxf(0.1, h), cell)
-			var c := cell_center(i)
-			cs.position = Vector3(c.x, maxf(0.1, h) * 0.5, c.z)
 	_dirty_cells.clear()
 	_dirty = false
-	_rebuild_meshes()
 	if not changed.is_empty():
 		cells_changed.emit(changed)
 
-func _noise(gx: int, gz: int, salt: int) -> float:
-	return float(abs(hash(Vector3i(gx, gz, salt))) % 1000) / 1000.0
-
-func _corner(gx: int, gz: int, y: float) -> Vector3:
-	var inner := gx > 0 and gx < cols and gz > 0 and gz < rows
-	var j := cell * 0.15 if inner else 0.0
-	return Vector3(origin.x + float(gx) * cell + (_noise(gx, gz, 1) - 0.5) * 2.0 * j, y, origin.y + float(gz) * cell + (_noise(gx, gz, 2) - 0.5) * 2.0 * j)
-
-func _out(s: MeshKit.Soup, a: Vector3, b: Vector3, c: Vector3, hint: Vector3) -> void:
-	if (b - a).cross(c - a).dot(hint) < 0.0:
-		s.tri(a, c, b)
-	else:
-		s.tri(a, b, c)
-
-func _rebuild_meshes() -> void:
-	var s := MeshKit.Soup.new()
-	for cz in range(rows):
-		for cx in range(cols):
-			var i := cz * cols + cx
-			if int(active[i]) != 1:
-				continue
-			var h := height(i)
-			if h < 0.05:
-				continue           # an emptied cell draws NOTHING: the ground beneath it (the topsoil layer, drawn by its own formation) is what shows, not a made-up patch
-			var a := _corner(cx, cz, h)
-			var b := _corner(cx + 1, cz, h)
-			var c := _corner(cx + 1, cz + 1, h)
-			var d := _corner(cx, cz + 1, h)
-			var mid := (a + b + c + d) * 0.25
-			mid.y += (_noise(cx, cz, 3) - 0.5) * 0.06
-			for e in [[a, d], [d, c], [c, b], [b, a]]:
-				_out(s, e[0], e[1], mid, Vector3.UP)
-			var sides := [[Vector2i(-1, 0), d, a], [Vector2i(1, 0), b, c], [Vector2i(0, -1), a, b], [Vector2i(0, 1), c, d]]
-			for sd in sides:
-				var o: Vector2i = sd[0]
-				var nx := cx + o.x
-				var nz := cz + o.y
-				var nh := 0.0
-				if nx >= 0 and nz >= 0 and nx < cols and nz < rows and int(active[nz * cols + nx]) == 1:
-					nh = height(nz * cols + nx)
-				if nh >= h - 0.001:
-					continue
-				var p0: Vector3 = sd[1]
-				var p1: Vector3 = sd[2]
-				# Visual only (the collision boxes are untouched): a cut face is not a vertical plane. Its foot spreads out a little (the angle of
-				# repose, more for a deeper cut) and each face gets a bulge at its middle, so excavated edges read as dug earth, not stacked blocks.
-				var outv := Vector3(o.x, 0, o.y)
-				var slope := clampf((h - nh) * 0.35, 0.0, 0.28)
-				var bulge := (_noise(cx * 3 + o.x, cz * 3 + o.y, 5) - 0.3) * 0.10
-				var q0 := Vector3(p0.x, nh, p0.z) + outv * slope
-				var q1 := Vector3(p1.x, nh, p1.z) + outv * slope
-				var mt := (p0 + p1) * 0.5
-				var pm := mt + outv * bulge * 0.4
-				var qm := Vector3(mt.x, nh, mt.z) + outv * (slope + bulge)
-				_out(s, q0, qm, pm, outv)
-				_out(s, q0, pm, p0, outv)
-				_out(s, qm, q1, p1, outv)
-				_out(s, qm, p1, pm, outv)
-	surface.mesh = s.mesh()
+## The ground keeps settling after a cut (the loose soil slumps into a hole, a heap spreads): every half second the cells are read back so machines and the crew see it.
+func _process(delta: float) -> void:
+	if terrain == null:
+		return
+	_since_sync += delta
+	if _since_sync >= 0.5:
+		_since_sync = 0.0
+		sync()

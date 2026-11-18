@@ -947,6 +947,14 @@ func _build_pit_zone() -> void:
 		live_terrain = LiveTerrain.new()
 		world.add_child(live_terrain)
 		live_terrain.attach(self)
+		_soil_on_terrain()
+
+## The soil field is real ground: its soil is loose topsoil lying on the terrain. Hooked up as soon as the terrain exists (the field is built earlier, units-only).
+func _soil_on_terrain() -> void:
+	if soil == null or not is_instance_valid(soil) or live_terrain == null or live_terrain.terrain == null:
+		return
+	soil.terrain = live_terrain.terrain
+	soil.apply(state.soil_units)
 
 ## The gate opens with the cleanup tutorial (saves from before it are already open).
 func _sync_pit_gate() -> void:
@@ -1873,6 +1881,7 @@ func _terrain_strike(point: Vector3) -> Dictionary:
 	var radius := 0.38 if digs else 0.45
 	var depth := 0.28 if digs else 0.22
 	var budget := (0.09 if digs else 0.12) * scale
+	var soil_before := _soil_units_near(point, radius)
 	var res: Dictionary = lt.terrain.dig(point, radius, depth, budget, max_h, mode)
 	if mode == "break" and float(res["broken"]) <= 0.00001 and str(res["blocked_by"]) == "":
 		res = lt.terrain.dig(point, radius, depth, budget, 0, "scoop")        # the pick pulls loose rubble into the bucket
@@ -1889,9 +1898,37 @@ func _terrain_strike(point: Vector3) -> Dictionary:
 		dig_audio.play("dig", hit_mat, point, 0.8 + minf(amount, 0.3) * 2.0)
 		fx.impact(point, str(lt.geo.props(hit_mat)["resource"]), 1.0, mine_normal)
 		player.impact_feedback(0.5 + 0.25 * float(state.tool_tier))
+	if str(res.get("limit", "")) != "" and amount <= 0.00001:
+		dig_audio.play("blocked", hit_mat, point, 0.7)
+		player.impact_feedback(0.3)
+		_notify(_dig_limit_message(str(res["limit"])))
 	_terrain_yield(res["taken"], sf)
+	var soil_gone := soil_before - _soil_units_near(point, radius)
+	if soil_gone > 0:
+		prog.area_add(prog.area_for_point(point), "soil_removed", soil_gone)      # the soil field's contract counts what the ground lost, however it was dug
+		soil_sync_state()
 	_after_settle(lt.settle_columns(point, radius), "player", {})
 	return res
+
+## What the player is told when the ground cannot be dug any further here.
+func _dig_limit_message(why: String) -> String:
+	if why == "floor":
+		return "This bench is as deep as it goes for now. Open the next quarry level (and build its access road) to dig deeper."
+	return "Too steep and narrow to dig deeper here. Widen the hole and cut a slope so you can climb out and machines can work."
+
+func _soil_units_near(point: Vector3, radius: float) -> int:
+	if soil == null or not is_instance_valid(soil) or soil.terrain == null:
+		return 0
+	soil.sync_near(point, radius + soil.cell)
+	var n := 0
+	var c0 := soil.cell_at(point)
+	if c0 < 0:
+		return 0
+	var span := int(ceil((radius + soil.cell) / soil.cell)) + 1
+	for cz in range(maxi(0, c0 / soil.cols - span), mini(soil.rows, c0 / soil.cols + span + 1)):
+		for cx in range(maxi(0, c0 % soil.cols - span), mini(soil.cols, c0 % soil.cols + span + 1)):
+			n += int(soil.units[cz * soil.cols + cx])
+	return n
 
 ## Volume -> units at the boundary: whole units go into the buckets, the fraction stays in `terrain_rem` for the next scoop (nothing is created or lost).
 func _terrain_yield(taken: Dictionary, sf: Array) -> void:
@@ -3620,6 +3657,8 @@ func _build_soil() -> void:
 		mask[i] = 1 if ok else 0
 	soil = QuarrySoil.new()
 	world.add_child(soil)
+	if live_terrain != null and live_terrain.terrain != null:
+		soil.terrain = live_terrain.terrain                       # (built after the terrain: the soil goes straight onto the ground)
 	soil.setup(sc, mask, state.soil_units)
 	soil.cells_changed.connect(_wake_vehicles_on)
 	# the spoil heap: a marked patch whose mound grows with what has been dumped there
@@ -3715,9 +3754,7 @@ func soil_follow_topsoil() -> int:
 			continue
 		var col := prog.cell_index_at("q_top", soil.cell_center(i))
 		if col >= 0 and prog.column_units("q_top", col) <= 0:
-			soil.units[i] = 0
-			soil._dirty_cells[i] = true
-			soil._dirty = true
+			soil.removed_total -= soil.remove(i, int(soil.units[i]))       # (the topsoil layer under it is gone: this is not digging, so it is not counted)
 			cleared += 1
 	if cleared > 0:
 		soil.refresh()
@@ -3727,6 +3764,7 @@ func soil_follow_topsoil() -> int:
 
 func soil_sync_state() -> void:
 	if soil and is_instance_valid(soil):
+		soil.sync()
 		state.soil_units = Array(soil.units)
 
 func _pick_up_part(id: String) -> void:
@@ -4414,6 +4452,7 @@ func _create_crusher(index: int) -> void:
 	crusher_nodes.append(body)
 
 func _save(quiet := false) -> void:
+	soil_sync_state()                                 # the soil cells are read from the ground: the record in the save is what the ground holds now
 	var placing := placement
 	if placement and not quiet:
 		_cancel_placement()
@@ -4626,6 +4665,12 @@ func _load(quiet := false) -> void:
 		if tsnap is Dictionary and not (tsnap as Dictionary).is_empty():
 			live_terrain.terrain.restore(tsnap)                            # ... plus everything dug and heaped by hand or machine (old saves have none)
 			live_terrain.terrain.flush(true)
+			if soil != null and is_instance_valid(soil):
+				soil.terrain = live_terrain.terrain
+				soil.sync()                                                # the soil field reads its units back from the restored ground
+		elif soil != null and is_instance_valid(soil):
+			soil.terrain = live_terrain.terrain
+			soil.apply(state.soil_units)                                   # an older save has cells only: lay that much topsoil on the ground
 		terrain_rem = (data.get("terrain_rem", {}) as Dictionary).duplicate() if data.get("terrain_rem", {}) is Dictionary else {}
 		_buckets().restore(data.get("placed_buckets", []) if data.get("placed_buckets", []) is Array else [])
 		_veh_rem = {}

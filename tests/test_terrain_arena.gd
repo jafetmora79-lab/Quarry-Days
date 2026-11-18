@@ -42,15 +42,27 @@ func run() -> void:
 	# dig down to rock with the shovel
 	var q := Vector3(-3.0, 0.0, 4.0)
 	var blocked := false
-	for i in range(80):
-		arena.audio._cool.clear()
-		arena.cooldown = 0.0
-		var r: Dictionary = arena.strike(q)
-		if r.is_empty():
-			arena.release_load(Vector3(-12, 0, 6), false)           # shovel full: empty it on the ground and go on
-			continue
-		if str(r["blocked_by"]) != "" and float(r["volume"]) <= 0.00001:
-			blocked = true
+	# a spade cannot sink a narrow shaft (QuarryTerrain.MAX_DROP): digging down to the rock is a bowl, widened ring by ring round the spot
+	for rd in range(16):
+		for ring in range(0, 10):
+			var n := maxi(1, ring * 6)
+			for a in range(n):
+				var pp := Vector3(q.x + cos(float(a) / float(n) * TAU) * float(ring) * 0.4, 0.0, q.z + sin(float(a) / float(n) * TAU) * float(ring) * 0.4)
+				arena.audio._cool.clear()
+				arena.cooldown = 0.0
+				if arena.strike(pp).is_empty():
+					arena.release_load(Vector3(-12, 0, 6), false)           # shovel full: empty it on the ground and go on
+		for i in range(4):
+			arena.audio._cool.clear()
+			arena.cooldown = 0.0
+			var r: Dictionary = arena.strike(q)
+			if r.is_empty():
+				arena.release_load(Vector3(-12, 0, 6), false)
+				continue
+			if str(r["blocked_by"]) != "" and float(r["volume"]) <= 0.00001:
+				blocked = true
+				break
+		if blocked:
 			break
 	check(blocked, "the shovel digs down until the rock stops it")
 	check(arena.audio.log[arena.audio.log.size() - 1]["event"] == "blocked" and str(arena.audio.log[arena.audio.log.size() - 1]["sound"]).begins_with("chink"), "and the blow chinks")

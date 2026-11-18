@@ -86,7 +86,7 @@ func _compute(p: Vector3) -> Array:
 		var top: float = bottom + float(tiers) * float(f["tier_h"])
 		raw.append([top, bottom, str(f["resource"])])
 	if raw.is_empty():
-		return _default_layers()
+		return _default_layers(p)
 	raw.sort_custom(func(a, b): return a[0] > b[0])
 	var out: Array = []
 	var cursor := natural_top
@@ -107,20 +107,135 @@ func _compute(p: Vector3) -> Array:
 		else:
 			out.append([top, float(r[1]), mid])
 		cursor = float(r[1])
+	out.append_array(_deep_layers(p, cursor))                      # under the formations the rock is the bedrock with its ore bodies, not a plain slab
+	return out
+
+## Ground outside every formation: soil, clay and gravel of uneven thickness over limestone bedrock that carries localized ore bodies (see _deep_layers).
+func _default_layers(p := Vector3.ZERO) -> Array:
+	var out: Array = []
+	var y := natural_top
+	for s in data()["default_strata"]:
+		var m := str(s["material"])
+		if m != "topsoil" and m != "clay" and m != "gravel":
+			break
+		var t: float = float(s["thickness"]) * _thickness_factor(p, m)
+		if t > 0.05:
+			out.append([y, y - t, m])
+			y -= t
+	out.append_array(_deep_layers(p, y))
+	return out
+
+## Thickness variation of the loose layers: the topsoil thins and thickens, the clay comes and goes, the gravel lies in lenses.
+func _thickness_factor(p: Vector3, m: String) -> float:
+	match m:
+		"topsoil": return 0.65 + 0.7 * _vnoise(p.x / 9.0, p.z / 9.0, 11)
+		"clay": return 0.2 + 1.4 * _vnoise(p.x / 7.0, p.z / 7.0, 12)
+		_: return 0.15 + 1.6 * _vnoise(p.x / 11.0, p.z / 11.0, 13)
+
+## The bedrock under `from_y`: limestone with ore BODIES in it, each one a lens of limited extent (a broad thin coal seam, a pocket of iron, a narrow tilted copper vein, a rare gold
+## pocket deep down), not a floor-to-floor cake. Which bodies lie where comes from a seeded hash of the ground, so it is the same everywhere in every game. Order of priority when two
+## overlap: gold, copper, iron, coal.
+const BODIES := [
+	{"mat": "gold_ore", "grid": 19.0, "prob": 0.5, "rx": [3.0, 6.5], "rz": [3.0, 6.5], "thick": [1.6, 3.2], "depth": [-14.0, -12.0], "salt": 40},
+	{"mat": "copper_ore", "grid": 21.0, "prob": 0.7, "rx": [2.5, 4.0], "rz": [10.0, 17.0], "thick": [1.4, 2.6], "depth": [-12.5, -9.0], "salt": 30},
+	{"mat": "iron_ore", "grid": 20.0, "prob": 0.75, "rx": [5.0, 9.0], "rz": [4.5, 8.0], "thick": [1.8, 3.2], "depth": [-10.0, -6.0], "salt": 20},
+	{"mat": "coal", "grid": 28.0, "prob": 0.85, "rx": [11.0, 20.0], "rz": [7.0, 13.0], "thick": [0.9, 2.2], "depth": [-7.0, -3.6], "salt": 10},
+]
+
+func _deep_layers(p: Vector3, from_y: float) -> Array:
+	var spans: Array = []                                           # [top, bottom, id], highest priority first
+	for b in BODIES:
+		var best := _body_at(p, b)
+		if best.is_empty():
+			continue
+		var top: float = minf(float(best[0]), from_y)
+		var bottom: float = maxf(float(best[1]), bed_y)
+		if top - bottom < 0.15:
+			continue
+		spans.append([top, bottom, str(b["mat"])])
+	# resolve overlaps in priority order: what a better ore already holds, the next one does not take
+	var taken: Array = []
+	var placed: Array = []
+	for sp in spans:
+		var segs: Array = [[float(sp[0]), float(sp[1])]]
+		for t in taken:
+			var nxt: Array = []
+			for sg in segs:
+				if sg[1] >= t[0] or sg[0] <= t[1]:
+					nxt.append(sg)
+				else:
+					if sg[0] > t[0]:
+						nxt.append([sg[0], t[0]])
+					if sg[1] < t[1]:
+						nxt.append([t[1], sg[1]])
+			segs = nxt
+		for sg in segs:
+			if float(sg[0]) - float(sg[1]) >= 0.15:
+				placed.append([sg[0], sg[1], sp[2]])
+				taken.append([sg[0], sg[1]])
+	placed.sort_custom(func(a, c): return a[0] > c[0])
+	var out: Array = []
+	var cursor := from_y
+	for l in placed:
+		if float(l[0]) < cursor - 0.0001:
+			out.append([cursor, l[0], "limestone"])
+		out.append(l)
+		cursor = float(l[1])
 	if cursor > bed_y + 0.0001:
 		out.append([cursor, bed_y, "limestone"])
 	return out
 
-func _default_layers() -> Array:
-	var out: Array = []
-	var y := natural_top
-	for s in data()["default_strata"]:
-		var t: float = float(s["thickness"])
-		out.append([y, y - t, str(s["material"])])
-		y -= t
-	if y > bed_y:
-		out.append([y, bed_y, "limestone"])
-	return out
+## The body of one kind that lies under (x, z): [top, bottom] or [].
+func _body_at(p: Vector3, b: Dictionary) -> Array:
+	var g: float = b["grid"]
+	var gx := int(floor(p.x / g))
+	var gz := int(floor(p.z / g))
+	var best := 0.0
+	var best_c := 0.0
+	var salt: int = b["salt"]
+	for dx in range(-1, 2):
+		for dz in range(-1, 2):
+			var cx := gx + dx
+			var cz := gz + dz
+			if _h(cx, cz, salt) > float(b["prob"]):
+				continue
+			var ctr := Vector2((float(cx) + 0.15 + 0.7 * _h(cx, cz, salt + 1)) * g, (float(cz) + 0.15 + 0.7 * _h(cx, cz, salt + 2)) * g)
+			var rx := lerpf(float(b["rx"][0]), float(b["rx"][1]), _h(cx, cz, salt + 3))
+			var rz := lerpf(float(b["rz"][0]), float(b["rz"][1]), _h(cx, cz, salt + 4))
+			var ang := _h(cx, cz, salt + 5) * PI
+			var d := Vector2(p.x, p.z) - ctr
+			var u := (d.x * cos(ang) + d.y * sin(ang)) / rx
+			var v := (-d.x * sin(ang) + d.y * cos(ang)) / rz
+			var q := u * u + v * v
+			if q >= 1.0:
+				continue
+			var t := lerpf(float(b["thick"][0]), float(b["thick"][1]), _h(cx, cz, salt + 6)) * pow(1.0 - q, 0.6)
+			t *= 0.75 + 0.5 * _vnoise(p.x / 4.0, p.z / 4.0, salt + 7)             # ragged edges: the lens is not a clean ellipse
+			if t > best:
+				best = t
+				best_c = lerpf(float(b["depth"][0]), float(b["depth"][1]), _h(cx, cz, salt + 8)) + (_vnoise(p.x / 14.0, p.z / 14.0, salt + 9) - 0.5) * 1.2
+	if best < 0.15:
+		return []
+	return [best_c + best * 0.5, best_c - best * 0.5]
+
+## Seeded lattice hash in 0..1 (the same on every machine).
+func _h(ix: int, iz: int, salt: int) -> float:
+	var n: int = (ix * 73856093) ^ (iz * 19349663) ^ (salt * 83492791)
+	n = (n ^ (n >> 13)) * 1274126177
+	n = n ^ (n >> 16)
+	return float(abs(n) % 10007) / 10007.0
+
+## Smooth value noise in 0..1 at lattice scale 1.
+func _vnoise(x: float, z: float, salt: int) -> float:
+	var ix := int(floor(x))
+	var iz := int(floor(z))
+	var fx := x - float(ix)
+	var fz := z - float(iz)
+	fx = fx * fx * (3.0 - 2.0 * fx)
+	fz = fz * fz * (3.0 - 2.0 * fz)
+	var a := lerpf(_h(ix, iz, salt), _h(ix + 1, iz, salt), fx)
+	var c := lerpf(_h(ix, iz + 1, salt), _h(ix + 1, iz + 1, salt), fx)
+	return lerpf(a, c, fz)
 
 func material_at(x: float, z: float, y: float) -> String:
 	for l in layers_at(x, z):

@@ -29,6 +29,7 @@ func attach(g) -> void:
 	terrain.name = "Terrain"
 	add_child(terrain)
 	terrain.setup(Rect2(ORIGIN, SIZE), geo, Callable(self, "_natural"))
+	terrain.depth_floor = Callable(self, "bench_floor")
 	terrain.lock_rect(Rect2(ORIGIN, SIZE))                          # everything locked ...
 	var dr: Array = prog.dig_rect("q_top")
 	if dr.is_empty():
@@ -46,6 +47,25 @@ func attach(g) -> void:
 			if node.skin_mi != null:
 				node.skin_mi.visible = false
 	attach_ms = float(Time.get_ticks_usec() - t0) / 1000.0
+
+## The quarry is dug in BENCHES: the lowest the ground may be taken at (x, z). The top level's floor holds everywhere in the excavation; each deeper level, once reached, lowers the floor
+## inside its own pit rectangle (the rectangles nest, each narrower than the last, with the haul-road strip along one side), so a level is a terrace with a ramp, not a hole.
+## NAN where nothing limits it.
+func bench_floor(x: float, z: float) -> float:
+	var lvls: Array = prog.levels()
+	var f := NAN
+	for n in range(lvls.size()):
+		if n + 1 > prog.quarry_level:
+			break
+		var lv: Dictionary = lvls[n]
+		var fy := float(lv.get("floor_y", -INF))
+		if not lv.has("pit"):
+			f = fy
+			continue
+		var r: Array = lv["pit"].get("rect", [])
+		if r.size() == 4 and Rect2(float(r[0]), float(r[1]), float(r[2]) - float(r[0]), float(r[3]) - float(r[1])).has_point(Vector2(x, z + 8.0)):      # (the pit frame is the world shifted by 8 in z)
+			f = fy if is_nan(f) else minf(f, fy)
+	return f
 
 ## Natural ground height before any digging: the plain at 0; the margin beyond the formations' footprint sits 4 cm below the old yard ground so the two never z-fight.
 func _natural(x: float, z: float) -> float:

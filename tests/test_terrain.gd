@@ -33,6 +33,26 @@ func sum_taken(r: Dictionary) -> float:
 		s += float(r["taken"][id])
 	return s
 
+## A spade cannot sink a narrow shaft (QuarryTerrain.MAX_DROP), so "dig down to the rock" is done the way a person does it: a bowl, widened ring by ring round the centre.
+func dig_bowl(t: QuarryTerrain, c: Vector2, rounds := 14) -> Dictionary:
+	var last := {}
+	for rd in range(rounds):
+		for ring in range(0, 10):
+			var n := maxi(1, ring * 6)
+			for a in range(n):
+				var p := Vector3(c.x + cos(float(a) / float(n) * TAU) * float(ring) * 0.4, 0.0, c.y + sin(float(a) / float(n) * TAU) * float(ring) * 0.4)
+				t.dig(p, 0.4, 0.3, 0.5, 0, "scoop")
+		last = t.dig(Vector3(c.x, 0, c.y), 0.4, 0.3, 0.5, 0, "scoop")
+		if str(last["blocked_by"]) != "" and sum_taken(last) <= 0.00001:
+			break
+	return last
+
+func rock_top(geo: QuarryGeology, x: float, z: float) -> float:
+	for l in geo.layers_at(x, z):
+		if geo.hardness(str(l[2])) >= 1:
+			return float(l[0])
+	return -99.0
+
 func new_terrain(rect: Rect2, geo: QuarryGeology) -> QuarryTerrain:
 	var t := QuarryTerrain.new()
 	root.add_child(t)
@@ -58,18 +78,15 @@ func run() -> void:
 
 	# ---- layers and hardness: the shovel digs to the rock and stops
 	var blocked_by := ""
-	var last_h := 0.0
-	for n in range(40):
-		var r := t.dig(Vector3(6, 0, 6), 0.4, 0.3, 0.5, 0, "scoop")
-		if str(r["blocked_by"]) != "" and sum_taken(r) <= 0.00001:
-			blocked_by = str(r["blocked_by"])
-			break
-		last_h = t.height_at(6, 6)
-	check(blocked_by == "limestone", "the shovel digs topsoil, clay and gravel and is stopped by limestone (%s)" % blocked_by)
-	check(absf(t.height_at(6, 6) - (-2.4)) < 0.31, "and the cut stops at the rock surface, about 2.4 m down (%.2f)" % t.height_at(6, 6))
+	var rt := rock_top(geo, 6.0, 6.0)
+	var r0 := dig_bowl(t, Vector2(6, 6))
+	if str(r0["blocked_by"]) != "" and sum_taken(r0) <= 0.00001:
+		blocked_by = str(r0["blocked_by"])
+	check(blocked_by in ["limestone", "coal", "iron_ore", "copper_ore", "gold_ore"], "the shovel digs topsoil, clay and gravel and is stopped by rock (%s)" % blocked_by)
+	check(absf(t.height_at(6, 6) - rt) < 0.31, "and the cut stops at the rock surface, %.2f m down here (%.2f)" % [-rt, t.height_at(6, 6)])
 	check(t.total_volume() < total0 + 0.0005, "nothing was created on the way")
 	var top_hit := t.dig(Vector3(6, 0, 6), 0.4, 0.3, 0.5, 0, "scoop")
-	check(str(top_hit["blocked_by"]) == "limestone" and sum_taken(top_hit) == 0.0 and str(top_hit["hit"]) == "limestone", "a further blow reports blocked_by = limestone and takes nothing")
+	check(str(top_hit["blocked_by"]) == blocked_by and sum_taken(top_hit) == 0.0 and str(top_hit["hit"]) == blocked_by, "a further blow reports blocked_by = the rock and takes nothing")
 
 	# ---- pickaxe breaks the rock in place, the shovel then scoops the rubble
 	var h_before := t.height_at(6, 6)
@@ -77,19 +94,28 @@ func run() -> void:
 	var br := t.dig(Vector3(6, 0, 6), 0.45, 0.22, 0.2, 2, "break")
 	check(float(br["broken"]) > 0.02 and sum_taken(br) == 0.0, "the pickaxe breaks %.3f m3 of limestone and carries nothing" % float(br["broken"]))
 	check(absf(t.total_volume() - tv) < 0.0005 and absf(t.height_at(6, 6) - h_before) < 0.01, "breaking moves no volume and the surface stays put")
-	check(t.loose_volume("limestone") > 0.02, "the broken rock now lies there as loose limestone")
+	check(t.loose_volume(blocked_by) > 0.02, "the broken rock now lies there as loose %s" % blocked_by)
 	var sc := t.dig(Vector3(6, 0, 6), 0.45, 0.22, 0.2, 0, "scoop")
-	check(float(sc["taken"].get("limestone", 0.0)) > 0.02, "and the shovel can scoop it (%.3f m3)" % float(sc["taken"].get("limestone", 0.0)))
+	check(float(sc["taken"].get(blocked_by, 0.0)) > 0.02, "and the shovel can scoop it (%.3f m3)" % float(sc["taken"].get(blocked_by, 0.0)))
 	check(absf(t.total_volume() - (tv - sum_taken(sc))) < 0.0005, "conserved through break and scoop")
 	# coal (hardness 1) breaks with the pickaxe, iron (2) too, gold (4) needs the hammer
 	var hard_geo := QuarryGeology.new()
-	var gt := new_terrain(Rect2(100, 100, 32, 32), hard_geo)
+	var gp := Vector2(-999, -999)                       # the ore lies in pockets: find a gold pocket and dig down to it
+	var gtop := 0.0
+	for xi in range(-60, 60):
+		for zi in range(-60, 20):
+			for l in hard_geo.layers_at(float(xi) * 2.0, float(zi) * 2.0):
+				if str(l[2]) == "gold_ore" and gp.x < -900.0:
+					gp = Vector2(float(xi) * 2.0 + 1.0, float(zi) * 2.0 + 1.0)
+					gtop = float(l[0]) - 0.05
+	var gt := new_terrain(Rect2(gp.x - 16.0, gp.y - 16.0, 32, 32), hard_geo)
+	var gv := gt.vertex_at(Vector3(gp.x, 0, gp.y))
 	for k in range(gt.V * gt.VR):
-		gt.dug[k] = 11.0                              # down into the gold bench (the default strata end with it)
-	var gold_y := gt.natural_y(gt.idx(10, 10))
-	var gm := hard_geo.material_below(gt.vertex_xz(10, 10).x, gt.vertex_xz(10, 10).y, gold_y)
-	var pg := gt.dig(Vector3(gt.vertex_xz(10, 10).x, 0, gt.vertex_xz(10, 10).y), 0.4, 0.2, 0.2, 2, "break")
-	var hg := gt.dig(Vector3(gt.vertex_xz(10, 10).x, 0, gt.vertex_xz(10, 10).y), 0.4, 0.2, 0.2, 4, "break")
+		gt.dug[k] = -gtop
+	var gold_y := gt.natural_y(gt.idx(gv.x, gv.y))
+	var gm := hard_geo.material_below(gt.vertex_xz(gv.x, gv.y).x, gt.vertex_xz(gv.x, gv.y).y, gold_y)
+	var pg := gt.dig(Vector3(gt.vertex_xz(gv.x, gv.y).x, 0, gt.vertex_xz(gv.x, gv.y).y), 0.4, 0.2, 0.2, 2, "break")
+	var hg := gt.dig(Vector3(gt.vertex_xz(gv.x, gv.y).x, 0, gt.vertex_xz(gv.x, gv.y).y), 0.4, 0.2, 0.2, 4, "break")
 	check(gm != "" and hard_geo.hardness(gm) >= 2 and (hard_geo.hardness(gm) <= 2 or (float(pg["broken"]) == 0.0 and str(pg["blocked_by"]) == gm)), "the pickaxe cannot break ground harder than itself (%s)" % gm)
 	check(float(hg["broken"]) > 0.0, "the hammer breaks anything (%s)" % gm)
 

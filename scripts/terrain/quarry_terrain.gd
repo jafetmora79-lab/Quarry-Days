@@ -256,7 +256,35 @@ func _put_loose(k: int, mat: String, t: float) -> void:
 # ------------------------------------------------------------------ digging
 
 func _result() -> Dictionary:
-	return {"taken": {}, "volume": 0.0, "broken": 0.0, "blocked_by": "", "hit": ""}
+	return {"taken": {}, "volume": 0.0, "broken": 0.0, "blocked_by": "", "hit": "", "limit": ""}
+
+## How steep a hand-dug hole may be: a vertex may not be taken lower than this far under the highest of its eight neighbours (0.55 m over 0.5 m is a ~48 degree wall), so a spade cannot sink
+## a narrow vertical shaft: the hole has to be widened as it goes down, which is also what keeps it climbable, collidable and open to machines.
+const MAX_DROP := 0.55
+## Optional (x, z) -> lowest height the ground may be dug to there (NAN = no floor): the quarry's benches. Set by LiveTerrain.
+var depth_floor := Callable()
+
+## The lowest height a hand tool may take the vertex k to: the step rule and the bench floor. [height, "step" | "floor"]
+func dig_floor(i: int, j: int) -> Array:
+	var ring := -INF
+	for dj in range(-1, 2):
+		for di in range(-1, 2):
+			if di == 0 and dj == 0:
+				continue
+			var ni := i + di
+			var nj := j + dj
+			if ni < 0 or nj < 0 or ni >= V or nj >= VR:
+				continue
+			ring = maxf(ring, vheight(idx(ni, nj)))
+	var lo := ring - MAX_DROP
+	var why := "step"
+	if depth_floor.is_valid():
+		var vp := vertex_xz(i, j)
+		var f: float = depth_floor.call(vp.x, vp.y)
+		if not is_nan(f) and f > lo:
+			lo = f
+			why = "floor"
+	return [lo, why]
 
 func _add_taken(res: Dictionary, mats: Dictionary) -> void:
 	for id in mats:
@@ -293,6 +321,15 @@ func dig(p: Vector3, radius: float, depth: float, budget: float, max_hardness: i
 		var k := idx(i, j)
 		var mats := {}
 		var took := 0.0
+		var allow := INF
+		if mode != "break":
+			var fl := dig_floor(i, j)
+			allow = maxf(0.0, vheight(k) - float(fl[0]))
+			if allow <= 0.000001:
+				res["limit"] = str(fl[1])
+				continue
+			if minf(depth, left) > allow + 0.000001:
+				res["limit"] = str(fl[1])
 		if mode == "break":
 			took = _take_natural(k, minf(depth, left), max_hardness, mats, blocked)
 			for id in mats:
@@ -300,9 +337,10 @@ func dig(p: Vector3, radius: float, depth: float, budget: float, max_hardness: i
 			res["broken"] = float(res["broken"]) + took * AREA
 			left -= took
 		else:
-			took = _take_loose(k, minf(depth, left), mats)
-			if took < minf(depth, left) - 0.000001:
-				took += _take_natural(k, minf(depth, left) - took, max_hardness, mats, blocked)
+			var want := minf(minf(depth, left), allow)
+			took = _take_loose(k, want, mats)
+			if took < want - 0.000001:
+				took += _take_natural(k, want - took, max_hardness, mats, blocked)
 			_add_taken(res, mats)
 			left -= took
 		if took > 0.0:
@@ -336,6 +374,10 @@ func cut_box(lip: Vector3, right: Vector3, fwd: Vector3, half_width: float, back
 				continue
 			var h := vheight(k)
 			var target := maxf(lip.y, geo.bed_y)
+			if depth_floor.is_valid():
+				var fy: float = depth_floor.call(vp.x, vp.z)
+				if not is_nan(fy):
+					target = maxf(target, fy)
 			if h <= target + 0.0005:
 				continue
 			var mats := {}
@@ -382,6 +424,60 @@ func deposit(p: Vector3, radius: float, volumes: Dictionary) -> Dictionary:
 	for c in cells:
 		_dirty_vertex(c[0], c[1])
 	return {}
+
+## Loose material over a world rectangle (vertices with x0 <= x < x1, z0 <= z < z1): the soil field and the spoil sites use these. Volumes are m3.
+func _rect_range(r: Rect2) -> Rect2i:
+	var i0 := int(ceil((r.position.x - origin.x) / CELL - 0.0001))
+	var i1 := int(ceil((r.end.x - origin.x) / CELL - 0.0001))
+	var j0 := int(ceil((r.position.y - origin.y) / CELL - 0.0001))
+	var j1 := int(ceil((r.end.y - origin.y) / CELL - 0.0001))
+	return Rect2i(maxi(0, i0), maxi(0, j0), maxi(0, mini(V, i1) - maxi(0, i0)), maxi(0, mini(VR, j1) - maxi(0, j0)))
+
+func loose_rect_volume(r: Rect2, mat: String) -> float:
+	var m := geo.index_of(mat)
+	var rr := _rect_range(r)
+	var t := 0.0
+	for j in range(rr.position.y, rr.end.y):
+		for i in range(rr.position.x, rr.end.x):
+			t += float(loose[m][idx(i, j)])
+	return t * AREA
+
+## Takes up to `vol` of loose `mat` out of the rectangle, evenly from every vertex that has some. Returns what was taken.
+func loose_rect_take(r: Rect2, mat: String, vol: float) -> float:
+	var have := loose_rect_volume(r, mat)
+	if have <= 0.0000001 or vol <= 0.0:
+		return 0.0
+	var f := minf(1.0, vol / have)
+	var m := geo.index_of(mat)
+	var rr := _rect_range(r)
+	var arr: PackedFloat32Array = loose[m]
+	for j in range(rr.position.y, rr.end.y):
+		for i in range(rr.position.x, rr.end.x):
+			var k := idx(i, j)
+			var t: float = arr[k]
+			if t <= 0.0:
+				continue
+			var d := t * f
+			arr[k] = t - d
+			lsum[k] = maxf(0.0, lsum[k] - d)
+			_dirty_vertex(i, j)
+	return have * f
+
+## Spreads `vol` of loose `mat` evenly over the unlocked vertices of the rectangle. Returns what was put down.
+func loose_rect_add(r: Rect2, mat: String, vol: float) -> float:
+	var rr := _rect_range(r)
+	var cells: Array = []
+	for j in range(rr.position.y, rr.end.y):
+		for i in range(rr.position.x, rr.end.x):
+			if locked[idx(i, j)] == 0:
+				cells.append(Vector2i(i, j))
+	if cells.is_empty() or vol <= 0.0:
+		return 0.0
+	var per := vol / (float(cells.size()) * AREA)
+	for c in cells:
+		_put_loose(idx(c.x, c.y), mat, per)
+		_dirty_vertex(c.x, c.y)
+	return vol
 
 ## Adds a cone-shaped pile of one material (used for scenery and spoil heaps).
 func add_pile(cx: float, cz: float, radius: float, height: float, mat: String, lumpy := 0.0) -> void:

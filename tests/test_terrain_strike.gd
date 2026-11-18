@@ -47,7 +47,7 @@ func run() -> void:
 	var units := 0.0
 	for r in ["topsoil", "gravel"]:
 		units += inv_total(game, r) * (1.0 if r == "topsoil" else 1.0)
-	check(lost > 0.2 and absf(lost * 11.0 - units) < 0.01, "six strikes dig %.3f m3 and the buckets hold exactly that in units (%.3f units; %.3f m3 x 11)" % [lost, units, lost])
+	check(lost > 0.1 and absf(lost * 11.0 - units) < 0.01, "six strikes dig %.3f m3 and the buckets hold exactly that in units (%.3f units; %.3f m3 x 11)" % [lost, units, lost])
 	check(game.dig_audio.log.size() > 0 and str(game.dig_audio.log[0]["sound"]).begins_with("thud_soil"), "each strike made the soil sound")
 	# outside the marked excavation nothing happens
 	var before: float = lt.terrain.total_volume()
@@ -56,11 +56,21 @@ func run() -> void:
 	# dig a hole down to the rock with the shovel
 	var q := Vector3(10.0, 0.0, -50.0)
 	var blocked := false
-	for i in range(220):
-		game.dig_audio._cool.clear()
-		var r: Dictionary = game._terrain_strike(q)
-		if not r.is_empty() and str(r["blocked_by"]) != "" and float(r["volume"]) + float(r["broken"]) <= 0.00001:
-			blocked = true
+	game.prog.quarry_level = 2                         # (the first level's bench floor is -1.2 m: the rock lies below it, in level 2)
+	# (a spade cannot sink a narrow shaft - QuarryTerrain.MAX_DROP - so the hole is a bowl, widened ring by ring)
+	for rd in range(24):
+		for ring in range(0, 10):
+			var nn := maxi(1, ring * 6)
+			for a in range(nn):
+				game.dig_audio._cool.clear()
+				game._terrain_strike(Vector3(q.x + cos(float(a) / float(nn) * TAU) * float(ring) * 0.4, 0.0, q.z + sin(float(a) / float(nn) * TAU) * float(ring) * 0.4))
+		for i in range(4):
+			game.dig_audio._cool.clear()
+			var r: Dictionary = game._terrain_strike(q)
+			if not r.is_empty() and str(r["blocked_by"]) != "" and float(r["volume"]) + float(r["broken"]) <= 0.00001:
+				blocked = true
+				break
+		if blocked:
 			break
 	check(blocked, "the shovel is stopped by rock at the bottom of the hole (strike %d)" % game.dig_audio.log.size())
 	check(game.dig_audio.log[game.dig_audio.log.size() - 1]["event"] == "blocked", "with a chink")
@@ -76,17 +86,17 @@ func run() -> void:
 	var cp: Vector3 = game.prog.column_pos("q_top", col)
 	var tiers0: int = game.prog.chunks_left("q_top", col)
 	var n := 0
-	var x := cp.x - 1.75
-	while game.prog.chunks_left("q_top", col) > 0 and n < 900:
-		var z := cp.z - 1.75
-		while z <= cp.z + 1.75 and game.prog.chunks_left("q_top", col) > 0:
+	var x := cp.x - 3.0
+	while game.prog.chunks_left("q_top", col) > 0 and n < 3000:
+		var z := cp.z - 3.0
+		while z <= cp.z + 3.0 and game.prog.chunks_left("q_top", col) > 0:
 			game.dig_audio._cool.clear()
 			game._terrain_strike(Vector3(x, 0.0, z))
 			n += 1
-			z += 0.7
-		x += 0.7
-		if x > cp.x + 1.75:
-			x = cp.x - 1.75
+			z += 0.4
+		x += 0.4
+		if x > cp.x + 3.0:
+			x = cp.x - 3.0
 	check(tiers0 == 1 and game.prog.chunks_left("q_top", col) == 0, "dug out by hand, the column is empty in the bookkeeping (%d strikes)" % n)
 	check(lt.terrain.height_at(cp.x, cp.z) < -1.0, "and the ground there is down at the gravel (%.2f)" % lt.terrain.height_at(cp.x, cp.z))
 	print("RESULT: %d checks, %d failures" % [checks, failures.size()])
