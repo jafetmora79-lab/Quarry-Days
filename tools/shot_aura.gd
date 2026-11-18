@@ -1,5 +1,5 @@
 extends SceneTree
-## The deer / rabbit showdown (windowed): godot --path . --resolution 1272x706 -s tools/shot_duel.gd -- <dir>
+## The aura battle up close (windowed): godot --path . --resolution 1272x706 -s tools/shot_aura.gd -- <dir>
 func _initialize():
 	call_deferred("run")
 func run():
@@ -20,20 +20,17 @@ func run():
 		game.walter_dialog.skip()
 	game._cine_tween().kill()
 	game._remove_walter()
-	game.wildlife.duel_enabled = false
-	var d := QuarryDuel.new()
-	var at := Vector3(10.0, 0.0, 44.0)
-	d.setup(game, at, 0.0)
-	game.wildlife.add_child(d)
-	game.player.global_position = at + Vector3(3.0, 0.3, 9.0)
-	game.player.rotation.y = 0.0
-	game.player.camera.rotation.x = -0.05
+	var b = game.wildlife.aura_battle
+	b.set_process(false)
+	game.player.global_position = b.global_position + Vector3(7.0, 0.3, 3.0)
+	game.player.rotation.y = PI * 0.5 + 0.25
+	game.player.camera.rotation.x = -0.12
 	game.player.locked = true
 	game.ui.visible = false
-	for time in [3.0, 8.0, 10.5, 25.5, 30.0]:
-		while d.t < time:
-			d.step(1.0 / 60.0)
-			await physics_frame
+	for i in 20: await physics_frame
+	for time in [1.0, 4.0, 5.5, 10.0, 17.0, 21.0]:
+		b._pose(time)
+		for i in 3: await physics_frame
 		await RenderingServer.frame_post_draw
-		root.get_viewport().get_texture().get_image().save_png(out + "/duel_%d.png" % int(time * 10))
+		root.get_viewport().get_texture().get_image().save_png(out + "/aura_%d.png" % int(time * 10))
 	quit()
