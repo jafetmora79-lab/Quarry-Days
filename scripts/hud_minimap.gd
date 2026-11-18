@@ -14,6 +14,7 @@ const LOCKED_EDGE := Color(0.5, 0.45, 0.36, 0.55)
 
 var game
 const DIAMETER := 124.0                                  ## the round map's size on screen
+const INNER := 25.0 / 31.0                                ## the window inside the drawn steel ring (assets/ui/hud/minimap_ring.png), as a share of the radius
 const VIEW_RADIUS := 50.0                                ## metres of the world shown from the middle to the rim
 var full_bounds := Rect2(-135.0, -112.0, 270.0, 146.0)   ## the whole property: what the top-down picture covers
 var bounds := Rect2(-135.0, -112.0, 270.0, 146.0)       ## the world square the round map shows right now (x, z), north up, centred on the player
@@ -137,12 +138,12 @@ func _process(delta: float) -> void:
 		queue_redraw()
 
 func _in_disc(p: Vector2) -> bool:
-	return (p - size * 0.5).length() <= size.x * 0.5 - 4.0
+	return (p - size * 0.5).length() <= size.x * 0.5 * INNER - 2.0
 
 ## A marker that may be off the map: kept on the rim (pointing the way) when it is outside the round window.
 func _rim(p: Vector2) -> Vector2:
 	var c := size * 0.5
-	var r := size.x * 0.5 - 5.0
+	var r := size.x * 0.5 * INNER - 3.0
 	var d := p - c
 	return p if d.length() <= r else c + d.normalized() * r
 
@@ -152,7 +153,7 @@ func _draw() -> void:
 	var prog: QuarryProgression = game.prog
 	_update_view()
 	var c := size * 0.5
-	var r := size.x * 0.5 - 2.0
+	var r := size.x * 0.5 * INNER + 1.0
 	draw_circle(c, r, BG)
 	var has_photo := photo != null and _shot_n > 0
 	if has_photo:
@@ -204,8 +205,13 @@ func _draw() -> void:
 		var fwd := Vector2(-sin(yaw), -cos(yaw))
 		var side := Vector2(-fwd.y, fwd.x)
 		draw_colored_polygon(PackedVector2Array([c + fwd * 6.0, c - fwd * 4.0 + side * 4.0, c - fwd * 2.0, c - fwd * 4.0 - side * 4.0]), Color(1, 1, 1))
-	draw_arc(c, r, 0.0, TAU, 56, Color(0.95, 0.74, 0.32, 0.75), 2.0)
-	draw_string(QuarryTheme.hud(), Vector2(c.x - 4.0, 13.0), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, QuarryTheme.pixel_font_size(10), Color(0.95, 0.9, 0.75))
+	if UiSkin.has("minimap_ring"):
+		texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		draw_texture_rect(UiSkin.tex("minimap_ring"), Rect2(Vector2.ZERO, size), false)                # the drawn steel ring with its hazard tab
+		draw_string(QuarryTheme.hud(), Vector2(c.x - 3.5, 16.0), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, QuarryTheme.pixel_font_size(9), Color(0.1, 0.08, 0.05))
+	else:
+		draw_arc(c, r, 0.0, TAU, 56, Color(0.95, 0.74, 0.32, 0.75), 2.0)
+		draw_string(QuarryTheme.hud(), Vector2(c.x - 4.0, 13.0), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, QuarryTheme.pixel_font_size(10), Color(0.95, 0.9, 0.75))
 
 ## Draws once into nothing (tests call this to be sure the drawing code runs without errors on the current state).
 func _draw_test_safe() -> void:

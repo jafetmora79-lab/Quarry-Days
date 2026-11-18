@@ -275,6 +275,42 @@ def groove(w, hgt):
     return img
 
 
+def ring(n=62):
+    """The minimap's frame: a steel ring with a bevel lit from the top-left, a hazard-yellow pinstripe on its inside edge, four bolts and a hazard-striped tab at the top for the N."""
+    img = new(n, n)
+    ce = (n - 1) / 2.0
+    ro, rs, ry = n / 2.0, n / 2.0 - 1.0, n / 2.0 - 5.0
+    for y in range(n):
+        for x in range(n):
+            d = ((x - ce) ** 2 + (y - ce) ** 2) ** 0.5
+            lit = (x - ce) + (y - ce) < 0
+            if d > ro - 0.2:
+                continue
+            if d > ro - 1.2:
+                img[y, x] = OUTLINE
+            elif d > ry + 1.2:
+                band = (ro - 1.2 - d)
+                img[y, x] = BRASS_HI if band < 1.2 and lit else (BRASS_LO if band > 3.0 and not lit else (BRASS if lit or band < 2.2 else BRASS_LO))
+            elif d > ry - 0.2:
+                img[y, x] = YELLOW if lit else YELLOW_DK
+            elif d > ry - 1.2:
+                img[y, x] = OUTLINE
+    for (bx, by) in ((ce, 3.5), (ce, n - 4.5), (3.5, ce), (n - 4.5, ce)):                      # four bolts
+        for dx in (0, 1):
+            for dy in (0, 1):
+                put(img, int(bx) + dx, int(by) + dy, BRASS_HI if dx + dy == 0 else BRASS_LO)
+        put(img, int(bx) + 2, int(by) + 2, OUTLINE)
+    for x in range(int(ce) - 6, int(ce) + 7):                                                  # the hazard tab for the N
+        for y in range(0, 10):
+            edge = x in (int(ce) - 6, int(ce) + 6) or y in (0, 9)
+            stripe = ((x + y) // 3) % 2 == 0
+            img[y, x] = OUTLINE if edge else (YELLOW if stripe else c(30, 32, 36))
+    for x in range(int(ce) - 4, int(ce) + 5):                                                  # a plain yellow field in the middle of the tab, where the letter sits
+        for y in range(2, 8):
+            img[y, x] = YELLOW
+    return img
+
+
 def main():
     os.makedirs(BACKUP, exist_ok=True)
     import shutil
@@ -323,6 +359,7 @@ def main():
     pieces["dot_off"] = dot(17, 17, c(52, 60, 70))
     pieces["dot_warn"] = dot(16, 17, c(204, 72, 52))
     pieces["dot_done"] = dot(16, 17, c(110, 176, 74))
+    pieces["minimap_ring"] = ring(62)
     pieces["rivet"] = rivet(14, 14)
     pieces["rivet_lit"] = rivet(14, 14, True)
     pieces["divider"] = divider(106, 11)
