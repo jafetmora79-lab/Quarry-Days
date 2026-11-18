@@ -42,6 +42,8 @@ func run():
 	await shot("hopper_front_idle", out)
 	look(cam, c + Vector3(3.2, 1.6, 2.8), c + Vector3(0, 1.0, 0))
 	await shot("hopper_back_idle", out)
+	look(cam, c + Vector3(-1.3, 1.15, -2.5), c + Vector3(0, 0.75, -0.8))
+	await shot("hopper_closed_close", out)
 	game.business.outputs[h]["items"]["crushed_stone"] = 200
 	game.business.outputs[h]["tier"] = 0
 	look(cam, c + Vector3(-2.2, 1.5, -3.0), c + Vector3(0, 1.0, 0))
@@ -49,7 +51,7 @@ func run():
 		await physics_frame
 	look(cam, c + Vector3(0.0, 1.2, -3.2), c + Vector3(0, 0.95, -0.9))
 	await shot("hopper_straight", out, 10)
-	look(cam, c + Vector3(-1.2, 1.3, -2.6), c + Vector3(0, 0.8, -0.9))
-	for k in range(8):
-		await shot("hopper_seq_%d" % k, out, 6)
+	look(cam, c + Vector3(-1.4, 1.7, -3.4), c + Vector3(0, 1.25, -0.8))
+	for k in range(16):
+		await shot("hopper_seq_%d" % k, out, 12)
 	quit()

@@ -179,6 +179,25 @@ static func _instance(key: String) -> Node3D:
 	if ps == null:
 		return null
 	var n := ps.instantiate() as Node3D
+	var ap := n.find_child("AnimationPlayer", false, false) as AnimationPlayer
+	if ap != null and n.get_child_count() == 2 and str(n.get_child(0).name).begins_with("QD_"):
+		# an animated model: the clips address the parts as "QD_x/Part:property". Lift the parts up one level (the QD_ wrapper goes) and rewrite the clips' paths to match.
+		var wrapper := n.get_child(0) as Node3D
+		var prefix := str(wrapper.name) + "/"
+		for ch in wrapper.get_children():
+			wrapper.remove_child(ch)
+			n.add_child(ch)
+		n.remove_child(wrapper)
+		wrapper.free()
+		for lib_name in ap.get_animation_library_list():
+			var lib := ap.get_animation_library(lib_name)
+			for an in lib.get_animation_list():
+				var anim: Animation = lib.get_animation(an)
+				for ti in range(anim.get_track_count()):
+					var tp := str(anim.track_get_path(ti))
+					if tp.begins_with(prefix):
+						anim.track_set_path(ti, NodePath(tp.substr(prefix.length())))
+		return n
 	if n.get_child_count() == 1 and str(n.get_child(0).name).begins_with("QD_"):
 		var inner := n.get_child(0) as Node3D
 		n.remove_child(inner)

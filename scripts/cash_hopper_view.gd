@@ -24,7 +24,7 @@ const MODEL_PATH := "res://assets/world/WLD_QD_cash_hopper.glb"
 const MARKERS := {
 	"Attach_Body": Vector3(0, 0.0, 0), "Attach_InputFunnel": Vector3(0, 1.45, 0), "Attach_Processor": Vector3(0, 0.55, 0.0),
 	"Attach_ConveyorIn": Vector3(0, 0.55, 1.1), "Attach_RockSpawn": Vector3(0, 2.35, 0), "Attach_Audio": Vector3(0, 1.2, 0),
-	"Attach_FloatText": Vector3(0, 2.6, 0), "Attach_Display": Vector3(0.4, 1.0, -0.91), "Attach_SaleDisplay": Vector3(0, 1.64, -0.77), "Attach_Sign": Vector3(0, 1.28, -0.95),
+	"Attach_FloatText": Vector3(0, 2.6, 0), "Attach_Display": Vector3(0.6, 1.02, -0.9), "Attach_SaleDisplay": Vector3(0, 1.655, -0.81), "Attach_Sign": Vector3(0, 0.86, -0.9),
 	"Pivot_Flywheel": Vector3(0.97, 0.85, 0.0), "Pivot_Flap": Vector3(0, 1.2, 0.0)}
 
 var game
@@ -53,15 +53,30 @@ var gear_b: Node3D
 var lamp2: MeshInstance3D
 var sale_display: Label3D                ## the slanted LED window on top: shows +$ of the sale in progress
 var glow: OmniLight3D                    ## amber light round the lamps, brighter while it works
-var _drawer_out := 0.0
-var _drawer_pos0 := Vector3.ZERO
-var _boost := 0.0                        ## 0..1: a sale is being processed (lamps and gears race)
+var anim: AnimationPlayer                ## the Blender clips: Idle, SaleRegistered, Processing, Counting, DrawerOpen, DrawerClose, ReturnToIdle
+var phase := "idle"                      ## the six phases of a payout: idle, registered, processing, counting, payout, complete
+var _seq_running := false
+var _queued_money := 0                   ## sales that arrive while a payout is playing are added up and paid out in the same open drawer
+var _queued_units := 0
+var _queued_res := ""
+var _chain_until_ms := 0                 ## a sale within a few seconds of the last payout plays the short version
+var _vibe := 0.0
+var _lamp_level := 0.5
+var _lamp_mat: StandardMaterial3D
+var _note: Node3D                        ## the compact payout notification (one at a time: it is updated, never stacked)
+var _note_label: Label3D
+var _note_mats: Array = []
+var _note_total := 0
+var _note_tween: Tween
+var _note_base := Vector3.ZERO
+var sparks: CPUParticles3D
 var _funnel_y0 := 0.0                    ## the heights the funnel and the ram stand at (their shiver and pumping are offsets from these, not absolute heights)
 var _piston_y0 := 0.0
 var lamp: MeshInstance3D                 ## the status lamp: green while selling, amber when idle
 var _t := 0.0
 var _work := 0.0                         ## 0..1 how hard the machine is working (eased: it winds up and down)
 var _fw_speed := 0.0
+var _display_live := false
 var _lamp_on := -1
 var _thump := 0.0                        ## the housing's jolt on each crush, easing out
 var _last_items := {}                    ## what the hopper held at the last look: a rise means material has just gone in
@@ -96,7 +111,7 @@ func setup(g, i: int) -> void:
 			for k in MARKERS:
 				var n := model.find_child(k, true, false) as Node3D
 				if n != null:
-					points[k].global_transform = n.global_transform
+					points[k].transform = _rel(n)
 					if k.begins_with("Pivot_"):
 						points[k] = n
 			piston = model.find_child("Pivot_Piston", true, false) as Node3D
@@ -118,7 +133,7 @@ func setup(g, i: int) -> void:
 			for k in MARKERS:
 				var n := model.find_child(k, true, false) as Node3D
 				if n != null:
-					points[k].global_transform = n.global_transform      # the model decides where its own parts are
+					points[k].transform = _rel(n)      # the model decides where its own parts are
 					if k.begins_with("Pivot_"):
 						points[k] = n                                   # the pivots hold the model's own meshes: those are the nodes that turn
 			piston = model.find_child("Pivot_Piston", true, false) as Node3D
@@ -127,17 +142,17 @@ func setup(g, i: int) -> void:
 			fill = model.find_child("Fill", true, false) as MeshInstance3D
 			if fill != null:
 				fill.visible = false
+	if model != null:
+		anim = model.find_child("AnimationPlayer", true, false) as AnimationPlayer
 	if funnel_node != null:
 		_funnel_y0 = funnel_node.position.y
 	if piston != null:
 		_piston_y0 = piston.position.y
-	if drawer != null:
-		_drawer_pos0 = drawer.position
 	if model == null:
 		_build_placeholder()
 	display = Label3D.new()
 	display.name = "Display"
-	display.pixel_size = 0.0016 if drawer != null else 0.0027
+	display.pixel_size = 0.00085 if drawer != null else 0.0027
 	display.font_size = 36
 	display.outline_size = 6
 	display.modulate = Color(0.75, 1.0, 0.7)
@@ -149,51 +164,203 @@ func setup(g, i: int) -> void:
 	_refresh_display()
 	if drawer != null:
 		_build_extras()
+		_play("Idle")
 
-## The sale display on top, the CASH HOPPER plaque and the amber glow (the model has the frames; the letters and the light are the game's).
+## A marker's place in the model's own space (the view is not in the tree yet while it is being built, so global transforms are not available).
+func _rel(n: Node3D) -> Transform3D:
+	var t := Transform3D()
+	var cur: Node = n
+	while cur != null and cur != model and cur is Node3D:
+		t = (cur as Node3D).transform * t
+		cur = cur.get_parent()
+	return t
+
+## The letters and lights the model has frames for: the sale display on top, the CASH HOPPER name, the lamps' glow, the payout sparks.
 func _build_extras() -> void:
 	sale_display = Label3D.new()
 	sale_display.name = "SaleDisplay"
-	sale_display.text = "---"
-	sale_display.font_size = 64
-	sale_display.pixel_size = 0.0026
-	sale_display.outline_size = 4
+	sale_display.font = QuarryTheme.hud()
+	sale_display.font_size = 36
+	sale_display.pixel_size = 0.0034
+	sale_display.outline_size = 0
 	sale_display.shaded = false
-	sale_display.modulate = Color(0.25, 0.9, 0.4, 0.45)
 	sale_display.outline_modulate = Color(0.0, 0.1, 0.03)
-	sale_display.rotation = Vector3(-0.69, PI, 0)
+	sale_display.rotation = Vector3(-0.336, PI, 0)
+	sale_display.position = Vector3(0, 0.012, -0.035)                          # (a hair in front of the glass)
 	points["Attach_SaleDisplay"].add_child(sale_display)
+	_sale_text("READY", 0.5)
 	var sign_l := Label3D.new()
 	sign_l.name = "Plaque"
+	sign_l.font = QuarryTheme.hud()
 	sign_l.text = "CASH HOPPER"
-	sign_l.font_size = 40
+	sign_l.font_size = 22
 	sign_l.pixel_size = 0.0034
-	sign_l.outline_size = 6
+	sign_l.outline_size = 0
+	sign_l.shaded = false
 	sign_l.modulate = Color(1.0, 0.82, 0.3)
-	sign_l.outline_modulate = Color(0.1, 0.07, 0.02)
 	sign_l.rotation = Vector3(0, PI, 0)
 	points["Attach_Sign"].add_child(sign_l)
 	glow = OmniLight3D.new()
 	glow.light_color = Color(1.0, 0.62, 0.2)
-	glow.light_energy = 0.0
-	glow.omni_range = 3.2
+	glow.omni_range = 3.0
 	glow.shadow_enabled = false
 	glow.position = Vector3(0, 1.8, -0.9)
 	add_child(glow)
+	_lamp_mat = StandardMaterial3D.new()                                  # both lamps share one material: one value to change
+	_lamp_mat.albedo_color = Color(1.0, 0.62, 0.16)
+	_lamp_mat.emission_enabled = true
+	_lamp_mat.emission = Color(1.0, 0.58, 0.12)
+	if lamp != null:
+		lamp.material_override = _lamp_mat
+	if lamp2 != null:
+		lamp2.material_override = _lamp_mat
+	_set_lamp(0.5)
+	sparks = CPUParticles3D.new()                                         # a few tiny golden sparks at the drawer
+	sparks.name = "Sparks"
+	sparks.one_shot = true
+	sparks.emitting = false
+	sparks.amount = 10
+	sparks.lifetime = 0.5
+	sparks.explosiveness = 0.9
+	sparks.direction = Vector3(0, 1, -0.6)
+	sparks.spread = 55.0
+	sparks.initial_velocity_min = 0.5
+	sparks.initial_velocity_max = 1.1
+	sparks.gravity = Vector3(0, -2.5, 0)
+	sparks.position = Vector3(0, 0.6, -1.15)
+	var qm := QuadMesh.new()
+	qm.size = Vector2(0.03, 0.03)
+	sparks.mesh = qm
+	var sm := StandardMaterial3D.new()
+	sm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	sm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	sm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	sm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	sm.vertex_color_use_as_albedo = true
+	sm.albedo_color = Color(1.0, 0.82, 0.3, 1.0)
+	sparks.material_override = sm
+	sparks.color = Color(1.0, 0.85, 0.35)
+	add_child(sparks)
 
-## The sale display: the amount flashes, then holds, then goes dim.
-func _sale_display_show(money: int) -> void:
+func _set_lamp(level: float) -> void:
+	_lamp_level = level
+	if _lamp_mat != null:
+		_lamp_mat.emission_energy_multiplier = level
+	if glow != null:
+		glow.light_energy = 0.05 + 0.3 * level
+
+func _lamp_to(level: float, secs: float) -> void:
+	var tw := create_tween()
+	tw.tween_method(_set_lamp, _lamp_level, level, secs)
+
+func _flash_lamps() -> void:                                              # two flashes
+	var tw := create_tween()
+	for k in range(2):
+		tw.tween_method(_set_lamp, 0.6, 3.4, 0.05)
+		tw.tween_method(_set_lamp, 3.4, 0.7, 0.09)
+	tw.tween_method(_set_lamp, 0.7, 1.6, 0.1)
+
+## The digital displays: the text and how bright it burns (0.5 = dim standby).
+func _sale_text(txt: String, bright: float) -> void:
 	if sale_display == null:
 		return
-	sale_display.text = "+" + QuarryTheme.money_text(money)
-	var tw := create_tween()
-	for k in range(3):
-		tw.tween_property(sale_display, "modulate:a", 0.25, 0.05)
-		tw.tween_property(sale_display, "modulate:a", 1.0, 0.07)
-	tw.tween_interval(1.5)
-	tw.tween_callback(func():
-		sale_display.text = "---")
-	tw.tween_property(sale_display, "modulate:a", 0.45, 0.3)
+	sale_display.text = txt
+	sale_display.modulate = Color(0.3 * bright + 0.1, 0.95 * minf(bright, 1.0), 0.45 * bright + 0.1, 1.0)
+
+# ------------------------------------------------------------------ the compact payout notification
+
+func _build_note() -> void:
+	_note = Node3D.new()
+	_note.name = "PayoutNote"
+	_note.visible = false
+	add_child(_note)
+	var face := Node3D.new()
+	face.rotation.y = PI                                                  # (a node that looks at the camera shows its -Z side: the quads face +Z)
+	_note.add_child(face)
+	var specs := [[Vector2(0.64, 0.24), Vector3(0, 0, 0), Color(0.62, 0.42, 0.18, 0.95), null], [Vector2(0.6, 0.2), Vector3(0, 0, 0.002), Color(0.04, 0.035, 0.03, 0.78), null]]
+	for sp in specs:
+		var q := MeshInstance3D.new()
+		var qm := QuadMesh.new()
+		qm.size = sp[0]
+		q.mesh = qm
+		q.position = sp[1]
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.albedo_color = sp[2]
+		m.no_depth_test = true
+		q.material_override = m
+		q.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		face.add_child(q)
+		_note_mats.append([m, (sp[2] as Color).a])
+	var icon := MeshInstance3D.new()
+	var iq := QuadMesh.new()
+	iq.size = Vector2(0.17, 0.11)
+	icon.mesh = iq
+	icon.position = Vector3(-0.21, 0, 0.004)
+	var im := StandardMaterial3D.new()
+	im.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	im.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	im.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	im.no_depth_test = true
+	im.albedo_texture = _bill_icon()
+	icon.material_override = im
+	icon.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	face.add_child(icon)
+	_note_mats.append([im, 1.0])
+	_note_label = Label3D.new()
+	_note_label.font = QuarryTheme.hud()
+	_note_label.font_size = 26
+	_note_label.pixel_size = 0.0042
+	_note_label.outline_size = 0
+	_note_label.shaded = false
+	_note_label.no_depth_test = true
+	_note_label.modulate = Color(0.55, 1.0, 0.5)
+	_note_label.position = Vector3(0.06, 0, 0.006)
+	_note_label.double_sided = true
+	face.add_child(_note_label)
+
+## A 12 x 8 pixel banknote (green, a lighter middle, a darker border).
+func _bill_icon() -> ImageTexture:
+	var img := Image.create(12, 8, false, Image.FORMAT_RGBA8)
+	for y in range(8):
+		for x in range(12):
+			var edge := x == 0 or y == 0 or x == 11 or y == 7
+			var mid := (x >= 4 and x <= 7) and (y >= 2 and y <= 5)
+			img.set_pixel(x, y, Color(0.16, 0.38, 0.18) if edge else (Color(0.78, 0.95, 0.6) if mid else Color(0.42, 0.74, 0.40)))
+	return ImageTexture.create_from_image(img)
+
+func _note_alpha(a: float) -> void:
+	for m in _note_mats:
+		var c: Color = (m[0] as StandardMaterial3D).albedo_color
+		c.a = float(m[1]) * a
+		(m[0] as StandardMaterial3D).albedo_color = c
+	_note_label.modulate.a = a
+
+## One notification above the front rim: a sale that arrives while it is still up adds to it (one number, never two on top of each other).
+func _show_note(money: int) -> void:
+	if money <= 0:
+		return
+	if _note == null:
+		_build_note()
+	if _note.visible and _live_floats > 0:
+		_note_total += money
+	else:
+		_note_total = money
+		_note_base = Vector3(0.0, 2.55, -0.55)
+	_note_label.text = "+" + QuarryTheme.money_text(_note_total)
+	_note.visible = true
+	_live_floats = 1
+	_note_alpha(1.0)
+	_note.position = _note_base
+	if _note_tween != null and _note_tween.is_valid():
+		_note_tween.kill()
+	_note_tween = create_tween()
+	_note_tween.tween_property(_note, "position:y", _note_base.y + 0.3, 1.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	_note_tween.parallel().tween_method(_note_alpha, 1.0, 0.0, 0.5).set_delay(1.0)
+	_note_tween.tween_callback(func():
+		_note.visible = false
+		_live_floats = 0)
 
 # ------------------------------------------------------------------ the temporary look (primitives only)
 
@@ -285,8 +452,7 @@ func _check_intake(delta: float) -> void:
 		_intake_cd = 0.16
 		for k in range(clampi(1 + best / 6, 1, 7)):
 			_drop_rock(res, 0.07 * float(k))
-		if funnel_node != null:
-			funnel_node.rotation.z = 0.02                  # the funnel rings when rock lands
+		_vibe = maxf(_vibe, 0.35)                            # the housing hums when rock lands
 	_items_seen = true
 	_last_items = items.duplicate()
 
@@ -301,60 +467,29 @@ func on_sold(res: String, units: int, money: int) -> void:
 		_pending[res] = [0, 0]
 	_pending[res][0] += units
 	_pending[res][1] += money
-	_flap_kick = 1.0
 
 func _process(delta: float) -> void:
 	if game == null or index < 0 or index >= game.business.outputs.size() or not game.business.is_cash_hopper(index):
 		return
 	var b = game.business
-	var working: bool = b.cash_current(index) != ""
 	_t += delta
-	_work = move_toward(_work, 1.0 if working else 0.0, delta * (4.0 if working else 1.6))               # it spins up quickly and coasts down
-	var fw: Node3D = points["Pivot_Flywheel"]
-	_fw_speed = move_toward(_fw_speed, (7.0 + 0.5 * minf(b.cash_rate(index), 40.0)) * (1.0 if working else 0.0), delta * (30.0 if working else 7.0))
-	fw.rotation.x += delta * _fw_speed
-	if piston != null:
-		piston.position.y = _piston_y0 + sin(_t * (9.0 + 0.15 * minf(b.cash_rate(index), 60.0))) * 0.05 * _work         # the ram pumps
-	if funnel_node != null:
-		funnel_node.rotation.z = sin(_t * 41.0) * 0.006 * _work                                                # the funnel shivers
-		funnel_node.position.y = _funnel_y0 + absf(sin(_t * 33.0)) * 0.004 * _work
-	_boost = maxf(0.0, _boost - delta * 1.1)
-	if drawer != null:
-		drawer.position = _drawer_pos0 + Vector3(0.0, 0.0, -0.22 * _drawer_out)
-		var gs := (0.5 + 5.0 * _work + 6.0 * _boost) * delta
-		if gear_a != null:
-			gear_a.rotation.z += gs
-		if gear_b != null:
-			gear_b.rotation.z -= gs * 1.45
-		if glow != null:
-			glow.light_energy = 0.25 + 0.9 * _work + 1.4 * _boost + 0.08 * sin(_t * 9.0)
-	if lamp != null and (_lamp_on != int(working) or drawer != null):
-		_lamp_on = int(working)
-		var lm := StandardMaterial3D.new()
-		lm.albedo_color = Color(1.0, 0.62, 0.16)
-		lm.emission_enabled = true
-		lm.emission = Color(1.0, 0.58, 0.12)
-		lm.emission_energy_multiplier = 1.0 + 1.6 * _work + 1.6 * _boost + 0.25 * sin(_t * 7.0)
-		if drawer == null:
-			lm.albedo_color = Color(0.35, 0.9, 0.35) if working else Color(0.9, 0.55, 0.15)
-			lm.emission = lm.albedo_color
-			lm.emission_energy_multiplier = 1.6 if working else 0.8
-		lamp.material_override = lm
-		if lamp2 != null:
-			lamp2.material_override = lm
-	_flap_kick = maxf(0.0, _flap_kick - delta * 6.0)
-	(points["Pivot_Flap"] as Node3D).rotation.x = -_flap_kick * 0.35
-	_thump = maxf(0.0, _thump - delta * 7.0)
-	if model != null:
-		model.position.y = -0.012 * _thump                    # the whole housing jolts down a hair on each crush
+	if anim == null:                                                       # (no Blender clips: the old procedural spin, only while it works)
+		var working: bool = b.cash_current(index) != ""
+		_work = move_toward(_work, 1.0 if working else 0.0, delta * (4.0 if working else 1.6))
+		_fw_speed = move_toward(_fw_speed, (7.0 + 0.5 * minf(b.cash_rate(index), 40.0)) * (1.0 if working else 0.0), delta * (30.0 if working else 7.0))
+		(points["Pivot_Flywheel"] as Node3D).rotation.x += delta * _fw_speed
+	if _vibe > 0.0 and model != null:                                      # the cabinet's vibration while a sale is registered and processed
+		_vibe = maxf(0.0, _vibe - delta * 2.2)
+		model.position = Vector3(sin(_t * 95.0) * 0.004 * _vibe, 0.0, cos(_t * 83.0) * 0.003 * _vibe)
+		if _vibe <= 0.0:
+			model.position = Vector3.ZERO
+	if _note != null and _note.visible:
+		var cam := get_viewport().get_camera_3d()
+		if cam != null:
+			_note.look_at(cam.global_position, Vector3.UP)
 	if fill != null and fill.visible:
 		fill.scale = fill.scale.lerp(_fill_target, clampf(delta * 7.0, 0.0, 1.0))      # the heap rises and sinks smoothly with the queue
 	_check_intake(delta)
-	_float_cd = maxf(0.0, _float_cd - delta)
-	if _float_acc > 0 and _float_cd <= 0.0:
-		_float_cd = 0.5
-		_show_float(_float_acc)
-		_float_acc = 0
 	_burst_t -= delta
 	if _burst_t <= 0.0 and not _pending.is_empty():
 		_flush()
@@ -365,13 +500,11 @@ func _process(delta: float) -> void:
 		_refresh_display()
 		_refresh_fill()
 
-## One sale burst, in the order the machine really works: (1) rock leaves the heap and is swallowed by the throat, (2) the ram thumps and the housing clunks while it is
-## crushed and appraised, (3) the payout slot pushes out the money: bills slide out and drop into the tray, coins ring, the amount floats up. Each stage follows the
-## one before it (never at the same moment), so the eye can follow the rock to the cash.
-const SLOT := Vector3(0.0, 0.64, -0.9)           ## the payout slot in the front of the housing
-const TRAY := Vector3(0.0, 0.5, -1.0)            ## where bills and coins land (the drawer, once it has slid out: see TRAY_OUT)
-const TRAY_OUT := Vector3(0.0, 0.5, -1.2)
+func _exit_tree() -> void:
+	_seq_running = false
 
+## The sale has ALREADY been booked (Business.cash_sold fires after the money and stock moved). Everything below only shows it: no frame of any animation can pay, or
+## pay twice. Sales that arrive during a payout are summed (`_queued_*`) and shown in the same open drawer; the node never touches money.
 func _flush() -> void:
 	var units := 0
 	var money := 0
@@ -386,178 +519,144 @@ func _flush() -> void:
 	_pending.clear()
 	if units <= 0:
 		return
-	for k in range(mini(units, 3)):                                  # 1. rock goes down the throat
-		_swallow_rock(main_res, 0.06 * float(k))
-	_after(0.22, _thump_sound.bind(units))                           # 2. the crush: ram, housing and a clunk
-	_sale_display_show(money)                                         # 0. the sale is registered: the LED flashes the amount, the lamps flare
-	_boost = 1.0
-	_after(0.44, _payout.bind(units, money))                         # 3. the money comes out of the slot
-
-func _after(t: float, f: Callable) -> void:
-	if not is_inside_tree():
+	if _seq_running:
+		_queued_money += money
+		_queued_units += units
+		_queued_res = main_res
 		return
-	get_tree().create_timer(t).timeout.connect(func():
-		if is_instance_valid(self) and is_inside_tree():
-			f.call())
+	_run_sequence(money, units, main_res)
+
+func _wait(t: float) -> bool:
+	if not is_inside_tree():
+		return false
+	await get_tree().create_timer(t).timeout
+	return is_instance_valid(self) and is_inside_tree()
+
+## Plays a Blender clip; returns how long it takes at that speed (0 when the model has no such clip).
+func _play(clip: String, speed := 1.0) -> float:
+	if anim == null or not anim.has_animation(clip):
+		return 0.0
+	anim.play(clip, 0.0, speed)
+	return anim.get_animation(clip).length / speed
+
+func _phase(p: String) -> void:
+	phase = p
+
+## The six phases (about 3.2 s the first time; a sale within four seconds of the last plays the short version, and sales that arrive meanwhile ride in the same open drawer):
+## 1 idle -> 2 sale registered (display shows the amount, lamps flash twice, confirmation click, a shudder) -> 3 processing (gears and rollers turn, the cabinet hums, motor sound)
+## -> 4 counting (the inspection window glows) -> 5 payout (the drawer slides out with the cash bundles, a click, the notification and sparks) -> 6 complete (the display says DONE, the
+## drawer closes, the lamps dim, back to idle).
+func _run_sequence(money: int, units: int, res: String) -> void:
+	_seq_running = true
+	var quick := Time.get_ticks_msec() < _chain_until_ms
+	var drawer_open := false
+	var batch_money := money
+	var batch_units := units
+	var batch_res := res
+	var guard := 0
+	while true:
+		_phase("registered")                                                   # ---- 2
+		_sale_text("+" + QuarryTheme.money_text(batch_money), 1.0)
+		_play("SaleRegistered", 2.0 if quick else 1.25)
+		_sfx(clunk_streams[0] if not clunk_streams.is_empty() else null, 1.6, -9.0)
+		_vibe = 1.0
+		_flash_lamps()
+		for k in range(mini(batch_units, 3)):
+			_swallow_rock(batch_res, 0.05 * float(k))
+		if not await _wait(0.2 if quick else 0.35):
+			return
+		_phase("processing")                                                   # ---- 3
+		var pt := _play("Processing", 2.4 if quick else 1.4)
+		_sfx(load("res://audio/rig_loop.wav"), 1.5, -13.0, pt)
+		_thump_sound(batch_units)
+		_lamp_to(2.0, 0.15)
+		if not await _wait(maxf(pt, 0.3)):
+			return
+		if not quick:
+			_phase("counting")                                                 # ---- 4
+			_lamp_to(1.4, 0.1)
+			var ct := _play("Counting", 1.75)
+			if not await _wait(maxf(ct, 0.3)):
+				return
+		_phase("payout")                                                       # ---- 5
+		if not drawer_open:
+			var ot := _play("DrawerOpen", 1.0)
+			if not await _wait(maxf(ot, 0.3)):
+				return
+			drawer_open = true
+			_sfx(load("res://audio/dig_chink_1.wav"), 0.9, -6.0)               # the drawer stops with a mechanical click
+		_show_note(batch_money)
+		if sparks != null:
+			sparks.restart()
+			sparks.emitting = true
+		_coin_sound(batch_units)
+		if not await _wait(0.25 if quick else 0.35):
+			return
+		if _queued_money > 0 and guard < 12:                                   # sales that arrived meanwhile are paid out in the same open drawer
+			batch_money = _queued_money
+			batch_units = _queued_units
+			batch_res = _queued_res
+			_queued_money = 0
+			_queued_units = 0
+			guard += 1
+			quick = true
+			continue
+		break
+	_phase("complete")                                                         # ---- 6
+	_sale_text("DONE", 0.8)
+	if not await _wait(0.2):
+		return
+	if drawer_open:
+		var cl := _play("DrawerClose", 1.0)
+		if not await _wait(maxf(cl, 0.2)):
+			return
+		_sfx(load("res://audio/dig_chink_0.wav"), 0.8, -9.0)
+	_lamp_to(0.5, 0.35)
+	var rt := _play("ReturnToIdle", 1.6)
+	if not await _wait(maxf(rt, 0.2)):
+		return
+	_play("Idle")
+	_phase("idle")
+	_sale_text("READY", 0.5)
+	_chain_until_ms = Time.get_ticks_msec() + 4000
+	_seq_running = false
+	if _queued_money > 0:                                                      # a sale landed during the close: play it next, short
+		var m := _queued_money
+		var u := _queued_units
+		var r := _queued_res
+		_queued_money = 0
+		_queued_units = 0
+		_run_sequence(m, u, r)
 
 func _thump_sound(units: int) -> void:
-	_thump = 1.0
-	_flap_kick = 1.0
-	if audio != null:
+	_vibe = 1.0
+	if audio != null and not clunk_streams.is_empty():
 		audio.stream = clunk_streams[_rng.randi() % clunk_streams.size()]
 		audio.pitch_scale = _rng.randf_range(0.82, 1.12) * (1.0 - minf(0.2, float(units) * 0.01))
 		audio.volume_db = -3.0 + minf(5.0, float(units) * 0.6)
 		audio.play()
 
-func _payout(units: int, money: int) -> void:
-	if drawer != null:                                              # the drawer slides out, holds while the cash settles, and slides back
-		var dt := create_tween()
-		dt.tween_property(self, "_drawer_out", 1.0, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		dt.tween_interval(1.3)
-		dt.tween_property(self, "_drawer_out", 0.0, 0.3).set_trans(Tween.TRANS_SINE)
-	_bills(units)
-	_coin_burst(units)
-	_after(0.06, _coin_sound.bind(units))
-	_float_text(money, units)
-
-## Paper money slides out of the slot (flat, toward the viewer), tips over the chute and settles in the tray; a few at a time.
-func _bills(units: int) -> void:
-	var n := clampi(1 + units / 8, 1, 4)
-	for k in range(n):
-		var bill := MeshInstance3D.new()
-		var bm := BoxMesh.new()
-		bm.size = Vector3(0.2, 0.008, 0.1)
-		bill.mesh = bm
-		var m := StandardMaterial3D.new()
-		m.albedo_color = Color(0.50, 0.76, 0.46)
-		m.roughness = 0.9
-		bill.material_override = m
-		var sx := _rng.randf_range(-0.12, 0.12)
-		bill.position = SLOT + Vector3(sx, 0.0, 0.06)
-		bill.rotation = Vector3(0.0, _rng.randf_range(-0.12, 0.12), 0.0)
-		add_child(bill)
-		var rest := TRAY_OUT + Vector3(sx + _rng.randf_range(-0.1, 0.1), 0.02 * float(k), _rng.randf_range(-0.02, 0.04))
-		var tw := create_tween()
-		tw.tween_interval(0.09 * float(k))
-		tw.tween_property(bill, "position", SLOT + Vector3(sx, 0.0, -0.16), 0.17).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-		tw.tween_property(bill, "position", rest, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-		tw.parallel().tween_property(bill, "rotation", Vector3(0.0, bill.rotation.y + _rng.randf_range(-0.4, 0.4), 0.0), 0.16)
-		tw.tween_interval(0.9)
-		tw.tween_property(bill, "scale", Vector3.ZERO, 0.2)
-		tw.tween_callback(bill.queue_free)
-
-## Gold coins are spat out of the slot in little arcs, spinning, land on the tray with a bounce and a glint, and lie there a moment before they vanish (never one per unit).
-func _coin_burst(units: int) -> void:
-	if model == null:
-		return
-	var n := clampi(2 + units / 3, 2, 8)
-	var cm := CylinderMesh.new()
-	cm.top_radius = 0.05
-	cm.bottom_radius = 0.05
-	cm.height = 0.014
-	cm.radial_segments = 14
-	var rim := CylinderMesh.new()                                         # a raised rim: the coin reads as a coin from every angle
-	rim.top_radius = 0.052
-	rim.bottom_radius = 0.052
-	rim.height = 0.009
-	rim.radial_segments = 14
-	var m := StandardMaterial3D.new()
-	m.albedo_color = Color(1.0, 0.80, 0.22)
-	m.metallic = 0.7
-	m.roughness = 0.3
-	m.emission_enabled = true
-	m.emission = Color(1.0, 0.72, 0.15)
-	m.emission_energy_multiplier = 0.45
-	for k in range(n):
-		var coin := MeshInstance3D.new()
-		coin.mesh = cm
-		coin.material_override = m
-		var face := MeshInstance3D.new()
-		face.mesh = rim
-		face.position = Vector3(0, 0.003, 0)
-		var fm := StandardMaterial3D.new()
-		fm.albedo_color = Color(1.0, 0.9, 0.5)
-		fm.emission_enabled = true
-		fm.emission = Color(1.0, 0.85, 0.35)
-		fm.emission_energy_multiplier = 0.5
-		face.material_override = fm
-		face.scale = Vector3(0.66, 1.0, 0.66)
-		coin.add_child(face)
-		var x0 := _rng.randf_range(-0.16, 0.16)
-		var start := SLOT + Vector3(x0, 0.0, -0.01)
-		coin.position = start
-		coin.scale = Vector3.ZERO
-		coin.rotation = Vector3(_rng.randf() * 3.0, _rng.randf() * 3.0, 0.0)
-		add_child(coin)
-		var land := TRAY_OUT + Vector3(clampf(x0 * 1.3 + _rng.randf_range(-0.08, 0.08), -0.2, 0.2), 0.0, _rng.randf_range(-0.05, 0.07))
-		var apex_h := 0.2 + _rng.randf() * 0.12
-		var spin := Vector3(_rng.randf_range(9.0, 15.0), _rng.randf_range(-3.0, 3.0), _rng.randf_range(-2.0, 2.0))
-		var tw := create_tween()
-		tw.tween_interval(0.06 * float(k))
-		tw.tween_property(coin, "scale", Vector3.ONE, 0.04)
-		tw.tween_method(_coin_arc.bind(coin, start, land, apex_h, spin), 0.0, 1.0, 0.36)
-		tw.tween_callback(_coin_land.bind(land, k))
-		var hop := land + Vector3(_rng.randf_range(-0.04, 0.04), 0.0, _rng.randf_range(0.02, 0.06))
-		tw.tween_method(_coin_arc.bind(coin, land, hop, 0.05, spin * 0.2), 0.0, 1.0, 0.16)
-		tw.tween_property(coin, "rotation", Vector3(0.0, coin.rotation.y, _rng.randf_range(-0.15, 0.15)), 0.1)     # settles flat
-		tw.tween_interval(0.9)
-		tw.tween_property(coin, "scale", Vector3.ZERO, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
-		tw.tween_callback(coin.queue_free)
-
-## One point on a coin's arc: ground path from a to b, a parabola of height h over it, and the spin easing off.
-func _coin_arc(t: float, coin: Node3D, a: Vector3, b: Vector3, h: float, spin: Vector3) -> void:
-	if not is_instance_valid(coin):
-		return
-	coin.position = a.lerp(b, t) + Vector3(0.0, 4.0 * h * t * (1.0 - t), 0.0)
-	coin.rotation += spin * 0.016 * (1.0 - t)
-
-## A coin touches the tray: a little gold glint.
-func _coin_land(at: Vector3, k: int) -> void:
-	if not is_inside_tree() or k % 2 == 1:
-		return
-	var q := MeshInstance3D.new()
-	var qm := QuadMesh.new()
-	qm.size = Vector2(0.14, 0.14)
-	q.mesh = qm
-	var gm := StandardMaterial3D.new()
-	gm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	gm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	gm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	var gt := GradientTexture2D.new()                                     # a soft round glow, not a square
-	gt.fill = GradientTexture2D.FILL_RADIAL
-	gt.fill_from = Vector2(0.5, 0.5)
-	gt.fill_to = Vector2(1.0, 0.5)
-	gt.width = 32
-	gt.height = 32
-	var gr := Gradient.new()
-	gr.colors = PackedColorArray([Color(1, 0.95, 0.7, 1), Color(1, 0.8, 0.3, 0)])
-	gt.gradient = gr
-	gm.albedo_texture = gt
-	gm.albedo_color = Color(1.0, 0.86, 0.4, 0.95)
-	gm.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	gm.no_depth_test = true
-	q.material_override = gm
-	q.position = at + Vector3(0.0, 0.05, -0.02)
-	q.scale = Vector3.ZERO
-	add_child(q)
-	var tw := create_tween()
-	tw.tween_property(q, "scale", Vector3.ONE * 1.3, 0.08).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.tween_property(q, "scale", Vector3.ZERO, 0.18)
-	tw.tween_callback(q.queue_free)
-
-func _coin_sound(units: int) -> void:
-	if audio == null or not is_inside_tree():
+## A one-shot sound at the machine (freed when it ends, or after `secs`).
+func _sfx(stream: AudioStream, pitch: float, vol: float, secs := 0.0) -> void:
+	if stream == null or audio == null or not is_inside_tree():
 		return
 	var p := AudioStreamPlayer3D.new()
-	p.stream = coin_stream
-	p.pitch_scale = _rng.randf_range(0.92, 1.3)
-	p.volume_db = -6.0 + minf(4.0, float(units) * 0.4)
+	p.stream = stream
+	p.pitch_scale = pitch
+	p.volume_db = vol
 	p.bus = audio.bus
 	p.unit_size = audio.unit_size
 	p.max_distance = audio.max_distance
 	points["Attach_Audio"].add_child(p)
 	p.finished.connect(p.queue_free)
 	p.play()
+	if secs > 0.0:
+		get_tree().create_timer(secs).timeout.connect(func():
+			if is_instance_valid(p):
+				p.queue_free())
+
+func _coin_sound(units: int) -> void:
+	_sfx(coin_stream, _rng.randf_range(0.95, 1.2), -7.0 + minf(4.0, float(units) * 0.4))
 
 ## Material arriving (a deposit, a belt, a crate): rock tumbles from above into the funnel and lands on the heap (which grows with the queue).
 func _drop_rock(res: String, delay: float) -> void:
@@ -599,51 +698,6 @@ func _make_rock(res: String) -> MeshInstance3D:
 	rock.rotation = Vector3(_rng.randf(), _rng.randf(), _rng.randf()) * 3.0
 	add_child(rock)
 	return rock
-
-var _float_acc := 0
-var _float_cd := 0.0
-
-## The amount rises from the tray. A fast hopper pays out many times a second: the amounts are added up and shown about twice a second, so the number reads.
-func _float_text(money: int, units: int) -> void:
-	if money <= 0:
-		return
-	_float_acc += money
-	if _float_cd > 0.0:
-		return
-	_float_cd = 0.5
-	_show_float(_float_acc)
-	_float_acc = 0
-
-func _show_float(money: int) -> void:
-	if _live_floats >= 4 or money <= 0:
-		return
-	_live_floats += 1
-	var big := money >= 50
-	var l := Label3D.new()
-	l.text = "+" + QuarryTheme.money_text(int(round(float(money) * 0.3)))
-	l.font_size = 44 if money < 100 else 60
-	l.pixel_size = 0.006
-	l.outline_size = 14
-	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	l.no_depth_test = true
-	l.modulate = Color(0.45, 1.0, 0.45) if not big else Color(1.0, 0.84, 0.28)        # green, gold for a big burst
-	l.outline_modulate = Color(0.04, 0.14, 0.04) if not big else Color(0.30, 0.16, 0.0)
-	var x0 := _rng.randf_range(-0.15, 0.15)
-	l.position = TRAY + Vector3(x0, 0.3, -0.15)
-	l.scale = Vector3.ONE * 0.3
-	add_child(l)
-	var t := create_tween()
-	t.tween_property(l, "scale", Vector3.ONE * 1.25, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)      # it pops out of the tray ...
-	t.tween_property(l, "scale", Vector3.ONE, 0.12).set_trans(Tween.TRANS_SINE)
-	t.parallel().tween_method(func(v: float): l.text = "+" + QuarryTheme.money_text(int(round(float(money) * v))), 0.3, 1.0, 0.45).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)      # ... and counts up
-	var rise := create_tween()
-	rise.tween_property(l, "position:y", l.position.y + 1.1, 1.3).set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
-	rise.parallel().tween_method(func(v: float): l.position.x = x0 + sin(v * 7.0) * 0.06 * v, 0.0, 1.0, 1.3)
-	rise.parallel().tween_property(l, "modulate:a", 0.0, 0.5).set_delay(0.85)
-	rise.parallel().tween_property(l, "outline_modulate:a", 0.0, 0.5).set_delay(0.85)
-	rise.tween_callback(func():
-		_live_floats -= 1
-		l.queue_free())
 
 func _refresh_display() -> void:
 	if display == null or game == null or index < 0 or index >= game.business.outputs.size():
