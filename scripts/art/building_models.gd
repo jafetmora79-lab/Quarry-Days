@@ -6,7 +6,8 @@ class_name BuildingModels
 
 const DIR := "res://assets/buildings/"
 const COLOURS := {"DarkWood": Color(0.30, 0.20, 0.12), "Green": Color(0.25, 0.5, 0.25), "FlowerR": Color(0.85, 0.25, 0.2), "FlowerY": Color(0.95, 0.8, 0.25),
-	"Door": Color(0.36, 0.24, 0.14), "Chimney": Color(0.50, 0.28, 0.22), "Fabric": Color(0.30, 0.44, 0.46), "FabricRed": Color(0.62, 0.28, 0.22), "Tv": Color(0.08, 0.10, 0.14), "Paint": Color(0.90, 0.78, 0.20)}
+	"Door": Color(0.36, 0.24, 0.14), "Chimney": Color(0.50, 0.28, 0.22), "Fabric": Color(0.30, 0.44, 0.46), "FabricRed": Color(0.62, 0.28, 0.22), "Tv": Color(0.08, 0.10, 0.14), "Paint": Color(0.90, 0.78, 0.20),
+	"FloorJoint": Color(0.16, 0.16, 0.17), "Stain": Color(0.07, 0.07, 0.075), "Crack": Color(0.12, 0.12, 0.13), "PaintWhite": Color(0.86, 0.86, 0.82), "Grate": Color(0.22, 0.23, 0.25)}
 
 static func material_for(name: String, roof_key: String) -> Material:
 	match name:

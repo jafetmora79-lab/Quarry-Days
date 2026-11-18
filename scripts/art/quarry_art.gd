@@ -638,8 +638,8 @@ func _garage_blender() -> bool:
 	if shell == null:
 		return false
 	var ox: float = game.GARAGE_DX
-	var x0 := -4.7 + ox
-	var x1 := 14.5 + ox
+	var x0: float = game.GARAGE_X0
+	var x1: float = game.GARAGE_X1
 	var z0 := 14.9
 	var z1 := 22.4
 	var cx := (x0 + x1) * 0.5
@@ -654,14 +654,18 @@ func _garage_blender() -> bool:
 	solid("Garage wall", Vector3(x1, 2.0, (z0 + z1) * 0.5), Vector3(0.25, 4.0, z1 - z0))
 	solid("Garage shelving", Vector3((dx1 + x1) * 0.5, 0.9, z1 - 0.45), Vector3(x1 - dx1 - 0.4, 1.8, 0.6))       # behind the bays, clear of the door
 	solid("Garage workbench", Vector3(x0 + 0.5, 0.5, 20.2), Vector3(0.75, 1.0, 3.6))
-	solid("Garage drums", Vector3(13.6 + ox, 0.45, 19.6), Vector3(0.9, 0.9, 1.9))
+	solid("Garage drums", Vector3(x1 - 1.6, 0.45, 19.6), Vector3(0.9, 0.9, 1.9))
 	shell.position = Vector3(cx, 0.0, (z0 + z1) * 0.5)
 	root.add_child(shell)
 	garage_roof = shell.get_meta("roof", null)
 	_sign(root, "Sign_Garage", Vector3(cx, 4.9, z0 - 0.67), Vector2(4.0, 0.36), PI)
 	_sign(root, "Sign_Safety", Vector3(x0 - 0.13, 2.6, z0 + 1.6), Vector2(1.5, 0.5), -PI * 0.5)
-	prop(P_BOXES, Vector3(14.0 + ox, 0.0, 21.6), -PI * 0.5)
-	prop(P_BIN, Vector3(14.0 + ox, 0.0, 17.2), -PI * 0.5)
+	prop(P_BOXES, Vector3(x1 - 0.9, 0.0, 21.5), -PI * 0.5)
+	prop(P_BIN, Vector3(x1 - 0.8, 0.0, 20.0), -PI * 0.5)
+	var yfloor := BuildingModels.load_model("YardFloor", "Corrugated")           # the slab's detail: joints, bay paint, oil stains, drain, walkway (Blender)
+	if yfloor != null:
+		yfloor.position = Vector3(cx, 0.0, 18.65)
+		root.add_child(yfloor)
 	prop(P_CONE, Vector3(x0 + 0.6, 0.0, 16.8))
 	prop(P_CONE, Vector3(x0 + 1.0, 0.0, 17.2))
 	light(Vector3(cx - 5, 4.2, 19.0), Color(0.9, 0.95, 1.0), 1.2, 9.0)
@@ -791,14 +795,15 @@ func _fence_line(a: Vector2, b: Vector2, collide := true, height := 1.4) -> void
 
 func _pads() -> void:
 	var ox: float = game.GARAGE_DX
-	quad_flat(M_FOUNDATION, Vector3(5.0 + ox, 0, 18.7), Vector2(19.6, 7.6), 0.0, 0.075)         # garage slab: clean poured concrete
+	quad_flat(M_FOUNDATION, Vector3((game.GARAGE_X0 + game.GARAGE_X1) * 0.5, 0, 18.7), Vector2(game.GARAGE_X1 - game.GARAGE_X0 + 0.4, 7.6), 0.0, 0.075)         # garage slab: clean poured concrete
 	quad_flat(M_CONCRETE, game.OFFICE_POS, Vector2(6.4, 6.4), 0.0, 0.075)
 	quad_flat(M_CONCRETE, game.SHED_POS, Vector2(6.0, 6.0), 0.0, 0.075)
 	quad_flat(M_CONCRETE, game.TOOLSHED_POS, Vector2(6.0, 6.0), 0.0, 0.075)
 	quad_flat(M_CONCRETE, game.HOME_POS, Vector2(6.0, 6.0), 0.0, 0.075)
-	for slot in game.fleet.cfg.get("parking", []):                                        # painted bay lines
-		for side in [-1.4, 1.4]:
-			quad_flat("Hazard", Vector3(float(slot[0]) + side, 0, float(slot[2])), Vector2(0.12, 4.2), 0.0, 0.115)
+	if not ResourceLoader.exists("res://assets/buildings/BLD_QD_YardFloor.glb"):
+		for slot in game.fleet.cfg.get("parking", []):                                        # painted bay lines
+			for side in [-1.4, 1.4]:
+				quad_flat("Hazard", Vector3(float(slot[0]) + side, 0, float(slot[2])), Vector2(0.12, 4.2), 0.0, 0.115)
 
 ## The blueprint world's surroundings: ground beside the yard, the yard's roads, the quarry's industrial fence, the mountain range to the north,
 ## and the mountain the west tunnel runs into. (The quarry's own surface is drawn by the pit zone; forests by the landscape.)

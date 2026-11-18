@@ -53,8 +53,8 @@ func run() -> void:
 	await physics_frame
 	var art = game.art
 	var ox: float = game.GARAGE_DX
-	var x0 := -4.7 + ox
-	var x1 := 14.5 + ox
+	var x0: float = game.GARAGE_X0
+	var x1: float = game.GARAGE_X1
 	var z0 := 14.9
 	var z1 := 22.4
 	check(art.root.get_node_or_null("Building_Garage") != null, "the Blender garage is in the game")

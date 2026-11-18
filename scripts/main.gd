@@ -29,6 +29,8 @@ var SHED_POS := Vector3(15.5, 0, 12)
 var TOOLSHED_POS := Vector3(-7.6, 0, 10.0)         ## the tool upgrade shed (it used to be a corner of the office)
 var SELL_ANCHOR := Vector3(-12.3, 0.85, 9.0)       ## where carts and the sales clerk deal: just outside the office door (there is no sales stand any more)
 var STORAGE_POS := Vector3(10, 0.65, 10)           ## the storage crate
+var GARAGE_X0 := -8.1                             ## the garage's west and east walls (blueprint yard: 28 m wide, room for six machines)
+var GARAGE_X1 := 17.9
 var GARAGE_DX := 0.0                               ## the garage row's shift along x (blueprint: it sits further west)
 var EXP_DZ := 0.0                                  ## the east extension's shift along z (blueprint: south of the quarry fence)
 var blueprint := false                             ## true in the blueprint world (the new game)
@@ -320,8 +322,10 @@ func _init_layout() -> void:
 	STORAGE_POS = Vector3(9.0, 0.65, -13.5)          # the storage bin stands INSIDE the quarry, just past the central gate
 	business.storage_pos = Vector3(STORAGE_POS.x, 0.0, STORAGE_POS.z)
 	GARAGE_DX = -8.0
-	PARK_X_MIN = -4.4 + GARAGE_DX
-	PARK_X_MAX = 14.0 + GARAGE_DX
+	GARAGE_X0 = -15.2
+	GARAGE_X1 = 10.8
+	PARK_X_MIN = GARAGE_X0 + 0.3
+	PARK_X_MAX = GARAGE_X1 - 1.6
 	EXP_DZ = 12.0
 	for slot in fleet.cfg.get("parking", []):
 		slot[0] = float(slot[0]) + GARAGE_DX
@@ -2161,7 +2165,7 @@ func _physics_process(delta: float) -> void:
 		return
 	if art and art.garage_roof:
 		# the chase camera would sit inside the roof: take the roof off while a vehicle is driven under it
-		var inside := driving != null and driving.global_position.x > -6.5 + GARAGE_DX and driving.global_position.x < 16.0 + GARAGE_DX and driving.global_position.z > 12.5 and driving.global_position.z < 24.0
+		var inside := driving != null and driving.global_position.x > GARAGE_X0 - 1.8 and driving.global_position.x < GARAGE_X1 + 1.5 and driving.global_position.z > 12.5 and driving.global_position.z < 24.0
 		art.garage_roof.visible = not inside
 	safety.tick(delta)
 	_bucket_tick(delta)
@@ -5705,8 +5709,8 @@ func _sync_vehicles(rebuild := false) -> void:
 ## Equipment parking (Phase 8.3). Bays are not fixed any more: a machine is packed into the garage row (tail toward the door,
 ## nose toward the apron), left to right, wherever its real footprint fits between the walls, people and the machines already
 ## there. When the garage row is full it goes on the apron in front of the garage, in a second row.
-var PARK_X_MIN := -4.4
-var PARK_X_MAX := 14.0
+var PARK_X_MIN := -7.8
+var PARK_X_MAX := 16.3
 const GARAGE_TAIL_Z := 20.7       ## the back edge of a machine in the garage row
 const APRON_TAIL_Z := 14.6        ## the back edge of a machine in the apron row
 

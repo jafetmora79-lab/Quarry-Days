@@ -60,8 +60,8 @@ func run() -> void:
 	# ---- the garage: roof sheet vertices lie on the slope; nothing but the sheet rises above it; side wall tops sit 2 cm into the sheet
 	var z0 := 14.9
 	var z1 := 22.4
-	var x0: float = -4.7 + game.GARAGE_DX
-	var x1: float = 14.5 + game.GARAGE_DX
+	var x0: float = game.GARAGE_X0
+	var x1: float = game.GARAGE_X1
 	var roof_ok := true
 	var rv := PackedVector3Array()
 	world_vertices(art.garage_roof, rv)
