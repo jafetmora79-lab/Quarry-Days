@@ -521,7 +521,7 @@ func _check_intake(delta: float) -> void:
 
 func _rock_mat(res: String) -> Material:
 	if not _rock_mats.has(res):
-		_rock_mats[res] = MeshKit.mat(BucketView.MATS.get(res, "RockGravel"))                 # the material's own pixel texture
+		_rock_mats[res] = _pile_mat(res)                                                       # the same tinted texture as its pile
 	return _rock_mats[res]
 
 ## Business.cash_sold: the numbers are already booked; this only collects the feedback so a fast hopper groups it into a few bursts.
@@ -775,17 +775,33 @@ func _refresh_heap() -> void:
 	var n := list.size()
 	for k in range(n):
 		var share := float(list[k][1]) / float(total)
-		var r := (0.13 + 0.36 * amt) * (0.6 + 0.4 * sqrt(share)) if n > 1 else 0.17 + 0.34 * amt
+		var r := (0.11 + 0.2 * amt) * (0.65 + 0.35 * sqrt(share)) if n > 1 else 0.17 + 0.34 * amt
 		var h := (0.07 + 0.34 * amt) * (0.6 + 0.4 * sqrt(share))
 		var pile := _heap_pile(str(list[k][0]), r, h, 17 + k * 31)
 		var ang := TAU * float(k) / float(maxi(n, 1)) + 0.5
-		pile.position = Vector3(cos(ang), 0.0, sin(ang)) * (0.0 if n == 1 else 0.2)
+		pile.position = Vector3(cos(ang), 0.0, sin(ang)) * (0.0 if n == 1 else (0.2 if n == 2 else 0.24))
 		_heap.add_child(pile)
+
+## Each material's pile is tinted its own colour on top of its texture, so a mix reads at a glance: grey gravel, cream limestone, black coal, red-brown iron, green copper, yellow gold, dark soil.
+const PILE_TINT := {"topsoil": Color(0.62, 0.45, 0.30), "soil": Color(0.62, 0.45, 0.30), "clay": Color(0.85, 0.55, 0.38), "gravel": Color(0.72, 0.72, 0.74), "crushed_stone": Color(0.72, 0.72, 0.74),
+	"limestone": Color(1.0, 0.95, 0.78), "coal": Color(0.32, 0.33, 0.37), "iron_ore": Color(1.0, 0.52, 0.38), "copper_ore": Color(0.55, 1.0, 0.78), "gold_ore": Color(1.0, 0.86, 0.3)}
+var _pile_mats := {}
+
+func _pile_mat(res: String) -> Material:
+	if not _pile_mats.has(res):
+		var base := MeshKit.mat(BucketView.MATS.get(res, "ExcavatedDirt"))
+		var dup := base.duplicate() as StandardMaterial3D
+		if dup != null:
+			dup.albedo_color = PILE_TINT.get(res, Color.WHITE)
+			_pile_mats[res] = dup
+		else:
+			_pile_mats[res] = base
+	return _pile_mats[res]
 
 func _heap_pile(res: String, r: float, h: float, seed: int) -> Node3D:
 	var node := Node3D.new()
 	var kind := BucketView.kind_of(res)
-	var mat := MeshKit.mat(BucketView.MATS.get(res, "ExcavatedDirt"))
+	var mat := _pile_mat(res)
 	if kind == "dirt":
 		MeshKit.inst(node, PileModels.dirt_mesh(r, h, seed), mat)
 		return node
@@ -808,7 +824,7 @@ func _heap_pile(res: String, r: float, h: float, seed: int) -> Node3D:
 			var d2 := r * 0.8 * sqrt(rng.randf())
 			var sz2 := rng.randf_range(0.035, 0.06)
 			PileModels.chunk_into(o, Vector3(cos(a2) * d2, h * (1.0 - (d2 * d2) / (r * r)) * 0.85 + 0.05, sin(a2) * d2), Vector3(sz2 * 1.2, sz2, sz2), rng)
-		MeshKit.inst(node, o.mesh(), MeshKit.flat(QuarryTheme.RES_COLORS.get(res, Color(0.9, 0.7, 0.2)), 0.12))
+		MeshKit.inst(node, o.mesh(), MeshKit.flat(QuarryTheme.RES_COLORS.get(res, Color(0.9, 0.7, 0.2)).lightened(0.15), 0.25))
 	return node
 
 ## Material arriving (a deposit, a belt, a crate): rock tumbles from above into the funnel and lands on the heap (which grows with the queue).

@@ -49,9 +49,9 @@ func run():
 		look(cam, c + Vector3(-2.4, 1.6, -3.6), c + Vector3(0, 0.9, 0))
 		await shot("hopper_tier_%d" % ti, out, 20)
 	game.business.outputs[h]["tier"] = 1
-	game.business.outputs[h]["items"] = {"crushed_stone": 40, "limestone": 25, "coal": 15, "iron_ore": 10, "gold_ore": 0, "topsoil": 0}
+	game.business.outputs[h]["items"] = {"crushed_stone": 40, "limestone": 30, "coal": 30, "iron_ore": 0, "gold_ore": 25, "topsoil": 0}
 	look(cam, c + Vector3(-1.2, 3.1, -3.0), c + Vector3(0, 1.8, 0))
-	await shot("hopper_top", out, 20)
+	await shot("hopper_top", out, 4)
 	game.business.outputs[h]["items"]["crushed_stone"] = 200
 	game.business.outputs[h]["tier"] = 0
 	look(cam, c + Vector3(-2.2, 1.5, -3.0), c + Vector3(0, 1.0, 0))
