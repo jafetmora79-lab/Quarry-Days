@@ -43,7 +43,7 @@ func set_slots(slots: Array, cur: int) -> void:
 		sb.corner_detail = 1                                                                                    # bevelled corners like the plates
 		sb.anti_aliasing = false
 		sb.set_content_margin_all(2)
-		p.add_theme_stylebox_override("panel", sb)
+		p.add_theme_stylebox_override("panel", UiSkin.box("slot_selected" if on else "slot_empty", sb, [3, 3, 3, 3]))      # the drawn slot art (assets/ui/hud, tools/build_hud_frames.py); the flat box is the fallback
 		var holder := Control.new()
 		holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		holder.custom_minimum_size = SLOT - Vector2(4, 4)
