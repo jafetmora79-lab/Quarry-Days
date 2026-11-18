@@ -14,7 +14,7 @@ const LOCKED_EDGE := Color(0.5, 0.45, 0.36, 0.55)
 
 var game
 const DIAMETER := 124.0                                  ## the round map's size on screen
-const INNER := 25.0 / 31.0                                ## the window inside the drawn steel ring (assets/ui/hud/minimap_ring.png), as a share of the radius
+const INNER := 0.93                                ## the window inside the drawn steel ring (assets/ui/hud/minimap_ring.png), as a share of the radius
 const VIEW_RADIUS := 50.0                                ## metres of the world shown from the middle to the rim
 var full_bounds := Rect2(-135.0, -112.0, 270.0, 146.0)   ## the whole property: what the top-down picture covers
 var bounds := Rect2(-135.0, -112.0, 270.0, 146.0)       ## the world square the round map shows right now (x, z), north up, centred on the player
@@ -205,13 +205,16 @@ func _draw() -> void:
 		var fwd := Vector2(-sin(yaw), -cos(yaw))
 		var side := Vector2(-fwd.y, fwd.x)
 		draw_colored_polygon(PackedVector2Array([c + fwd * 6.0, c - fwd * 4.0 + side * 4.0, c - fwd * 2.0, c - fwd * 4.0 - side * 4.0]), Color(1, 1, 1))
-	if UiSkin.has("minimap_ring"):
-		texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		draw_texture_rect(UiSkin.tex("minimap_ring"), Rect2(Vector2.ZERO, size), false)                # the drawn steel ring with its hazard tab
-		draw_string(QuarryTheme.hud(), Vector2(c.x - 3.5, 16.0), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, QuarryTheme.pixel_font_size(9), Color(0.1, 0.08, 0.05))
-	else:
-		draw_arc(c, r, 0.0, TAU, 56, Color(0.95, 0.74, 0.32, 0.75), 2.0)
-		draw_string(QuarryTheme.hud(), Vector2(c.x - 4.0, 13.0), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, QuarryTheme.pixel_font_size(10), Color(0.95, 0.9, 0.75))
+	# the frame: a thin steel ring lit from the top-left with a hazard-yellow line inside it, smooth (anti-aliased arcs), and a small yellow N tab: nothing chunky
+	var ro := size.x * 0.5
+	draw_arc(c, ro - 1.5, 0.0, TAU, 96, Color(0.03, 0.04, 0.05), 3.0, true)
+	draw_arc(c, ro - 3.0, 0.0, TAU, 96, Color(0.32, 0.37, 0.43), 3.0, true)
+	draw_arc(c, ro - 3.5, PI * 0.95, PI * 1.65, 40, Color(0.66, 0.72, 0.8), 1.4, true)
+	draw_arc(c, ro - 5.2, 0.0, TAU, 96, Color(0.98, 0.76, 0.14), 1.4, true)
+	var tab := Rect2(Vector2(c.x - 7.0, 1.0), Vector2(14.0, 12.0))
+	draw_rect(tab.grow(1.0), Color(0.03, 0.04, 0.05))
+	draw_rect(tab, Color(0.98, 0.76, 0.14))
+	draw_string(QuarryTheme.hud(), Vector2(c.x - 4.0, 11.0), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, QuarryTheme.pixel_font_size(9), Color(0.1, 0.08, 0.05))
 
 ## Draws once into nothing (tests call this to be sure the drawing code runs without errors on the current state).
 func _draw_test_safe() -> void:

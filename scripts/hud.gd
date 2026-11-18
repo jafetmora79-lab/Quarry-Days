@@ -218,22 +218,22 @@ func _build() -> void:
 	tl.name = "TimeMoneyPlate"
 	tl.set_anchor(SIDE_LEFT, 1.0)
 	tl.set_anchor(SIDE_RIGHT, 1.0)
-	tl.offset_left = -232
+	tl.offset_left = -184
 	tl.offset_right = -10
 	tl.offset_top = 10
 	tl.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	tl.custom_minimum_size = Vector2(222, 0)
-	tl.pivot_offset = Vector2(111, 20)
+	tl.custom_minimum_size = Vector2(174, 0)
+	tl.pivot_offset = Vector2(87, 16)
 	var v := _vbox(tl, 2)
 	var trow := HBoxContainer.new()
 	trow.add_theme_constant_override("separation", 6)
 	trow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(trow)
-	time_icon = HudIcon.new("sun", 15)
+	time_icon = HudIcon.new("sun", 12)
 	trow.add_child(time_icon)
-	time_label = QuarryTheme.hud_label("DAY 1 | 08:00", QuarryTheme.HUD + 3, QuarryTheme.INK)
+	time_label = QuarryTheme.hud_label("DAY 1 | 08:00", QuarryTheme.HUD + 1, QuarryTheme.INK)
 	trow.add_child(time_label)
-	phase_label = QuarryTheme.hud_label("MORNING", QuarryTheme.HUD + 3, QuarryTheme.DIM)
+	phase_label = QuarryTheme.hud_label("MORNING", QuarryTheme.HUD, QuarryTheme.DIM)
 	phase_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	phase_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	trow.add_child(phase_label)
@@ -241,8 +241,8 @@ func _build() -> void:
 	mrow.add_theme_constant_override("separation", 6)
 	mrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(mrow)
-	mrow.add_child(HudIcon.new("coin", 22))
-	money_label = QuarryTheme.fixed_label("$0", QuarryTheme.HERO, QuarryTheme.MONEY, false, true)
+	mrow.add_child(HudIcon.new("coin", 15))
+	money_label = QuarryTheme.fixed_label("$0", 14, QuarryTheme.MONEY, false, true)
 	mrow.add_child(money_label)
 	income_label = QuarryTheme.fixed_label("", QuarryTheme.BODY, QuarryTheme.GOOD)
 	v.add_child(income_label)
@@ -316,26 +316,26 @@ func _build() -> void:
 	# ---- top-right: objective
 	var tr := _panel(Control.PRESET_TOP_RIGHT, QuarryTheme.GOOD)
 	tr.name = "ObjectivePlate"
-	tr.custom_minimum_size = Vector2(228, 0)
+	tr.custom_minimum_size = Vector2(184, 0)
 	tr.set_anchor(SIDE_LEFT, 0.0)
 	tr.set_anchor(SIDE_RIGHT, 0.0)
 	tr.offset_left = 10
-	tr.offset_right = 238
+	tr.offset_right = 194
 	tr.offset_top = 10
 	var v2 := _vbox(tr, 3)
 	var srow := HBoxContainer.new()
 	srow.add_theme_constant_override("separation", 5)
 	srow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v2.add_child(srow)
-	srow.add_child(HudIcon.new("flag", 13))
-	stage_label = QuarryTheme.fixed_label("STAGE 1", 12, QuarryTheme.ACCENT, true)
+	srow.add_child(HudIcon.new("flag", 11))
+	stage_label = QuarryTheme.fixed_label("STAGE 1", 10, QuarryTheme.ACCENT, true)
 	srow.add_child(stage_label)
 	var nrow := HBoxContainer.new()
 	nrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v2.add_child(nrow)
 	objective_label = QuarryTheme.fixed_label("", QuarryTheme.BODY)
 	objective_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	objective_label.custom_minimum_size = Vector2(150, 0)
+	objective_label.custom_minimum_size = Vector2(118, 0)
 	objective_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	nrow.add_child(objective_label)
 	objective_pct = QuarryTheme.fixed_label("", QuarryTheme.BODY, QuarryTheme.ACCENT, false, true)
@@ -359,7 +359,7 @@ func _build() -> void:
 	hrow.add_child(objective_arrow)
 	objective_detail = QuarryTheme.fixed_label("", QuarryTheme.SMALL, QuarryTheme.DIM)
 	objective_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	objective_detail.custom_minimum_size = Vector2(226, 0)
+	objective_detail.custom_minimum_size = Vector2(172, 0)
 	v2.add_child(objective_detail)
 	objective_rows = VBoxContainer.new()
 	objective_rows.add_theme_constant_override("separation", 2)
@@ -380,28 +380,28 @@ func _build() -> void:
 	bottom.add_theme_constant_override("separation", 8)
 	add_child(bottom)
 	bottom.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	bottom.custom_minimum_size = Vector2(278, 30)
+	bottom.custom_minimum_size = Vector2(224, 28)
 	bottom.set_anchor(SIDE_LEFT, 1.0)
 	bottom.set_anchor(SIDE_RIGHT, 1.0)
 	bottom.set_anchor(SIDE_TOP, 1.0)
 	bottom.set_anchor(SIDE_BOTTOM, 1.0)
-	bottom.offset_left = -288
+	bottom.offset_left = -234
 	bottom.offset_right = -10
 	bottom.offset_top = -62
 	bottom.offset_bottom = -26
 	bottom.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	var tp := QuarryPlate.new(8, QuarryTheme.ACCENT)
 	tp.name = "ToolPlate"
-	tp.custom_minimum_size = Vector2(172, 0)
+	tp.custom_minimum_size = Vector2(138, 0)
 	bottom.add_child(tp)
 	var tv := _vbox(tp, 1)
 	var tname := HBoxContainer.new()
 	tname.add_theme_constant_override("separation", 5)
 	tname.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	tv.add_child(tname)
-	tool_icon = HudIcon.new("hammer", 14)
+	tool_icon = HudIcon.new("hammer", 12)
 	tname.add_child(tool_icon)
-	tool_label = QuarryTheme.fixed_label("ROCK HAMMER", 12, QuarryTheme.ACCENT, true)
+	tool_label = QuarryTheme.fixed_label("ROCK HAMMER", 10, QuarryTheme.ACCENT, true)
 	tname.add_child(tool_label)
 	power_bar = _bar(tv, 5, QuarryTheme.ACCENT)
 	power_bar.visible = false                         # the tool plate has no progress bar: the name, power and tool lines say it all
@@ -412,7 +412,7 @@ func _build() -> void:
 	var bp := QuarryPlate.new(8, QuarryTheme.GOOD)
 	bp.name = "BagPlate"
 	bp.size_flags_horizontal = Control.SIZE_SHRINK_END                    # a compact badge, not a wide box
-	bp.custom_minimum_size = Vector2(92, 0)
+	bp.custom_minimum_size = Vector2(74, 0)
 	bp.visible = true                                                        # the bag is back: the badge shows how full it is (the satchel shows it too)
 	bottom.add_child(bp)
 	var bv := _vbox(bp, 2)
@@ -421,8 +421,8 @@ func _build() -> void:
 	brow.alignment = BoxContainer.ALIGNMENT_CENTER
 	brow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bv.add_child(brow)
-	brow.add_child(HudIcon.new("bag", 17))
-	bag_label = QuarryTheme.hud_label("0 / 18", QuarryTheme.HUD + 2, QuarryTheme.INK)
+	brow.add_child(HudIcon.new("bag", 14))
+	bag_label = QuarryTheme.hud_label("0 / 18", QuarryTheme.HUD, QuarryTheme.INK)
 	brow.add_child(bag_label)
 	bag_bar = _bar(bv, 6, QuarryTheme.GOOD)
 	bag_bar.visible = false                                  # the bag is a number (BAG 4/18), not a bar

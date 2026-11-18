@@ -50,9 +50,8 @@ func run() -> void:
 	game.last_target = bench
 	game._update_highlight()
 	var lit := 0
-	for mi in bench.find_children("*", "MeshInstance3D", true, false):
-		if (mi as MeshInstance3D).material_overlay != null:
-			lit += 1
+	for mi in bench.find_children("OutlineMask", "MeshInstance3D", true, false):          # (the outline is a smooth-normal shell round each part: see HighlightOutline)
+		lit += 1
 	check(game.highlight_node == bench and lit >= 6, "2 looking at the workbench outlines it (%d parts)" % lit)
 	game.last_target = game.world.get_node("Quarry floor")
 	game._update_highlight()
@@ -62,8 +61,9 @@ func run() -> void:
 	game._update_highlight()
 	check(game.highlight_node == null, "2c rock you mine is not 'interactable': no outline")
 	var off := 0
-	for mi in bench.find_children("*", "MeshInstance3D", true, false):
-		if (mi as MeshInstance3D).material_overlay != null:
+	await process_frame
+	for mi in bench.find_children("OutlineMask", "MeshInstance3D", true, false):
+		if not (mi as Node).is_queued_for_deletion():
 			off += 1
 	check(off == 0, "2d and the bench's outline is gone once you look away")
 	game.last_target = bench

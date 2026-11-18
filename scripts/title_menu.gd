@@ -35,59 +35,110 @@ func setup(main_node, save_exists: bool) -> void:
 	game.add_child(cam)
 	cam.current = true
 	_aim(0.0)
-	# darkened left panel so the writing reads over any scene
+	# a dark fade down the left so the panel reads over any scene
 	var shade := ColorRect.new()
-	shade.color = Color(0.06, 0.045, 0.03, 0.72)
+	shade.color = Color(0.03, 0.04, 0.06, 0.55)
 	shade.set_anchors_and_offsets_preset(Control.PRESET_LEFT_WIDE)
-	shade.offset_right = 360.0
+	shade.offset_right = 452.0
 	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(shade)
-	if UiSkin.has("panel_main"):                    # the framed plate the writing sits on
+	if UiSkin.has("panel_main"):                    # the signboard everything sits on: steel rim, hazard-striped corners (drawn by tools/build_hud_frames.py)
 		var frame := Panel.new()
 		frame.add_theme_stylebox_override("panel", UiSkin.box("panel_main", null, [0, 0, 0, 0]))
 		frame.set_anchors_and_offsets_preset(Control.PRESET_LEFT_WIDE)
-		frame.offset_left = 14.0
-		frame.offset_right = 352.0
-		frame.offset_top = 14.0
-		frame.offset_bottom = -14.0
+		frame.offset_left = 18.0
+		frame.offset_right = 430.0
+		frame.offset_top = 18.0
+		frame.offset_bottom = -18.0
 		frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(frame)
-	var edge := ColorRect.new()
-	edge.color = QuarryTheme.BORDER
-	edge.visible = not UiSkin.has("panel_main")
-	edge.set_anchors_and_offsets_preset(Control.PRESET_LEFT_WIDE)
-	edge.offset_left = 358.0
-	edge.offset_right = 360.0
-	edge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(edge)
 	col = VBoxContainer.new()
-	col.add_theme_constant_override("separation", 10)
-	col.alignment = BoxContainer.ALIGNMENT_CENTER                     # the whole block sits in the middle of the plate: no empty bands above and below
+	col.add_theme_constant_override("separation", 5)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.set_anchors_and_offsets_preset(Control.PRESET_LEFT_WIDE)
-	col.offset_left = 36.0
-	col.offset_right = 330.0
-	col.offset_top = 40.0
-	col.offset_bottom = -40.0
+	col.offset_left = 50.0
+	col.offset_right = 398.0
+	col.offset_top = 32.0
+	col.offset_bottom = -32.0
 	add_child(col)
-	col.add_child(_label("QUARRY", 42, ACCENT, true))                      # the game's name: QUARRY DAYS, in Pixelify Sans
-	col.add_child(_label("DAYS", 42, INK, true))
-	col.add_child(_label("Cut the rock. Run the business. Keep the family quarry alive.", QuarryTheme.BODY, DIM))
+	# the mark: the range and the sun, then the name in two lines, then a hazard bar
+	var logo := TextureRect.new()
+	logo.texture = UiSkin.tex("menu_logo")
+	logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	logo.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	logo.custom_minimum_size = Vector2(348, 66)
+	col.add_child(logo)
+	var q := _label("QUARRY", 36, ACCENT, true)
+	q.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var dd := _label("DAYS", 36, INK, true)
+	dd.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var nm := VBoxContainer.new()                                              # the two lines of the name sit close together
+	nm.add_theme_constant_override("separation", -12)
+	nm.add_child(q)
+	nm.add_child(dd)
+	col.add_child(nm)
+	var bar := TextureRect.new()
+	bar.texture = UiSkin.tex("hazard_bar")
+	bar.stretch_mode = TextureRect.STRETCH_TILE
+	bar.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+	bar.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	bar.custom_minimum_size = Vector2(348, 8)
+	col.add_child(bar)
+	var tag := _label("Cut the rock. Run the business. Keep the family quarry alive.", QuarryTheme.BODY, DIM)
+	tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(tag)
 	var gap := Control.new()
-	gap.custom_minimum_size = Vector2(0, 22)
+	gap.custom_minimum_size = Vector2(0, 2)
 	col.add_child(gap)
-	continue_btn = _button("CONTINUE", func(): chosen.emit("continue"))
+	continue_btn = _menu_button("CONTINUE", "play", true)
+	continue_btn.pressed.connect(func(): chosen.emit("continue"))
 	continue_btn.disabled = not has_save
 	col.add_child(continue_btn)
-	new_btn = _button("NEW GAME", _on_new)
+	if has_save and game != null and game.state != null:                       # what is waiting in the save, on the button itself
+		var sv := Label.new()
+		sv.text = "DAY %d   $%s" % [int(game.state.clock_minutes / 1440.0) + 1, QuarryTheme.money_text(int(game.state.money)).trim_prefix("$")]
+		sv.add_theme_font_override("font", QuarryTheme.hud())
+		sv.add_theme_font_size_override("font_size", QuarryTheme.SMALL)
+		sv.add_theme_color_override("font_color", Color(0.12, 0.07, 0.02))
+		sv.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
+		sv.offset_left = -120.0
+		sv.offset_right = -16.0
+		sv.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		sv.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		sv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		continue_btn.add_child(sv)
+	new_btn = _menu_button("NEW GAME", "plus", false)
+	new_btn.pressed.connect(_on_new)
 	col.add_child(new_btn)
-	col.add_child(_button("SETTINGS", _show_settings))
-	col.add_child(_button("QUIT", func(): chosen.emit("quit")))
-	note = _label("", QuarryTheme.BODY, DIM)
-	col.add_child(note)
+	var sb := _menu_button("SETTINGS", "gear", false)
+	sb.pressed.connect(_show_settings)
+	col.add_child(sb)
+	var qb := _menu_button("QUIT", "power", false)
+	qb.pressed.connect(func(): chosen.emit("quit"))
+	col.add_child(qb)
 	var gap2 := Control.new()
-	gap2.custom_minimum_size = Vector2(0, 14)
+	gap2.custom_minimum_size = Vector2(0, 2)
 	col.add_child(gap2)
-	col.add_child(_label("A save is made every minute and when you close the game.", QuarryTheme.SMALL, DIM))
+	var info := PanelContainer.new()                                           # a little inset note at the bottom: what the save is doing
+	info.add_theme_stylebox_override("panel", UiSkin.box("panel_inset", QuarryTheme.panel_box(), [12, 5, 12, 5]))
+	var ih := HBoxContainer.new()
+	ih.add_theme_constant_override("separation", 10)
+	info.add_child(ih)
+	var ic := TextureRect.new()
+	ic.texture = UiSkin.tex("menu_info")
+	ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	ic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	ic.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	ic.custom_minimum_size = Vector2(28, 28)
+	ih.add_child(ic)
+	var iv := VBoxContainer.new()
+	iv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ih.add_child(iv)
+	note = _label("", QuarryTheme.BODY, DIM)
+	iv.add_child(note)
+	iv.add_child(_label("A save is made every minute and when you close the game.", QuarryTheme.SMALL, DIM))
+	col.add_child(info)
 	_refresh_note()
 
 func _label(text: String, size: int, color: Color, heading := false) -> Label:
@@ -96,26 +147,37 @@ func _label(text: String, size: int, color: Color, heading := false) -> Label:
 	l.add_theme_font_override("font", QuarryTheme.display() if heading else QuarryTheme.body())
 	return l
 
-func _button(text: String, action: Callable) -> Button:
+## A menu button drawn from the plate art: steel (or the orange primary one) with an icon at the left. Hover lifts it, a press darkens it, disabled greys it.
+func _menu_button(text: String, icon_name: String, primary: bool) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.focus_mode = Control.FOCUS_ALL
-	b.custom_minimum_size = Vector2(250, 40)
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	b.custom_minimum_size = Vector2(348, 46 if primary else 38)
 	QuarryTheme.fit(b, QuarryTheme.HEAD)
 	b.add_theme_font_override("font", QuarryTheme.head())
-	b.pressed.connect(action)
-	if UiSkin.has("btn_main"):                      # the generated button art, the same as the in-game menus
-		for st in ["normal", "hover", "pressed", "disabled"]:
-			b.add_theme_stylebox_override(st, preload("res://scripts/station_ui.gd")._style("main", st))
-		for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
-			b.add_theme_color_override(c, Color(0.16, 0.1, 0.04))
-		b.add_theme_color_override("font_disabled_color", Color(0.55, 0.5, 0.42))
-		b.custom_minimum_size = Vector2(250, 44)
-		b.add_theme_stylebox_override("focus", preload("res://scripts/station_ui.gd")._style("main", "hover"))      # keyboard focus looks like hover
+	var art := "btn_primary" if primary else "btn_main"
+	var content := [16, 4, 16, 6]
+	b.add_theme_stylebox_override("normal", UiSkin.box(art, QuarryTheme.panel_box(), content))
+	b.add_theme_stylebox_override("hover", UiSkin.box(art, QuarryTheme.panel_box(), content, Color(1.22, 1.22, 1.22)))
+	b.add_theme_stylebox_override("focus", UiSkin.box(art, QuarryTheme.panel_box(), content, Color(1.22, 1.22, 1.22)))
+	b.add_theme_stylebox_override("pressed", UiSkin.box(art, QuarryTheme.panel_box(), content, Color(0.78, 0.78, 0.78)))
+	b.add_theme_stylebox_override("disabled", UiSkin.box("btn_disabled", QuarryTheme.panel_box(), content))
+	var ink := Color(0.14, 0.08, 0.02) if primary else Color(0.96, 0.93, 0.84)
+	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		b.add_theme_color_override(c, ink)
+	b.add_theme_color_override("font_disabled_color", Color(0.55, 0.57, 0.6))
+	if UiSkin.has("menu_" + icon_name):
+		b.icon = UiSkin.tex("menu_" + icon_name)
+		b.expand_icon = false
+		b.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.add_theme_constant_override("h_separation", 14)
+		b.add_theme_color_override("icon_normal_color", Color.WHITE)
+		b.add_theme_color_override("icon_disabled_color", Color(0.6, 0.6, 0.6))
+	b.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	b.mouse_entered.connect(func(): if not b.disabled: b.grab_focus())
-	b.focus_entered.connect(func(): _pop(b, 1.03))
-	b.button_down.connect(func(): _pop(b, 0.97))
+	b.focus_entered.connect(func(): _pop(b, 1.02))
+	b.button_down.connect(func(): _pop(b, 0.98))
 	return b
 
 ## Hover, focus and click feedback shared by every button: a quick size pop.
@@ -130,10 +192,10 @@ func _show_settings() -> void:
 	col.visible = false
 	settings_box = VBoxContainer.new()
 	settings_box.set_anchors_and_offsets_preset(Control.PRESET_LEFT_WIDE)
-	settings_box.offset_left = 30.0
-	settings_box.offset_right = 336.0
+	settings_box.offset_left = 50.0
+	settings_box.offset_right = 398.0
 	settings_box.offset_top = 40.0
-	settings_box.offset_bottom = -30.0
+	settings_box.offset_bottom = -40.0
 	add_child(settings_box)
 	var sv := QuarrySettingsView.new()
 	sv.setup(game)

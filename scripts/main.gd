@@ -2014,24 +2014,12 @@ func _notify(s: String) -> void:
 ## never used for construction ghosts, which have their own blueprint look.
 const HIGHLIGHT_KINDS := ["repair_part", "cart", "door", "bed", "sell", "upgrades", "storage", "crusher", "output", "shop", "office", "rig", "vehicle", "discovery", "fossil", "egg", "conveyor", "gate", "placed_bucket"]      # (people are never outlined: it ruins the character art)
 var highlight_node: Node3D
-var highlight_meshes: Array = []
-var _hl_mat: StandardMaterial3D
-
-func _highlight_material() -> StandardMaterial3D:
-	if _hl_mat == null:
-		_hl_mat = StandardMaterial3D.new()
-		_hl_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		_hl_mat.albedo_color = Color(1.0, 0.82, 0.38)
-		_hl_mat.cull_mode = BaseMaterial3D.CULL_FRONT
-		_hl_mat.grow = true
-		_hl_mat.grow_amount = 0.025
-		_hl_mat.no_depth_test = false
-	return _hl_mat
+var highlight_meshes: Array = []                    ## the meshes the outline is drawn round (see HighlightOutline)
+var _hl_outline: HighlightOutline
 
 func _clear_highlight() -> void:
-	for mi in highlight_meshes:
-		if is_instance_valid(mi):
-			(mi as MeshInstance3D).material_overlay = null
+	if _hl_outline != null:
+		_hl_outline.clear()
 	highlight_meshes.clear()
 	highlight_node = null
 
@@ -2053,9 +2041,12 @@ func _update_highlight() -> void:
 		return
 	_clear_highlight()
 	highlight_node = t
-	for m in _highlight_meshes_for(t):
-		m.material_overlay = _highlight_material()
-		highlight_meshes.append(m)
+	highlight_meshes = _highlight_meshes_for(t)
+	if _hl_outline == null:
+		_hl_outline = HighlightOutline.new()
+		add_child(_hl_outline)
+		_hl_outline.setup(player.camera)
+	_hl_outline.show_for(highlight_meshes)
 
 ## The solid meshes that get the outline for a target: its own visuals, or (doors, the computer) the visuals that belong to it but sit beside its collider.
 func _highlight_meshes_for(t: Node3D) -> Array:
@@ -2070,7 +2061,7 @@ func _highlight_meshes_for(t: Node3D) -> Array:
 		pool.append(computer_proxy)                                                               # the CRT and desk are part of the merged art: this proxy is their silhouette
 	for mi in pool:
 		var m := mi as MeshInstance3D
-		if m.visible and m.mesh != null and not (m.get_parent() is Label3D) and m.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY:
+		if m.visible and m.mesh != null and m.name != "OutlineMask" and not m.is_queued_for_deletion() and not (m.get_parent() is Label3D) and m.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY:
 			# only solid outer surfaces are outlined: not glass (it would grow a yellow ghost around every pane), and not a cab's interior or its tiny parts, whose
 			# inverted-hull edges show through the windows as stray yellow slivers
 			var mat0 := m.get_active_material(0)

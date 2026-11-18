@@ -32,7 +32,7 @@ var index := -1
 var points := {}                         ## attachment name -> Node3D
 var placeholder: Node3D
 var model: Node3D
-var display: Label3D
+var display: ScreenFace                  ## the small stats screen on the front: its text is drawn INTO the glass (see ScreenFace)
 var fill: MeshInstance3D
 var audio: AudioStreamPlayer3D
 var clunk_streams: Array = []
@@ -51,7 +51,7 @@ var drawer: Node3D                       ## the payout drawer: it slides out on 
 var gear_a: Node3D
 var gear_b: Node3D
 var lamp2: MeshInstance3D
-var sale_display: Label3D                ## the slanted LED window on top: shows +$ of the sale in progress
+var sale_display: ScreenFace             ## the slanted LED window on top: shows +$ of the sale in progress
 var glow: OmniLight3D                    ## amber light round the lamps, brighter while it works
 var anim: AnimationPlayer                ## the Blender clips: Idle, SaleRegistered, Processing, Counting, DrawerOpen, DrawerClose, ReturnToIdle
 var phase := "idle"                      ## the six phases of a payout: idle, registered, processing, counting, payout, complete
@@ -157,16 +157,13 @@ func setup(g, i: int) -> void:
 		_piston_y0 = piston.position.y
 	if model == null:
 		_build_placeholder()
-	display = Label3D.new()
+	display = ScreenFace.new()
 	display.name = "Display"
-	display.pixel_size = 0.00085 if drawer != null else 0.0027
-	display.font_size = 36
-	display.outline_size = 6
-	display.modulate = Color(0.75, 1.0, 0.7)
-	display.outline_modulate = Color(0.04, 0.08, 0.04)
-	display.double_sided = false
-	display.no_depth_test = false
-	display.rotation = Vector3(0, PI, 0)                                  # reads from the front (-Z)
+	if drawer != null:
+		display.setup(Vector2(0.19, 0.30), Vector2i(114, 180), 12, Color(0.66, 1.0, 0.72), HORIZONTAL_ALIGNMENT_CENTER)
+	else:
+		display.setup(Vector2(1.2, 0.5), Vector2i(480, 200), 36, Color(0.75, 1.0, 0.7))
+	display.position = Vector3(0, 0, -0.003)
 	points["Attach_Display"].add_child(display)
 	_refresh_display()
 	if drawer != null:
@@ -189,28 +186,18 @@ func _rel(n: Node3D) -> Transform3D:
 
 ## The letters and lights the model has frames for: the sale display on top, the CASH HOPPER name, the lamps' glow, the payout sparks.
 func _build_extras() -> void:
-	sale_display = Label3D.new()
+	sale_display = ScreenFace.new()
 	sale_display.name = "SaleDisplay"
-	sale_display.font = QuarryTheme.hud()
-	sale_display.font_size = 36
-	sale_display.pixel_size = 0.0034
-	sale_display.outline_size = 0
-	sale_display.shaded = false
-	sale_display.outline_modulate = Color(0.0, 0.1, 0.03)
-	sale_display.rotation = Vector3(-0.336, PI, 0)
-	sale_display.position = Vector3(0, 0.012, -0.035)                          # (a hair in front of the glass)
+	sale_display.setup(Vector2(0.48, 0.185), Vector2i(260, 100), 44, Color(0.45, 1.0, 0.6), HORIZONTAL_ALIGNMENT_CENTER)
+	sale_display.rotation = Vector3(-0.336, 0, 0)
+	sale_display.position = Vector3(0, -0.001, -0.026)                         # (on the glass: its centre is 2.6 cm in front of the marker, along the slope)
 	points["Attach_SaleDisplay"].add_child(sale_display)
 	_sale_text("READY", 0.5)
-	var sign_l := Label3D.new()
+	var sign_l := ScreenFace.new()                                         # the name, painted on the strip under the emblem (a plate, not a screen)
 	sign_l.name = "Plaque"
-	sign_l.font = QuarryTheme.hud()
+	sign_l.setup(Vector2(0.5, 0.075), Vector2i(300, 45), 26, Color(1.0, 0.82, 0.3), HORIZONTAL_ALIGNMENT_CENTER, false)
 	sign_l.text = "CASH HOPPER"
-	sign_l.font_size = 22
-	sign_l.pixel_size = 0.0034
-	sign_l.outline_size = 0
-	sign_l.shaded = false
-	sign_l.modulate = Color(1.0, 0.82, 0.3)
-	sign_l.rotation = Vector3(0, PI, 0)
+	sign_l.position = Vector3(0, 0, -0.012)
 	points["Attach_Sign"].add_child(sign_l)
 	glow = OmniLight3D.new()
 	glow.light_color = Color(1.0, 0.62, 0.2)
@@ -354,7 +341,8 @@ func _sale_text(txt: String, bright: float) -> void:
 	if sale_display == null:
 		return
 	sale_display.text = txt
-	sale_display.modulate = Color(0.3 * bright + 0.1, 0.95 * minf(bright, 1.0), 0.45 * bright + 0.1, 1.0)
+	var k := 0.45 + 0.55 * minf(bright, 1.0)
+	sale_display.modulate = Color(k, k, k, 1.0)                                # (the screen dims at standby)
 
 # ------------------------------------------------------------------ the compact payout notification
 

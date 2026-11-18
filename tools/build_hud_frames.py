@@ -8,6 +8,7 @@ One style for all of it: a dark walnut plank face (a few tones of grain, nothing
 Palette comes straight from scripts/ui_theme.gd (BG walnut, BORDER / BORDER_HI brass, ACCENT amber).
 """
 import os
+import math
 import numpy as np
 from PIL import Image
 
@@ -47,9 +48,9 @@ def wood(x, y, base, seed=1, grain=0.10):
     """A brushed-steel face: each COLUMN has its own tone (vertical brushing), a few lighter scratches, the odd dark pit."""
     col = h(x // 1, 0, seed) - 0.5
     tone = 1.0 + col * grain * 1.6
-    if h(x, y // 5, seed + 3) < 0.07:
+    if grain > 0.0 and h(x, y // 5, seed + 3) < 0.07:
         tone += 0.09
-    if h(x // 2, y // 2, seed + 9) < 0.02:
+    if grain > 0.0 and h(x // 2, y // 2, seed + 9) < 0.02:
         tone -= 0.2
     out = base.copy()
     out[:3] = np.clip(base[:3] * tone, 0, 255)
@@ -311,6 +312,85 @@ def ring(n=62):
     return img
 
 
+# ---------------------------------------------------------------- main-menu art (the mountain mark, the button icons, the hazard bar)
+def _outline_rgba(im):
+    """1 px dark outline round every opaque pixel of a small RGBA image (the canvas grows by 1 px on each side)."""
+    w, hgt = im.size
+    out = Image.new("RGBA", (w + 2, hgt + 2), (0, 0, 0, 0))
+    out.paste(im, (1, 1))
+    src = out.copy().load()
+    dst = out.load()
+    for y in range(hgt + 2):
+        for x in range(w + 2):
+            if src[x, y][3] == 0:
+                for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    xx, yy = x + dx, y + dy
+                    if 0 <= xx < w + 2 and 0 <= yy < hgt + 2 and src[xx, yy][3] > 0:
+                        dst[x, y] = (8, 10, 13, 255)
+                        break
+    return out
+
+
+def menu_logo():
+    from PIL import ImageDraw
+    w, hgt = 96, 40
+    im = Image.new("RGBA", (w, hgt), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    d.ellipse((60, 4, 78, 22), fill=(250, 196, 36, 255))                                 # the sun behind the range
+    peaks = [((0, 38), (20, 12), (40, 38), (70, 100, 130), (46, 66, 92)),
+             ((30, 38), (58, 6), (88, 38), (104, 132, 164), (66, 88, 118)),
+             ((64, 38), (82, 18), (96, 38), (84, 114, 144), (52, 74, 100))]
+    for (a, top, b, lit, dark) in peaks:
+        d.polygon([a, top, b], fill=dark)
+        d.polygon([a, top, (top[0], 38)], fill=lit)
+        cap_h = 8
+        d.polygon([(top[0] - 4, top[1] + cap_h), top, (top[0] + 4, top[1] + cap_h), (top[0], top[1] + cap_h - 2)], fill=(232, 238, 244, 255))
+    d.rectangle((0, 35, w, 38), fill=(40, 46, 54, 255))                                    # the ground
+    for x in range(0, w, 6):
+        d.rectangle((x, 36, x + 2, 37), fill=(250, 196, 36, 255))                         # a hazard-yellow dashed line along it
+    return _outline_rgba(im)
+
+
+def menu_icon(kind):
+    from PIL import ImageDraw
+    im = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    cream = (244, 236, 214, 255)
+    if kind == "play":
+        d.polygon([(4, 2), (13, 8), (4, 14)], fill=cream)
+    elif kind == "plus":
+        d.rectangle((6, 2, 9, 13), fill=cream)
+        d.rectangle((2, 6, 13, 9), fill=cream)
+    elif kind == "gear":
+        for a in range(8):
+            ang = a * math.pi / 4
+            cx, cy = 8 + math.cos(ang) * 6, 8 + math.sin(ang) * 6
+            d.rectangle((cx - 1, cy - 1, cx + 1, cy + 1), fill=cream)
+        d.ellipse((3, 3, 12, 12), fill=cream)
+        d.ellipse((6, 6, 9, 9), fill=(0, 0, 0, 0))
+    elif kind == "power":
+        d.ellipse((2, 3, 13, 14), outline=cream, width=2)
+        d.rectangle((7, 0, 8, 7), fill=cream)
+        d.rectangle((6, 0, 9, 0), fill=(0, 0, 0, 0))
+    elif kind == "info":
+        d.ellipse((1, 1, 14, 14), fill=cream)
+        d.rectangle((7, 6, 8, 11), fill=(40, 46, 54, 255))
+        d.rectangle((7, 3, 8, 4), fill=(40, 46, 54, 255))
+    return _outline_rgba(im)
+
+
+def hazard_bar(w=32, hgt=8):
+    im = Image.new("RGBA", (w, hgt), (0, 0, 0, 0))
+    px = im.load()
+    for y in range(hgt):
+        for x in range(w):
+            if y in (0, hgt - 1):
+                px[x, y] = (8, 10, 13, 255)
+            else:
+                px[x, y] = (250, 196, 36, 255) if ((x + y) // 3) % 2 == 0 else (26, 28, 32, 255)
+    return im
+
+
 def main():
     os.makedirs(BACKUP, exist_ok=True)
     import shutil
@@ -367,12 +447,15 @@ def main():
     pieces["strip_green"] = strip(11, 42, c(110, 176, 74))
     pieces["strip_red"] = strip(12, 42, c(204, 72, 52))
     pieces["strip_blue"] = strip(11, 42, c(84, 146, 204))
+    for name, art in (("menu_logo", menu_logo()), ("menu_play", menu_icon("play")), ("menu_plus", menu_icon("plus")), ("menu_gear", menu_icon("gear")),
+                      ("menu_power", menu_icon("power")), ("menu_info", menu_icon("info")), ("hazard_bar", hazard_bar())):
+        art.save(os.path.join(OUT, name + ".png"))
     for name, img in pieces.items():
         src = os.path.join(OUT, name + ".png")
         bk = os.path.join(BACKUP, name + ".png")
         if os.path.exists(src) and not os.path.exists(bk):
             shutil.copy(src, bk)                                             # keep the old generated art once, next to the sources
-        save(name, img)
+        save(name, img, 255 if name.startswith(("btn_", "keycap")) else 238)      # buttons and keycaps are solid; panels let the world show faintly
     print("wrote", len(pieces), "pieces to", OUT)
 
 
