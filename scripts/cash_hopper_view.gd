@@ -70,6 +70,11 @@ var _note_total := 0
 var _note_tween: Tween
 var _note_base := Vector3.ZERO
 var sparks: CPUParticles3D
+var _heap: Node3D                        ## the material lying in the funnel: one pile per material (up to three), in that material's own look
+var _heap_sig := ""
+var _heap_base := 1.0                    ## how full the funnel was when the piles were built (they shrink and grow smoothly from there)
+var _heap_amt := 0.0
+var _crumble_t := 0.0
 var _tier_shown := -1                   ## which upgrade tier the model is dressed for
 var _cash_nodes: Array = []
 var _funnel_y0 := 0.0                    ## the heights the funnel and the ram stand at (their shiver and pumping are offsets from these, not absolute heights)
@@ -514,9 +519,9 @@ func _check_intake(delta: float) -> void:
 	_items_seen = true
 	_last_items = items.duplicate()
 
-func _rock_mat(res: String) -> StandardMaterial3D:
+func _rock_mat(res: String) -> Material:
 	if not _rock_mats.has(res):
-		_rock_mats[res] = _mat(QuarryTheme.RES_COLORS.get(res, Color(0.7, 0.7, 0.65)), 0.9)
+		_rock_mats[res] = MeshKit.mat(BucketView.MATS.get(res, "RockGravel"))                 # the material's own pixel texture
 	return _rock_mats[res]
 
 ## Business.cash_sold: the numbers are already booked; this only collects the feedback so a fast hopper groups it into a few bursts.
@@ -547,8 +552,14 @@ func _process(delta: float) -> void:
 		var cam := get_viewport().get_camera_3d()
 		if cam != null:
 			_note.look_at(cam.global_position, Vector3.UP)
-	if fill != null and fill.visible:
-		fill.scale = fill.scale.lerp(_fill_target, clampf(delta * 7.0, 0.0, 1.0))      # the heap rises and sinks smoothly with the queue
+	if _heap != null and _heap.visible:                                    # the piles sink smoothly as the material is sold and rise as more arrives
+		var k := clampf(sqrt(maxf(_heap_amt, 0.02) / maxf(_heap_base, 0.02)), 0.35, 1.35)
+		_heap.scale = _heap.scale.lerp(Vector3(k, k, k), clampf(delta * 5.0, 0.0, 1.0))
+	_crumble_t -= delta
+	var cur_res: String = b.cash_current(index)
+	if cur_res != "" and _crumble_t <= 0.0:                                  # while it sells, chunks keep sliding off the pile, down the funnel and through the grate
+		_crumble_t = 0.22
+		_swallow_rock(cur_res, 0.0)
 	_check_intake(delta)
 	_burst_t -= delta
 	if _burst_t <= 0.0 and not _pending.is_empty():
@@ -719,6 +730,87 @@ func _sfx(stream: AudioStream, pitch: float, vol: float, secs := 0.0) -> void:
 func _coin_sound(units: int) -> void:
 	_sfx(coin_stream, _rng.randf_range(0.95, 1.2), -7.0 + minf(4.0, float(units) * 0.4))
 
+## The piles in the funnel: the top three materials of what is waiting, each in its own look (soil as a smooth mound, gravel as small chunks, rock as bigger blocks, ore with the mineral
+## showing), built when the mix or the fullness changes by a step and scaled smoothly in between.
+func _refresh_heap() -> void:
+	var b = game.business
+	var items: Dictionary = b.outputs[index].get("items", {})
+	var cap := float(maxi(1, b.output_capacity_of(index)))
+	var total := 0
+	var list: Array = []
+	for r in items:
+		if int(items[r]) > 0:
+			list.append([str(r), int(items[r])])
+			total += int(items[r])
+	if total <= 0:
+		_heap_amt = 0.0
+		if _heap != null and _heap.visible and _heap.scale.x < 0.4:
+			_heap.visible = false
+		elif _heap != null:
+			_heap_amt = 0.02
+		return
+	list.sort_custom(func(a, c): return int(a[1]) > int(c[1]))
+	list = list.slice(0, 3)
+	var amt := clampf(0.16 + 0.84 * sqrt(float(total) / cap), 0.16, 1.0)
+	_heap_amt = amt
+	var sig := "%d|" % int(round(amt * 5.0))
+	for e in list:
+		sig += str(e[0]) + ","
+	if sig == _heap_sig and _heap != null:
+		_heap.visible = true
+		return
+	_heap_sig = sig
+	_heap_base = amt
+	if _heap == null:
+		_heap = Node3D.new()
+		_heap.name = "Heap"
+		var fp: Node3D = points["Attach_InputFunnel"]
+		_heap.position = fp.position + Vector3(0.0, 0.09, 0.0)
+		add_child(_heap)
+	for ch in _heap.get_children():
+		_heap.remove_child(ch)
+		ch.queue_free()
+	_heap.scale = Vector3.ONE
+	_heap.visible = true
+	var n := list.size()
+	for k in range(n):
+		var share := float(list[k][1]) / float(total)
+		var r := (0.13 + 0.36 * amt) * (0.6 + 0.4 * sqrt(share)) if n > 1 else 0.17 + 0.34 * amt
+		var h := (0.07 + 0.34 * amt) * (0.6 + 0.4 * sqrt(share))
+		var pile := _heap_pile(str(list[k][0]), r, h, 17 + k * 31)
+		var ang := TAU * float(k) / float(maxi(n, 1)) + 0.5
+		pile.position = Vector3(cos(ang), 0.0, sin(ang)) * (0.0 if n == 1 else 0.2)
+		_heap.add_child(pile)
+
+func _heap_pile(res: String, r: float, h: float, seed: int) -> Node3D:
+	var node := Node3D.new()
+	var kind := BucketView.kind_of(res)
+	var mat := MeshKit.mat(BucketView.MATS.get(res, "ExcavatedDirt"))
+	if kind == "dirt":
+		MeshKit.inst(node, PileModels.dirt_mesh(r, h, seed), mat)
+		return node
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed
+	var s := MeshKit.Soup.new()
+	var big := 0.05 if kind == "gravel" else 0.09
+	var n := int((10.0 + 90.0 * r * r) * (1.6 if kind == "gravel" else 1.0))
+	for i in range(n):
+		var a := rng.randf() * TAU
+		var d := r * sqrt(rng.randf())
+		var sz := rng.randf_range(big * 0.6, big * 1.2)
+		var y := h * (1.0 - (d * d) / (r * r)) * 0.85
+		PileModels.chunk_into(s, Vector3(cos(a) * d, y + sz * 0.3, sin(a) * d), Vector3(sz * 1.3, sz, sz * 1.2), rng)
+	MeshKit.inst(node, s.mesh(), mat)
+	if kind == "ore":
+		var o := MeshKit.Soup.new()
+		for j in range(maxi(3, n / 6)):
+			var a2 := rng.randf() * TAU
+			var d2 := r * 0.8 * sqrt(rng.randf())
+			var sz2 := rng.randf_range(0.035, 0.06)
+			PileModels.chunk_into(o, Vector3(cos(a2) * d2, h * (1.0 - (d2 * d2) / (r * r)) * 0.85 + 0.05, sin(a2) * d2), Vector3(sz2 * 1.2, sz2, sz2), rng)
+		MeshKit.inst(node, o.mesh(), MeshKit.flat(QuarryTheme.RES_COLORS.get(res, Color(0.9, 0.7, 0.2)), 0.12))
+	return node
+
 ## Material arriving (a deposit, a belt, a crate): rock tumbles from above into the funnel and lands on the heap (which grows with the queue).
 func _drop_rock(res: String, delay: float) -> void:
 	var rock := _make_rock(res)
@@ -726,7 +818,7 @@ func _drop_rock(res: String, delay: float) -> void:
 	rock.position = spawn.position + Vector3(_rng.randf_range(-0.3, 0.3), 0.0, _rng.randf_range(-0.3, 0.3))
 	rock.visible = false
 	var funnel: Node3D = points["Attach_InputFunnel"]
-	var end := funnel.position + Vector3(_rng.randf_range(-0.2, 0.2), 0.62, _rng.randf_range(-0.2, 0.2))      # lands on the heap
+	var end := funnel.position + Vector3(_rng.randf_range(-0.2, 0.2), 0.3 + 0.35 * clampf(_heap_amt, 0.0, 1.0), _rng.randf_range(-0.2, 0.2))      # lands on the heap
 	var t := create_tween()
 	t.tween_interval(delay)
 	t.tween_callback(func(): rock.visible = true)
@@ -739,14 +831,18 @@ func _drop_rock(res: String, delay: float) -> void:
 func _swallow_rock(res: String, delay: float) -> void:
 	var rock := _make_rock(res)
 	var funnel: Node3D = points["Attach_InputFunnel"]
-	rock.position = funnel.position + Vector3(_rng.randf_range(-0.25, 0.25), 0.55, _rng.randf_range(-0.25, 0.25))
+	var a := _rng.randf() * TAU
+	var rr := _rng.randf_range(0.05, 0.3)
+	rock.position = funnel.position + Vector3(cos(a) * rr, 0.2 + 0.25 * clampf(_heap_amt, 0.0, 1.0), sin(a) * rr)
+	rock.scale = Vector3.ONE * 0.45
 	rock.visible = false
-	var throat := funnel.position + Vector3(0.0, 0.1, 0.0)
+	var throat := funnel.position + Vector3(cos(a) * 0.05, 0.06, sin(a) * 0.05)
 	var t := create_tween()
 	t.tween_interval(delay)
 	t.tween_callback(func(): rock.visible = true)
-	t.tween_property(rock, "position", throat, 0.2).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	t.parallel().tween_property(rock, "scale", Vector3.ONE * 0.25, 0.2)
+	t.tween_property(rock, "position", throat, 0.42).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)          # it slides down the cone ...
+	t.parallel().tween_property(rock, "rotation", rock.rotation + Vector3(2.5, 1.0, 1.7), 0.42)
+	t.tween_property(rock, "scale", Vector3.ONE * 0.05, 0.14)                                                      # ... and crumbles away through the grate
 	t.tween_callback(rock.queue_free)
 
 func _make_rock(res: String) -> MeshInstance3D:
@@ -771,6 +867,8 @@ func _refresh_display() -> void:
 		QuarryTheme.money_text(b.cash_today(index)), b.cash_rate(index)]
 
 func _refresh_fill() -> void:
+	if game != null and index >= 0 and index < game.business.outputs.size():
+		_refresh_heap()
 	if fill == null or game == null:
 		return
 	var b = game.business

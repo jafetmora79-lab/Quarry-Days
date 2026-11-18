@@ -134,9 +134,23 @@ def build(root):
 
     # ---- funnel: a wide octagonal frustum with ribs, a hazard rim, a dark throat
     fn = TM("Pivot_Funnel", root, loc=(0, 1.45, 0), holder=True)
-    fn.cyl((0, 1.78, 0), 0.5, 0.98, 0.66, RU, seg=8)
-    fn.cyl((0, 1.78, 0), 0.47, 0.94, 0.68, SN, seg=8)                                               # the inside, dark
-    fn.cyl((0, 2.03, 0), 0.93, 0.93, 0.02, SN, seg=8)                                               # the dark throat, open under the rim
+    def cone(r0, r1, y0, y1, mat):                                                                  # an open cone of quads, drawn with both windings so it shows from outside and from above, inside
+        m = fn._mesher(mat)
+        for i in range(8):
+            a0, a1 = math.tau * i / 8, math.tau * (i + 1) / 8
+            pts = [fn._p((math.cos(a0) * r0, y0, math.sin(a0) * r0)), fn._p((math.cos(a1) * r0, y0, math.sin(a1) * r0)),
+                   fn._p((math.cos(a1) * r1, y1, math.sin(a1) * r1)), fn._p((math.cos(a0) * r1, y1, math.sin(a0) * r1))]
+            m.quad(pts, mat)
+            m.quad(pts[::-1], mat)
+    cone(0.5, 0.98, 1.45, 2.11, RU)                                                                 # the outside of the hopper, open at the top
+    cone(0.485, 0.965, 1.45, 2.11, RD)                                                              # the inside, worn dark rust: what you look down into
+    fn.cyl((0, 1.53, 0), 0.47, 0.47, 0.04, SN, seg=8)                                               # the funnel floor: a dark throat with a filter grate over it (the material lies on it and crumbles through)
+    for k in range(5):
+        zz = -0.32 + 0.16 * k
+        fn.bar((-0.44, 1.565, zz), (0.44, 1.565, zz), 0.026, 0.026, IR, up=(0, 1, 0))
+        fn.bar((zz, 1.565, -0.44), (zz, 1.565, 0.44), 0.026, 0.026, IR, up=(0, 1, 0))
+    fn.cyl((0, 1.56, 0), 0.5, 0.5, 0.03, IR, seg=8)
+    fn.cyl((0, 1.56, 0), 0.43, 0.43, 0.04, SN, seg=8)
     for k in range(8):
         a = math.tau * (k + 0.5) / 8
         rim_k = a                                                                                   # (the rim is its own object, below)
@@ -150,7 +164,6 @@ def build(root):
         tx, tz = -math.sin(a), math.cos(a)
         for sgn in (-1, 1):
             rm.box((math.cos(a) * 0.93 + tx * sgn * 0.195, 2.14, math.sin(a) * 0.93 + tz * sgn * 0.195), (0.4, 0.1, 0.22), YE if (k * 2 + (1 if sgn > 0 else 0)) % 2 == 0 else IR, rot_y=a + math.pi / 2)
-    rm.cyl((0, 2.07, 0), 0.99, 0.99, 0.05, SD, seg=8)
     rm.finish()
     fl = TM("Fill", root, loc=(0, 1.9, 0), holder=True)                                             # the heap of rock waiting in the funnel
     for k in range(14):

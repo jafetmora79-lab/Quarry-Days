@@ -103,7 +103,7 @@ class TM:
             v += [(x - w / 2, y, z - t / 2), (x + w / 2, y, z - t / 2), (x + w / 2, y, z + t / 2), (x - w / 2, y, z + t / 2)]
         return self.solid(v, [(0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)], mat)
 
-    def cyl(self, c, r0, r1, h, mat, seg=8, axis='y', phase=0.0, squash=1.0):
+    def cyl(self, c, r0, r1, h, mat, seg=8, axis='y', phase=0.0, squash=1.0, caps=True):
         """Frustum centred at c along `axis`; r0 at the -axis end, r1 at the +axis end. `squash` scales the second radial axis (oval handles)."""
         n = seg
         rings = []
@@ -119,7 +119,7 @@ class TM:
                 else:
                     ring.append((c[0] + off, c[1] + u, c[2] + w))
             rings.append(ring)
-        return self._skin(rings, mat)
+        return self._skin(rings, mat, caps)
 
     def _skin(self, rings, mat, caps=True):
         n = len(rings[0])
