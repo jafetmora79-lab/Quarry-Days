@@ -30,9 +30,10 @@ func _init(margin := 8, strip := Color(0, 0, 0, 0)) -> void:
 	s.content_margin_right = maxi(9, margin + 1)
 	s.content_margin_top = maxi(6, margin - 2)
 	s.content_margin_bottom = maxi(6, margin - 2)
-	skinned = false
+	skinned = UiSkin.has("plate_prompt")
 	rivets = false
-	add_theme_stylebox_override("panel", s)
+	# the drawn plate art (tools/build_hud_frames.py: steel rim, hazard-yellow pinstripe, hazard-striped corner brackets); the flat box above is the fallback
+	add_theme_stylebox_override("panel", UiSkin.box("plate_prompt", s, [maxi(11, margin + 2), maxi(6, margin - 2), maxi(11, margin + 2), maxi(6, margin - 2)]))
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 func _draw() -> void:

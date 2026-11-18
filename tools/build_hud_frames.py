@@ -20,14 +20,17 @@ def c(r, g, b, a=255):
     return np.array([r, g, b, a], dtype=np.float32)
 
 
-OUTLINE = c(14, 9, 6)
-WOOD = c(46, 32, 22)
-WOOD_DK = c(34, 23, 15)
-BRASS = c(168, 124, 64)
-BRASS_HI = c(232, 190, 108)
-BRASS_LO = c(104, 72, 36)
-BRASS_DK = c(66, 44, 22)
-AMBER = c(255, 204, 96)
+# QUARRY SIGNAGE: cool charcoal-blue steel plates with a bevelled steel rim, a hazard-yellow pinstripe, bolted corners with hazard-striped brackets, painted yellow / orange buttons.
+OUTLINE = c(8, 10, 13)
+WOOD = c(36, 43, 52)                 # (the panel face: brushed steel; the name is kept from the first, wooden version)
+WOOD_DK = c(26, 31, 38)
+BRASS = c(86, 98, 112)               # (the rim: steel; BRASS_* names kept)
+BRASS_HI = c(158, 172, 188)
+BRASS_LO = c(48, 55, 64)
+BRASS_DK = c(28, 33, 40)
+AMBER = c(255, 200, 40)
+YELLOW = c(250, 196, 36)
+YELLOW_DK = c(168, 120, 16)
 
 
 def h(x, y, s=0):
@@ -41,13 +44,13 @@ def mix(a, b, t):
 
 
 def wood(x, y, base, seed=1, grain=0.10):
-    """A plank face: each row has its own tone (so it reads as horizontal boards), long lighter streaks, the odd dark nick."""
-    row = h(0, y // 1, seed) - 0.5
-    tone = 1.0 + row * grain * 2.0
-    if h(x // 7, y, seed + 3) < 0.10:
-        tone += 0.10
-    if h(x // 3, y // 2, seed + 9) < 0.025:
-        tone -= 0.18
+    """A brushed-steel face: each COLUMN has its own tone (vertical brushing), a few lighter scratches, the odd dark pit."""
+    col = h(x // 1, 0, seed) - 0.5
+    tone = 1.0 + col * grain * 1.6
+    if h(x, y // 5, seed + 3) < 0.07:
+        tone += 0.09
+    if h(x // 2, y // 2, seed + 9) < 0.02:
+        tone -= 0.2
     out = base.copy()
     out[:3] = np.clip(base[:3] * tone, 0, 255)
     return out
@@ -89,8 +92,10 @@ def frame(w, hgt, trim=2, notch=2, bracket=0, face=WOOD, alpha=238, brass=(BRASS
                 col = BRASS_DK * 0.55 + OUTLINE * 0.45
                 col = np.array([col[0], col[1], col[2], 255], dtype=np.float32)
             elif d == trim + 2:
-                f = wood(x, y, face, seed, grain)
-                col = mix(f, c(255, 230, 190), 0.16) if top_left else mix(f, OUTLINE, 0.35)
+                col = YELLOW if top_left else YELLOW_DK                  # the hazard-yellow pinstripe just inside the steel rim
+                col = np.array([col[0], col[1], col[2], 255], dtype=np.float32)
+            elif d == trim + 3:
+                col = mix(wood(x, y, face, seed, grain), OUTLINE, 0.5)
                 col[3] = 255
             else:
                 col = wood(x, y, face, seed, 0.0 if flat_face else grain)
@@ -110,15 +115,17 @@ def frame(w, hgt, trim=2, notch=2, bracket=0, face=WOOD, alpha=238, brass=(BRASS
                         col = OUTLINE
                     elif inner:
                         col = lo
-                    elif lx == 1 or ly == 1:
-                        col = hi
                     else:
-                        col = mid
+                        stripe = ((lx + ly) // 2) % 2 == 0                         # hazard stripes: yellow and black, running diagonally
+                        col = YELLOW if stripe else c(26, 28, 32)
+                        if lx == 1 or ly == 1:
+                            col = hi if stripe is False else YELLOW
                     put(img, x, y, col)
             if rivet and bracket >= 6:
                 rx, ry = ox + sx * (bracket // 2 + 1), oy + sy * (bracket // 2 + 1)
                 put(img, rx, ry, BRASS_HI)
-                put(img, rx + sx, ry + sy, BRASS_DK)
+                put(img, rx + 1, ry, BRASS_HI)
+                put(img, rx + sx, ry + sy, OUTLINE)
     if glow is not None:                                                  # a lit amber edge just inside the trim (the selected slot)
         for y in range(hgt):
             for x in range(w):
@@ -144,7 +151,7 @@ def save(name, img, alpha_face=238):
 
 def inset_well(w, hgt, glow=None, tint=None, hatch=False, seed=5):
     """A recessed dark well (item slot): a brass frame, then a deep inset with the shadow on the top and left."""
-    img = frame(w, hgt, trim=1, notch=2, bracket=0, face=c(24, 17, 12), seed=seed, grain=0.04)
+    img = frame(w, hgt, trim=2, notch=2, bracket=0, face=c(18, 22, 28), seed=seed, grain=0.04)
     for y in range(hgt):
         for x in range(w):
             d = min(x, y, w - 1 - x, hgt - 1 - y)
@@ -199,7 +206,7 @@ def bar_fill(w, hgt, col):
 
 
 def keycap(w, hgt, state="normal"):
-    face = {"normal": c(70, 52, 36), "hover": c(92, 68, 42), "pressed": c(52, 38, 26), "off": c(36, 28, 22)}[state]
+    face = {"normal": c(70, 82, 96), "hover": c(96, 110, 126), "pressed": c(48, 56, 66), "off": c(36, 41, 48)}[state]
     return button(w, hgt, face, "pressed" if state == "pressed" else "normal", seed=21)
 
 
@@ -274,15 +281,15 @@ def main():
     pieces = {}
     # --- panels and plates (sizes and margins are those the game was built around: scripts/ui_skin.gd)
     pieces["panel_main"] = frame(49, 47, trim=2, notch=3, bracket=9, seed=2)
-    pieces["panel_inset"] = frame(44, 45, trim=1, notch=2, bracket=0, face=c(36, 25, 17), seed=3, grain=0.07)
-    pieces["panel_vehicle"] = frame(49, 46, trim=2, notch=3, bracket=9, face=c(40, 30, 24), seed=4)
+    pieces["panel_inset"] = frame(44, 45, trim=1, notch=2, bracket=0, face=c(28, 34, 42), seed=3, grain=0.07)
+    pieces["panel_vehicle"] = frame(49, 46, trim=2, notch=3, bracket=9, face=c(42, 38, 30), seed=4)
     pieces["plate_title"] = frame(82, 28, trim=2, notch=3, bracket=10, seed=5)
     pieces["plate_prompt"] = frame(83, 22, trim=1, notch=2, bracket=7, seed=6, rivet=False)
     pieces["plate_toast"] = frame(57, 32, trim=2, notch=3, bracket=8, seed=7)
     pieces["plate_banner"] = frame(90, 35, trim=2, notch=3, bracket=12, seed=8)
     pieces["plate_repair"] = frame(86, 35, trim=2, notch=3, bracket=9, seed=9)
     pieces["frame_dialog"] = frame(87, 50, trim=3, notch=4, bracket=14, seed=10)
-    pieces["frame_portrait"] = frame(36, 37, trim=2, notch=3, bracket=0, face=c(28, 20, 14), seed=12, grain=0.04)
+    pieces["frame_portrait"] = frame(36, 37, trim=2, notch=3, bracket=0, face=c(20, 24, 30), seed=12, grain=0.04)
     pieces["plate_chat"] = frame(28, 22, trim=1, notch=2, seed=13)
     pieces["plate_check"] = frame(26, 22, trim=1, notch=2, seed=14)
     pieces["plate_list"] = frame(26, 22, trim=1, notch=2, seed=15)
@@ -290,10 +297,10 @@ def main():
     pieces["plate_star"] = frame(26, 22, trim=1, notch=2, seed=17)
     pieces["plate_trophy"] = frame(28, 22, trim=1, notch=2, seed=18)
     # --- buttons and keycaps
-    pieces["btn_main"] = button(48, 23, c(96, 66, 38))
-    pieces["btn_primary"] = button(48, 23, c(140, 98, 40))
-    pieces["btn_danger"] = button(48, 23, c(120, 44, 34))
-    pieces["btn_disabled"] = button(48, 23, c(52, 44, 38))
+    pieces["btn_main"] = button(48, 23, c(66, 78, 92))
+    pieces["btn_primary"] = button(48, 23, c(196, 112, 22))
+    pieces["btn_danger"] = button(48, 23, c(170, 46, 36))
+    pieces["btn_disabled"] = button(48, 23, c(46, 50, 56))
     pieces["keycap_small"] = keycap(20, 20)
     pieces["keycap_small_hover"] = keycap(19, 20, "hover")
     pieces["keycap_small_off"] = keycap(19, 20, "off")
@@ -313,7 +320,7 @@ def main():
     pieces["bar_fill_red"] = bar_fill(50, 13, c(204, 72, 52))
     pieces["bar_fill_blue"] = bar_fill(49, 13, c(84, 146, 204))
     pieces["dot_on"] = dot(16, 17, c(240, 184, 64))
-    pieces["dot_off"] = dot(17, 17, c(58, 44, 34))
+    pieces["dot_off"] = dot(17, 17, c(52, 60, 70))
     pieces["dot_warn"] = dot(16, 17, c(204, 72, 52))
     pieces["dot_done"] = dot(16, 17, c(110, 176, 74))
     pieces["rivet"] = rivet(14, 14)

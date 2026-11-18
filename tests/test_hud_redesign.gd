@@ -70,14 +70,13 @@ func run() -> void:
 	check(hud.time_label.text.begins_with("DAY 1") and hud.money_label.text.begins_with("$"), "day, clock and money are the game's (%s / %s)" % [hud.time_label.text, hud.money_label.text])
 	# ---- the hotbar: five slots, real items, empty stays empty
 	var slots: Array = hud.hotbar_view.get_children()
-	check(slots.size() == 5, "five hotbar slots")
+	check(slots.size() == maxi(1, game.prog.hotbar().size()), "one hotbar slot per tool, no empty ones (%d)" % slots.size())
 	var filled := 0
 	for sl in slots:
 		if sl.find_child("Name", true, false) != null or sl.find_child("Icon", true, false) != null:
 			filled += 1
 	var bar: Array = game.prog.hotbar()
-	check(filled == bar.size() and filled < 5, "only the slots that hold an item show one (%d of 5, hotbar holds %d)" % [filled, bar.size()])
-	check(slots[4].find_child("Name", true, false) == null and slots[4].find_child("Icon", true, false) == null, "an empty slot stays empty")
+	check(filled == bar.size(), "every slot holds an item and shows it (%d, hotbar holds %d): there are no empty slots" % [filled, bar.size()])
 	check(slots[0].find_child("Key", true, false).text == "1", "slots are numbered")
 	# a filled slot shows its item's own name while no picture exists (headless cannot render): never a stand-in drawing of another item
 	if DisplayServer.get_name() == "headless":
