@@ -29,6 +29,8 @@ var _cloud: Node3D
 var _rain: CPUParticles3D
 var _confetti: CPUParticles3D
 var _burst_done := false
+var _music: AudioStreamPlayer
+const MUSIC := "res://audio/aura_battle.wav"          ## an original meme-phonk track (tools/make_aura_music.py), timed to the choreography at SPEED
 var _caption_nodes: Array = []
 var _shades: Array = []
 ## Where the shades sit on each head (local to the Head hinge; tuned by eye with tools/shot_aura.gd).
@@ -560,6 +562,13 @@ func _cine_start() -> void:
 		return
 	_in_cine = true
 	game.player.locked = true
+	if ResourceLoader.exists(MUSIC) and DisplayServer.get_name() != "headless":
+		_music = AudioStreamPlayer.new()
+		_music.stream = load(MUSIC)
+		_music.bus = "Music" if AudioServer.get_bus_index("Music") >= 0 else ("SFX" if AudioServer.get_bus_index("SFX") >= 0 else "Master")
+		_music.volume_db = -4.0
+		add_child(_music)
+		_music.play()
 	_cam = Camera3D.new()
 	_cam.far = 700.0
 	add_child(_cam)
@@ -631,6 +640,12 @@ func _cine_end() -> void:
 	if not _in_cine:
 		return
 	_in_cine = false
+	if _music != null and is_instance_valid(_music):
+		var m := _music
+		_music = null
+		var tw := create_tween()
+		tw.tween_property(m, "volume_db", -40.0, 0.8)
+		tw.tween_callback(m.queue_free)
 	if _cam != null and is_instance_valid(_cam):
 		_cam.queue_free()
 	_cam = null
