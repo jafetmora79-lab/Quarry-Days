@@ -111,6 +111,12 @@ static func material_for(name: String) -> Material:
 		m = MeshKit.flat(Color(1.0, 0.78, 0.16), 0.45)
 	elif name == "HopLamp":
 		m = MeshKit.flat(Color(0.9, 0.2, 0.12), 1.2)
+	elif name == "HopAmber":
+		m = MeshKit.flat(Color(1.0, 0.64, 0.16), 1.8)
+	elif name == "HopScreenG":
+		m = MeshKit.flat(Color(0.05, 0.16, 0.09), 0.6)
+	elif name == "HopGearGlow":
+		m = MeshKit.flat(Color(1.0, 0.5, 0.12), 1.5)
 	elif name == "HopGlow":
 		m = MeshKit.flat(Color(1.0, 0.8, 0.3), 1.5)
 	elif name == "HopCoin":

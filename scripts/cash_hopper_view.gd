@@ -24,7 +24,7 @@ const MODEL_PATH := "res://assets/world/WLD_QD_cash_hopper.glb"
 const MARKERS := {
 	"Attach_Body": Vector3(0, 0.0, 0), "Attach_InputFunnel": Vector3(0, 1.45, 0), "Attach_Processor": Vector3(0, 0.55, 0.0),
 	"Attach_ConveyorIn": Vector3(0, 0.55, 1.1), "Attach_RockSpawn": Vector3(0, 2.35, 0), "Attach_Audio": Vector3(0, 1.2, 0),
-	"Attach_FloatText": Vector3(0, 2.6, 0), "Attach_Display": Vector3(0, 0.95, -0.97),
+	"Attach_FloatText": Vector3(0, 2.6, 0), "Attach_Display": Vector3(0.4, 1.0, -0.91), "Attach_SaleDisplay": Vector3(0, 1.64, -0.77), "Attach_Sign": Vector3(0, 1.28, -0.95),
 	"Pivot_Flywheel": Vector3(0.97, 0.85, 0.0), "Pivot_Flap": Vector3(0, 1.2, 0.0)}
 
 var game
@@ -47,6 +47,15 @@ var _rng := RandomNumberGenerator.new()
 var _last_current := ""
 var piston: Node3D                       ## the ram on the front corner: pumps while it works (the Blender model)
 var funnel_node: Node3D                  ## the funnel: it shivers while rock goes through
+var drawer: Node3D                       ## the payout drawer: it slides out on every payout
+var gear_a: Node3D
+var gear_b: Node3D
+var lamp2: MeshInstance3D
+var sale_display: Label3D                ## the slanted LED window on top: shows +$ of the sale in progress
+var glow: OmniLight3D                    ## amber light round the lamps, brighter while it works
+var _drawer_out := 0.0
+var _drawer_pos0 := Vector3.ZERO
+var _boost := 0.0                        ## 0..1: a sale is being processed (lamps and gears race)
 var _funnel_y0 := 0.0                    ## the heights the funnel and the ram stand at (their shiver and pumping are offsets from these, not absolute heights)
 var _piston_y0 := 0.0
 var lamp: MeshInstance3D                 ## the status lamp: green while selling, amber when idle
@@ -93,6 +102,11 @@ func setup(g, i: int) -> void:
 			piston = model.find_child("Pivot_Piston", true, false) as Node3D
 			funnel_node = model.find_child("Pivot_Funnel", true, false) as Node3D
 			lamp = model.find_child("Lamp_Status", true, false).get_node_or_null("Mesh") as MeshInstance3D
+			var l2 := model.find_child("Lamp_Status2", true, false)
+			lamp2 = l2.get_node_or_null("Mesh") as MeshInstance3D if l2 != null else null
+			drawer = model.find_child("Pivot_Drawer", true, false) as Node3D
+			gear_a = model.find_child("Pivot_GearA", true, false) as Node3D
+			gear_b = model.find_child("Pivot_GearB", true, false) as Node3D
 			fill = model.find_child("Fill", true, false).get_node_or_null("Mesh") as MeshInstance3D
 			if fill != null:
 				fill.visible = false
@@ -117,11 +131,13 @@ func setup(g, i: int) -> void:
 		_funnel_y0 = funnel_node.position.y
 	if piston != null:
 		_piston_y0 = piston.position.y
+	if drawer != null:
+		_drawer_pos0 = drawer.position
 	if model == null:
 		_build_placeholder()
 	display = Label3D.new()
 	display.name = "Display"
-	display.pixel_size = 0.0027
+	display.pixel_size = 0.0016 if drawer != null else 0.0027
 	display.font_size = 36
 	display.outline_size = 6
 	display.modulate = Color(0.75, 1.0, 0.7)
@@ -131,6 +147,53 @@ func setup(g, i: int) -> void:
 	display.rotation = Vector3(0, PI, 0)                                  # reads from the front (-Z)
 	points["Attach_Display"].add_child(display)
 	_refresh_display()
+	if drawer != null:
+		_build_extras()
+
+## The sale display on top, the CASH HOPPER plaque and the amber glow (the model has the frames; the letters and the light are the game's).
+func _build_extras() -> void:
+	sale_display = Label3D.new()
+	sale_display.name = "SaleDisplay"
+	sale_display.text = "---"
+	sale_display.font_size = 64
+	sale_display.pixel_size = 0.0026
+	sale_display.outline_size = 4
+	sale_display.shaded = false
+	sale_display.modulate = Color(0.25, 0.9, 0.4, 0.45)
+	sale_display.outline_modulate = Color(0.0, 0.1, 0.03)
+	sale_display.rotation = Vector3(-0.69, PI, 0)
+	points["Attach_SaleDisplay"].add_child(sale_display)
+	var sign_l := Label3D.new()
+	sign_l.name = "Plaque"
+	sign_l.text = "CASH HOPPER"
+	sign_l.font_size = 40
+	sign_l.pixel_size = 0.0034
+	sign_l.outline_size = 6
+	sign_l.modulate = Color(1.0, 0.82, 0.3)
+	sign_l.outline_modulate = Color(0.1, 0.07, 0.02)
+	sign_l.rotation = Vector3(0, PI, 0)
+	points["Attach_Sign"].add_child(sign_l)
+	glow = OmniLight3D.new()
+	glow.light_color = Color(1.0, 0.62, 0.2)
+	glow.light_energy = 0.0
+	glow.omni_range = 3.2
+	glow.shadow_enabled = false
+	glow.position = Vector3(0, 1.8, -0.9)
+	add_child(glow)
+
+## The sale display: the amount flashes, then holds, then goes dim.
+func _sale_display_show(money: int) -> void:
+	if sale_display == null:
+		return
+	sale_display.text = "+" + QuarryTheme.money_text(money)
+	var tw := create_tween()
+	for k in range(3):
+		tw.tween_property(sale_display, "modulate:a", 0.25, 0.05)
+		tw.tween_property(sale_display, "modulate:a", 1.0, 0.07)
+	tw.tween_interval(1.5)
+	tw.tween_callback(func():
+		sale_display.text = "---")
+	tw.tween_property(sale_display, "modulate:a", 0.45, 0.3)
 
 # ------------------------------------------------------------------ the temporary look (primitives only)
 
@@ -255,14 +318,30 @@ func _process(delta: float) -> void:
 	if funnel_node != null:
 		funnel_node.rotation.z = sin(_t * 41.0) * 0.006 * _work                                                # the funnel shivers
 		funnel_node.position.y = _funnel_y0 + absf(sin(_t * 33.0)) * 0.004 * _work
-	if lamp != null and _lamp_on != int(working):
+	_boost = maxf(0.0, _boost - delta * 1.1)
+	if drawer != null:
+		drawer.position = _drawer_pos0 + Vector3(0.0, 0.0, -0.22 * _drawer_out)
+		var gs := (0.5 + 5.0 * _work + 6.0 * _boost) * delta
+		if gear_a != null:
+			gear_a.rotation.z += gs
+		if gear_b != null:
+			gear_b.rotation.z -= gs * 1.45
+		if glow != null:
+			glow.light_energy = 0.25 + 0.9 * _work + 1.4 * _boost + 0.08 * sin(_t * 9.0)
+	if lamp != null and (_lamp_on != int(working) or drawer != null):
 		_lamp_on = int(working)
 		var lm := StandardMaterial3D.new()
-		lm.albedo_color = Color(0.35, 0.9, 0.35) if working else Color(0.9, 0.55, 0.15)
+		lm.albedo_color = Color(1.0, 0.62, 0.16)
 		lm.emission_enabled = true
-		lm.emission = lm.albedo_color
-		lm.emission_energy_multiplier = 1.6 if working else 0.8
+		lm.emission = Color(1.0, 0.58, 0.12)
+		lm.emission_energy_multiplier = 1.0 + 1.6 * _work + 1.6 * _boost + 0.25 * sin(_t * 7.0)
+		if drawer == null:
+			lm.albedo_color = Color(0.35, 0.9, 0.35) if working else Color(0.9, 0.55, 0.15)
+			lm.emission = lm.albedo_color
+			lm.emission_energy_multiplier = 1.6 if working else 0.8
 		lamp.material_override = lm
+		if lamp2 != null:
+			lamp2.material_override = lm
 	_flap_kick = maxf(0.0, _flap_kick - delta * 6.0)
 	(points["Pivot_Flap"] as Node3D).rotation.x = -_flap_kick * 0.35
 	_thump = maxf(0.0, _thump - delta * 7.0)
@@ -290,7 +369,8 @@ func _process(delta: float) -> void:
 ## crushed and appraised, (3) the payout slot pushes out the money: bills slide out and drop into the tray, coins ring, the amount floats up. Each stage follows the
 ## one before it (never at the same moment), so the eye can follow the rock to the cash.
 const SLOT := Vector3(0.0, 0.64, -0.9)           ## the payout slot in the front of the housing
-const TRAY := Vector3(0.0, 0.5, -1.0)            ## where bills and coins land
+const TRAY := Vector3(0.0, 0.5, -1.0)            ## where bills and coins land (the drawer, once it has slid out: see TRAY_OUT)
+const TRAY_OUT := Vector3(0.0, 0.5, -1.2)
 
 func _flush() -> void:
 	var units := 0
@@ -309,6 +389,8 @@ func _flush() -> void:
 	for k in range(mini(units, 3)):                                  # 1. rock goes down the throat
 		_swallow_rock(main_res, 0.06 * float(k))
 	_after(0.22, _thump_sound.bind(units))                           # 2. the crush: ram, housing and a clunk
+	_sale_display_show(money)                                         # 0. the sale is registered: the LED flashes the amount, the lamps flare
+	_boost = 1.0
 	_after(0.44, _payout.bind(units, money))                         # 3. the money comes out of the slot
 
 func _after(t: float, f: Callable) -> void:
@@ -328,6 +410,11 @@ func _thump_sound(units: int) -> void:
 		audio.play()
 
 func _payout(units: int, money: int) -> void:
+	if drawer != null:                                              # the drawer slides out, holds while the cash settles, and slides back
+		var dt := create_tween()
+		dt.tween_property(self, "_drawer_out", 1.0, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		dt.tween_interval(1.3)
+		dt.tween_property(self, "_drawer_out", 0.0, 0.3).set_trans(Tween.TRANS_SINE)
 	_bills(units)
 	_coin_burst(units)
 	_after(0.06, _coin_sound.bind(units))
@@ -349,7 +436,7 @@ func _bills(units: int) -> void:
 		bill.position = SLOT + Vector3(sx, 0.0, 0.06)
 		bill.rotation = Vector3(0.0, _rng.randf_range(-0.12, 0.12), 0.0)
 		add_child(bill)
-		var rest := TRAY + Vector3(sx + _rng.randf_range(-0.1, 0.1), 0.02 * float(k), _rng.randf_range(-0.02, 0.04))
+		var rest := TRAY_OUT + Vector3(sx + _rng.randf_range(-0.1, 0.1), 0.02 * float(k), _rng.randf_range(-0.02, 0.04))
 		var tw := create_tween()
 		tw.tween_interval(0.09 * float(k))
 		tw.tween_property(bill, "position", SLOT + Vector3(sx, 0.0, -0.16), 0.17).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
@@ -402,7 +489,7 @@ func _coin_burst(units: int) -> void:
 		coin.scale = Vector3.ZERO
 		coin.rotation = Vector3(_rng.randf() * 3.0, _rng.randf() * 3.0, 0.0)
 		add_child(coin)
-		var land := TRAY + Vector3(clampf(x0 * 1.3 + _rng.randf_range(-0.08, 0.08), -0.2, 0.2), 0.0, _rng.randf_range(-0.05, 0.07))
+		var land := TRAY_OUT + Vector3(clampf(x0 * 1.3 + _rng.randf_range(-0.08, 0.08), -0.2, 0.2), 0.0, _rng.randf_range(-0.05, 0.07))
 		var apex_h := 0.2 + _rng.randf() * 0.12
 		var spin := Vector3(_rng.randf_range(9.0, 15.0), _rng.randf_range(-3.0, 3.0), _rng.randf_range(-2.0, 2.0))
 		var tw := create_tween()
@@ -535,7 +622,7 @@ func _show_float(money: int) -> void:
 	var l := Label3D.new()
 	l.text = "+" + QuarryTheme.money_text(int(round(float(money) * 0.3)))
 	l.font_size = 44 if money < 100 else 60
-	l.pixel_size = 0.008
+	l.pixel_size = 0.006
 	l.outline_size = 14
 	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	l.no_depth_test = true

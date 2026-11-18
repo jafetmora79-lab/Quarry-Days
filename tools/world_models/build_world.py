@@ -109,6 +109,9 @@ Q.MATERIALS.update({
     "HopGlow":   (None, (1.0, 0.78, 0.25), 0.4, 0.0, {"emit": 1.4}),
     "HopCoin":   (None, (0.95, 0.74, 0.2), 0.35, 0.7, {}),
     "HopBill":   (None, (0.45, 0.70, 0.42), 0.9, 0.0, {}),
+    "HopScreenG": (None, (0.05, 0.14, 0.08), 0.3, 0.0, {"emit": 0.5}),
+    "HopAmber":  (None, (1.0, 0.62, 0.15), 0.4, 0.0, {"emit": 1.6}),
+    "HopGearGlow": (None, (1.0, 0.5, 0.1), 0.4, 0.0, {"emit": 1.3}),
     "HopWood":   (None, (0.42, 0.29, 0.17), 1.0, 0.0, {}),
     "HopRock":   (None, (0.70, 0.68, 0.62), 1.0, 0.0, {}),
 })
@@ -1108,11 +1111,18 @@ def cash_hopper(root):
         t.cyl((-0.4, sy, 0.855), 0.03, 0.03, 0.12, IR, seg=6, axis='z')
     t.box((0.3, 0.75, 0.86), (0.1, 0.05, 0.03), BR)
     # ---- the front: display bezel and screen housing, a brass plaque and a blank sign board hung on chains
-    t.box((0, 1.0, -0.84), (1.34, 0.62, 0.08), IR)
-    t.box((0, 1.0, -0.88), (1.2, 0.5, 0.03), "HopScreen")
+    t.box((0.4, 1.0, -0.84), (0.66, 0.56, 0.08), IR)                                                # the stats screen (right) ...
+    t.box((0.4, 1.0, -0.88), (0.56, 0.46, 0.03), "HopScreen")
     for sx in (-1, 1):
         for sy in (-1, 1):
-            t.cyl((sx * 0.6, 1.0 + sy * 0.25, -0.89), 0.018, 0.018, 0.015, BR, seg=6, axis='z')
+            t.cyl((0.4 + sx * 0.3, 1.0 + sy * 0.25, -0.89), 0.016, 0.016, 0.015, BR, seg=6, axis='z')
+    t.box((-0.36, 1.0, -0.84), (0.7, 0.56, 0.08), IR)                                               # ... and the gear window (left): a dark recess lit orange, the gears turn in it
+    t.box((-0.36, 1.0, -0.875), (0.58, 0.44, 0.03), SN)
+    t.box((-0.36, 1.0, -0.862), (0.5, 0.36, 0.01), "HopGearGlow")
+    for sx in (-1, 1):
+        t.bar((-0.36 + sx * 0.3, 0.74, -0.905), (-0.36 + sx * 0.3, 1.26, -0.905), 0.03, 0.03, BR, up=(1, 0, 0))
+    for k in range(5):
+        t.bar((-0.62, 0.84 + k * 0.08, -0.915), (-0.1, 0.84 + k * 0.08, -0.915), 0.014, 0.012, IR, up=(0, 1, 0))   # a grille of bars over the window
     t.box((0.5, 0.52, -0.83), (0.3, 0.1, 0.02), BR)                                                 # a brass plaque (blank)
     t.box((0, 0.64, -0.835), (0.62, 0.1, 0.03), IR)                                                 # the payout slot: a framed opening in the front, a sloped chute down to the tray
     t.box((0, 0.64, -0.852), (0.5, 0.045, 0.02), SN)
@@ -1120,27 +1130,20 @@ def cash_hopper(root):
     for sx in (-1, 1):
         t.box((sx * 0.27, 0.57, -0.93), (0.025, 0.12, 0.17), BR)                                    # chute cheeks
     t.box((0, 0.48, -0.9), (0.9, 0.08, 0.1), SD)                                                    # the coin tray: a deep brass dish with a raised rim, a lit lip under the slot,
-    t.box((0, 0.42, -0.97), (0.84, 0.035, 0.3), BR)                                                 # a heap of coins in one corner and a stack of bills in the other
-    t.box((0, 0.485, -1.115), (0.86, 0.09, 0.03), BR)
-    t.box((0, 0.5, -1.125), (0.86, 0.02, 0.035), "HopYellow")
-    for sx in (-1, 1):
-        t.box((sx * 0.43, 0.485, -0.97), (0.03, 0.09, 0.3), BR)
     t.box((0, 0.665, -0.866), (0.5, 0.012, 0.012), "HopGlow")                                       # the slot is lit from inside: glowing brass lips
     t.box((0, 0.617, -0.866), (0.5, 0.012, 0.012), "HopGlow")
-    rc = rnd(77)
-    for k in range(16):                                                                             # the coin heap (flat gold discs, stacked and scattered)
-        layer = k // 6
-        t.cyl((-0.3 + rc.uniform(-0.07, 0.07), 0.445 + 0.014 * layer, -1.0 + rc.uniform(-0.06, 0.06)), 0.045, 0.045, 0.011, "HopCoin", seg=10)
-    for k in range(4):                                                                              # a stack of bills
-        t.box((0.28, 0.447 + 0.008 * k, -1.0), (0.2, 0.007, 0.1), "HopBill", rot_y=rc.uniform(-0.15, 0.15))
-    t.box((0.28, 0.46, -1.0), (0.05, 0.03, 0.105), "HopYellow")                                     # the paper band round the stack
     for sx in (-1, 1):
         t.bar((sx * 0.55, 1.62, -0.7), (sx * 0.55, 1.35, -0.86), 0.015, 0.015, IR, up=(1, 0, 0))   # the sign's chains
-    t.box((0, 1.28, -0.9), (1.2, 0.2, 0.05), "HopWood")
-    t.box((0, 1.28, -0.93), (1.12, 0.16, 0.01), "HopYellow")
+    t.box((0, 1.28, -0.9), (1.2, 0.22, 0.05), "HopWood")
+    t.box((0, 1.28, -0.93), (1.12, 0.17, 0.01), IR)                                                 # the CASH HOPPER plaque (the game letters it)
+    t.box((0, 1.28, -0.94), (1.16, 0.01, 0.01), "HopYellow")
+    t.box((0, 1.2, -0.935), (1.16, 0.012, 0.012), "HopYellow")
     # ---- the top plate the funnel stands on, the funnel's four brackets, the rim
     t.box((0, 1.4, 0), (1.75, 0.12, 1.75), SD, taper=(0.98, 0.98))
     t.box((0, 1.47, 0), (1.62, 0.03, 1.62), RD)
+    t.box((0, 1.52, -0.77), (0.62, 0.1, 0.16), IR)                                                  # the sale display: a slanted green LED window on the top front (the game writes +$ on it)
+    t.bar((0, 1.57, -0.82), (0, 1.69, -0.72), 0.56, 0.05, IR, up=(0, 1, -0.8))                       # (it rises toward the back, so it faces up and out to the front)
+    t.bar((0, 1.585, -0.815), (0, 1.685, -0.725), 0.5, 0.02, "HopScreenG", up=(0, 1, -0.8))
     for sx in (-1, 1):
         for sz in (-1, 1):
             t.bar((sx * 0.65, 1.46, sz * 0.65), (sx * 0.42, 1.95, sz * 0.42), 0.09, 0.05, SD, up=(0, 1, 0))
@@ -1164,7 +1167,7 @@ def cash_hopper(root):
     fn.cyl((0, 2.03, 0), 0.93, 0.93, 0.02, SN, seg=8)                                               # the dark throat, open under the rim
     for k in range(8):
         a = math.tau * (k + 0.5) / 8
-        fn.box((math.cos(a) * 0.93, 2.14, math.sin(a) * 0.93), (0.8, 0.07, 0.17), YE if k % 2 == 0 else IR, rot_y=-a)       # the hazard rim: a ring of alternating yellow and black plates
+        fn.box((math.cos(a) * 0.93, 2.14, math.sin(a) * 0.93), (0.8, 0.07, 0.17), YE if k % 2 == 0 else IR, rot_y=a + math.pi / 2)       # the hazard rim: a ring of alternating yellow and black plates
         fn.bar((math.cos(a) * 0.52, 1.5, math.sin(a) * 0.52), (math.cos(a) * 0.99, 2.1, math.sin(a) * 0.99), 0.07, 0.035, SD, up=(0, 1, 0))     # ribs
     for k in range(6):
         a = k * 1.1
@@ -1212,20 +1215,47 @@ def cash_hopper(root):
     cyl.cyl((-0.55, 0.7, -0.95), 0.11, 0.11, 0.06, IR, seg=10)
     cyl.finish()
 
-    # ---- the status lamp: a caged dome on the corner of the top plate
-    lm = TM("Lamp_Status", root, loc=(0.6, 1.5, -0.6), holder=True)
-    lm.cyl((0.6, 1.55, -0.6), 0.07, 0.06, 0.1, "HopLamp", seg=8)
-    lm.finish()
+    # ---- two caged amber lamps on the front corners of the top plate (the game lights them, brighter while it works)
+    for nm, lx in (("Lamp_Status", 0.62), ("Lamp_Status2", -0.62)):
+        lm = TM(nm, root, loc=(lx, 1.5, -0.66), holder=True)
+        lm.cyl((lx, 1.58, -0.66), 0.085, 0.075, 0.14, "HopAmber", seg=8)
+        lm.finish()
     cg = TM("LampCage", root, holder=True)
-    cg.cyl((0.6, 1.5, -0.6), 0.1, 0.1, 0.04, IR, seg=8)
-    for k in range(4):
-        a = k * math.pi / 2
-        cg.bar((0.6 + math.cos(a) * 0.08, 1.5, -0.6 + math.sin(a) * 0.08), (0.6 + math.cos(a) * 0.05, 1.63, -0.6 + math.sin(a) * 0.05), 0.012, 0.012, IR, up=(0, 1, 0))
+    for lx in (0.62, -0.62):
+        cg.cyl((lx, 1.5, -0.66), 0.12, 0.12, 0.05, IR, seg=8)
+        cg.cyl((lx, 1.67, -0.66), 0.1, 0.1, 0.03, IR, seg=8)
+        for k in range(6):
+            a = k * math.tau / 6
+            cg.bar((lx + math.cos(a) * 0.1, 1.52, -0.66 + math.sin(a) * 0.1), (lx + math.cos(a) * 0.085, 1.66, -0.66 + math.sin(a) * 0.085), 0.014, 0.014, IR, up=(0, 1, 0))
     cg.finish()
+
+    # ---- the payout drawer: a yellow drawer under the slot that slides out with cash stacks and a few coins in it (the game pulls it out on every payout)
+    dr = TM("Pivot_Drawer", root, loc=(0, 0.43, -0.95), holder=True)
+    dr.box((0, 0.43, -0.97), (0.84, 0.03, 0.32), YE)
+    dr.box((0, 0.485, -1.13), (0.86, 0.12, 0.03), YE)
+    dr.box((0, 0.485, -1.15), (0.3, 0.025, 0.02), BR)
+    for sx in (-1, 1):
+        dr.box((sx * 0.42, 0.47, -0.97), (0.03, 0.09, 0.32), YE)
+    rc = rnd(77)
+    for k in range(3):
+        dr.box((-0.24 + k * 0.17, 0.465, -1.0), (0.14, 0.05, 0.1), "HopBill", rot_y=rc.uniform(-0.1, 0.1))
+        dr.box((-0.24 + k * 0.17, 0.468, -1.0), (0.04, 0.052, 0.104), "HopYellow")
+    for k in range(9):
+        dr.cyl((0.28 + rc.uniform(-0.07, 0.07), 0.45 + 0.012 * (k // 4), -1.0 + rc.uniform(-0.06, 0.06)), 0.045, 0.045, 0.011, "HopCoin", seg=10)
+    dr.finish()
+
+    # ---- the gears behind the grille on the front (they turn while it works)
+    for nm, gx, gr, teeth in (("Pivot_GearA", -0.5, 0.17, 10), ("Pivot_GearB", -0.22, 0.12, 8)):
+        gg = TM(nm, root, loc=(gx, 1.0, -0.9), holder=True)
+        gg.cyl((gx, 1.0, -0.9), gr, gr, 0.03, BR, seg=teeth * 2, axis='z')
+        gg.cyl((gx, 1.0, -0.9), gr * 1.2, gr * 1.2, 0.012, BR, seg=teeth, axis='z')
+        gg.cyl((gx, 1.0, -0.9), gr * 0.35, gr * 0.35, 0.05, IR, seg=6, axis='z')
+        gg.finish()
 
     # ---- attachment points (empties) the game reads
     for nm, loc in (("Attach_Body", (0, 0, 0)), ("Attach_InputFunnel", (0, 1.45, 0)), ("Attach_Processor", (0, 0.55, 0)), ("Attach_ConveyorIn", (0, 0.55, 1.1)),
-                    ("Attach_RockSpawn", (0, 2.35, 0)), ("Attach_Audio", (0, 1.2, 0)), ("Attach_FloatText", (0, 2.6, 0)), ("Attach_Display", (0, 0.95, -0.97))):
+                    ("Attach_RockSpawn", (0, 2.35, 0)), ("Attach_Audio", (0, 1.2, 0)), ("Attach_FloatText", (0, 2.6, 0)), ("Attach_Display", (0.4, 1.0, -0.91)),
+                    ("Attach_SaleDisplay", (0, 1.64, -0.77)), ("Attach_Sign", (0, 1.28, -0.95))):
         TM(nm, root, loc=loc, holder=True).finish()
 
 
