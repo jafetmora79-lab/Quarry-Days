@@ -274,6 +274,8 @@ func _ready() -> void:
 	add_child(music)
 	music.setup(self)
 	GameSettings.apply()                      # effects volume, fullscreen and vsync from the settings file
+	if DisplayServer.get_name() != "headless":
+		add_child(RetroPass.new())            # the optional retro-colour look (Settings > Display; off by default)
 	survey = QuarrySurvey.new()
 	survey.setup(self)
 	ramps = QuarryRamps.new()

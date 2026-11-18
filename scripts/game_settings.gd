@@ -7,6 +7,8 @@ const PATH := "user://settings.cfg"
 static var sfx_volume := 0.8
 static var fullscreen := false
 static var vsync := true
+static var retro := 0                       ## the optional retro-colour look: 0 off, 1 subtle, 2 strong (see RetroPass)
+static var retro_node: Node
 static var loaded := false
 
 static func load_all() -> void:
@@ -15,6 +17,7 @@ static func load_all() -> void:
 		sfx_volume = clampf(float(cf.get_value("audio", "sfx_volume", sfx_volume)), 0.0, 1.0)
 		fullscreen = bool(cf.get_value("display", "fullscreen", false))
 		vsync = bool(cf.get_value("display", "vsync", true))
+		retro = clampi(int(cf.get_value("display", "retro", 0)), 0, 2)
 	loaded = true
 
 static func save_all() -> void:
@@ -23,6 +26,7 @@ static func save_all() -> void:
 	cf.set_value("audio", "sfx_volume", sfx_volume)
 	cf.set_value("display", "fullscreen", fullscreen)
 	cf.set_value("display", "vsync", vsync)
+	cf.set_value("display", "retro", retro)
 	cf.save(PATH)
 
 ## The effects bus: every sound effect the game plays goes through it (QuarryMain._audio, doors, rigs), so one slider sets them all.
@@ -52,6 +56,12 @@ static func set_sfx_volume(v: float) -> void:
 static func set_fullscreen(on: bool) -> void:
 	fullscreen = on
 	apply()
+	save_all()
+
+static func set_retro(level: int) -> void:
+	retro = clampi(level, 0, 2)
+	if retro_node != null and is_instance_valid(retro_node):
+		retro_node.apply(retro)
 	save_all()
 
 static func set_vsync(on: bool) -> void:

@@ -123,6 +123,17 @@ func _audio_page() -> void:
 func _display_page() -> void:
 	_check_row("Fullscreen", "fullscreen", GameSettings.fullscreen, func(v: bool): GameSettings.set_fullscreen(v))
 	_check_row("Vertical sync", "vsync", GameSettings.vsync, func(v: bool): GameSettings.set_vsync(v))
+	var rl := _label("Retro colour (dithered, fewer shades)")
+	_page.add_child(rl)
+	var ob := OptionButton.new()
+	for lv in RetroPass.LEVELS:
+		ob.add_item(str(lv["name"]))
+	ob.selected = GameSettings.retro
+	ob.focus_mode = Control.FOCUS_ALL
+	QuarryTheme.fit(ob, QuarryTheme.BODY)
+	ob.item_selected.connect(func(i: int): GameSettings.set_retro(i))
+	_page.add_child(ob)
+	controls["retro"] = ob
 	_page.add_child(_label("The picture always keeps the game's pixel look: only the window changes.", true))
 
 func _controls_page() -> void:
