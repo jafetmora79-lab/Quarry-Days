@@ -7,7 +7,7 @@ class_name ItemThumbs
 
 signal ready_key(key: String)
 
-const PX := 44                                 ## picture size (shown with nearest filtering at 1x-2x: it keeps the pixel look)
+const PX := 128                                ## picture size (drawn smaller with a smooth filter: crisp edges, no pixel stair-steps)
 var cache := {}                                ## key -> ImageTexture
 var failed := {}                               ## key -> true when it could not be rendered
 var _queue: Array = []                         ## [key, Callable returning a Node3D]
@@ -25,7 +25,7 @@ func _ready() -> void:
 	_vp.size = Vector2i(PX, PX)
 	_vp.own_world_3d = true
 	_vp.transparent_bg = true
-	_vp.msaa_3d = Viewport.MSAA_DISABLED
+	_vp.msaa_3d = Viewport.MSAA_4X
 	_vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	_vp.handle_input_locally = false
 	_vp.gui_disable_input = true
@@ -106,6 +106,7 @@ func _render(key: String, build: Callable, mode: String, px: int) -> void:
 	if img == null or img.is_empty() or not _has_pixels(img):
 		failed[key] = true
 		return
+	img.generate_mipmaps()
 	var tex := ImageTexture.create_from_image(img)
 	cache[key] = tex
 	ready_key.emit(key)

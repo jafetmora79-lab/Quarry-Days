@@ -1,12 +1,11 @@
 extends HBoxContainer
 class_name QuarryHotbar
-## The tool hotbar: five compact slots along the bottom centre. Each shows its number and a picture of the real item (a cached thumbnail rendered
+## The tool hotbar: compact slots (four, more as tools are bought) along the bottom centre. Each shows its number and a picture of the real item (a cached thumbnail rendered
 ## from the game's own 3D model, see ItemThumbs); the one in hand has an amber border. A slot with no item stays empty. While a picture is
 ## still being made (or cannot be made, as in the headless test runner) the slot shows the item's name in small letters instead of any
 ## substitute drawing, so it never shows the wrong item.
 
-const SLOT := Vector2(48, 48)
-const COUNT := 5
+const SLOT := Vector2(54, 54)
 var thumbs: ItemThumbs                       ## set by the HUD
 var _sig := ""
 var _slots: Array = []
@@ -29,7 +28,7 @@ func set_slots(slots: Array, cur: int) -> void:
 	for c in get_children():
 		remove_child(c)
 		c.queue_free()
-	for i in range(COUNT):
+	for i in range(maxi(1, slots.size())):
 		var item: Dictionary = slots[i] if i < slots.size() else {}
 		var on := i == cur and not item.is_empty()
 		var p := PanelContainer.new()
@@ -72,7 +71,7 @@ func set_slots(slots: Array, cur: int) -> void:
 				var tr := TextureRect.new()
 				tr.name = "Icon"
 				tr.texture = tex
-				tr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+				tr.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 				tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 				tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 				tr.mouse_filter = Control.MOUSE_FILTER_IGNORE

@@ -1524,7 +1524,7 @@ func _make_player_body() -> void:
 		player_body = null
 
 func _player_body_tick(delta: float) -> void:
-	var in_machine := driving != null or QuarryBoarding.active > 0          # in a machine, or on the way in / out of its cab: no tool and no hands in the view
+	var in_machine := driving != null or QuarryBoarding.active > 0 or _engine_scene          # in a machine, or on the way in / out of its cab: no tool and no hands in the view
 	var tvh: QuarryToolView = player.tool_view
 	if tvh != null and tvh.hidden_by_vehicle != in_machine:
 		tvh.hidden_by_vehicle = in_machine
@@ -1911,6 +1911,11 @@ func _terrain_strike(point: Vector3) -> Dictionary:
 	return res
 
 ## What the player is told when the ground cannot be dug any further here.
+func _machine_limit_message(why: String) -> String:
+	if why == "floor":
+		return "The bucket is at this bench's floor. Open the next quarry level and build its access road before cutting deeper."
+	return "The cut is too steep and narrow for the machine to go deeper. Widen it and cut a ramp or bench."
+
 func _dig_limit_message(why: String) -> String:
 	if why == "floor":
 		return "This bench is as deep as it goes for now. Open the next quarry level (and build its access road) to dig deeper."
@@ -3812,10 +3817,12 @@ func _excavator_start_scene(v: QuarryVehicle) -> void:
 ## The first start: the view rises into the operator's seat, the key is turned, the starter cranks and the engine coughs and stalls once (the fuel needs a moment to
 ## reach the pump), the second crank catches, the machine shudders into a steady idle and puffs exhaust. Then Grandpa's line and the controls unlock.
 var _cam_home := Vector3.ZERO
+var _engine_scene := false                 ## the first-start scene is playing: the player sits in the cab, so no tool and no hands in the view
 var _engine_audio: AudioStreamPlayer3D
 
 func _engine_struggle(v: QuarryVehicle) -> void:
 	repair_busy = true
+	_engine_scene = true
 	player.locked = true
 	_cam_home = player.camera.position
 	var cab: Node3D = v.turret if v.turret != null else v.model_root
@@ -3890,6 +3897,7 @@ func _engine_runs(v: QuarryVehicle, base: Vector3) -> void:
 	_open_walter_dialog(prog.opening_cfg().get("running_lines", []), func(_s2: bool): _after_start(), true)
 
 func _after_start() -> void:
+	_engine_scene = false
 	var sv := _starter_vehicle()
 	if boarding_enabled and sv != null and QuarryBoarding.has_cab(sv):
 		var cam := player.camera
@@ -6044,6 +6052,9 @@ func loader_primary(v: QuarryVehicle) -> int:
 		var upm := float(lt.geo.props(mid0).get("units_per_m3", 5.0))
 		var tres: Dictionary = lt.terrain.cut_box(Vector3(point.x, gy - 0.3, point.z), Vector3(right.x, 0.0, right.z).normalized(), Vector3(fwd.x, 0.0, fwd.z).normalized(), 1.1, 0.2, 1.4, float(fleet.space(rec)) / upm, int(fleet.spec(v.vtype).get("dig_hardness", 0)))
 		got = _cargo_from_taken(rec, v.vehicle_id, tres["taken"], "")
+		if got == 0 and str(tres.get("limit", "")) != "":
+			_notify(_machine_limit_message(str(tres["limit"])))
+			return 0
 		if got > 0:
 			source = "the ground"
 			dig_audio.play("dig", mid0, point, 1.2)
@@ -6297,6 +6308,11 @@ func _excavator_dig_terrain(v: QuarryVehicle, t: Dictionary, delta: float) -> vo
 		v.digging = false
 		dig_audio.play("blocked", str(res["blocked_by"]), pt, 1.0)
 		_notify("The %s cannot break %s. A bigger machine or a drilling rig is needed." % [str(s["title"]).to_lower(), prog.display(str(lt.geo.props(str(res["blocked_by"]))["resource"]))])
+		return
+	if str(res.get("limit", "")) != "" and float(res["volume"]) <= 0.00001:
+		v.digging = false
+		dig_audio.play("blocked", mat_id, pt, 0.8)
+		_notify(_machine_limit_message(str(res["limit"])))
 		return
 	_cargo_from_taken(rec, v.vehicle_id, res["taken"], prog.area_of_formation(kind))
 	if float(res["volume"]) > 0.0 and power_feedback_t <= 0.0:

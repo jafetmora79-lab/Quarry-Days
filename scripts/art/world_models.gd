@@ -22,7 +22,7 @@ const COLOURS := {
 	"IncWater": Color(0.40, 0.62, 0.78), "FossilBone": Color(0.84, 0.78, 0.62), "FossilEgg": Color(0.66, 0.62, 0.54), "Slab": Color(0.46, 0.42, 0.36), "SlabLt": Color(0.60, 0.55, 0.46),
 	"HopSteel": Color(0.31, 0.39, 0.34), "HopSteelDk": Color(0.20, 0.26, 0.23), "HopRust": Color(0.49, 0.27, 0.13), "HopRustDk": Color(0.33, 0.18, 0.09),
 	"HopYellow": Color(0.90, 0.69, 0.13), "HopIron": Color(0.15, 0.15, 0.16), "HopBrass": Color(0.80, 0.61, 0.24), "HopConcrete": Color(0.50, 0.50, 0.47), "HopStain": Color(0.22, 0.20, 0.17),
-	"HopScreen": Color(0.10, 0.18, 0.12), "HopWood": Color(0.42, 0.29, 0.17), "HopRock": Color(0.70, 0.68, 0.62),
+	"HopScreen": Color(0.10, 0.18, 0.12), "HopBill": Color(0.45, 0.70, 0.42), "HopWood": Color(0.42, 0.29, 0.17), "HopRock": Color(0.70, 0.68, 0.62),
 	"LimeDark": Color(0.66, 0.62, 0.54), "LimeLight": Color(0.86, 0.82, 0.72), "LimeBand": Color(0.74, 0.58, 0.44),
 	"CoalBody": Color(0.10, 0.10, 0.11), "CoalDark": Color(0.05, 0.05, 0.06), "CoalSheen": Color(0.42, 0.46, 0.52),
 	"IronRock": Color(0.36, 0.26, 0.21), "IronRed": Color(0.66, 0.24, 0.11), "IronBlack": Color(0.15, 0.13, 0.13),
@@ -111,6 +111,10 @@ static func material_for(name: String) -> Material:
 		m = MeshKit.flat(Color(1.0, 0.78, 0.16), 0.45)
 	elif name == "HopLamp":
 		m = MeshKit.flat(Color(0.9, 0.2, 0.12), 1.2)
+	elif name == "HopGlow":
+		m = MeshKit.flat(Color(1.0, 0.8, 0.3), 1.5)
+	elif name == "HopCoin":
+		m = MeshKit.flat(Color(0.98, 0.78, 0.22), 0.3)
 	elif name == "Amber":
 		m = MeshKit.flat(Color(1.0, 0.72, 0.30), 1.6)
 	elif name == "PickGlass":

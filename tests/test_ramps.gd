@@ -248,7 +248,7 @@ func run() -> void:
 	for sl in hb.get_children():
 		if sl.find_child("Name", true, false) != null or sl.find_child("Icon", true, false) != null:
 			filled_slots += 1
-	check(hb != null and hb.get_child_count() == 5 and filled_slots == game.prog.hotbar().size() and hb.is_visible_in_tree(), "the hotbar has five slots, one filled per tool")
+	check(hb != null and hb.get_child_count() == maxi(1, game.prog.hotbar().size()) and filled_slots == game.prog.hotbar().size() and hb.is_visible_in_tree(), "the hotbar has one slot per tool, no empty ones (four at the start)")
 	check(not game._inside_dig_perimeter(str(game.prog.area_def("area_1")["formations"][0]), Vector3(150.0, 0.0, -15.0)) and game._inside_dig_perimeter(str(game.prog.area_def("area_1")["formations"][0]), Vector3(0.0, 0.0, -15.0)), "the starter cut can only be dug inside its survey lines")
 	var rbody: Node = R.bodies[rid] if R.bodies.has(rid) else null
 	var rmat = null

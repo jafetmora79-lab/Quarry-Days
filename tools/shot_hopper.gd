@@ -47,6 +47,7 @@ func run():
 	look(cam, c + Vector3(-2.2, 1.5, -3.0), c + Vector3(0, 1.0, 0))
 	for i in 20:
 		await physics_frame
+	look(cam, c + Vector3(-1.2, 1.3, -2.6), c + Vector3(0, 0.8, -0.9))
 	for k in range(8):
-		await shot("hopper_seq_%d" % k, out, 5)
+		await shot("hopper_seq_%d" % k, out, 6)
 	quit()

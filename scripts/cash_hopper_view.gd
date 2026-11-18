@@ -47,6 +47,8 @@ var _rng := RandomNumberGenerator.new()
 var _last_current := ""
 var piston: Node3D                       ## the ram on the front corner: pumps while it works (the Blender model)
 var funnel_node: Node3D                  ## the funnel: it shivers while rock goes through
+var _funnel_y0 := 0.0                    ## the heights the funnel and the ram stand at (their shiver and pumping are offsets from these, not absolute heights)
+var _piston_y0 := 0.0
 var lamp: MeshInstance3D                 ## the status lamp: green while selling, amber when idle
 var _t := 0.0
 var _work := 0.0                         ## 0..1 how hard the machine is working (eased: it winds up and down)
@@ -111,6 +113,10 @@ func setup(g, i: int) -> void:
 			fill = model.find_child("Fill", true, false) as MeshInstance3D
 			if fill != null:
 				fill.visible = false
+	if funnel_node != null:
+		_funnel_y0 = funnel_node.position.y
+	if piston != null:
+		_piston_y0 = piston.position.y
 	if model == null:
 		_build_placeholder()
 	display = Label3D.new()
@@ -245,10 +251,10 @@ func _process(delta: float) -> void:
 	_fw_speed = move_toward(_fw_speed, (7.0 + 0.5 * minf(b.cash_rate(index), 40.0)) * (1.0 if working else 0.0), delta * (30.0 if working else 7.0))
 	fw.rotation.x += delta * _fw_speed
 	if piston != null:
-		piston.position.y = sin(_t * (9.0 + 0.15 * minf(b.cash_rate(index), 60.0))) * 0.05 * _work         # the ram pumps
+		piston.position.y = _piston_y0 + sin(_t * (9.0 + 0.15 * minf(b.cash_rate(index), 60.0))) * 0.05 * _work         # the ram pumps
 	if funnel_node != null:
 		funnel_node.rotation.z = sin(_t * 41.0) * 0.006 * _work                                                # the funnel shivers
-		funnel_node.position.y = absf(sin(_t * 33.0)) * 0.004 * _work
+		funnel_node.position.y = _funnel_y0 + absf(sin(_t * 33.0)) * 0.004 * _work
 	if lamp != null and _lamp_on != int(working):
 		_lamp_on = int(working)
 		var lm := StandardMaterial3D.new()
@@ -353,39 +359,104 @@ func _bills(units: int) -> void:
 		tw.tween_property(bill, "scale", Vector3.ZERO, 0.2)
 		tw.tween_callback(bill.queue_free)
 
-## A few gold coins drop out of the slot, clink down the chute and settle in the tray (never one per unit).
+## Gold coins are spat out of the slot in little arcs, spinning, land on the tray with a bounce and a glint, and lie there a moment before they vanish (never one per unit).
 func _coin_burst(units: int) -> void:
 	if model == null:
 		return
-	var n := mini(units, 5)
+	var n := clampi(2 + units / 3, 2, 8)
+	var cm := CylinderMesh.new()
+	cm.top_radius = 0.05
+	cm.bottom_radius = 0.05
+	cm.height = 0.014
+	cm.radial_segments = 14
+	var rim := CylinderMesh.new()                                         # a raised rim: the coin reads as a coin from every angle
+	rim.top_radius = 0.052
+	rim.bottom_radius = 0.052
+	rim.height = 0.009
+	rim.radial_segments = 14
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(1.0, 0.80, 0.22)
+	m.metallic = 0.7
+	m.roughness = 0.3
+	m.emission_enabled = true
+	m.emission = Color(1.0, 0.72, 0.15)
+	m.emission_energy_multiplier = 0.45
 	for k in range(n):
 		var coin := MeshInstance3D.new()
-		var cm := CylinderMesh.new()
-		cm.top_radius = 0.055
-		cm.bottom_radius = 0.055
-		cm.height = 0.012
-		cm.radial_segments = 8
 		coin.mesh = cm
-		var m := StandardMaterial3D.new()
-		m.albedo_color = Color(1.0, 0.82, 0.25)
-		m.emission_enabled = true
-		m.emission = Color(1.0, 0.75, 0.2)
-		m.emission_energy_multiplier = 0.5
 		coin.material_override = m
-		var x0 := _rng.randf_range(-0.2, 0.2)
-		coin.position = SLOT + Vector3(x0, 0.0, 0.0)
-		coin.rotation = Vector3(_rng.randf() * 3.0, 0.0, _rng.randf() * 3.0)
+		var face := MeshInstance3D.new()
+		face.mesh = rim
+		face.position = Vector3(0, 0.003, 0)
+		var fm := StandardMaterial3D.new()
+		fm.albedo_color = Color(1.0, 0.9, 0.5)
+		fm.emission_enabled = true
+		fm.emission = Color(1.0, 0.85, 0.35)
+		fm.emission_energy_multiplier = 0.5
+		face.material_override = fm
+		face.scale = Vector3(0.66, 1.0, 0.66)
+		coin.add_child(face)
+		var x0 := _rng.randf_range(-0.16, 0.16)
+		var start := SLOT + Vector3(x0, 0.0, -0.01)
+		coin.position = start
+		coin.scale = Vector3.ZERO
+		coin.rotation = Vector3(_rng.randf() * 3.0, _rng.randf() * 3.0, 0.0)
 		add_child(coin)
-		var land := TRAY + Vector3(x0 + _rng.randf_range(-0.1, 0.1), 0.0, _rng.randf_range(0.0, 0.05))
-		var apex := Vector3((coin.position.x + land.x) * 0.5, SLOT.y + 0.1 + _rng.randf() * 0.1, SLOT.z - 0.12)
+		var land := TRAY + Vector3(clampf(x0 * 1.3 + _rng.randf_range(-0.08, 0.08), -0.2, 0.2), 0.0, _rng.randf_range(-0.05, 0.07))
+		var apex_h := 0.2 + _rng.randf() * 0.12
+		var spin := Vector3(_rng.randf_range(9.0, 15.0), _rng.randf_range(-3.0, 3.0), _rng.randf_range(-2.0, 2.0))
 		var tw := create_tween()
-		tw.tween_interval(0.05 * float(k))
-		tw.tween_property(coin, "position", apex, 0.1).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-		tw.tween_property(coin, "position", land, 0.14).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-		tw.parallel().tween_property(coin, "rotation", coin.rotation + Vector3(6.0, 0.0, 4.0), 0.24)
-		tw.tween_interval(0.7)
-		tw.tween_property(coin, "scale", Vector3.ZERO, 0.2)
+		tw.tween_interval(0.06 * float(k))
+		tw.tween_property(coin, "scale", Vector3.ONE, 0.04)
+		tw.tween_method(_coin_arc.bind(coin, start, land, apex_h, spin), 0.0, 1.0, 0.36)
+		tw.tween_callback(_coin_land.bind(land, k))
+		var hop := land + Vector3(_rng.randf_range(-0.04, 0.04), 0.0, _rng.randf_range(0.02, 0.06))
+		tw.tween_method(_coin_arc.bind(coin, land, hop, 0.05, spin * 0.2), 0.0, 1.0, 0.16)
+		tw.tween_property(coin, "rotation", Vector3(0.0, coin.rotation.y, _rng.randf_range(-0.15, 0.15)), 0.1)     # settles flat
+		tw.tween_interval(0.9)
+		tw.tween_property(coin, "scale", Vector3.ZERO, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
 		tw.tween_callback(coin.queue_free)
+
+## One point on a coin's arc: ground path from a to b, a parabola of height h over it, and the spin easing off.
+func _coin_arc(t: float, coin: Node3D, a: Vector3, b: Vector3, h: float, spin: Vector3) -> void:
+	if not is_instance_valid(coin):
+		return
+	coin.position = a.lerp(b, t) + Vector3(0.0, 4.0 * h * t * (1.0 - t), 0.0)
+	coin.rotation += spin * 0.016 * (1.0 - t)
+
+## A coin touches the tray: a little gold glint.
+func _coin_land(at: Vector3, k: int) -> void:
+	if not is_inside_tree() or k % 2 == 1:
+		return
+	var q := MeshInstance3D.new()
+	var qm := QuadMesh.new()
+	qm.size = Vector2(0.14, 0.14)
+	q.mesh = qm
+	var gm := StandardMaterial3D.new()
+	gm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	gm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	gm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	var gt := GradientTexture2D.new()                                     # a soft round glow, not a square
+	gt.fill = GradientTexture2D.FILL_RADIAL
+	gt.fill_from = Vector2(0.5, 0.5)
+	gt.fill_to = Vector2(1.0, 0.5)
+	gt.width = 32
+	gt.height = 32
+	var gr := Gradient.new()
+	gr.colors = PackedColorArray([Color(1, 0.95, 0.7, 1), Color(1, 0.8, 0.3, 0)])
+	gt.gradient = gr
+	gm.albedo_texture = gt
+	gm.albedo_color = Color(1.0, 0.86, 0.4, 0.95)
+	gm.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	gm.no_depth_test = true
+	q.material_override = gm
+	q.position = at + Vector3(0.0, 0.05, -0.02)
+	q.scale = Vector3.ZERO
+	add_child(q)
+	var tw := create_tween()
+	tw.tween_property(q, "scale", Vector3.ONE * 1.3, 0.08).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(q, "scale", Vector3.ZERO, 0.18)
+	tw.tween_callback(q.queue_free)
 
 func _coin_sound(units: int) -> void:
 	if audio == null or not is_inside_tree():
@@ -460,22 +531,30 @@ func _show_float(money: int) -> void:
 	if _live_floats >= 4 or money <= 0:
 		return
 	_live_floats += 1
+	var big := money >= 50
 	var l := Label3D.new()
-	l.text = "+" + QuarryTheme.money_text(money)
-	l.font_size = 56 if money < 100 else 72
+	l.text = "+" + QuarryTheme.money_text(int(round(float(money) * 0.3)))
+	l.font_size = 44 if money < 100 else 60
 	l.pixel_size = 0.008
-	l.outline_size = 10
+	l.outline_size = 14
 	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	l.no_depth_test = true
-	l.modulate = Color(0.45, 1.0, 0.45) if money < 50 else Color(1.0, 0.82, 0.25)        # green, amber for a big burst
-	l.outline_modulate = Color(0.04, 0.12, 0.04) if money < 50 else Color(0.25, 0.14, 0.0)
-	l.position = TRAY + Vector3(_rng.randf_range(-0.15, 0.15), 0.35, -0.15)
+	l.modulate = Color(0.45, 1.0, 0.45) if not big else Color(1.0, 0.84, 0.28)        # green, gold for a big burst
+	l.outline_modulate = Color(0.04, 0.14, 0.04) if not big else Color(0.30, 0.16, 0.0)
+	var x0 := _rng.randf_range(-0.15, 0.15)
+	l.position = TRAY + Vector3(x0, 0.3, -0.15)
+	l.scale = Vector3.ONE * 0.3
 	add_child(l)
 	var t := create_tween()
-	t.tween_property(l, "position:y", l.position.y + 1.2, 1.1).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	t.parallel().tween_property(l, "modulate:a", 0.0, 1.1).set_delay(0.35)
-	t.parallel().tween_property(l, "outline_modulate:a", 0.0, 1.1).set_delay(0.35)
-	t.tween_callback(func():
+	t.tween_property(l, "scale", Vector3.ONE * 1.25, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)      # it pops out of the tray ...
+	t.tween_property(l, "scale", Vector3.ONE, 0.12).set_trans(Tween.TRANS_SINE)
+	t.parallel().tween_method(func(v: float): l.text = "+" + QuarryTheme.money_text(int(round(float(money) * v))), 0.3, 1.0, 0.45).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)      # ... and counts up
+	var rise := create_tween()
+	rise.tween_property(l, "position:y", l.position.y + 1.1, 1.3).set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+	rise.parallel().tween_method(func(v: float): l.position.x = x0 + sin(v * 7.0) * 0.06 * v, 0.0, 1.0, 1.3)
+	rise.parallel().tween_property(l, "modulate:a", 0.0, 0.5).set_delay(0.85)
+	rise.parallel().tween_property(l, "outline_modulate:a", 0.0, 0.5).set_delay(0.85)
+	rise.tween_callback(func():
 		_live_floats -= 1
 		l.queue_free())
 

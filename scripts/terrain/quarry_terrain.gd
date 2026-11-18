@@ -361,6 +361,7 @@ func cut_box(lip: Vector3, right: Vector3, fwd: Vector3, half_width: float, back
 	var reach := int(ceil((half_width + maxf(back, ahead)) / CELL)) + 1
 	var left := budget / AREA
 	var blocked: Array = []
+	var floor_hit := false
 	for j in range(maxi(0, g.y - reach), mini(VR - 1, g.y + reach) + 1):
 		for i in range(maxi(0, g.x - reach), mini(V - 1, g.x + reach) + 1):
 			var k := idx(i, j)
@@ -377,6 +378,8 @@ func cut_box(lip: Vector3, right: Vector3, fwd: Vector3, half_width: float, back
 			if depth_floor.is_valid():
 				var fy: float = depth_floor.call(vp.x, vp.z)
 				if not is_nan(fy):
+					if fy > target and h <= fy + 0.0005 and h > lip.y + 0.01:
+						floor_hit = true                      # the bucket would go deeper if the bench allowed it
 					target = maxf(target, fy)
 			if h <= target + 0.0005:
 				continue
@@ -391,6 +394,8 @@ func cut_box(lip: Vector3, right: Vector3, fwd: Vector3, half_width: float, back
 				_dirty_vertex(i, j)
 	if not blocked.is_empty():
 		res["blocked_by"] = blocked[0]
+	if floor_hit and float(res["volume"]) <= 0.0000001:
+		res["limit"] = "floor"
 	return res
 
 ## Adds exactly the given volumes (m3 per material) as a soft mound centred at p. Returns what could not be placed (all vertices locked).

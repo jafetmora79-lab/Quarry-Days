@@ -866,7 +866,7 @@ func _set_hotbar(prog: QuarryProgression) -> void:
 		hotbar_view.set_anchor(SIDE_BOTTOM, 1.0)
 		hotbar_view.offset_left = -130
 		hotbar_view.offset_right = 130
-		hotbar_view.offset_top = -80
+		hotbar_view.offset_top = -84
 		hotbar_view.offset_bottom = -28
 		hotbar_view.thumbs = thumbs
 		tool_pips.visible = false

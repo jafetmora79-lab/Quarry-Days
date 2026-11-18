@@ -106,6 +106,9 @@ Q.MATERIALS.update({
     "HopStain":  (None, (0.22, 0.2, 0.17), 1.0, 0.0, {}),
     "HopScreen": (None, (0.10, 0.18, 0.12), 0.3, 0.0, {}),
     "HopLamp":   (None, (0.9, 0.2, 0.12), 0.4, 0.0, {"emit": 1.2}),
+    "HopGlow":   (None, (1.0, 0.78, 0.25), 0.4, 0.0, {"emit": 1.4}),
+    "HopCoin":   (None, (0.95, 0.74, 0.2), 0.35, 0.7, {}),
+    "HopBill":   (None, (0.45, 0.70, 0.42), 0.9, 0.0, {}),
     "HopWood":   (None, (0.42, 0.29, 0.17), 1.0, 0.0, {}),
     "HopRock":   (None, (0.70, 0.68, 0.62), 1.0, 0.0, {}),
 })
@@ -1116,9 +1119,21 @@ def cash_hopper(root):
     t.slab(0.62, -0.86, 0.5, 0.47, -1.0, 0.54, 0.025, BR, x=0.0)
     for sx in (-1, 1):
         t.box((sx * 0.27, 0.57, -0.93), (0.025, 0.12, 0.17), BR)                                    # chute cheeks
-    t.box((0, 0.48, -0.9), (0.9, 0.08, 0.1), SD)                                                    # the coin tray lip and its tray
-    t.box((0, 0.42, -0.95), (0.8, 0.04, 0.2), BR)
-    t.box((0, 0.46, -1.04), (0.8, 0.08, 0.02), BR)
+    t.box((0, 0.48, -0.9), (0.9, 0.08, 0.1), SD)                                                    # the coin tray: a deep brass dish with a raised rim, a lit lip under the slot,
+    t.box((0, 0.42, -0.97), (0.84, 0.035, 0.3), BR)                                                 # a heap of coins in one corner and a stack of bills in the other
+    t.box((0, 0.485, -1.115), (0.86, 0.09, 0.03), BR)
+    t.box((0, 0.5, -1.125), (0.86, 0.02, 0.035), "HopYellow")
+    for sx in (-1, 1):
+        t.box((sx * 0.43, 0.485, -0.97), (0.03, 0.09, 0.3), BR)
+    t.box((0, 0.665, -0.866), (0.5, 0.012, 0.012), "HopGlow")                                       # the slot is lit from inside: glowing brass lips
+    t.box((0, 0.617, -0.866), (0.5, 0.012, 0.012), "HopGlow")
+    rc = rnd(77)
+    for k in range(16):                                                                             # the coin heap (flat gold discs, stacked and scattered)
+        layer = k // 6
+        t.cyl((-0.3 + rc.uniform(-0.07, 0.07), 0.445 + 0.014 * layer, -1.0 + rc.uniform(-0.06, 0.06)), 0.045, 0.045, 0.011, "HopCoin", seg=10)
+    for k in range(4):                                                                              # a stack of bills
+        t.box((0.28, 0.447 + 0.008 * k, -1.0), (0.2, 0.007, 0.1), "HopBill", rot_y=rc.uniform(-0.15, 0.15))
+    t.box((0.28, 0.46, -1.0), (0.05, 0.03, 0.105), "HopYellow")                                     # the paper band round the stack
     for sx in (-1, 1):
         t.bar((sx * 0.55, 1.62, -0.7), (sx * 0.55, 1.35, -0.86), 0.015, 0.015, IR, up=(1, 0, 0))   # the sign's chains
     t.box((0, 1.28, -0.9), (1.2, 0.2, 0.05), "HopWood")
@@ -1146,10 +1161,10 @@ def cash_hopper(root):
     fn = TM("Pivot_Funnel", root, loc=(0, 1.45, 0), holder=True)
     fn.cyl((0, 1.78, 0), 0.5, 0.98, 0.66, RU, seg=8)
     fn.cyl((0, 1.78, 0), 0.47, 0.94, 0.68, SN, seg=8)                                               # the inside, dark
-    fn.cyl((0, 2.13, 0), 1.02, 1.02, 0.06, YE, seg=8)                                               # the hazard rim
+    fn.cyl((0, 2.03, 0), 0.93, 0.93, 0.02, SN, seg=8)                                               # the dark throat, open under the rim
     for k in range(8):
         a = math.tau * (k + 0.5) / 8
-        fn.box((math.cos(a) * 0.74, 2.14, math.sin(a) * 0.74), (0.2, 0.05, 0.07), IR, rot_y=-a)       # black hazard segments on the rim
+        fn.box((math.cos(a) * 0.93, 2.14, math.sin(a) * 0.93), (0.8, 0.07, 0.17), YE if k % 2 == 0 else IR, rot_y=-a)       # the hazard rim: a ring of alternating yellow and black plates
         fn.bar((math.cos(a) * 0.52, 1.5, math.sin(a) * 0.52), (math.cos(a) * 0.99, 2.1, math.sin(a) * 0.99), 0.07, 0.035, SD, up=(0, 1, 0))     # ribs
     for k in range(6):
         a = k * 1.1

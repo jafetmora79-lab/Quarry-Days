@@ -453,6 +453,7 @@ func _build_dig_boundary(vis: Node3D) -> void:
 	var z1 := maxf(a.z, b.z)
 	var stakes := MeshKit.Soup.new()
 	var tape := MeshKit.Soup.new()
+	var store_loc := to_loc(Vector3(game.STORAGE_POS.x, 0.0, game.STORAGE_POS.z)) if game != null else Vector3(1e9, 0, 1e9)
 	var corners := [Vector2(x0, z0), Vector2(x1, z0), Vector2(x1, z1), Vector2(x0, z1)]
 	var gate_gap := 7.0                                       # the entrance from the gate stays open
 	for k in range(4):
@@ -467,14 +468,25 @@ func _build_dig_boundary(vis: Node3D) -> void:
 			MeshKit.box_into(stakes, Vector3(q0.x, 1.12, q0.y), Vector3(0.2, 0.08, 0.2))
 			if absf((q0.x + q1.x) * 0.5) < gate_gap and absf((q0.y + q1.y) * 0.5 - z1) < 1.0:
 				continue
-			for yy in [0.78, 0.92]:
-				tape.quad(Vector3(q0.x, yy, q0.y), Vector3(q1.x, yy, q1.y), Vector3(q1.x, yy + 0.1, q1.y), Vector3(q0.x, yy + 0.1, q0.y))
-				tape.quad(Vector3(q0.x, yy, q0.y), Vector3(q0.x, yy + 0.1, q0.y), Vector3(q1.x, yy + 0.1, q1.y), Vector3(q1.x, yy, q1.y))
+			var pieces := maxi(1, int(ceil((q1 - q0).length() / 1.0)))          # tape in 1 m pieces, so it can be left out where something stands on the line
+			for pc in range(pieces):
+				var t0 := q0 + (q1 - q0) * (float(pc) / float(pieces))
+				var t1 := q0 + (q1 - q0) * (float(pc + 1) / float(pieces))
+				if game != null and (Vector2(t0.x + t1.x, t0.y + t1.y) * 0.5).distance_to(Vector2(store_loc.x, store_loc.z)) < 2.6:
+					continue                                        # (the storage bin stands on the survey line: the tape stops short of it instead of running into it)
+				for yy in [0.78, 0.92]:
+					tape.quad(Vector3(t0.x, yy, t0.y), Vector3(t1.x, yy, t1.y), Vector3(t1.x, yy + 0.1, t1.y), Vector3(t0.x, yy + 0.1, t0.y))
+					tape.quad(Vector3(t0.x, yy, t0.y), Vector3(t0.x, yy + 0.1, t0.y), Vector3(t1.x, yy + 0.1, t1.y), Vector3(t1.x, yy, t1.y))
 	for k in range(4):
 		var c: Vector2 = corners[k]
 		MeshKit.box_into(stakes, Vector3(c.x, 0.9, c.y), Vector3(0.22, 1.8, 0.22), Vector2(0.8, 0.8))
 	MeshKit.inst(vis, stakes.mesh(), MeshKit.flat(Color(0.95, 0.55, 0.12))).name = "DigStakes"
-	MeshKit.inst(vis, tape.mesh(), MeshKit.mat("Hazard")).name = "DigTape"
+	var tape_mat := MeshKit.mat("Hazard").duplicate() as StandardMaterial3D        # survey tape is see-through, with no collision: people and machines pass through it
+	if tape_mat != null:
+		tape_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		tape_mat.albedo_color = Color(1, 1, 1, 0.6)
+		tape_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	MeshKit.inst(vis, tape.mesh(), tape_mat if tape_mat != null else MeshKit.mat("Hazard")).name = "DigTape"
 
 func _wob(y: float, x: float, z: float) -> float:
 	return y + 0.02 * sin(x * 0.9 + z * 0.4)
