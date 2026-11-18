@@ -113,7 +113,7 @@ def build():
         return i
 
     i = new("workers"); person(i, 10, 4, YEL, BLU); person(i, 21, 8, ORG, GRN)
-    i = new("hire"); person(i, 12, 4, YEL, BLU); i.rect(22, 18, 30, 20, GRN); i.rect(25, 15, 27, 23, GRN)
+    i = new("hire"); person(i, 12, 4, YEL, BLU); i.rect(19, 19, 30, 21, GRN); i.rect(23, 15, 25, 25, GRN)
     i = new("payroll"); i.rect(3, 9, 28, 22, GRN); i.rect(5, 11, 26, 20, C(150, 206, 110)); i.circ(15, 15, 4, GRN); i.rect(15, 12, 16, 18, DARK); i.rect(2, 22, 29, 24, C(70, 120, 50))
     i = new("production"); gear(i, 16, 15, 8, STEEL); i.rect(6, 25, 26, 28, YEL)
     i = new("equipment"); i.line(8, 24, 21, 11, STEEL, 4); i.circ(23, 9, 6, STEEL); i.rect(21, 3, 25, 8, DARK); i.circ(7, 25, 3, STEEL_D)
@@ -131,7 +131,7 @@ def build():
     i = new("sun"); i.circ(16, 16, 7, YEL)
     for k in range(8):
         a = k * math.pi / 4
-        i.line(round(16 + math.cos(a) * 10), round(16 + math.sin(a) * 10), round(16 + math.cos(a) * 14), round(16 + math.sin(a) * 14), ORG, 2)
+        i.line(round(16 + math.cos(a) * 6), round(16 + math.sin(a) * 6), round(16 + math.cos(a) * 14), round(16 + math.sin(a) * 14), ORG, 2)
     i = new("storage"); i.rect(3, 8, 28, 27, WOOD); i.rect(3, 8, 28, 12, WOOD_D); i.rect(14, 8, 17, 27, STEEL_D); i.rect(3, 17, 28, 18, WOOD_D); i.circ(15, 17, 2, STEEL_L)
     i = new("crusher"); i.poly([(3, 4), (29, 4), (22, 14), (10, 14)], STEEL); i.rect(8, 14, 24, 25, STEEL_D); i.rect(4, 25, 28, 28, DARK); i.circ(16, 20, 3, YEL); i.circ(9, 3, 2, STONE); i.circ(18, 2, 2, STONE)
     i = new("conveyor"); i.rect(2, 16, 29, 22, STEEL_D); i.circ(5, 19, 4, STEEL); i.circ(26, 19, 4, STEEL); i.rect(8, 14, 23, 15, DARK); i.poly([(12, 14), (15, 9), (20, 10), (21, 14)], STONE); i.rect(4, 24, 6, 28, STEEL); i.rect(25, 24, 27, 28, STEEL)

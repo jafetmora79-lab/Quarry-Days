@@ -38,10 +38,12 @@ func run() -> void:
 	var body: Font = QuarryTheme.body()
 	var fv := body as FontVariation
 	check(fv != null and fv.base_font.get_font_name().contains("Nunito"), "1 body text is Nunito Sans, antialiased")
-	check((QuarryTheme.head() as FontVariation).base_font.get_font_name().contains("Pixelify") and (QuarryTheme.display() as FontVariation).base_font.get_font_name().contains("Pixelify"), "2 headings and signs are Pixelify Sans")
-	check(QuarryTheme.hud().get_font_name().contains("Silkscreen") and QuarryTheme.mono().get_font_name().contains("VT323"), "2 HUD labels are Silkscreen, readouts are VT323")
+	var one := true
+	for f in [QuarryTheme.head(), QuarryTheme.display(), QuarryTheme.hud(), QuarryTheme.mono(), QuarryTheme.bold(), QuarryTheme.body()]:
+		one = one and (f as FontVariation) != null and (f as FontVariation).base_font.get_font_name().contains("Nunito")
+	check(one, "2 ONE typeface for all text: headings, signs, HUD labels, readouts, body and bold are all Nunito Sans (only the weight differs)")
 	var lic := true
-	for n in ["NunitoSans", "PixelifySans", "VT323", "Silkscreen"]:
+	for n in ["NunitoSans"]:
 		lic = lic and FileAccess.file_exists("res://assets/fonts/%s-OFL.txt" % n)
 	check(lic, "1 font licences are shipped")
 	for n in ["qd_body", "qd_body_bold", "qd_heading", "qd_display", "qd_hud", "qd_mono"]:

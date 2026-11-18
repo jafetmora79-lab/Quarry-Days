@@ -1,10 +1,10 @@
 extends RefCounted
 class_name QuarryTheme
-## Shared cozy UI style, one typographic system for the whole game (all fonts are packaged in assets/fonts, SIL OFL 1.1; resources assets/fonts/qd_*.tres):
-##   Pixelify Sans   display(), head()   titles, signs, stage and equipment names, major buttons, announcements
-##   Silkscreen      hud()               HUD labels, day and time, minimap labels, short status and category labels
-##   Nunito Sans     body(), bold()      everything that is read: dialogue, letters, tutorials, descriptions, upgrade text, settings
-##   VT323           mono()              machine counters and digital readouts
+## Shared UI style, ONE typeface for every piece of text in the game: Nunito Sans (assets/fonts/NunitoSans-Variable.ttf, SIL OFL 1.1), set at different weights by the resources assets/fonts/qd_*.tres:
+##   display() 900 and head() 800   titles, signs, stage and equipment names, major buttons, announcements
+##   hud() 700                       HUD labels, day and time, minimap labels, short status labels
+##   body() 500 and bold() 800       everything that is read: dialogue, letters, tutorials, descriptions, settings
+##   mono() 700                      machine counters and readouts
 ## Sizes are in the 960x540 base canvas, which the window scales by 1.333 (1280x720) or 2 (1920x1080); the table gives the 1080p size:
 ##   TITLE 15 -> 30 px (major headings)   SECTION 11 -> 22 px   HEAD 12 -> 24 px   HUD 9 -> 18 px   BODY 9 -> 18 px   DIALOG 10 -> 20 px (dialogue and letters)   SMALL 8 -> 16 px
 ## Text is never shrunk below SMALL to fit: it wraps instead. Fonts are re-rasterised at the final window scale (canvas_items stretch), so text stays sharp at any DPI.
