@@ -26,7 +26,7 @@ func run():
 	for i in 20: await physics_frame
 	b.elapsed = 0.0
 	b._cine_start()
-	for time in [1.0, 4.5, 7.0, 10.0, 13.5, 17.0, 21.5]:
+	for time in [26.0, 29.0]:
 		b.elapsed = time
 		b._pose(time)
 		b._cine_update(time)

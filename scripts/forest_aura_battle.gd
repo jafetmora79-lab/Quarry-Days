@@ -3,7 +3,8 @@ extends Node3D
 ## rewards or save state. Emissive geometry works without glow in GL Compatibility.
 const CENTRE := Vector3(-148.0, 0.0, -58.0)
 const WATCH_SECONDS := 2.0
-const DURATION := 24.0
+const DURATION := 36.0                 ## in pose time: the poses run 24 s, then the result (the deer's sad walk, the bunnies carrying the winner off)
+const SPEED := 1.3                     ## pose time per real second: a little brisker than the first cut
 const COOLDOWN := 18.0
 const BLUE := Color(0.16, 0.75, 1.0)
 const GOLD := Color(1.0, 0.64, 0.12)
@@ -23,6 +24,11 @@ var _bar_t: ColorRect
 var _bar_b: ColorRect
 var _ui_was := true
 var _in_cine := false
+var _friends: Array = []
+var _cloud: Node3D
+var _rain: CPUParticles3D
+var _confetti: CPUParticles3D
+var _burst_done := false
 var _caption_nodes: Array = []
 var _shades: Array = []
 ## Where the shades sit on each head (local to the Head hinge; tuned by eye with tools/shot_aura.gd).
@@ -106,7 +112,84 @@ func setup(g) -> void:
 		shades.visible = false
 		head.add_child(shades)
 		_shades.append(shades)
+	for k in 4:                                                       # the winner's friends, waiting in the trees until the result
+		var friend: Dictionary = WorldModels.animal("rabbit")
+		if friend.is_empty():
+			break
+		var fr: Node3D = friend["root"]
+		fr.scale = Vector3.ONE * 1.6
+		fr.visible = false
+		add_child(fr)
+		var rest := {}
+		for part_name in friend["parts"]:
+			rest[part_name] = (friend["parts"][part_name] as Node3D).transform
+		friend["rest"] = rest
+		_friends.append(friend)
+	_cloud = Node3D.new()                                             # a small grey rain cloud for the loser
+	var grey := StandardMaterial3D.new()
+	grey.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	grey.albedo_color = Color(0.36, 0.38, 0.45)
+	for cx in [[-0.5, 0.0, 0.5], [0.0, 0.2, 0.7], [0.55, 0.0, 0.5]]:
+		var blob := MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = cx[2] * 0.7
+		sm.height = cx[2] * 1.2
+		sm.radial_segments = 8
+		sm.rings = 4
+		blob.mesh = sm
+		blob.material_override = grey
+		blob.position = Vector3(cx[0], cx[1], 0)
+		blob.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_cloud.add_child(blob)
+	_rain = CPUParticles3D.new()
+	_rain.amount = 30
+	_rain.lifetime = 0.8
+	_rain.emitting = false
+	_rain.direction = Vector3.DOWN
+	_rain.spread = 4.0
+	_rain.initial_velocity_min = 2.0
+	_rain.initial_velocity_max = 3.0
+	_rain.gravity = Vector3(0, -6, 0)
+	_rain.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	_rain.emission_box_extents = Vector3(0.7, 0.05, 0.4)
+	var drop := BoxMesh.new()
+	drop.size = Vector3(0.025, 0.12, 0.025)
+	_rain.mesh = drop
+	var blue := StandardMaterial3D.new()
+	blue.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	blue.albedo_color = Color(0.45, 0.65, 1.0)
+	_rain.material_override = blue
+	_cloud.add_child(_rain)
+	_rain.position = Vector3(0, -0.2, 0)
+	_cloud.visible = false
+	effects.add_child(_cloud)
+	_confetti = CPUParticles3D.new()
+	_confetti.amount = 60
+	_confetti.lifetime = 2.2
+	_confetti.emitting = false
+	_confetti.direction = Vector3.UP
+	_confetti.spread = 70.0
+	_confetti.initial_velocity_min = 3.0
+	_confetti.initial_velocity_max = 5.5
+	_confetti.gravity = Vector3(0, -4.5, 0)
+	_confetti.angular_velocity_min = -300.0
+	_confetti.angular_velocity_max = 300.0
+	var chip := BoxMesh.new()
+	chip.size = Vector3(0.09, 0.02, 0.06)
+	_confetti.mesh = chip
+	var conf := StandardMaterial3D.new()
+	conf.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	conf.vertex_color_use_as_albedo = true
+	_confetti.material_override = conf
+	_confetti.color_initial_ramp = _confetti_ramp()
+	effects.add_child(_confetti)
 	effects.visible = false
+
+func _confetti_ramp() -> Gradient:
+	var g := Gradient.new()
+	g.offsets = PackedFloat32Array([0.0, 0.25, 0.5, 0.75, 1.0])
+	g.colors = PackedColorArray([Color(1.0, 0.35, 0.35), Color(1.0, 0.85, 0.3), Color(0.4, 0.9, 0.5), Color(0.4, 0.75, 1.0), Color(0.9, 0.5, 1.0)])
+	return g
 
 func _mesh(parent: Node3D, mesh: Mesh, colour: Color) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
@@ -178,7 +261,7 @@ func step(delta: float, looking: bool) -> void:
 			return
 	else:
 		unseen = 0.0 if looking else unseen + delta
-	elapsed += delta
+	elapsed += delta * SPEED
 	# Three seconds' grace lets the player glance away without restarting it.
 	if elapsed >= DURATION or unseen >= 3.0:
 		finish()
@@ -225,6 +308,7 @@ func _split_forepaws(made: Dictionary) -> void:
 		made["parts"]["PawL" if side < 0 else "PawR"] = paw
 
 func pose_name(t: float) -> String:
+	if t >= 24.0: return "result"
 	if t < 2.0: return "stare"
 	if t < 8.0: return "six_seven"
 	if t < 15.0: return "boat_roll"
@@ -233,6 +317,10 @@ func pose_name(t: float) -> String:
 	return "settle"
 
 func _pose(t: float) -> void:
+	if t >= 24.0:
+		_finale(t)
+		return
+	_set_finale_visible(false)
 	var stage := pose_name(t)
 	var rise := smoothstep(1.0, 2.5, t) * (1.0 - smoothstep(22.5, 24.0, t))
 	effects.visible = rise > 0.01
@@ -325,7 +413,8 @@ func _arms(stage: String, t: float, beat: float) -> Array:
 
 ## Floating meme captions: [time, actor, text]. Each rises and fades over 1.6 s above that animal.
 const CAPTIONS := [[2.6, 0, "+67 AURA"], [3.6, 1, "+67 AURA"], [5.2, 0, "6 7"], [6.2, 1, "6 7"], [8.6, 1, "FLICK x8"], [12.2, 1, "FLICK x5"], [14.0, 0, "+1000 AURA"],
-	[16.0, 0, "SIGMA"], [17.4, 1, "SIGMA"], [19.0, 0, "..."], [20.8, 1, "hands in pockets"], [22.0, 0, "-10 AURA (blinked)"]]
+	[16.0, 0, "SIGMA"], [17.4, 1, "SIGMA"], [19.0, 0, "..."], [20.8, 1, "hands in pockets"], [22.0, 0, "-10 AURA (blinked)"],
+	[24.4, 0, "-9999 AURA"], [25.0, 1, "WINNER"], [26.6, 1, "+9999 AURA"], [28.4, 0, "sad deer noises"], [30.0, 1, "BUNNY GANG"], [32.2, 1, "CELEBRATE"], [34.0, 0, "..."]]
 
 func _captions(t: float) -> void:
 	for k in range(CAPTIONS.size()):
@@ -337,8 +426,102 @@ func _captions(t: float) -> void:
 			continue
 		lb.visible = true
 		var made: Dictionary = actors[int(c[1])]
-		lb.position = (made["home"] as Vector3) + Vector3(0, (3.0 if int(c[1]) == 0 else 2.2) + age * 0.7, 0)
+		lb.position = (made["root"] as Node3D).position + Vector3(0, (3.0 if int(c[1]) == 0 else 2.6) + age * 0.7, 0)
 		lb.modulate = Color(1.0, 0.95, 0.6, clampf(minf(age * 6.0, (1.6 - age) * 2.5), 0.0, 1.0))
+
+func _set_finale_visible(on: bool) -> void:
+	for f in _friends:
+		(f["root"] as Node3D).visible = on
+	if _cloud != null:
+		_cloud.visible = on
+	if _rain != null:
+		_rain.emitting = on
+	if not on and _confetti != null:
+		_confetti.emitting = false
+
+func _group(parts: Dictionary, keys: Array, pivot: Vector3, b: Basis) -> void:
+	for key in keys:
+		if parts.has(key):
+			var node: Node3D = parts[key]
+			node.position = pivot + b * (node.position - pivot)
+			node.basis = b * node.basis
+
+## The result (pose time 24 to 36): the deer droops, loses its shades and trudges off under a little rain cloud; the rabbit raises its paws, is joined by four bunnies, and is carried
+## into the forest on their shoulders under confetti.
+func _finale(t: float) -> void:
+	var f := t - 24.0
+	effects.visible = true
+	for w in waves:
+		w.visible = false
+	_set_finale_visible(true)
+	_captions(t)
+	(_shades[0] as Node3D).visible = f < 0.4
+	(_shades[1] as Node3D).visible = true
+	(_shades[1] as Node3D).position = SHADES_AT[1] + Vector3(0, 0.07, 0.0) * smoothstep(0.3, 1.0, f)          # pushed up onto the forehead
+	var west := Vector3(-1, 0, 0)
+	# ---- the deer: slumps, turns away, walks off west with its head down
+	var dm: Dictionary = actors[0]
+	var dr: Node3D = dm["root"]
+	var dp: Dictionary = dm["parts"]
+	for key in dp:
+		(dp[key] as Node3D).transform = dm["rest"][key]
+	var walk := smoothstep(1.5, 3.0, f)
+	var dist := maxf(0.0, f - 1.8) * 0.85
+	var gait := f * TAU * 0.9
+	dr.position = (dm["home"] as Vector3) + west * dist + Vector3(0, absf(sin(gait)) * 0.02 * walk, 0)
+	dr.rotation = Vector3(0, lerp_angle(float(dm["yaw"]), PI * 0.5, smoothstep(0.8, 2.4, f)), 0)
+	var droop := smoothstep(0.0, 1.0, f)
+	_group(dp, ["Head", "Antlers", "EarL", "EarR"], (dp["Head"] as Node3D).position, Basis(Vector3.RIGHT, -0.75 * droop - 0.05 * sin(f * 2.2)))
+	(dp["EarL"] as Node3D).rotate_z(-0.9 * droop)
+	(dp["EarR"] as Node3D).rotate_z(0.9 * droop)
+	(dp["Tail"] as Node3D).rotate_x(0.6 * droop)
+	for pair in [["LegFL", 0.0], ["LegBR", 0.0], ["LegFR", PI], ["LegBL", PI]]:
+		(dp[pair[0]] as Node3D).rotate_x(sin(gait + float(pair[1])) * 0.4 * walk)
+	_cloud.position = dr.position + Vector3(0, 3.0, 0)
+	_cloud.scale = Vector3.ONE * smoothstep(0.5, 1.5, f)
+	# ---- the winner
+	var rm: Dictionary = actors[1]
+	var rr: Node3D = rm["root"]
+	var rp: Dictionary = rm["parts"]
+	for key in rp:
+		(rp[key] as Node3D).transform = rm["rest"][key]
+	var lift := smoothstep(4.6, 5.6, f)
+	var march := maxf(0.0, f - 5.2) * 1.5
+	var hop := absf(sin(f * TAU * 1.3)) * (0.32 if f < 4.6 else 0.14)
+	rr.position = (rm["home"] as Vector3) + west * march + Vector3(0, hop + lift * 1.05, 0)
+	rr.rotation = Vector3(0, lerp_angle(float(rm["yaw"]) + 0.4, PI * 0.5 + 0.3, smoothstep(4.6, 5.8, f)), sin(f * 5.0) * 0.08)
+	var tilt := Basis(Vector3.RIGHT, 0.55)
+	_group(rp, ["Body", "Head", "EarL", "EarR", "Tail", "PawL", "PawR"], Vector3(0, 0.13, 0.1), tilt)
+	(rp["PawL"] as Node3D).basis = tilt * Basis.from_euler(Vector3(2.5 + 0.2 * sin(f * 9.0), 0.0, -0.7))
+	(rp["PawR"] as Node3D).basis = tilt * Basis.from_euler(Vector3(2.5 - 0.2 * sin(f * 9.0), 0.0, 0.7))
+	# ---- the friends: they run in from the trees, jump about, then carry the winner away
+	var offsets := [Vector3(-1.4, 0, 0.9), Vector3(1.4, 0, 0.9), Vector3(-0.7, 0, 2.1), Vector3(0.8, 0, 2.3)]
+	var starts := [Vector3(-5.0, 0, 8.5), Vector3(1.5, 0, 9.0), Vector3(-3.0, 0, 10.0), Vector3(4.0, 0, 9.5)]
+	for i in _friends.size():
+		var fm: Dictionary = _friends[i]
+		var fr: Node3D = fm["root"]
+		var fp: Dictionary = fm["parts"]
+		for key in fp:
+			(fp[key] as Node3D).transform = fm["rest"][key]
+		var base: Vector3 = (rm["home"] as Vector3) + west * march
+		var target: Vector3 = base + offsets[i]
+		var arrive := smoothstep(1.6 + 0.3 * float(i), 4.8 + 0.2 * float(i), f)
+		var pos: Vector3 = (starts[i] as Vector3).lerp(target, arrive)
+		var arriving := arrive < 0.98
+		var jump := absf(sin(f * TAU * (2.4 if arriving else 1.6) + float(i))) * (0.22 if arriving else 0.3)
+		fr.position = pos + Vector3(0, jump, 0)
+		fr.visible = f > 1.6 + 0.3 * float(i) - 0.2
+		var face := (target - pos) if arriving else (west + Vector3(0, 0, 0.3))
+		fr.rotation = Vector3(0, atan2(-face.x, -face.z) if face.length() > 0.01 else 0.0, 0)
+		if not arriving:                                                # celebrating: paws up, bouncing, heads turned to the winner
+			var up := Basis(Vector3.RIGHT, 0.4)
+			_group(fp, ["Body", "Head", "EarL", "EarR", "Tail"], Vector3(0, 0.13, 0.1), up)
+			(fp["LegF"] as Node3D).basis = up * Basis.from_euler(Vector3(2.4 + 0.3 * sin(f * 8.0 + float(i)), 0.0, 0.0))
+	if f >= 4.8 and not _burst_done:
+		_burst_done = true
+		_confetti.emitting = true
+	if _burst_done:
+		_confetti.position = rr.position + Vector3(0, 1.8, 0)
 
 func finish() -> void:
 	_cine_end()
@@ -349,6 +532,8 @@ func finish() -> void:
 	effects.visible = false
 	for sh in _shades:
 		(sh as Node3D).visible = false
+	_set_finale_visible(false)
+	_burst_done = false
 	for made in actors:
 		var actor: Node3D = made["root"]
 		actor.position = made["home"]
@@ -401,6 +586,9 @@ func _cine_start() -> void:
 func _cine_update(t: float) -> void:
 	if _cam == null:
 		return
+	if t >= 24.0:
+		_cine_finale(t)
+		return
 	for sh in SHOTS:
 		if t >= float(sh[0]) and t < float(sh[1]) + (0.1 if sh == SHOTS[SHOTS.size() - 1] else 0.0):
 			var k := smoothstep(0.0, 1.0, (t - float(sh[0])) / (float(sh[1]) - float(sh[0])))
@@ -409,6 +597,33 @@ func _cine_update(t: float) -> void:
 			_cam.fov = float(sh[6])
 			break
 	var h := 70.0 * clampf(t / 0.6, 0.0, 1.0) * clampf((DURATION - t) / 0.6, 0.0, 1.0)
+	_bar_t.offset_bottom = h
+	_bar_b.offset_top = -h
+
+func _cine_finale(t: float) -> void:
+	var f := t - 24.0
+	var w: Vector3 = (actors[1]["root"] as Node3D).position
+	var d: Vector3 = (actors[0]["root"] as Node3D).position
+	var from := Vector3.ZERO
+	var look := Vector3.ZERO
+	if f < 4.0:                                                       # the winner raised: hop and confetti
+		var k := smoothstep(0.0, 1.0, f / 4.0)
+		from = global_position + w + Vector3(6.0, 1.6, 2.4).lerp(Vector3(4.2, 1.8, 1.6), k)
+		look = global_position + w + Vector3(0, 1.3, 0)
+		_cam.fov = 48.0
+	elif f < 7.5:                                                     # the sad deer, trudging off under its cloud
+		var k := smoothstep(0.0, 1.0, (f - 4.0) / 3.5)
+		from = global_position + d + Vector3(4.4, 1.0, -3.2).lerp(Vector3(3.6, 1.4, -2.4), k)
+		look = global_position + d + Vector3(0, 1.4, 0)
+		_cam.fov = 46.0
+	else:                                                             # the parade into the forest
+		var k := smoothstep(0.0, 1.0, (f - 7.5) / 4.5)
+		from = global_position + w + Vector3(5.5, 1.5, 3.4).lerp(Vector3(4.5, 2.2, 5.5), k)
+		look = global_position + w + Vector3(-1.0, 1.4, 0)
+		_cam.fov = 52.0
+	_cam.global_position = from
+	_cam.look_at(look, Vector3.UP)
+	var h := 70.0 * clampf((DURATION - t) / 0.6, 0.0, 1.0)
 	_bar_t.offset_bottom = h
 	_bar_b.offset_top = -h
 

@@ -52,7 +52,7 @@ func run() -> void:
 	check(battle.elapsed < 0, "looking away resets the stare timer")
 	battle.step(0.2, true)
 	check(battle.elapsed == 0.0, "a continuous two-second stare triggers it")
-	battle.step(12.0, true)
+	battle.step(9.0, true)
 	check(battle.pose_name(battle.elapsed) == "boat_roll", "sequence reaches wrist flick and roll")
 	check(battle.actors[1]["parts"].has("PawL") and battle.actors[1]["parts"].has("PawR"), "rabbit has independent paws derived from its original mesh")
 	var paw_l: Node3D = battle.actors[1]["parts"]["PawL"]
@@ -66,7 +66,9 @@ func run() -> void:
 	check(battle.pose_name(21.0) == "pockets", "relaxed tucked-paw pose follows crossed stance")
 	battle.step(5.0, true)
 	check(battle.pose_name(battle.elapsed) == "crossed", "deadpan crossed-paw pose replaces the beam clash")
-	battle.step(7.0, true)
+	battle._pose(29.0)
+	check(battle.pose_name(29.0) == "result" and battle._friends.size() == 4 and (battle._friends[0]["root"] as Node3D).visible and battle._cloud.visible, "the result: the rabbit wins, its friends turn up and the deer gets a rain cloud")
+	battle.step(14.0, true)
 	check(battle.elapsed < 0 and not battle.effects.visible and battle.cooldown > 0, "battle ends cleanly with a cooldown")
 	check(battle.actors[0]["root"].position == battle.actors[0]["home"], "animal returns to original ground position")
 	var restored := true
