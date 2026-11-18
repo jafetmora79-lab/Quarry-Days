@@ -134,6 +134,7 @@ var _forced_sleep := false
 var doors: Array = []            # QuarryDoor: the office and home doors (E to open / close)
 var delivery: QuarryDelivery    # service gate, garage door, delivery drivers and walk-in hires
 var safety: QuarrySafety
+var coach: QuarryCoach
 var pit_zone: QuarryPitZone     # Phase 6.3a: the new pit area behind the north-east gate
 var pit_retired: Array = []     # ring pieces retired to make the gate (for tests)
 var cleanup_nodes := {}      # Phase 6.2: weed clumps and rubble heaps still on the site (id -> body)
@@ -239,6 +240,9 @@ func _ready() -> void:
 	_make_player_body()
 	add_child(safety)
 	safety.setup(self)
+	coach = QuarryCoach.new()                      # the quarry fly-over and the first-loop guide (scripts/coach.gd)
+	add_child(coach)
+	coach.setup(self)
 	player.collision_mask = 1 | 2 | 4 | 8 # world, loose pieces, workers, vehicles (conveyors: layer 16, crossable)
 	dig_audio = DigAudio.new()
 	add_child(dig_audio)
@@ -644,6 +648,11 @@ func sleep_now() -> void:
 func _debris_meshes() -> void:
 	if _weed_mesh != null:
 		return
+	if WorldModels.has("overburden_weeds") and WorldModels.has("overburden_rubble"):         # the Blender overburden: a tangle of weeds on a mound, a heap of broken limestone
+		_weed_mesh = WorldModels.mesh("overburden_weeds")
+		_heap_mesh = WorldModels.mesh("overburden_rubble")
+		if _weed_mesh != null and _heap_mesh != null:
+			return
 	var w := MeshKit.Soup.new()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 62
@@ -807,6 +816,24 @@ func _column_has_player(id: String, col: int) -> bool:
 	var l: Vector3 = Basis(Vector3.UP, prog.column_yaw(id, col)).inverse() * d
 	var half := float(prog.fdef(id)["cell"]) * 0.5 + 0.3
 	return absf(l.x) <= half and absf(l.z) <= half and absf(d.y) <= float(prog.chunks_left(id, col)) * float(prog.fdef(id).get("tier_h", 1.2)) + 1.0
+
+## The right tool for the overburden: the shovel is for weeds and loose ground (it chews through weeds and barely dents a stone), the hammer and pickaxes are for
+## the stone heaps (and only brush weeds aside). So the shovel never out-cuts the hammer on rock, whatever its raw power.
+const DEBRIS_SHOVEL_ON_STONE := 0.2
+const DEBRIS_SHOVEL_ON_WEEDS := 1.6
+const DEBRIS_PICK_ON_STONE := 1.75
+const DEBRIS_PICK_ON_WEEDS := 0.6
+var _wrong_tool_note_t := 0.0
+
+func _debris_tool_factor(node: Node3D) -> float:
+	var weed := str(node.get_meta("debris_id", "")).begins_with("w")
+	var digs := str(prog.tool().get("class", "")) == "digging"
+	if digs:
+		if not weed and Time.get_ticks_msec() - _wrong_tool_note_t > 6000.0:
+			_wrong_tool_note_t = float(Time.get_ticks_msec())
+			_notify("A shovel barely dents stone. Press 2 for the hammer.")
+		return DEBRIS_SHOVEL_ON_WEEDS if weed else DEBRIS_SHOVEL_ON_STONE
+	return DEBRIS_PICK_ON_WEEDS if weed else DEBRIS_PICK_ON_STONE
 
 func hit_debris(node: Node3D, damage: float, point: Vector3, continuous := false) -> void:
 	var id := str(node.get_meta("debris_id", ""))
@@ -1795,6 +1822,8 @@ func deliver_hand_to_hopper(idx: int) -> int:
 		player.tool_view.tip_bucket()
 		_hopper_intake_fx(idx, "bucket", moved, _hand_origin())
 		hud.toast("Into the hopper: %d units" % n, "It sells them one by one", "sale")
+		if coach != null:
+			coach.event("hopper_tipped")
 	else:
 		_notify("The hopper is full: let it work a bit." if state.hand_bucket.size() > 0 else "The bucket is empty.")
 	return n
@@ -1969,7 +1998,9 @@ func _on_swing_impact() -> void:
 		return
 	var node: Node3D = hit["node"]
 	if str(node.get_meta("kind", "")) == "debris":
-		hit_debris(node, prog.tool_power(), hit["point"])
+		hit_debris(node, prog.tool_power() * _debris_tool_factor(node), hit["point"])
+		if coach != null and not str(node.get_meta("debris_id", "")).begins_with("w"):
+			coach.event("stone_hit")
 		return
 	if live_terrain != null and live_terrain.terrain != null and node == live_terrain.terrain.body:
 		_terrain_strike(hit["point"])

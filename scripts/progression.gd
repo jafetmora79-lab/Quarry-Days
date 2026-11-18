@@ -1644,6 +1644,18 @@ func cleanup_left() -> int:
 func heap_units_left(id: String) -> int:
 	return int(cleanup["units"].get(id, int(cleanup_cfg().get("heap_units", 5))))
 
+## True once every weed and heap is gone (or the site was marked done).
+func cleanup_cleared_all() -> bool:
+	return bool(cleanup["done"]) or cleanup_left() == 0
+
+## Rubble heaps still standing (not weeds).
+func heap_total_left() -> int:
+	var n := 0
+	for id in cleanup_ids():
+		if str(id).begins_with("h") and not cleanup["cleared"].get(id, false):
+			n += 1
+	return n
+
 func cleanup_active() -> bool:
 	return not bool(cleanup["done"]) and cleanup_total() > 0
 

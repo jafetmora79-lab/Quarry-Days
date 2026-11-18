@@ -39,5 +39,5 @@ func run() -> void:
 	ceil_body.queue_free()
 	for i in 40: await physics_frame
 	ok(not p.crouching and absf(p.camera.position.y - stand_y) < 0.01, "stands up when there is room")
-	print("Results: %d failed" % fails)
+	print("RESULT: %d checks, %d failures" % [4, fails])
 	quit(1 if fails > 0 else 0)

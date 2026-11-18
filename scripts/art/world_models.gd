@@ -56,16 +56,28 @@ static func _sway_shader() -> Shader:
 		_shader = Shader.new()
 		_shader.code = """shader_type spatial;
 render_mode cull_disabled;
+// Wind. One travelling wave crosses the whole landscape (so neighbouring trees lean together, a gust rolls through the forest), a slower gust swells it, and the leaves flutter a little on top.
+// The bend grows with height above the model's base (a tree top moves far, a trunk's foot not at all); low plants (grass, flowers, ferns) get their own, larger sway.
+// Trunks use the same function (plant = 0), so the crown never comes away from the trunk.
 uniform vec4 albedo : source_color = vec4(0.3, 0.5, 0.25, 1.0);
-uniform float sway = 0.045;
-uniform float speed = 1.15;
+uniform float strength = 1.0;
+uniform float plant = 0.16;
+uniform float flutter = 1.0;
+const vec2 WIND = vec2(0.86, 0.5);
 void vertex() {
 	float h = max(VERTEX.y, 0.0);
 	vec3 wp = MODEL_MATRIX[3].xyz;
-	float ph = wp.x * 0.19 + wp.z * 0.23;
-	float gust = 0.6 + 0.4 * sin(TIME * 0.31 + wp.x * 0.04);
-	VERTEX.x += sin(TIME * speed + ph) * sway * h * 0.35 * gust;
-	VERTEX.z += cos(TIME * speed * 0.83 + ph * 1.3) * sway * h * 0.22 * gust;
+	float along = dot(wp.xz, WIND);
+	float gust = 0.65 + 0.35 * sin(TIME * 0.27 + along * 0.021);
+	float wave = 0.55 + 0.45 * sin(TIME * 1.15 + along * 0.33) + 0.18 * sin(TIME * 2.9 + along * 0.7 + wp.z * 0.2);
+	float low = clamp(h / 0.8, 0.0, 1.0) * (1.0 - smoothstep(0.8, 2.0, h));
+	float bend = (0.013 * pow(h, 1.5) + plant * low) * wave * gust * strength;
+	VERTEX += inverse(mat3(MODEL_MATRIX)) * vec3(WIND.x, 0.0, WIND.y) * bend;      // the wind blows one way in the world, whatever way this instance was turned and scaled
+	float f = sin(TIME * 4.1 + VERTEX.x * 5.0 + VERTEX.z * 4.0 + along * 0.5);
+	float top = smoothstep(0.4, 3.0, h);
+	VERTEX.x += f * 0.03 * top * flutter * gust * strength;
+	VERTEX.y += f * 0.015 * top * flutter * strength;
+	VERTEX.z -= f * 0.02 * top * flutter * gust * strength;
 }
 void fragment() {
 	ALBEDO = albedo.rgb * COLOR.rgb;
@@ -73,6 +85,8 @@ void fragment() {
 }
 """
 	return _shader
+
+const TRUNKS := ["Bark", "BirchBark"]
 
 const ROCK_TINT := {"RockA": Color(1.0, 0.92, 0.80), "RockB": Color(0.80, 0.74, 0.66), "RockC": Color(1.0, 0.96, 0.84), "RockD": Color(0.64, 0.62, 0.60), "Moss": Color(0.62, 0.78, 0.50)}
 
@@ -105,6 +119,13 @@ static func material_for(name: String) -> Material:
 		sm.shader = _sway_shader()
 		sm.set_shader_parameter("albedo", FOLIAGE[name])
 		m = sm
+	elif TRUNKS.has(name):
+		var tm := ShaderMaterial.new()                               # trunks bend with the crown they carry
+		tm.shader = _sway_shader()
+		tm.set_shader_parameter("albedo", COLOURS[name])
+		tm.set_shader_parameter("plant", 0.0)
+		tm.set_shader_parameter("flutter", 0.0)
+		m = tm
 	elif name == "Lamp":
 		m = MeshKit.flat(Color(1.0, 0.86, 0.55), 1.2)
 	elif name == "GoldNugget":

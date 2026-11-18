@@ -79,7 +79,7 @@ func run() -> void:
 	check(prog.rig_block_reason("drill_rig", HID) != "", "B no rig can be installed on the locked hillside")
 	check(game.formation_nodes[HID].label.text.contains("CLEAR THE SITE"), "B the hillside label tells the player to clean up")
 	check(game.hud_status_text().contains("Site cleanup 0/26"), "B the HUD shows cleanup progress")
-	# ---- weeds with the starting hammer (power 4, weed hp 6: two swings)
+	# ---- weeds with the starting hammer (power 4 x 0.6 against weeds = 2.4, weed hp 6: three swings; the shovel is the weed tool)
 	st.tool_tier = 0
 	var wid := first(game, true)
 	var wp: Vector2 = prog.cleanup_pos(wid)
@@ -92,7 +92,8 @@ func run() -> void:
 	check(not prog.cleanup["cleared"].get(wid, false), "C one hammer swing does not clear a clump")
 	var money0: int = st.money
 	game._on_swing_impact()
-	check(prog.cleanup["cleared"].get(wid, false) and not game.cleanup_nodes.has(wid) and st.money == money0, "C the second swing clears it (counts toward the site, pays nothing)")
+	game._on_swing_impact()
+	check(prog.cleanup["cleared"].get(wid, false) and not game.cleanup_nodes.has(wid) and st.money == money0, "C the third swing clears it (counts toward the site, pays nothing)")
 	check(prog.cleanup_left() == 25 and game.hud_status_text().contains("Site cleanup 1/26"), "C progress counts up")
 	# ---- rubble heap: 5 stone, one per 10 damage, none lost when the bag is full
 	var hid := first(game, false)
@@ -102,8 +103,8 @@ func run() -> void:
 		await physics_frame
 	for k in st.inventory:
 		st.inventory[k] = 0
-	for i in range(6):
-		game._on_swing_impact() # 6 x 4 = 24 damage -> 2 stone
+	for i in range(4):
+		game._on_swing_impact() # 4 x (4 x 1.75 against stone) = 28 damage -> 2 stone
 	check(game.debris_stones.size() == 2 and int(st.inventory["limestone"]) == 0 and prog.heap_units_left(hid) == 3, "D a heap yields 1 stone per 10 damage: 2 stones land on the ground, 3 left in the heap, none in the bag")
 	var cap: int = st.capacity()
 	st.inventory["coal"] = cap                                   # a full bag
