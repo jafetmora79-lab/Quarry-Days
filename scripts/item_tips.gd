@@ -21,6 +21,7 @@ const MACHINE_TEXT := {
 	"crusher": ["Breaks rock into crushed stone you can sell.", "Place it near the cut and feed its hopper with a loader or by hand."],
 	"hopper": ["Takes loose rock from loaders and trucks and feeds it down a belt or into a crusher.", "Tip your bucket into it."],
 	"sorter": ["A manual sorting table: pick the good stone from the rubble.", "Stand at it and sort what comes in."],
+	"cash_hopper": ["Another selling point: it sells whatever it is fed, one unit at a time, and can be upgraded twice.", "Place it where a belt line ends, or tip a bucket into it."],
 	"output": ["Stores finished product until you sell it.", "Place it at the end of a crusher's chute."],
 	"advanced_crusher": ["A bigger crusher that takes more rock and breaks it finer.", "Feed it like the small one, with a hopper in front."],
 	"conveyor": ["Belts carry material between machines so nobody has to carry it by hand.", "Place pieces end to end from the hopper to the crusher and on to storage."]}
@@ -69,7 +70,7 @@ func info(id: String) -> Dictionary:
 			return {"title": str(sp.get("title", key)), "text": str(vt[0]), "how": str(vt[1]), "model": {"kind": "vehicle", "type": key}}
 		"machine":
 			var mt: Array = MACHINE_TEXT.get(key, ["A new machine for the plant.", "Place it from the order screen or in construction mode."])
-			var titles := {"crusher": "Small jaw crusher", "hopper": "Small hopper", "sorter": "Manual sorting table", "output": "Output storage", "advanced_crusher": "Advanced crusher", "conveyor": "Conveyor"}
+			var titles := {"crusher": "Small jaw crusher", "hopper": "Small hopper", "cash_hopper": "Cash Hopper", "sorter": "Manual sorting table", "output": "Output storage", "advanced_crusher": "Advanced crusher", "conveyor": "Conveyor"}
 			return {"title": str(titles.get(key, key)), "text": str(mt[0]), "how": str(mt[1]), "model": {"kind": "machine", "id": key}}
 		"companion":
 			var nm := str(prog.companion().get("name", "Your dinosaur"))

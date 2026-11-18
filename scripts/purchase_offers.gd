@@ -115,6 +115,18 @@ static func machine(game, key: String, on_buy: Callable) -> Dictionary:
 			compare = [_cmp("You own %d small hopper%s." % [biz.outputs.filter(func(o): return str(o.get("variant", "output")) == "hopper").size(), ""], "flat")]
 			if not prog.unlocked("hopper"):
 				reason = "Unlocks at the %s stage" % prog.feature_stage_title("hopper")
+		"cash_hopper":
+			title = "Cash Hopper"
+			var ch: Dictionary = biz.cfg.get("cash_hopper", {})
+			price = int(ch.get("price", 1800))
+			model = {"kind": "cash_hopper"}
+			var tiers: Array = biz.cash_tiers()
+			stats = [_row("Sells", "everything it is fed, at the current price, one unit at a time"), _row("Starts as", "%s: %d units a second, holds %d" % [str(tiers[0].get("name", "")), int(tiers[0].get("rate", 24)), int(tiers[0].get("capacity", 300))]),
+				_row("Upgrades", "%s ($%d, %d a second), then %s ($%d, %d a second)" % [str(tiers[1].get("name", "")), int(tiers[1].get("upgrade_cost", 0)), int(tiers[1].get("rate", 48)), str(tiers[2].get("name", "")), int(tiers[2].get("upgrade_cost", 0)), int(tiers[2].get("rate", 96))]),
+				_row("Use", "end a belt line at it: an automatic selling point")]
+			compare = [_cmp("You own %d Cash Hopper%s (up to %d)." % [biz.cash_hopper_indices().size(), "" if biz.cash_hopper_indices().size() == 1 else "s", int(ch.get("max_count", 6))], "flat")]
+			if not prog.unlocked("hopper"):
+				reason = "Unlocks at the %s stage" % prog.feature_stage_title("hopper")
 		"sorter":
 			title = "Manual Sorting Table"
 			price = int(biz.cfg["sorter_price"])

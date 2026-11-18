@@ -70,6 +70,8 @@ var _note_total := 0
 var _note_tween: Tween
 var _note_base := Vector3.ZERO
 var sparks: CPUParticles3D
+var _tier_shown := -1                   ## which upgrade tier the model is dressed for
+var _cash_nodes: Array = []
 var _funnel_y0 := 0.0                    ## the heights the funnel and the ram stand at (their shiver and pumping are offsets from these, not absolute heights)
 var _piston_y0 := 0.0
 var lamp: MeshInstance3D                 ## the status lamp: green while selling, amber when idle
@@ -165,6 +167,11 @@ func setup(g, i: int) -> void:
 	if drawer != null:
 		_build_extras()
 		_play("Idle")
+		for k in range(4):
+			var cn := model.find_child("Cash_%d" % (k + 1), true, false)
+			if cn != null:
+				_cash_nodes.append(cn)
+		_apply_tier(game.business.cash_tier_index(index), false)
 
 ## A marker's place in the model's own space (the view is not in the tree yet while it is being built, so global transforms are not available).
 func _rel(n: Node3D) -> Transform3D:
@@ -241,6 +248,57 @@ func _build_extras() -> void:
 	sparks.material_override = sm
 	sparks.color = Color(1.0, 0.85, 0.35)
 	add_child(sparks)
+
+## The three upgrade tiers look different, so an upgrade is something you can see: the small old hopper (worn grey cabinet, one lamp, two cash bundles, a little smaller), the Motorized Hopper
+## (the green and yellow machine, both lamps, three bundles) and the Industrial Hopper (rust-red, full size, four bundles, brighter lamps).
+const TIER_LOOK := [
+	{"scale": 0.8, "steel": Color(0.42, 0.43, 0.42), "steel_dk": Color(0.27, 0.28, 0.28), "lamps": 1, "cash": 2, "lamp_base": 0.4},
+	{"scale": 0.92, "steel": Color(0.31, 0.39, 0.34), "steel_dk": Color(0.20, 0.26, 0.23), "lamps": 2, "cash": 3, "lamp_base": 0.5},
+	{"scale": 1.0, "steel": Color(0.56, 0.25, 0.16), "steel_dk": Color(0.34, 0.16, 0.10), "lamps": 2, "cash": 4, "lamp_base": 0.8}]
+
+func _apply_tier(ti: int, celebrate := true) -> void:
+	ti = clampi(ti, 0, TIER_LOOK.size() - 1)
+	if ti == _tier_shown or model == null:
+		return
+	var look: Dictionary = TIER_LOOK[ti]
+	var was := _tier_shown
+	_tier_shown = ti
+	scale = Vector3.ONE * float(look["scale"])
+	var from_steel := Color(0.31, 0.39, 0.34)
+	var from_dk := Color(0.20, 0.26, 0.23)
+	for mi in model.find_children("*", "MeshInstance3D", true, false):
+		var m := mi as MeshInstance3D
+		if m.mesh == null:
+			continue
+		for i in range(m.mesh.get_surface_count()):
+			var base := m.mesh.surface_get_material(i) as StandardMaterial3D
+			if base == null:
+				continue
+			var c := base.albedo_color
+			var to := Color(-1, 0, 0)
+			if absf(c.r - from_steel.r) + absf(c.g - from_steel.g) + absf(c.b - from_steel.b) < 0.05:
+				to = look["steel"]
+			elif absf(c.r - from_dk.r) + absf(c.g - from_dk.g) + absf(c.b - from_dk.b) < 0.05:
+				to = look["steel_dk"]
+			if to.r >= 0.0:
+				var dup := base.duplicate() as StandardMaterial3D
+				dup.albedo_color = to
+				m.set_surface_override_material(i, dup)
+	for k in range(_cash_nodes.size()):
+		(_cash_nodes[k] as Node3D).set_meta("tier_hidden", k >= int(look["cash"]))
+	if lamp2 != null:
+		lamp2.visible = int(look["lamps"]) >= 2
+	var cage := model.find_child("LampCage", true, false) as Node3D
+	if cage != null and int(look["lamps"]) < 2:
+		pass                                                                   # (the cage of the missing lamp stays: an empty fitting waiting for the second lamp)
+	_set_lamp(float(look["lamp_base"]))
+	if celebrate and was >= 0 and is_inside_tree():                            # an upgrade: the lamps flare, sparks, a thump
+		_flash_lamps()
+		_vibe = 1.0
+		if sparks != null:
+			sparks.restart()
+			sparks.emitting = true
+		_sfx(load("res://audio/dig_chink_1.wav"), 0.7, -4.0)
 
 func _set_lamp(level: float) -> void:
 	_lamp_level = level
@@ -473,6 +531,8 @@ func _process(delta: float) -> void:
 		return
 	var b = game.business
 	_t += delta
+	for cn in _cash_nodes:
+		(cn as Node3D).visible = not bool((cn as Node3D).get_meta("tier_hidden", false))
 	if anim == null:                                                       # (no Blender clips: the old procedural spin, only while it works)
 		var working: bool = b.cash_current(index) != ""
 		_work = move_toward(_work, 1.0 if working else 0.0, delta * (4.0 if working else 1.6))
@@ -497,6 +557,7 @@ func _process(delta: float) -> void:
 	_disp_t -= delta
 	if _disp_t <= 0.0:
 		_disp_t = 0.2
+		_apply_tier(b.cash_tier_index(index))
 		_refresh_display()
 		_refresh_fill()
 
@@ -611,7 +672,7 @@ func _run_sequence(money: int, units: int, res: String) -> void:
 		if not await _wait(maxf(cl, 0.2)):
 			return
 		_sfx(load("res://audio/dig_chink_0.wav"), 0.8, -9.0)
-	_lamp_to(0.5, 0.35)
+	_lamp_to(float(TIER_LOOK[maxi(_tier_shown, 0)]["lamp_base"]), 0.35)
 	var rt := _play("ReturnToIdle", 1.6)
 	if not await _wait(maxf(rt, 0.2)):
 		return

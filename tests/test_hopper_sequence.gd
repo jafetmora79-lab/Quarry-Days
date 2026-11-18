@@ -121,6 +121,42 @@ func run() -> void:
 	biz.tick(1.0)
 	await frames(30)
 	check(st.money == m2 and view.phase == "idle" and not view._seq_running, "an empty hopper pays nothing and plays nothing")
+	# ---- 5b. it starts small, and each upgrade changes how it looks (and what it sells)
+	var bundles := func() -> int:
+		var n := 0
+		for cn in view._cash_nodes:
+			n += 1 if (cn as Node3D).visible else 0
+		return n
+	await frames(5)
+	check(is_equal_approx(view.scale.x, 0.8) and not view.lamp2.visible and bundles.call() == 2 and biz.cash_tier_index(h) == 0, "it starts as the small old hopper: 80%% size, one lamp, two cash bundles (scale %.2f)" % view.scale.x)
+	st.money = 6000
+	check(biz.cash_upgrade(h) and biz.cash_rate(h) == 48.0, "the first upgrade (the Motorized Hopper) is bought for the price in the data and doubles the speed")
+	await frames(15)
+	check(is_equal_approx(view.scale.x, 0.92) and view.lamp2.visible and bundles.call() == 3, "and the machine looks different: bigger, both lamps, three bundles")
+	check(biz.cash_upgrade(h) and biz.cash_rate(h) == 96.0, "the second upgrade (the Industrial Hopper) doubles it again")
+	await frames(15)
+	check(is_equal_approx(view.scale.x, 1.0) and bundles.call() == 4, "and the Industrial one is full size with four bundles")
+	check(not biz.cash_upgrade(h), "there is no third upgrade")
+	# ---- 5c. more hoppers can be bought and placed round the quarry; each is its own selling point with its own tier and view
+	var offer: Dictionary = PurchaseOffers.machine(game, "cash_hopper", func(): pass)
+	check(int(offer.get("price", 0)) == int(biz.cfg["cash_hopper"]["price"]) and int(biz.cfg["cash_hopper"]["price"]) > 0, "the shop sells a Cash Hopper ($%d)" % int(offer.get("price", 0)))
+	var spot := QuarryBusiness.v3(biz.outputs[h]["position"]) + Vector3(8.0, 0.0, 0.0)
+	var h2b: int = biz.add_output(spot, 0.0, "cash_hopper")
+	game._create_output(h2b)
+	await frames(10)
+	var v2b: CashHopperView = game.output_nodes[h2b].get_node_or_null("CashHopperView")
+	check(biz.cash_hopper_indices().size() == 2 and v2b != null and biz.cash_tier_index(h2b) == 0 and is_equal_approx(v2b.scale.x, 0.8), "a second Cash Hopper placed elsewhere starts small and independent (tier %d)" % biz.cash_tier_index(h2b))
+	st.storage["crushed_stone"] = 6
+	var mm: int = st.money
+	game.cash_deposit(h2b, [], true)
+	biz.tick(0.5)
+	await frames(15)
+	check(st.money == mm + 42 and v2b._seq_running and not view._seq_running, "it sells on its own and only its own machine plays the sequence")
+	for k in range(6):
+		biz.add_output(spot + Vector3(3.0 * float(k + 1), 0.0, 0.0), 0.0, "cash_hopper")
+	check(game.machine_lock_reason("cash_hopper") != "", "the quarry can run only so many: ordering more is refused with a reason (\"%s\")" % game.machine_lock_reason("cash_hopper"))
+	while v2b._seq_running:
+		await physics_frame
 	# ---- 6. a sale after all that works again; save and load keep the balance and the view
 	st.storage["crushed_stone"] = 8
 	game.cash_deposit(h, [], true)

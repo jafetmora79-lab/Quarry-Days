@@ -44,6 +44,10 @@ func run():
 	await shot("hopper_back_idle", out)
 	look(cam, c + Vector3(-1.3, 1.15, -2.5), c + Vector3(0, 0.75, -0.8))
 	await shot("hopper_closed_close", out)
+	for ti in range(3):
+		game.business.outputs[h]["tier"] = ti
+		look(cam, c + Vector3(-2.4, 1.6, -3.6), c + Vector3(0, 0.9, 0))
+		await shot("hopper_tier_%d" % ti, out, 20)
 	game.business.outputs[h]["items"]["crushed_stone"] = 200
 	game.business.outputs[h]["tier"] = 0
 	look(cam, c + Vector3(-2.2, 1.5, -3.0), c + Vector3(0, 1.0, 0))

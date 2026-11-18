@@ -193,6 +193,11 @@ static func build_model(game, spec: Dictionary) -> Node3D:
 			if game.art:
 				game.art.dress_crusher(body, tier)
 			return body
+		"cash_hopper":
+			var cb := StaticBody3D.new()
+			cb.collision_layer = 0
+			game._cash_hopper_ghost(cb)
+			return cb
 		"hopper", "sorter":
 			var hb := StaticBody3D.new()
 			hb.collision_layer = 0

@@ -513,7 +513,7 @@ func _item_icon(model: Dictionary) -> Control:
 	if kind == "tool":
 		var mk := ToolModels.key_of(int(model.get("tier", 0)))
 		tex = th.get_thumb(key, func(): return ToolModels.load_tool(mk), "tool", 44)
-	elif kind in ["vehicle", "gear", "rig", "crusher", "hopper", "sorter", "output", "conveyor"]:
+	elif kind in ["vehicle", "gear", "rig", "crusher", "hopper", "cash_hopper", "sorter", "output", "conveyor"]:
 		var spec := model
 		tex = th.get_thumb(key, func(): return QuarryPreview.build_model(game, spec), "view", 44)
 	if tex != null:

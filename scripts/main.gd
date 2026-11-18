@@ -3464,6 +3464,7 @@ func _draw_shop(p: QuarryStationUI) -> void:
 	p.offer_item("shop_conveyor_right", "Conveyor, right corner", "Turns material 90 degrees to the right.", int(business.cfg["conveyor_price"]), _shop_tag("conveyor_right", ""), _shop_offer("conveyor_right", 8), conv_note)
 	p.offer_item("shop_sorter", "Manual sorting table", "Sort raw rock by hand: sorted stone, coal and iron sell for %d%% more." % int(round(float(business.cfg.get("sort_bonus", 1.3)) * 100.0)), int(business.cfg["sorter_price"]), _shop_tag("sorter", "Owned: %d" % _variant_count("sorter")), _shop_offer("sorter", 11), "" if prog.unlocked("sorter") else "Unlocks at the %s stage" % prog.feature_stage_title("sorter"))
 	p.offer_item("shop_hopper", "Small hopper", "A funnel bin for %d units of any material. Belts feed it and empty it." % int(business.cfg.get("hopper_capacity", 60)), int(business.cfg["hopper_price"]), _shop_tag("hopper", "Owned: %d" % _variant_count("hopper")), _shop_offer("hopper", 12), "" if prog.unlocked("hopper") else "Unlocks at the %s stage" % prog.feature_stage_title("hopper"))
+	p.offer_item("shop_cash_hopper", "Cash Hopper", "Another selling point: whatever a belt or you put in it is sold automatically, one unit at a time. Starts small (24 units a second); each one can be upgraded twice.", int(business.cfg.get("cash_hopper", {}).get("price", 1800)), _shop_tag("cash_hopper", "Owned: %d" % _variant_count("cash_hopper")), _shop_offer("cash_hopper", 13), machine_lock_reason("cash_hopper"))
 	var adv_ok := prog.unlocked("advanced_crusher")
 	var am: Dictionary = prog.machine("advanced_crusher")
 	p.offer_item("shop_advanced", "Advanced crusher", "Batches of %d stone, %.0f s a batch." % [cl * int(am.get("capacity_mult", 2)), cs * float(am.get("speed_mult", 0.45))], int(am["price"]), _shop_tag("advanced_crusher", ""), _shop_offer("advanced_crusher", 3), "" if adv_ok else "Unlocks at the %s stage" % prog.feature_stage_title("advanced_crusher"))
@@ -3980,7 +3981,7 @@ func order_machine(key: String) -> bool:
 		_notify("Need $%d" % price)
 		return false
 	business.inventory[key] = int(business.inventory.get(key, 0)) + 1
-	var titles := {"crusher": "Small jaw crusher", "hopper": "Small hopper", "sorter": "Manual sorting table", "output": "Output storage", "advanced_crusher": "Advanced crusher", "conveyor": "Straight conveyor",
+	var titles := {"crusher": "Small jaw crusher", "hopper": "Small hopper", "cash_hopper": "Cash Hopper", "sorter": "Manual sorting table", "output": "Output storage", "advanced_crusher": "Advanced crusher", "conveyor": "Straight conveyor",
 		"conveyor_left": "Left corner conveyor", "conveyor_right": "Right corner conveyor", "conveyor_merger": "Merger"}
 	hud.toast("Delivery confirmed", "%s is in your construction inventory - place it from the order screen or in construction mode." % titles.get(key, key), "unlock")
 	if item_tips != null:
@@ -3997,6 +3998,12 @@ func machine_lock_reason(key: String) -> String:
 		kind = "conveyor"
 	if kind in ["hopper", "sorter"] and not prog.unlocked(kind):
 		return "The %s unlocks at the %s stage." % [("small hopper" if kind == "hopper" else "sorting table"), prog.feature_stage_title(kind)]
+	if kind == "cash_hopper":
+		if not prog.unlocked("hopper"):
+			return "More Cash Hoppers unlock at the %s stage." % prog.feature_stage_title("hopper")
+		var cap := int(business.cfg.get("cash_hopper", {}).get("max_count", 6))
+		if _variant_count("cash_hopper") + int(business.inventory.get("cash_hopper", 0)) >= cap:
+			return "You already own %d Cash Hoppers, the most the quarry can run." % cap
 	if kind in ["crusher", "output", "advanced_crusher"] and not prog.unlocked("crusher"):
 		return "Machinery unlocks at the %s stage." % prog.feature_stage_title("crusher")
 	if kind == "advanced_crusher" and not prog.unlocked("advanced_crusher"):
@@ -4013,7 +4020,7 @@ const CATALOG := [
 	["crusher", "Small Jaw Crusher", "Crushers"], ["advanced_crusher", "Advanced Crusher", "Crushers"],
 	["conveyor", "Straight Conveyor", "Conveyors"], ["conveyor_left", "Left Corner Conveyor", "Conveyors"], ["conveyor_right", "Right Corner Conveyor", "Conveyors"], ["conveyor_merger", "Merger (3-way junction)", "Conveyors"],
 	["conveyor_short", "Short Conveyor (1 m)", "Conveyors"], ["conveyor_incline", "Inclined Conveyor (3 m, lifts 1.1 m)", "Conveyors"], ["conveyor_splitter", "Splitter (T junction)", "Conveyors"],
-	["output", "Output Storage", "Storage"], ["hopper", "Small Hopper", "Storage"],
+	["output", "Output Storage", "Storage"], ["hopper", "Small Hopper", "Storage"], ["cash_hopper", "Cash Hopper (sells what it is fed)", "Storage"],
 	["sorter", "Manual Sorting Table", "Processing"]]
 
 func catalog_categories() -> Array:
@@ -4132,6 +4139,7 @@ func menu_act(kind: String, digit: int, shift: bool) -> void:
 				8: _shop_pick("conveyor_right")
 				11: _shop_pick("sorter")
 				12: _shop_pick("hopper")
+				13: _shop_pick("cash_hopper")
 				4, 5, 9, 10:
 					var t: String = {4: "drill_rig", 5: "rock_breaker", 9: "improved_rig", 10: "heavy_breaker"}[digit]
 					if not prog.unlocked(t):
@@ -4330,6 +4338,9 @@ func _place_ghost() -> void:
 		"hopper":
 			_create_output(business.add_output(ghost.position,placement_yaw,"hopper"))
 			_notify("Small hopper placed. Feed it by hand or from a belt, and empty it with a belt or by hand.")
+		"cash_hopper":
+			_create_output(business.add_output(ghost.position,placement_yaw,"cash_hopper"))
+			_notify("Cash Hopper placed. Feed it from a belt for an automatic selling point, or tip a bucket in. Press E on it to upgrade.")
 		"sorter":
 			_create_output(business.add_output(ghost.position,placement_yaw,"sorter"))
 			_notify("Sorting table placed. Put rock on it, press SORT, then sell the sorted stone for more.")
@@ -4347,6 +4358,7 @@ func _placement_price(kind: String) -> int:
 		"advanced_crusher": return int(prog.machine("advanced_crusher")["price"])
 		"output": return int(business.cfg["output_storage_price"])
 		"hopper": return int(business.cfg["hopper_price"])
+		"cash_hopper": return int(business.cfg.get("cash_hopper", {}).get("price", 1800))
 		"sorter": return int(business.cfg["sorter_price"])
 		"conveyor": return int(business.cfg["conveyor_price"])
 	if kind.begins_with("conveyor_"):
@@ -4362,6 +4374,9 @@ func _start_placement(kind: String) -> void:
 	if kind.begins_with("conveyor_"):
 		placement_belt = kind.substr(9)
 		kind = "conveyor"
+	if kind == "cash_hopper" and machine_lock_reason("cash_hopper") != "" and int(business.inventory.get("cash_hopper", 0)) <= 0:
+		_notify(machine_lock_reason("cash_hopper"))
+		return
 	if kind in ["hopper", "sorter"] and not prog.unlocked(kind):
 		_notify("The %s unlocks at the %s stage." % [("small hopper" if kind == "hopper" else "sorting table"), prog.feature_stage_title(kind)])
 		return
@@ -4394,6 +4409,8 @@ func _start_placement(kind: String) -> void:
 		"crusher": _crusher_visual(ghost,true)
 		"advanced_crusher": _crusher_visual(ghost,true,2)
 		"output": _output_visual(ghost,true)
+		"cash_hopper":
+			_cash_hopper_ghost(ghost)
 		"hopper", "sorter":
 			if art:
 				if kind == "hopper":
@@ -5116,6 +5133,18 @@ func _conveyor_visual(parent: Node3D, transparent := false, belt := "straight") 
 	if transparent:
 		for child in parent.get_children():
 			child.transparency = 0.45
+
+## The real hopper model, still, for the placement ghost and the shop preview.
+func _cash_hopper_ghost(parent: Node3D) -> void:
+	var hm: Dictionary = WorldModels.animal("cash_hopper")
+	if hm.is_empty():
+		_visual_box(parent, Vector3(0, 0.75, 0), Vector3(1.9, 1.5, 1.9), Color(0.34, 0.40, 0.36))
+		return
+	var m: Node3D = hm["root"]
+	var ap := m.find_child("AnimationPlayer", true, false)
+	if ap != null:
+		ap.free()
+	parent.add_child(m)
 
 func _create_output(index: int) -> void:
 	var data: Dictionary = business.outputs[index]

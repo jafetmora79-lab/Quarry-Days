@@ -203,6 +203,8 @@
   "sort_seconds": 6.0,
   "sort_bonus": 1.3,
   "cash_hopper": {
+    "price": 1800,
+    "max_count": 6,
     "tiers": [
       {"name": "Grandpa's Old Hopper", "rate": 24.0, "capacity": 300, "upgrade_cost": 0},
       {"name": "Motorized Hopper", "rate": 48.0, "capacity": 800, "upgrade_cost": 900},
