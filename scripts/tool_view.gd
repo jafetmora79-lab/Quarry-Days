@@ -30,6 +30,7 @@ var obstruct := 0.0         ## 0..1 set by the game: something solid (a wall, a 
 var _obs := 0.0
 var shock := 0.0            ## 1 at the moment of a blow, decays: the tool shudders in the hands
 var _slide := 0.0           ## how far the off hand has slid along the shaft (m, model space)
+var hidden_for_pour := false     ## the bucket floats over the Cash Hopper on its own: no tool in the hands meanwhile
 var hidden_by_vehicle := false  ## in a machine (or on the way in / out of its cab): no tool and no hands in the view, whatever else asks to show them
 var suppressed := false     ## the game keeps the tool out of sight (at the computer): other code that shows or hides it respects this
 var hands_rig: FPHands      ## the shared hands (see FPHands / FPTools): the tool decides where they close
@@ -177,7 +178,7 @@ func deflect() -> void:
 	deflect_t = 0.3
 
 func _process(delta: float) -> void:
-	if hidden_by_vehicle:
+	if hidden_by_vehicle or hidden_for_pour:
 		visible = false
 		if hands_rig != null:
 			hands_rig.hide_all()
@@ -598,7 +599,8 @@ func _scoop_pose(p: float, rest: float) -> Dictionary:
 		ang = lerpf(rest - 0.2, rest, e7) + sin(a7 * PI) * 0.03
 		off = Vector3(0.0, 0.06, -0.1).lerp(Vector3.ZERO, e7)
 		roll = 0.45 * (1.0 - e7)
-	return {"ang": ang, "off": off, "weight": weight, "roll": roll}
+	# smaller, snappier moves: the full cycle read as a heavy lunge (the shovel was clunky)
+	return {"ang": rest + (ang - rest) * 0.72, "off": off * 0.65, "weight": weight, "roll": roll * 0.7}
 
 static func _ease_io(t: float) -> float:
 	var x := clampf(t, 0.0, 1.0)

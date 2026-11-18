@@ -7694,7 +7694,7 @@
    "model": 0,
    "desc": "Grandpa's old shovel. Topsoil, loose soil and gravel only. Stone needs a hammer or a pickaxe.",
    "power": 8.0,
-   "interval": 0.55,
+   "interval": 0.45,
    "max_hardness": 0,
    "sound": "hit_hammer",
    "pitch": 0.6,

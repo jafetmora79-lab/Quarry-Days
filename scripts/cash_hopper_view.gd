@@ -803,6 +803,15 @@ func intake(source: String, res: String, units: int, origin: Vector3) -> void:
 			height = 0.45
 			spread = 0.1
 			size = 0.08
+		"pour":                                                              # a bucket hovering over the funnel, tipped: a stream that starts when it has tilted
+			n = clampi(units / 2, 8, 20)
+			delay = 1.15
+			span = 1.3
+			dur = 0.4
+			height = 0.04
+			spread = 0.09
+			size = 0.065
+			shake = 0.35
 		"bucket":
 			n = clampi(units / 2, 6, 16)
 			delay = 0.4
@@ -863,6 +872,77 @@ func intake(source: String, res: String, units: int, origin: Vector3) -> void:
 		tw.tween_callback(chunk.queue_free)
 	_after(land_t, _intake_done.bind(res, units, source, shake))
 
+## The player's bucket floats out of their hands to hover over the funnel, tips and pours, and flies back: the material falls straight into the funnel as it pours, each piece filling the
+## heap (and starting the sale) as it lands. `moved` is what the hopper took ({res: units}); the bucket model empties as it pours.
+const POUR_FLY := 0.6
+const POUR_TILT := 0.5
+const POUR_SPAN := 1.4
+const POUR_BACK := 0.9
+func pour_bucket(moved: Dictionary, player: Node3D, cap: int) -> void:
+	if points.is_empty() or not is_inside_tree() or player == null:
+		return
+	var bucket: Node3D = BucketView.build()
+	add_child(bucket)
+	var top := _funnel_top()
+	var pl := to_local(player.global_position)
+	var pd := Vector3(pl.x, 0.0, pl.z)
+	pd = pd.normalized() if pd.length() > 0.01 else Vector3(0, 0, -1)
+	var hover := top + pd * 0.5 + Vector3(0.0, 0.95, 0.0)
+	var axis := Vector3.UP.cross(-pd).normalized()
+	var tilt := 1.95
+	var tv = player.get("tool_view")
+	if tv != null:
+		tv.hidden_for_pour = true
+	var start_g: Vector3 = game._hand_origin()
+	BucketView.set_load(bucket, moved, cap)
+	bucket.position = to_local(start_g)
+	var lip := to_global(hover - pd * 0.18 + Vector3(0.0, -0.08, 0.0))
+	for res in moved:
+		if int(moved[res]) > 0:
+			intake("pour", str(res), int(moved[res]), lip)
+	var total := POUR_FLY + POUR_TILT + POUR_SPAN + POUR_TILT * 0.8 + POUR_BACK
+	var last_frac := 2.0
+	var tw := create_tween()
+	tw.tween_method(func(t: float):
+		if not is_instance_valid(bucket):
+			return
+		var hand := to_local(game._hand_origin())
+		var ang := 0.0
+		var pos := hover
+		if t < POUR_FLY:                                                     # out of the hands and up over the funnel, in an arc
+			var k := _ease3(t / POUR_FLY)
+			pos = to_local(start_g).lerp(hover, k) + Vector3(0.0, 0.35 * sin(k * PI), 0.0)
+		elif t < POUR_FLY + POUR_TILT:                                        # tips toward the funnel
+			ang = tilt * _ease3((t - POUR_FLY) / POUR_TILT)
+		elif t < POUR_FLY + POUR_TILT + POUR_SPAN:                            # pours: a gentle shake, the load draining
+			var pk := (t - POUR_FLY - POUR_TILT) / POUR_SPAN
+			ang = tilt + 0.08 * sin(pk * 40.0) * (1.0 - pk * 0.5)
+			pos = hover + Vector3(0.0, 0.02 * sin(pk * 55.0), 0.0)
+			var frac := snappedf(1.0 - pk, 0.1)
+			if frac != last_frac:
+				last_frac = frac
+				var rest := {}
+				for r in moved:
+					rest[r] = int(round(float(moved[r]) * frac))
+				BucketView.set_load(bucket, rest, cap)
+		elif t < POUR_FLY + POUR_TILT + POUR_SPAN + POUR_TILT * 0.8:          # rights itself
+			var uk := (t - POUR_FLY - POUR_TILT - POUR_SPAN) / (POUR_TILT * 0.8)
+			ang = tilt * (1.0 - _ease3(uk))
+		else:                                                                # and floats back into the hands
+			var bk := _ease3((t - (total - POUR_BACK)) / POUR_BACK)
+			pos = hover.lerp(hand, bk) + Vector3(0.0, 0.25 * sin(bk * PI), 0.0)
+		bucket.position = pos
+		bucket.basis = Basis(axis, ang), 0.0, total, total)
+	tw.tween_callback(func():
+		if is_instance_valid(bucket):
+			bucket.queue_free()
+		if tv != null and is_instance_valid(tv):
+			tv.hidden_for_pour = false)
+
+static func _ease3(x: float) -> float:
+	x = clampf(x, 0.0, 1.0)
+	return x * x * (3.0 - 2.0 * x)
+
 ## One point on a thrown chunk's path (a parabola over the straight line).
 func _coin_arc_free(t: float, chunk: Node3D, a: Vector3, b: Vector3, h: float, spin: Vector3) -> void:
 	if not is_instance_valid(chunk):
@@ -882,7 +962,7 @@ func _landed(res: String, per_unit: float, source: String, first: bool) -> void:
 func _intake_done(res: String, units: int, source: String, shake: float) -> void:
 	_inflight[res] = 0
 	_vibe = maxf(_vibe, shake)
-	if dust != null and source in ["machine", "truck", "bucket"]:
+	if dust != null and source in ["machine", "truck", "bucket", "pour"]:
 		dust.amount = 18 if source == "truck" else 10
 		dust.color = (PILE_TINT.get(res, Color(0.7, 0.68, 0.62)) as Color).lightened(0.25)
 		dust.restart()

@@ -1831,8 +1831,12 @@ func deliver_hand_to_hopper(idx: int) -> int:
 		n += int(moved[k])
 	if n > 0:
 		pickup_audio.play()
-		player.tool_view.tip_bucket()
-		_hopper_intake_fx(idx, "bucket", moved, _hand_origin())
+		var hv = output_nodes[idx].get_node_or_null("CashHopperView") if idx >= 0 and idx < output_nodes.size() else null
+		if hv != null and hv.has_method("pour_bucket") and DisplayServer.get_name() != "headless":
+			hv.pour_bucket(moved, player, state.bucket_capacity())            # the bucket floats over the funnel on its own and pours
+		else:
+			player.tool_view.tip_bucket()
+			_hopper_intake_fx(idx, "bucket", moved, _hand_origin())
 		hud.toast("Into the hopper: %d units" % n, "It sells them one by one", "sale")
 		if coach != null:
 			coach.event("hopper_tipped")

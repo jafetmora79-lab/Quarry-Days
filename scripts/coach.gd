@@ -72,10 +72,10 @@ func _build_panel() -> void:
 	_panel = PanelContainer.new()
 	_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_panel.add_theme_stylebox_override("panel", UiSkin.box("plate_prompt", QuarryTheme.panel_box(), [14, 9, 14, 10]))
-	_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
-	_panel.offset_top = 96.0
-	_panel.custom_minimum_size = Vector2(430, 0)
-	_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)             # under the objectives plate, never in the middle where the cards, toasts and banners are
+	_panel.offset_left = 14.0
+	_panel.offset_top = 124.0
+	_panel.custom_minimum_size = Vector2(290, 0)
 	_panel.visible = false
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 4)
@@ -83,7 +83,7 @@ func _build_panel() -> void:
 	_p_title = QuarryTheme.label("", QuarryTheme.HEAD, QuarryTheme.INK, true)
 	_p_body = QuarryTheme.label("", QuarryTheme.BODY, QuarryTheme.DIM)
 	_p_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_p_body.custom_minimum_size = Vector2(400, 0)
+	_p_body.custom_minimum_size = Vector2(262, 0)
 	v.add_child(_p_key)
 	v.add_child(_p_title)
 	v.add_child(_p_body)
@@ -300,9 +300,16 @@ func _process(delta: float) -> void:
 	if game.prog.cleanup_cleared_all() and not _done("hopper"):
 		_mark_all()
 		return
-	if game.menu != "" or game.hud.card_open() or game._conversation_active():
+	if game.menu != "" or game.hud.card_open() or game._conversation_active() or _busy_ui():
+		_panel.visible = false                                  # a card, a tip or a dialogue is up: wait, then show the step again
+		_shown_step = ""
 		return
 	_show_step(_current_step())
+
+## An item card (or one queued) is showing: the guide waits its turn instead of sitting on top of it.
+func _busy_ui() -> bool:
+	var tips = game.get("item_tips")
+	return tips != null and (tips.panel != null or not tips.queue.is_empty())
 
 func _mark_all() -> void:
 	for s in STEPS:
