@@ -315,20 +315,14 @@
       "ok": true
     },
     {
-      "check": "shovel L hand",
-      "gap_m": 0.017,
-      "note": "",
-      "ok": true
-    },
-    {
-      "check": "shovel R hand",
-      "gap_m": 0.017,
-      "note": "",
-      "ok": true
-    },
-    {
       "check": "ramp_plan R hand",
       "gap_m": 0.014,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "bucket R hand",
+      "gap_m": 0.007,
       "note": "",
       "ok": true
     }
@@ -390,13 +384,19 @@
     },
     {
       "check": "shovel working tip on the model",
-      "gap_m": 0.011,
+      "gap_m": 0.005,
       "note": "",
       "ok": true
     },
     {
       "check": "ramp_plan working tip on the model",
       "gap_m": 0.015,
+      "note": "",
+      "ok": true
+    },
+    {
+      "check": "bucket working tip on the model",
+      "gap_m": 0.007,
       "note": "",
       "ok": true
     }

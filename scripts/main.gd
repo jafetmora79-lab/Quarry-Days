@@ -4667,7 +4667,7 @@ func _load(quiet := false) -> void:
 			live_terrain.terrain.flush(true)
 			if soil != null and is_instance_valid(soil):
 				soil.terrain = live_terrain.terrain
-				soil.sync()                                                # the soil field reads its units back from the restored ground
+				soil.ground_replaced()                                     # the soil field reads its units back from the restored ground and wakes the machines on it
 		elif soil != null and is_instance_valid(soil):
 			soil.terrain = live_terrain.terrain
 			soil.apply(state.soil_units)                                   # an older save has cells only: lay that much topsoil on the ground

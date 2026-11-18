@@ -200,6 +200,15 @@ func remove(i: int, n: int) -> int:
 	_dirty = true
 	return take
 
+## The whole ground was replaced (a loaded save): every machine standing on it must re-find its footing.
+func ground_replaced() -> void:
+	sync()
+	for i in range(units.size()):
+		if int(active[i]) == 1:
+			_dirty_cells[i] = true
+	_dirty = true
+	refresh()
+
 ## Tells whoever cares which cells changed (vehicles standing on them wake up). The ground itself is drawn and collided by the terrain.
 func refresh(force := false) -> void:
 	if not _dirty and not force:
