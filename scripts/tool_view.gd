@@ -62,7 +62,7 @@ const TOOL := {
 }
 const REACH_MIN := 0.85      # the working end meets the rock this far in front of the camera, at least...
 const REACH_MAX := 1.6       # ...and at most (mining reach in main.gd is just beyond this)
-const MAX_CORRECTION := 0.34
+const MAX_CORRECTION := 0.5
 
 var target_dist := 1.2       # distance to the rock under the crosshair (set by the game when engaged)
 var tip_cam := Vector3.ZERO  # working end in camera space after the last update (for tests)
@@ -240,7 +240,7 @@ func _process(delta: float) -> void:
 				var a := (p - 0.42) / 0.16
 				ang = lerpf(wind, strike, a * a)
 				off = Vector3(0.0, lerpf(0.07 + float(def.get("lift", 0.0)), -0.03, a), lerpf(-0.10 * lg, -0.12 * lg, a))
-				weight = a * a
+				weight = minf(1.0, a * 1.15) * minf(1.0, a * 1.15)       # on the rock a moment before the frame the blow lands
 			else:                                         # recover: ease back with a small settle
 				var a := clampf((p - 0.58) / 0.42, 0.0, 1.0)
 				var e := 1.0 - pow(1.0 - a, 3.0)

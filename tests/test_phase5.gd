@@ -249,6 +249,8 @@ func scene_mining() -> void:
 		clock["t"] += 0.05
 		tv._process(0.05)
 	check(hits["n"] == 1 and hits["t"] > 0.3 and hits["t"] < 0.4, "5 a swing calls its impact exactly once, at the strike moment (%.2fs of 0.6s)" % hits["t"])
+	for i in range(4):
+		tv._process(0.05)                                       # (a short hold at the moment of a heavy impact: the swing ends a little after its nominal time)
 	check(not tv.is_busy(), "5 the swing finishes and the tool returns to rest")
 	# aim at the stone formation and swing for real
 	aim_at(game, Vector3(-10.0, 0.05, -5.0), Vector3(-10.0, 1.0, -7.2))

@@ -104,16 +104,18 @@ func run() -> void:
 		st.inventory[k] = 0
 	for i in range(6):
 		game._on_swing_impact() # 6 x 4 = 24 damage -> 2 stone
-	check(int(st.inventory["limestone"]) == 2 and prog.heap_units_left(hid) == 3, "D a heap yields 1 stone per 10 damage (2 stone, 3 left)")
+	check(game.debris_stones.size() == 2 and int(st.inventory["limestone"]) == 0 and prog.heap_units_left(hid) == 3, "D a heap yields 1 stone per 10 damage: 2 stones land on the ground, 3 left in the heap, none in the bag")
 	var cap: int = st.capacity()
-	st.inventory["coal"] = cap - 2 # room for exactly 0 more stone after the 2 we hold
-	for i in range(10):
-		game._on_swing_impact()
-	check(prog.heap_units_left(hid) == 3 and st.total(st.inventory) <= cap, "D a full bag takes nothing and loses no stone from the heap")
+	st.inventory["coal"] = cap                                   # a full bag
+	game._interact(game.debris_stones.values()[0])
+	check(game.debris_stones.size() == 2 and st.total(st.inventory) == cap, "D a full bag takes nothing: the stone stays on the ground")
 	st.inventory["coal"] = 0
 	for i in range(14):
 		game._on_swing_impact()
-	check(prog.cleanup["cleared"].get(hid, false) and int(st.inventory["limestone"]) == 5, "D the heap is gone once its 5 stone are in the bag, none duplicated")
+	check(prog.cleanup["cleared"].get(hid, false) and game.debris_stones.size() == 5, "D the heap is gone once its 5 stones lie on the ground, none duplicated")
+	for sid in game.debris_stones.keys():
+		game._interact(game.debris_stones[sid])
+	check(int(st.inventory["limestone"]) == 5 and game.debris_stones.is_empty(), "D picking them up puts all 5 in the bag")
 	# ---- save/load keeps what is left; loading twice duplicates nothing
 	var w2 := ""
 	for id in game.cleanup_nodes:

@@ -17,7 +17,7 @@ func _initialize() -> void:
 func run_tests() -> void:
 	var cfg = JSON.parse_string(FileAccess.get_file_as_string("res://data/economy.json"))
 	var s := QuarryState.new(cfg)
-	check(s.money == 100 and s.bucket_capacity() == 18 and s.capacity() == 18 * QuarryState.BUCKET_STACK,"initial balance and bucket capacity (a bucket holds 18; buckets stack)")
+	check(s.money == 100 and s.bucket_capacity() == 18 and s.capacity() == 18,"initial balance, bucket capacity and bag (a bucket holds 18; the bag holds one bucket's worth)")
 	check(s.add_item("limestone",4)==4 and s.total(s.inventory)==4,"mining pickup enters inventory")
 	check(s.sell("limestone",2)==2 and s.money==106 and s.inventory["limestone"]==2,"selling removes exactly two and pays $6")
 	check(s.buy_upgrade("reinforced_pickaxe") and s.required_hits()==2,"reinforced pickaxe changes hits")
