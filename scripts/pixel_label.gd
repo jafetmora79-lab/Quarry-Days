@@ -11,7 +11,7 @@ var readout := false
 
 func _init() -> void:
 	font = SIGN_FONT
-	texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS                # (one smooth typeface for all text now: no nearest-neighbour edges)
+	texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST                # a true pixel font: nearest filtering keeps every glyph pixel square
 	outline_modulate = Color(0.1, 0.07, 0.04)
 	outline_size = 6
 	double_sided = true

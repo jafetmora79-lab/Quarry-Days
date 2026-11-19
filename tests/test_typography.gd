@@ -54,8 +54,11 @@ func run() -> void:
 			big = maxf(big, float(l.get_theme_font_size("font_size", "Label")))
 	check(big >= 36.0, "the title is the largest text on the menu (%d base px)" % int(big))
 	# ---- roles: which face each kind of text uses
-	check(QuarryTheme.head().base_font.get_font_name().contains("Pixelify") and QuarryTheme.body().base_font.get_font_name().contains("Nunito"), "titles and buttons are Pixelify Sans, reading text is Nunito Sans")
-	check(QuarryTheme.hud().get_font_name().contains("Silkscreen") and QuarryTheme.mono().get_font_name().contains("VT323"), "HUD labels are Silkscreen, readouts are VT323")
+	var veil := true
+	for f in [QuarryTheme.head(), QuarryTheme.body(), QuarryTheme.bold(), QuarryTheme.display(), QuarryTheme.hud(), QuarryTheme.mono()]:
+		veil = veil and f is FontVariation and (f as FontVariation).base_font.resource_path.ends_with("VeilPixel.ttf")
+	check(veil, "every text role (titles, buttons, reading text, HUD, readouts) is THE VEIL pixel font")
+	check(QuarryTheme.PIXEL_GRID == 13, "pixel-font labels snap to the 13 px em of the pixel font")
 	var th: Theme = load("res://assets/ui/qd_theme.tres")
 	check(th != null and th.default_font_size == QuarryTheme.BODY and th.get_font("font", "Button") == QuarryTheme.head(), "the project default theme carries the game's fonts and sizes (tooltips and popups included)")
 	check(th.has_font_size("font_size", "TooltipLabel"), "tooltips have their own readable size")
@@ -97,9 +100,9 @@ func run() -> void:
 			var base := int(l.get_meta("pixel_base"))
 			var fs := l.get_theme_font_size("font_size", "Label")
 			if sz.y == 1080:
-				if absf(px - roundf(px / grid) * grid) > 0.6:
+				if absf(px - roundf(px / grid) * grid) > 1.1:             # the pixel font's 13 px em is odd, whole canvas sizes at 1080p are even: within 1 px of a multiple is as close as it gets
 					off.append("%s %.1f" % [str(l.text).left(12), px])
-			elif fs < base or fs > base + 2:                         # at other sizes the growth cap (2 base units) may keep a label off-grid, but never smaller or more than 2 larger
+			elif fs < base - 4 or fs > base + 2:                     # at other sizes a label snaps to a whole multiple of the 13 px em: at most 4 base units smaller or 2 larger
 				off.append("%s base %d got %d" % [str(l.text).left(12), base, fs])
 		check(pix > 5 and off.is_empty(), "%dx%d: %d pixel-font labels: on the grid at 1080p, within the +2 growth cap elsewhere %s" % [sz.x, sz.y, pix, str(off.slice(0, 4))])
 	# ---- the HUD plates keep inside the canvas and clear of each other at every size, with the fitted text in them

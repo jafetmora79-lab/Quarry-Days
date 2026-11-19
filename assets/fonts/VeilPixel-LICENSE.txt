@@ -1,0 +1,11 @@
+VeilPixel.ttf - the pixel typeface of THE VEIL, now used for all text in Quarry Days.
+
+Built by THE VEIL's tools/make_pixel_font.py: every glyph is rasterised, without anti-aliasing, from DejaVu Sans Bold at 10 px and
+re-drawn as square-pixel contours (13 px em). It is therefore a derivative of DejaVu Sans Bold, whose licence (Bitstream Vera
+Fonts Copyright + DejaVu changes, permissive, free to use / modify / embed / redistribute as part of software) requires keeping this notice:
+
+  Fonts are (c) Bitstream (see below). DejaVu changes are in public domain.
+  Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved. Bitstream Vera is a trademark of Bitstream, Inc.
+  Full text: https://dejavu-fonts.github.io/License.html
+
+The previous Quarry Days faces (Nunito Sans, Pixelify Sans, Silkscreen, VT323; SIL OFL 1.1) remain in this folder but are no longer used.

@@ -1,10 +1,6 @@
 [gd_resource type="FontVariation" load_steps=2 format=3]
 
-[ext_resource type="FontFile" path="res://assets/fonts/NunitoSans-Variable.ttf" id="1_nunito"]
+[ext_resource type="FontFile" path="res://assets/fonts/VeilPixel.ttf" id="1_veil"]
 
 [resource]
-base_font = ExtResource("1_nunito")
-variation_opentype = {
-1869640570: 12,
-2003265652: 800
-}
+base_font = ExtResource("1_veil")

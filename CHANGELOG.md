@@ -1,5 +1,10 @@
 # Changelog
 
+### One typeface: THE VEIL pixel font
+- **Every piece of text** (menus, HUD, dialogue, settings, signs, readouts, in-world labels) now uses THE VEIL pixel font (`assets/fonts/VeilPixel.ttf`, a 13 px-em square-pixel face derived from DejaVu Sans Bold; notice in `assets/fonts/VeilPixel-LICENSE.txt`). The six `qd_*.tres` role resources all point at it, so the old faces (Nunito Sans, Pixelify Sans, Silkscreen, VT323) are no longer used (files kept). It has one weight: bold, headings and body differ by size and colour only.
+- Antialiasing and hinting are off so glyph pixels stay square; pixel labels snap to multiples of the 13 px em (`QuarryTheme.PIXEL_GRID`), world labels use nearest filtering. Small text is a little smaller on screen than before.
+- Tests `test_typography`, `test_ui_readability`, `test_phase5` updated for the new face (they asserted the old fonts and the old 8/16 px pixel grid).
+
 ### Cash Hopper and automated selling (branch feature/cash-hopper-foundation)
 - **Grandpa's old Cash Hopper** stands east of the office from the first minute. Put material in once (E on the hopper: DEPOSIT ALL / DEPOSIT SELECTED / CRATE / UPGRADE / CLOSE; carts tip into it; belts feed it) and it sells it **one unit at a time**, wherever you are, at the one price table. Rocks fall into the funnel, a clunk and a coin sound play (pitch varies), a green or amber `+$n` rises over the machine, and a little display shows what is selling, what waits, today's earnings and the speed. Speeds 1 / 4 / 12 units per second (`data/business.json`), upgrades $900 and $3,500.
 - **Belts and mergers:** the hopper is an `output` structure variant, so crushers, belts, mergers, backpressure and saving are the existing code. A belt out of the storage crate carries whatever it holds, only if the player builds that route.

@@ -1,6 +1,6 @@
 extends RefCounted
 class_name QuarryTheme
-## Shared UI style, ONE typeface for every piece of text in the game: Nunito Sans (assets/fonts/NunitoSans-Variable.ttf, SIL OFL 1.1), set at different weights by the resources assets/fonts/qd_*.tres:
+## Shared UI style, ONE typeface for every piece of text in the game: THE VEIL pixel font (assets/fonts/VeilPixel.ttf, 13 px em, square pixels; see VeilPixel-LICENSE.txt). It has one weight, so every role below is the same face; the resources assets/fonts/qd_*.tres keep the roles apart:
 ##   display() 900 and head() 800   titles, signs, stage and equipment names, major buttons, announcements
 ##   hud() 700                       HUD labels, day and time, minimap labels, short status labels
 ##   body() 500 and bold() 800       everything that is read: dialogue, letters, tutorials, descriptions, settings
@@ -17,6 +17,7 @@ const BODY := 9
 const HUD := 9
 const DIALOG := 10
 const SMALL := 8
+const PIXEL_GRID := 13          ## the pixel font's em: sizes that are a whole multiple of it keep every glyph pixel a crisp square
 
 const BG := Color(0.13, 0.1, 0.075, 0.95)
 const BG_SOFT := Color(0.17, 0.13, 0.095, 0.93)
@@ -146,7 +147,7 @@ static func ui_scale() -> float:
 	return maxf(0.5, minf(win.x / 960.0, win.y / 540.0))
 
 static func snap_pixel_px(target: float, grid: int) -> int:
-	return maxi(16, int(floor(target / float(grid) + 0.25)) * grid)
+	return maxi(grid if grid >= 13 else 16, int(floor(target / float(grid) + 0.25)) * grid)
 
 ## Base-canvas font size for a pixel font whose 1080p design size is `base` x 2 px.
 static func pixel_font_size(base: int, grid := 8) -> int:
@@ -211,14 +212,14 @@ static func _pixel(l: Label, base: int, grid: int) -> void:
 static func hud_label(text: String, size := HUD, color := INK, shadow := false) -> Label:
 	var l := label(text, size, color, false, false, shadow)
 	l.add_theme_font_override("font", hud())
-	_pixel(l, size, 8)
+	_pixel(l, size, PIXEL_GRID)
 	return l
 
 ## A VT323 readout label (digital counters).
 static func mono_label(text: String, size := 14, color := INK) -> Label:
 	var l := label(text, size, color)
 	l.add_theme_font_override("font", mono())
-	_pixel(l, size, 16)
+	_pixel(l, size, PIXEL_GRID)
 	return l
 
 ## The same label without the window-fitted growth: for the HUD plates and the shop panels, whose layouts are tight canvas-unit grids.

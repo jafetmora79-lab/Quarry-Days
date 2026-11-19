@@ -37,14 +37,14 @@ func run() -> void:
 	root.size = Vector2i(1920, 1080)
 	var body: Font = QuarryTheme.body()
 	var fv := body as FontVariation
-	check(fv != null and fv.base_font.get_font_name().contains("Nunito"), "1 body text is Nunito Sans, antialiased")
+	check(fv != null and fv.base_font.resource_path.ends_with("VeilPixel.ttf"), "1 body text is THE VEIL pixel font")
 	var one := true
 	for f in [QuarryTheme.head(), QuarryTheme.display(), QuarryTheme.hud(), QuarryTheme.mono(), QuarryTheme.bold(), QuarryTheme.body()]:
-		one = one and (f as FontVariation) != null and (f as FontVariation).base_font.get_font_name().contains("Nunito")
-	check(one, "2 ONE typeface for all text: headings, signs, HUD labels, readouts, body and bold are all Nunito Sans (only the weight differs)")
+		one = one and (f as FontVariation) != null and (f as FontVariation).base_font.resource_path.ends_with("VeilPixel.ttf")
+	check(one, "2 ONE typeface for all text: headings, signs, HUD labels, readouts, body and bold are all THE VEIL pixel font")
 	var lic := true
-	for n in ["NunitoSans"]:
-		lic = lic and FileAccess.file_exists("res://assets/fonts/%s-OFL.txt" % n)
+	for n in ["VeilPixel"]:
+		lic = lic and FileAccess.file_exists("res://assets/fonts/%s-LICENSE.txt" % n)
 	check(lic, "1 font licences are shipped")
 	for n in ["qd_body", "qd_body_bold", "qd_heading", "qd_display", "qd_hud", "qd_mono"]:
 		check(load("res://assets/fonts/%s.tres" % n) is Font, "font resource %s loads" % n)
