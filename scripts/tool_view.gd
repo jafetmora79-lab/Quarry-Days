@@ -56,8 +56,8 @@ signal payload_dumped(res: String)
 ## Power tools use `rest_rot` (euler) to aim their working end at the crosshair, and `model_pitch` leans the whole model.
 const TOOL := {
 	0: {"pause": 0.04, "rest_roll": -0.3, "grip": Vector3(0.22, -0.4, -0.5), "scale": 0.8, "rest": -0.95, "yaw": -0.2, "wind": 0.0, "strike": -1.35, "follow": 0.025, "roll": 0.06, "lunge": 0.55, "kick": 0.5, "tip": Vector3(0, 0.36, -0.1)},        # the hammer: a short, compact, controlled blow
-	1: {"pause": 0.035, "rest_roll": -0.25, "grip": Vector3(0.2, -0.42, -0.5), "scale": 0.8, "rest": -1.2, "yaw": 0.55, "wind": 0.2, "lift": 0.03, "strike": -1.35, "follow": 0.11, "roll": 0.24, "lunge": 1.15, "kick": 1.0, "tip": Vector3(0, 0.48, -0.27)},    # the pickaxe: a higher overhead arc with a follow-through
-	2: {"pause": 0.035, "rest_roll": -0.25, "grip": Vector3(0.2, -0.42, -0.5), "scale": 0.75, "rest": -1.2, "yaw": 0.55, "wind": 0.3, "lift": 0.05, "strike": -1.35, "follow": 0.13, "roll": 0.26, "lunge": 1.2, "kick": 1.15, "tip": Vector3(0, 0.52, -0.32)},    # reinforced: the heaviest wind-up
+	1: {"pause": 0.035, "rest_roll": -0.25, "grip": Vector3(0.34, -0.40, -0.52), "scale": 1.05, "rest": -1.0, "yaw": 0.15, "wind": 0.2, "lift": 0.03, "strike": -1.35, "follow": 0.11, "roll": 0.24, "lunge": 1.15, "kick": 1.0, "tip": Vector3(0, 0.48, -0.27)},    # the pickaxe: a higher overhead arc with a follow-through
+	2: {"pause": 0.035, "rest_roll": -0.25, "grip": Vector3(0.34, -0.40, -0.52), "scale": 1.0, "rest": -1.0, "yaw": 0.15, "wind": 0.3, "lift": 0.05, "strike": -1.35, "follow": 0.13, "roll": 0.26, "lunge": 1.2, "kick": 1.15, "tip": Vector3(0, 0.52, -0.32)},    # reinforced: the heaviest wind-up
 	3: {"grip": Vector3(0.28, -0.3, -0.5), "scale": 0.7, "power": true, "spin": "rotate", "amp": 0.006, "rest_rot": Vector3(0.12, 0.2, 0.0), "tip": Vector3(0, 0.12, -0.54)},
 	4: {"grip": Vector3(0.3, -0.12, -0.5), "scale": 0.7, "power": true, "spin": "pump_y", "amp": 0.014, "rest_rot": Vector3(0.0, 0.3, 0.0), "model_pitch": 0.8, "tip": Vector3(0, -0.61, 0)},
 }

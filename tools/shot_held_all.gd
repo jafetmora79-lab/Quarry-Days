@@ -21,6 +21,10 @@ func run():
 		game.opening_scene.skip_all()
 	await frames(10)
 	game.hud.close_card()
+	if game.coach != null:
+		game.coach._mark_all()
+		if game.coach.flying():
+			game.coach._end_fly()
 	game.item_tips.enabled = false
 	game.hud.visible = false
 	game.player.global_position = Vector3(8.0, 0.2, -12.0)
