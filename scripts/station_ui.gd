@@ -225,6 +225,18 @@ static func _style(kind: String, state: String) -> StyleBox:
 		bg = Color(0.46, 0.20, 0.15)
 		edge = Color(0.80, 0.42, 0.33)
 		low = Color(0.25, 0.09, 0.07)
+	elif kind == "cool":                                 # the pause menu: slate blue, readable against the brown panel (no orange / red)
+		bg = Color(0.20, 0.30, 0.42)
+		edge = Color(0.58, 0.74, 0.90)
+		low = Color(0.09, 0.14, 0.21)
+	elif kind == "cool_main":                            # RESUME: teal
+		bg = Color(0.10, 0.42, 0.46)
+		edge = Color(0.55, 0.88, 0.86)
+		low = Color(0.05, 0.22, 0.25)
+	elif kind == "cool_quit":                            # QUIT: deep violet
+		bg = Color(0.34, 0.22, 0.48)
+		edge = Color(0.70, 0.56, 0.88)
+		low = Color(0.17, 0.10, 0.26)
 	elif kind == "toggle":
 		bg = Color(0.18, 0.14, 0.11)
 		edge = Color(0.45, 0.38, 0.28)

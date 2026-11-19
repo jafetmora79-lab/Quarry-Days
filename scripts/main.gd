@@ -2822,18 +2822,25 @@ func _draw_menu() -> void:
 					p.buttons[k] = sv.controls[k]
 			else:
 				p.begin("PAUSED", -1, "")
-				p.fit(300.0, 372.0)                       # after begin(), which resets the panel to the big size
-				p.vbutton("resume", "RESUME", true, func(): _close_menu(), "primary", 36.0)
-				p.vbutton_pair(["save", "SAVE GAME", true, func(): _save()], ["load", "LOAD GAME", true, func(): _load()])
+				p.fit(300.0, 330.0)                       # after begin(), which resets the panel to the big size
+				p.list.size_flags_vertical = Control.SIZE_EXPAND_FILL
+				var top_gap := Control.new()              # two stretchy gaps keep the column of buttons in the middle of the panel
+				top_gap.size_flags_vertical = Control.SIZE_EXPAND_FILL
+				p.list.add_child(top_gap)
+				p.vbutton("resume", "RESUME", true, func(): _close_menu(), "cool_main", 36.0)
+				p.vbutton_pair(["save", "SAVE GAME", true, func(): _save(), "cool"], ["load", "LOAD GAME", true, func(): _load(), "cool"])
 				p.vbutton("settings", "SETTINGS", true, func():
 					pause_view = "settings"
-					_draw_menu())
-				p.vbutton("main_menu", "MAIN MENU", true, func(): to_main_menu())
+					_draw_menu(), "cool")
+				p.vbutton("main_menu", "MAIN MENU", true, func(): to_main_menu(), "cool")
 				p.vbutton("quit", "QUIT TO DESKTOP", true, func():
 					if autosave_enabled:
 						_save(true)
-					get_tree().quit(), "danger")
+					get_tree().quit(), "cool_quit")
 				p.text("The game saves itself every minute and when you close it.", QuarryTheme.DIM, true)
+				var bottom_gap := Control.new()
+				bottom_gap.size_flags_vertical = Control.SIZE_EXPAND_FILL
+				p.list.add_child(bottom_gap)
 		"sell": _draw_sell(p)
 		"upgrades": _draw_upgrades(p)
 		"cart": _draw_cart(p, idx)

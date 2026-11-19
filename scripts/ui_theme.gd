@@ -227,7 +227,7 @@ static func fixed_label(text: String, size := BODY, color := INK, heading := fal
 	var l := label(text, size, color, heading, bold_face, shadow)
 	l.remove_from_group("fit_text")
 	l.remove_meta("fit_base")
-	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_font_size_override("font_size", size + (1 if size <= BODY else 0))      # the pixel font reads smaller than the old face at the same size: small plate text gets one more unit
 	return l
 
 static func money_text(v: int) -> String:
