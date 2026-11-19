@@ -2827,16 +2827,16 @@ func _draw_menu() -> void:
 				var top_gap := Control.new()              # two stretchy gaps keep the column of buttons in the middle of the panel
 				top_gap.size_flags_vertical = Control.SIZE_EXPAND_FILL
 				p.list.add_child(top_gap)
-				p.vbutton("resume", "RESUME", true, func(): _close_menu(), "cool_main", 36.0)
-				p.vbutton_pair(["save", "SAVE GAME", true, func(): _save(), "cool"], ["load", "LOAD GAME", true, func(): _load(), "cool"])
+				p.vbutton("resume", "RESUME", true, func(): _close_menu(), "steel", 36.0).add_theme_color_override("font_color", QuarryTheme.ACCENT)
+				p.vbutton_pair(["save", "SAVE GAME", true, func(): _save(), "steel"], ["load", "LOAD GAME", true, func(): _load(), "steel"])
 				p.vbutton("settings", "SETTINGS", true, func():
 					pause_view = "settings"
-					_draw_menu(), "cool")
-				p.vbutton("main_menu", "MAIN MENU", true, func(): to_main_menu(), "cool")
+					_draw_menu(), "steel")
+				p.vbutton("main_menu", "MAIN MENU", true, func(): to_main_menu(), "steel")
 				p.vbutton("quit", "QUIT TO DESKTOP", true, func():
 					if autosave_enabled:
 						_save(true)
-					get_tree().quit(), "cool_quit")
+					get_tree().quit(), "steel")
 				p.text("The game saves itself every minute and when you close it.", QuarryTheme.DIM, true)
 				var bottom_gap := Control.new()
 				bottom_gap.size_flags_vertical = Control.SIZE_EXPAND_FILL

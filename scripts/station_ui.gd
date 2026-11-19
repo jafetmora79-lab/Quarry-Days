@@ -225,18 +225,6 @@ static func _style(kind: String, state: String) -> StyleBox:
 		bg = Color(0.46, 0.20, 0.15)
 		edge = Color(0.80, 0.42, 0.33)
 		low = Color(0.25, 0.09, 0.07)
-	elif kind == "cool":                                 # the pause menu: slate blue, readable against the brown panel (no orange / red)
-		bg = Color(0.20, 0.30, 0.42)
-		edge = Color(0.58, 0.74, 0.90)
-		low = Color(0.09, 0.14, 0.21)
-	elif kind == "cool_main":                            # RESUME: teal
-		bg = Color(0.10, 0.42, 0.46)
-		edge = Color(0.55, 0.88, 0.86)
-		low = Color(0.05, 0.22, 0.25)
-	elif kind == "cool_quit":                            # QUIT: deep violet
-		bg = Color(0.34, 0.22, 0.48)
-		edge = Color(0.70, 0.56, 0.88)
-		low = Color(0.17, 0.10, 0.26)
 	elif kind == "toggle":
 		bg = Color(0.18, 0.14, 0.11)
 		edge = Color(0.45, 0.38, 0.28)
@@ -254,7 +242,7 @@ static func _style(kind: String, state: String) -> StyleBox:
 		edge = Color(0.28, 0.24, 0.2)
 		low = Color(0.12, 0.1, 0.085)
 		drop = 2
-	var art: String = {"primary": "btn_primary", "main": "btn_main", "danger": "btn_danger"}.get(kind, "")
+	var art: String = {"primary": "btn_primary", "main": "btn_main", "danger": "btn_danger", "steel": "btn_main"}.get(kind, "")
 	if art != "" and UiSkin.has(art):
 		# the generated button art, with the state shown by tint: hover lighter, pressed darker (and sunk by the content margins), disabled = the grey plate
 		var a_name: String = art
@@ -299,6 +287,9 @@ func make_button(key: String, label: String, enabled: bool, action: Callable, mi
 		if kind == "toggle":
 			b.add_theme_font_override("font", QuarryTheme.body())
 			QuarryTheme.fixed_fit(b, QuarryTheme.SMALL)
+		if kind == "steel":                              # the steel plate with gold trim the main menu uses, cream text
+			for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+				b.add_theme_color_override(c, Color(0.96, 0.93, 0.84))
 		if kind == "main":
 			for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
 				b.add_theme_color_override(c, Color(0.16, 0.1, 0.04))

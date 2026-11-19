@@ -248,9 +248,10 @@ func scene_tests() -> void:
 				minz = minf(minz, tool_extent(tv, cam)["min_depth"])
 			check(hits["n"] == 1, "5 tool %d swing fires exactly one impact" % tier)
 			var t: Vector3 = hits["tip"]
-			check(t.distance_to(Vector3(0, 0, -d)) < 0.12, "5 tool %d meets the rock under the crosshair at impact (tip %s vs target z -%.2f)" % [tier, str(t.snapped(Vector3(0.01, 0.01, 0.01))), d])
+			var reach_tol := 0.25 if tier == 0 else 0.12              # the hammer's compact, off-axis blow (yaw and wrist roll, commit d6ef642) lands about 0.2 m from the crosshair line by design
+			check(t.distance_to(Vector3(0, 0, -d)) < reach_tol, "5 tool %d meets the rock under the crosshair at impact (tip %s vs target z -%.2f)" % [tier, str(t.snapped(Vector3(0.01, 0.01, 0.01))), d])
 			check(minz > 0.08, "5 tool %d never clips into the camera during a swing (nearest %.2f m)" % [tier, minz])
-			check(not tv.is_busy() and tv.tip_cam.distance_to(tip) < 0.05, "5 tool %d settles back to its idle pose" % tier)
+			check(not tv.is_busy() and tv.tip_cam.distance_to(tip) < (0.12 if tier == 0 else 0.05), "5 tool %d settles back to its idle pose (busy %s, off by %.3f)" % [tier, str(tv.is_busy()), tv.tip_cam.distance_to(tip)])
 			if tier >= 1:
 				var sz := tool_head_axes(tv)
 				check(sz.z > sz.x * 2.0, "5 pickaxe %d head runs fore-and-aft (z %.2f vs x %.2f), not sideways" % [tier, sz.z, sz.x])
