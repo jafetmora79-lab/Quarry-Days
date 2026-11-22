@@ -11,12 +11,12 @@ class_name MeshyHopperRig
 
 const GLB := "res://assets/world/WLD_QD_cash_hopper_meshy.glb"
 const FIT := 1.25                                    ## the model is 1.5 m wide as delivered; the game's hopper slot is about 1.9 m
-const SLIDE := 0.34                                  ## how far the tray comes out (model metres)
+const SLIDE := 0.30                                  ## how far past its modelled position the tray comes out when open (model metres)
+const TRAY_CLOSED := -0.24                           ## where it rests when closed: pushed in, its front flush under the plate (the model's own pose has it half out)
 const PLATE_POS := Vector3(0.0, 0.685, 0.52)        ## the front plate's centre in the model's own space (+Z is the model's front)
 const PLATE_SIZE := Vector2(0.62, 0.27)
 const LAMPS := [Vector3(-0.505, 1.21, 0.31), Vector3(0.505, 1.21, 0.31)]
 const TRAY_TOP := Vector3(0.0, 0.40, 0.64)           ## where bills lie on the tray when it is closed (they ride it out and in)
-const SLOT := Vector3(0.0, 0.50, 0.40)               ## where bills come out of the cabinet
 const TIER_TINT := [Color(0.66, 0.66, 0.70), Color(1, 1, 1), Color(1.0, 0.80, 0.72)]    ## small old grey / motorized / industrial rust
 const CLIP_LEN := {"Idle": 0.0, "SaleRegistered": 0.45, "Processing": 0.9, "Counting": 1.2, "DrawerOpen": 0.5, "DrawerClose": 0.45, "ReturnToIdle": 0.35}
 ## The markers CashHopperView expects (game space: front is -Z).
@@ -194,7 +194,8 @@ func _move_tray(to: float, secs: float, trans: int, ease_mode: int) -> void:
 	if to <= 0.0:
 		_tween.tween_callback(_clear_bills)
 
-## Cash comes out: `n` bills fly out of the slot, arc and land on the tray in a fan. Call while (or just after) the tray opens.
+## The cash is already IN the tray: `n` bills are laid on it (fanned, a little rotated, stacked) and ride with it. They stay hidden inside while the tray is
+## closed and show as it slides out, so the money is never seen coming out of the screen. Call just before (or while) the tray opens.
 func pay_out(n: int) -> void:
 	n = clampi(n, 1, 9)
 	for k in range(n):
@@ -202,31 +203,16 @@ func pay_out(n: int) -> void:
 		b.mesh = _bill_mesh
 		b.material_override = _bill_mat
 		b.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		b.position = SLOT
-		b.rotation = Vector3(0.0, 0.0, 0.0)
-		model.add_child(b)
-		var spread := (float(k) - float(n - 1) * 0.5) * 0.065
-		var land := Vector3(spread + randf_range(-0.02, 0.02), TRAY_TOP.y + 0.008 * float(_bills.size() % 6), TRAY_TOP.z + randf_range(-0.04, 0.05))
-		var yaw := randf_range(-0.5, 0.5)
-		var e := {"n": b, "land": land, "landed": false}
-		_bills.append(e)
 		b.visible = false
-		var tw := create_tween()
-		tw.tween_interval(0.05 * float(k))
-		tw.tween_callback(func(): b.visible = true)
-		tw.tween_method(func(u: float): _bill_flight(e, yaw, u), 0.0, 1.0, 0.42)
-		tw.tween_callback(func(): e["landed"] = true)
+		var spread := (float(k) - float(n - 1) * 0.5) * 0.06
+		var land := Vector3(spread + randf_range(-0.02, 0.02), TRAY_TOP.y + 0.009 * float(_bills.size() % 6), TRAY_TOP.z + randf_range(-0.04, 0.05))
+		b.position = land
+		b.rotation = Vector3(0.0, randf_range(-0.5, 0.5), randf_range(-0.08, 0.08))
+		model.add_child(b)
+		_bills.append({"n": b, "land": land, "shown": false})
 
-## u 0..1: out of the slot along a hump, spinning a little, to the landing spot; the tray's own slide is added in _process.
-func _bill_flight(e: Dictionary, yaw: float, u: float) -> void:
-	var b := e["n"] as MeshInstance3D
-	if not is_instance_valid(b):
-		return
-	var land: Vector3 = e["land"]
-	var p := SLOT.lerp(land, u)
-	p.y += sin(u * PI) * 0.22
-	b.rotation = Vector3(sin(u * PI) * 0.6, yaw * u, sin(u * PI * 2.0) * 0.35)
-	b.position = p + Vector3(0, 0, tray_open * SLIDE * smoothstep(0.6, 1.0, u))
+func _tray_offset() -> float:
+	return lerpf(TRAY_CLOSED, SLIDE, tray_open)
 
 func _clear_bills() -> void:
 	for e in _bills:
@@ -281,7 +267,7 @@ func _process(delta: float) -> void:
 	_flap_v += (-k * _flap - 7.0 * _flap_v) * delta
 	_flap += _flap_v * delta
 	_flap = clampf(_flap, -0.9, 0.9)
-	var tray_v := Vector3(0, 0, SLIDE * tray_open)                      # model-space offsets
+	var tray_v := Vector3(0, 0, _tray_offset())                      # model-space offsets
 	skel.set_bone_pose_position(_b_tray, _tray_rest + _tray_par * tray_v)
 	var j := Vector3(sin(_t * 71.0) * 0.007, sin(_t * 53.0) * 0.005, sin(_t * 61.0) * 0.004) * _shake
 	skel.set_bone_pose_position(_b_funnel, _funnel_rest + _funnel_par * j)
@@ -292,5 +278,13 @@ func _process(delta: float) -> void:
 	for e in _bills:                                                    # resting bills ride the tray
 		var d := e as Dictionary
 		var b := d["n"] as MeshInstance3D
-		if bool(d["landed"]) and is_instance_valid(b):
-			b.position = (d["land"] as Vector3) + Vector3(0, 0, tray_open * SLIDE)
+		if not is_instance_valid(b):
+			continue
+		b.position = (d["land"] as Vector3) + Vector3(0, 0, _tray_offset())
+		var out := tray_open > 0.3                                      # shown once the tray is far enough out to see into
+		if out != b.visible:
+			b.visible = out
+			if out and not bool(d["shown"]):
+				d["shown"] = true
+				b.scale = Vector3.ONE * 0.5
+				create_tween().tween_property(b, "scale", Vector3.ONE, 0.14).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)

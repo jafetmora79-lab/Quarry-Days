@@ -699,6 +699,8 @@ func _run_sequence(money: int, units: int, res: String) -> void:
 			if not await _wait(maxf(ct, 0.3)):
 				return
 		_phase("payout")                                                       # ---- 5
+		if rig != null:
+			rig.pay_out(clampi(2 + batch_units / 3, 2, 9))                       # the cash is laid in the (still closed) tray; it shows as the tray slides out
 		if not drawer_open:
 			var ot := _play("DrawerOpen", 1.0)
 			if not await _wait(maxf(ot, 0.3)):
@@ -707,8 +709,7 @@ func _run_sequence(money: int, units: int, res: String) -> void:
 			_sfx(load("res://audio/dig_chink_1.wav"), 0.9, -6.0)               # the drawer stops with a mechanical click
 		_show_note(batch_money)
 		if rig != null:
-			rig.screen.paid()                                                  # amount locks, white flash, PAID stamp; the cash fans out onto the open tray
-			rig.pay_out(clampi(2 + batch_units / 3, 2, 9))
+			rig.screen.paid()                                                  # amount locks, white flash, PAID stamp (the cash is already in the open tray)
 		if sparks != null:
 			sparks.restart()
 			sparks.emitting = true
