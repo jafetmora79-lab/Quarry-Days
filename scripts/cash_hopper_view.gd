@@ -121,7 +121,7 @@ func setup(g, i: int) -> void:
 			points["Attach_Body"].add_child(r)
 			for k in MeshyHopperRig.MARKERS:
 				(points[k] as Node3D).position = MeshyHopperRig.MARKERS[k]
-			r.screen.tick.connect(_count_tick)
+			r.tick.connect(_count_tick)
 		else:
 			r.free()
 	if rig != null:
@@ -303,7 +303,7 @@ func _apply_tier(ti: int, celebrate := true) -> void:
 	var from_steel := Color(0.31, 0.39, 0.34)
 	var from_dk := Color(0.20, 0.26, 0.23)
 	if rig != null:
-		rig.apply_tier(ti)                                                     # (the Meshy model is one textured mesh: it is tinted per tier instead of recoloured part by part)
+		rig.apply_tier(ti)                                                     # (each tier has its own Meshy model, screen skin, status window and lights)
 	for mi in ([] if rig != null else model.find_children("*", "MeshInstance3D", true, false)):
 		var m := mi as MeshInstance3D
 		if m.mesh == null:
@@ -1201,6 +1201,8 @@ func _refresh_display() -> void:
 	if rig != null:                                                            # the Meshy hopper's plate: tier name, what is going through, and the day's numbers on one line
 		rig.screen.set_idle(tier.to_upper(), (game.prog.display(cur).to_upper() if cur != "" else "READY"),
 			"TODAY %s   WAITING %d/%d   SPEED %.0f/s" % [QuarryTheme.money_text(b.cash_today(index)), q, b.output_capacity_of(index), b.cash_rate(index)])
+		if rig.top_screen != null:                                             # the upgraded hoppers' status window
+			rig.top_screen.set_stats(b.cash_rate(index), q, b.output_capacity_of(index), cur != "", game.prog.display(cur) if cur != "" else "")
 		return
 	display.text = "%s\nNOW  %s\nWAITING  %d / %d\nTODAY  %s\nSPEED  %.0f / s" % [tier.to_upper(), (game.prog.display(cur).to_upper() if cur != "" else "IDLE"), q, b.output_capacity_of(index),
 		QuarryTheme.money_text(b.cash_today(index)), b.cash_rate(index)]

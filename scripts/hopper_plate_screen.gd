@@ -10,10 +10,20 @@ class_name HopperPlateScreen
 
 signal tick                                      ## each time the counted number moves a step (the owner plays a coin tick)
 
-const INK := Color(0.66, 1.0, 0.72)
-const GOLD := Color(1.0, 0.82, 0.30)
-const GLASS := Color(0.02, 0.07, 0.04)
+## One look per upgrade tier: the interface gets nicer as the hopper levels up.
+##   0 old green terminal, a smooth bar     1 amber screen, segmented bar, an LV badge    2 cyan-white screen with gold accents, a finer segmented bar, an LV badge, a bar chart of the last sales
+const SKINS := [
+	{"ink": Color(0.66, 1.0, 0.72), "accent": Color(1.0, 0.82, 0.30), "glass": Color(0.02, 0.07, 0.04), "bar_bg": Color(0.05, 0.16, 0.09), "segments": 0, "badge": "", "chart": false},
+	{"ink": Color(1.0, 0.80, 0.38), "accent": Color(0.55, 1.0, 0.72), "glass": Color(0.07, 0.04, 0.01), "bar_bg": Color(0.18, 0.10, 0.03), "segments": 14, "badge": "LV2", "chart": false},
+	{"ink": Color(0.72, 0.96, 1.0), "accent": Color(1.0, 0.84, 0.30), "glass": Color(0.01, 0.04, 0.08), "bar_bg": Color(0.04, 0.12, 0.20), "segments": 24, "badge": "LV3", "chart": true}]
 const PX := Vector2i(372, 164)
+var INK := Color(0.66, 1.0, 0.72)                ## the active skin's colours (set in setup)
+var GOLD := Color(1.0, 0.82, 0.30)
+var GLASS := Color(0.02, 0.07, 0.04)
+var _skin: Dictionary
+var _badge: Label
+var _chart: Array = []                           ## the bar chart's bars (tier 2)
+var _history: Array = []                         ## the last sales (money), newest last
 
 var _vp: SubViewport
 var _title: Label
@@ -34,10 +44,15 @@ var _idle_title := "CASH HOPPER"
 var _idle_big := "READY"
 var _idle_foot := ""
 var _mix_text := ""
+var _seg_gaps: Array = []
 var _live_left := 0.0                            ## seconds the viewport keeps re-rendering every frame
 var brightness := 1.0 : set = _set_brightness
 
-func setup(size_m: Vector2) -> void:
+func setup(size_m: Vector2, tier := 0) -> void:
+	_skin = SKINS[clampi(tier, 0, SKINS.size() - 1)]
+	INK = _skin["ink"]
+	GOLD = _skin["accent"]
+	GLASS = _skin["glass"]
 	_vp = SubViewport.new()
 	_vp.size = PX
 	_vp.transparent_bg = false
@@ -49,10 +64,10 @@ func setup(size_m: Vector2) -> void:
 	bg.color = GLASS
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_vp.add_child(bg)
-	_title = _label(Rect2(8, 4, PX.x - 16, 26), 20, GOLD, HORIZONTAL_ALIGNMENT_LEFT)
+	_title = _label(Rect2(8, 4, PX.x - 200 if bool(_skin["chart"]) else (PX.x - 80 if str(_skin["badge"]) != "" else PX.x - 16), 26), 20, GOLD, HORIZONTAL_ALIGNMENT_LEFT)
 	_big = _label(Rect2(8, 28, PX.x - 16, 74), 62, INK, HORIZONTAL_ALIGNMENT_CENTER)
 	_bar_bg = ColorRect.new()
-	_bar_bg.color = Color(0.05, 0.16, 0.09)
+	_bar_bg.color = _skin["bar_bg"]
 	_bar_bg.position = Vector2(10, 104)
 	_bar_bg.size = Vector2(PX.x - 20, 8)
 	_vp.add_child(_bar_bg)
@@ -61,12 +76,36 @@ func setup(size_m: Vector2) -> void:
 	_bar.position = Vector2(10, 104)
 	_bar.size = Vector2(0, 8)
 	_vp.add_child(_bar)
+	for si in range(1, int(_skin["segments"])):                          # the segmented bar: thin dark gaps over it
+		var gap := ColorRect.new()
+		gap.color = _skin["glass"]
+		gap.position = Vector2(10.0 + (PX.x - 20.0) * float(si) / float(_skin["segments"]) - 1.0, 104)
+		gap.size = Vector2(2, 8)
+		_seg_gaps.append(gap)
 	_foot = _label(Rect2(8, 118, PX.x - 16, 42), 17, Color(INK.r, INK.g, INK.b, 0.85), HORIZONTAL_ALIGNMENT_LEFT)
 	_stamp = _label(Rect2(PX.x - 150, 40, 140, 58), 40, Color(1.0, 0.95, 0.55), HORIZONTAL_ALIGNMENT_CENTER)
 	_stamp.text = "PAID"
 	_stamp.visible = false
 	_stamp.pivot_offset = Vector2(70, 29)
 	_stamp.rotation = -0.14
+	for g in _seg_gaps:
+		_vp.add_child(g)                                             # (above the bar fill, below the text)
+	if str(_skin["badge"]) != "":
+		_badge = _label(Rect2(PX.x - 62, 3, 54, 24), 18, GOLD, HORIZONTAL_ALIGNMENT_CENTER)
+		_badge.text = _skin["badge"]
+		var bs := StyleBoxFlat.new()
+		bs.bg_color = Color(GOLD.r, GOLD.g, GOLD.b, 0.16)
+		bs.border_color = GOLD
+		bs.set_border_width_all(2)
+		_badge.add_theme_stylebox_override("normal", bs)
+	if bool(_skin["chart"]):
+		for ci in range(8):                                           # a bar chart of the last eight sales, right of the title (bars grow from the baseline)
+			var cb := ColorRect.new()
+			cb.color = Color(GOLD.r, GOLD.g, GOLD.b, 0.85)
+			cb.position = Vector2(PX.x - 170 + ci * 12, 27)
+			cb.size = Vector2(8, 2)
+			_vp.add_child(cb)
+			_chart.append(cb)
 	_flash = ColorRect.new()
 	_flash.color = Color(1, 1, 1, 0)
 	_flash.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -202,6 +241,10 @@ func shown_amount() -> int:
 ## The amount locks and flashes, a PAID stamp slams onto it.
 func paid(cash_text := "CASH OUT") -> void:
 	_kill()
+	_history.append(_target)
+	if _history.size() > 8:
+		_history.pop_front()
+	_draw_chart()
 	_mode = "paid"
 	_big.text = "+" + QuarryTheme.money_text(_target)
 	_big.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT                 # the amount steps left and shrinks a little: the stamp lands beside it, not on it
@@ -221,6 +264,20 @@ func paid(cash_text := "CASH OUT") -> void:
 	_blink = create_tween().set_loops(3)                                # the amount blinks gold / green while the drawer is open
 	_blink.tween_callback(func(): _big.add_theme_color_override("font_color", GOLD)).set_delay(0.18)
 	_blink.tween_callback(func(): _big.add_theme_color_override("font_color", INK)).set_delay(0.18)
+
+func _draw_chart() -> void:
+	if _chart.is_empty():
+		return
+	var top := 1.0
+	for h in _history:
+		top = maxf(top, float(h))
+	for ci in range(_chart.size()):
+		var bar := _chart[ci] as ColorRect
+		var hh := 3.0
+		if ci < _history.size():
+			hh = 3.0 + 22.0 * float(_history[ci]) / top
+		bar.size.y = hh
+		bar.position.y = 27.0 - hh
 
 func done() -> void:
 	_kill()
