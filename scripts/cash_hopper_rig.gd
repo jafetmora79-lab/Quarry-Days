@@ -174,22 +174,60 @@ func _build_lamps() -> void:
 		_lights.append(l)
 	set_lamp(_lamp_level)
 
+## One look per denomination, so the pile on the tray can be read: $500 purple, $100 blue, $20 green, $5 pale grey-green; $1 is a gold coin.
+const DENOMS := [500, 100, 20, 5, 1]
+const DENOM_COLOR := {500: Color(0.62, 0.40, 0.78), 100: Color(0.30, 0.62, 0.80), 20: Color(0.42, 0.74, 0.40), 5: Color(0.66, 0.76, 0.68)}
+const PILE_CAP := 8                                    ## the tallest pile drawn (the plate's breakdown line always has the exact count)
+var _denom_mats := {}
+var _coin_mesh: CylinderMesh
+
 func _build_bills() -> void:
 	_bill_mesh = BoxMesh.new()
-	_bill_mesh.size = Vector3(0.17, 0.006, 0.085)
-	var img := Image.create(17, 9, false, Image.FORMAT_RGBA8)
-	for y in range(9):
-		for x in range(17):
-			var edge := x == 0 or y == 0 or x == 16 or y == 8
-			var mid := (x >= 6 and x <= 10) and (y >= 2 and y <= 6)
-			img.set_pixel(x, y, Color(0.16, 0.38, 0.18) if edge else (Color(0.82, 0.96, 0.62) if mid else Color(0.42, 0.74, 0.40)))
-	_bill_mat = StandardMaterial3D.new()
-	_bill_mat.albedo_texture = ImageTexture.create_from_image(img)
-	_bill_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-	_bill_mat.roughness = 0.9
-	_bill_mat.emission_enabled = true                                  # a faint glow so the money reads in shadow
-	_bill_mat.emission = Color(0.3, 0.6, 0.3)
-	_bill_mat.emission_energy_multiplier = 0.25
+	_bill_mesh.size = Vector3(0.082, 0.006, 0.17)                       # the long side lies along the tray's depth, so five piles fit side by side
+	_coin_mesh = CylinderMesh.new()
+	_coin_mesh.top_radius = 0.03
+	_coin_mesh.bottom_radius = 0.03
+	_coin_mesh.height = 0.008
+	_coin_mesh.radial_segments = 10
+	for d in DENOM_COLOR:
+		var c: Color = DENOM_COLOR[d]
+		var img := Image.create(9, 17, false, Image.FORMAT_RGBA8)
+		for y in range(17):
+			for x in range(9):
+				var edge := x == 0 or y == 0 or x == 8 or y == 16
+				var mid := (x >= 3 and x <= 5) and (y >= 6 and y <= 10)
+				img.set_pixel(x, y, c.darkened(0.55) if edge else (c.lightened(0.45) if mid else c))
+		var m := StandardMaterial3D.new()
+		m.albedo_texture = ImageTexture.create_from_image(img)
+		m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+		m.roughness = 0.9
+		m.emission_enabled = true                                      # a faint glow so the money reads in shadow
+		m.emission = c
+		m.emission_energy_multiplier = 0.2
+		_denom_mats[d] = m
+	var coin := StandardMaterial3D.new()
+	coin.albedo_color = Color(1.0, 0.80, 0.28)
+	coin.metallic = 0.8
+	coin.roughness = 0.35
+	_denom_mats[1] = coin
+
+## The cash for `money`, exactly: [[denomination, count], ...] largest first (greedy over $500 / $100 / $20 / $5 / $1: the pieces always add up to the amount).
+static func breakdown(money: int) -> Array:
+	var left := maxi(money, 0)
+	var out := []
+	for d in DENOMS:
+		var n := left / int(d)
+		if n > 0:
+			out.append([int(d), n])
+			left -= n * int(d)
+	return out
+
+## "2x$500  1x$100  3x$20" for the plate.
+static func breakdown_text(money: int) -> String:
+	var parts := []
+	for e in breakdown(money):
+		parts.append("%dx$%d" % [int(e[1]), int(e[0])])
+	return "  ".join(parts)
 
 # ------------------------------------------------------------------ the clips
 
@@ -233,22 +271,33 @@ func _drawer(open: bool, secs: float) -> void:
 		_tween.tween_property(self, "shutter_open", 0.0, sh).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 		_tween.tween_callback(_clear_bills)
 
-## The cash is already IN the tray: `n` bills are laid on it (fanned, a little rotated, stacked) and ride with it. They stay hidden inside while the tray is
-## closed and show as it slides out, so the money is never seen coming out of the screen. Call just before (or while) the tray opens.
-func pay_out(n: int) -> void:
-	n = clampi(n, 1, 9)
-	for k in range(n):
-		var b := MeshInstance3D.new()
-		b.mesh = _bill_mesh
-		b.material_override = _bill_mat
-		b.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		b.visible = false
-		var spread := (float(k) - float(n - 1) * 0.5) * 0.06
-		var land := Vector3(spread + randf_range(-0.02, 0.02), TRAY_TOP.y + 0.009 * float(_bills.size() % 6), TRAY_TOP.z + randf_range(-0.04, 0.05))
-		b.position = land
-		b.rotation = Vector3(0.0, randf_range(-0.5, 0.5), randf_range(-0.08, 0.08))
-		model.add_child(b)
-		_bills.append({"n": b, "land": land, "shown": false})
+## The cash is already IN the tray: `money` is laid out as its real bills and coins, one pile per denomination (taller piles for more of them, up to PILE_CAP),
+## so what lies in the tray adds up to the amount on the plate. The pieces stay hidden inside while the tray is closed and show as it slides out; the money is never
+## seen coming out of the screen. Called again with a bigger running total (sales that ride an open drawer) it rebuilds the piles for the new total.
+func pay_out(money: int) -> void:
+	_clear_bills()
+	var groups := breakdown(money)
+	var slots := groups.size()
+	for gi in range(slots):
+		var denom: int = groups[gi][0]
+		var count: int = mini(int(groups[gi][1]), PILE_CAP)
+		var px := (float(gi) - float(slots - 1) * 0.5) * 0.095
+		var yaw := randf_range(-0.12, 0.12)
+		for k in range(count):
+			var b := MeshInstance3D.new()
+			if denom == 1:                                              # dollar coins: a loose little heap, not a stack
+				b.mesh = _coin_mesh
+				b.position = Vector3(px + randf_range(-0.03, 0.03), TRAY_TOP.y + 0.006 + 0.007 * float(k % 3), TRAY_TOP.z + randf_range(-0.07, 0.07))
+				b.rotation = Vector3(randf_range(-0.2, 0.2), 0.0, randf_range(-0.2, 0.2))
+			else:
+				b.mesh = _bill_mesh
+				b.position = Vector3(px + randf_range(-0.004, 0.004), TRAY_TOP.y + 0.004 + 0.0075 * float(k), TRAY_TOP.z + randf_range(-0.006, 0.006))
+				b.rotation = Vector3(0.0, yaw + randf_range(-0.04, 0.04), 0.0)
+			b.material_override = _denom_mats[denom]
+			b.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			b.visible = false
+			model.add_child(b)
+			_bills.append({"n": b, "land": b.position, "shown": false})
 
 func _tray_offset() -> float:
 	return lerpf(TRAY_CLOSED, SLIDE, tray_open)

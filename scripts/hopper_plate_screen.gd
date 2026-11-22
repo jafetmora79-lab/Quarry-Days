@@ -33,6 +33,7 @@ var _mode := "idle"
 var _idle_title := "CASH HOPPER"
 var _idle_big := "READY"
 var _idle_foot := ""
+var _mix_text := ""
 var _live_left := 0.0                            ## seconds the viewport keeps re-rendering every frame
 var brightness := 1.0 : set = _set_brightness
 
@@ -159,20 +160,25 @@ func _show_idle() -> void:
 # ------------------------------------------------------------------ a sale: count up, lock, stamp
 
 ## Starts a sale page: the number runs from `from` to `money` in `secs` seconds (quick start, slow settle).
-func sale(money: int, units: int, what: String, secs: float, from := 0) -> void:
+func sale(money: int, units: int, mats: Array, secs: float, from := 0) -> void:
 	_kill()
 	_mode = "sale"
 	_target = money
 	_last_step = -1
 	_shown = float(from)
-	_title.text = "SALE   %d x %s" % [units, what.to_upper()]
+	# mats: [[display name, units], ...] largest first: one material is named on the title, several are listed on the footer line
+	_title.text = ("SALE   %d x %s" % [units, str((mats[0] as Array)[0]).to_upper()]) if mats.size() == 1 else "SALE   %d UNITS" % units
+	var mix := []
+	for m in mats:
+		mix.append("%s %d" % [str(m[0]).to_upper(), int(m[1])])
+	_mix_text = "   ".join(mix) if mats.size() > 1 else "COUNTING..."
 	_big.add_theme_color_override("font_color", INK)
 	_big.add_theme_font_size_override("font_size", 62)
 	_big.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_bar_bg.visible = true
 	_stamp.visible = false
 	_flash.color.a = 0.0
-	_foot.text = "COUNTING..."
+	_foot.text = _mix_text
 	_count(float(from))
 	_live(secs + 0.2)
 	_tw = create_tween()
@@ -189,19 +195,19 @@ func _count(v: float) -> void:
 		_last_step = step
 		tick.emit()
 
-## Adds to a running sale (sales that arrive while the drawer is open): the number carries on from where it is.
-func add_to_sale(more: int, units: int, what: String, secs: float) -> void:
-	sale(_target + more, units, what, secs, int(round(_shown)))
+## The number on the screen right now (a sale that rides an open drawer carries on from here).
+func shown_amount() -> int:
+	return int(round(_shown))
 
 ## The amount locks and flashes, a PAID stamp slams onto it.
-func paid() -> void:
+func paid(cash_text := "CASH OUT") -> void:
 	_kill()
 	_mode = "paid"
 	_big.text = "+" + QuarryTheme.money_text(_target)
 	_big.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT                 # the amount steps left and shrinks a little: the stamp lands beside it, not on it
 	_big.add_theme_font_size_override("font_size", 46)
 	_bar.size.x = PX.x - 20.0
-	_foot.text = "CASH OUT"
+	_foot.text = cash_text                                               # the bills and coins in the tray, e.g. 2x$500  1x$100  3x$20
 	_stamp.visible = true
 	_stamp.scale = Vector2(2.4, 2.4)
 	_stamp.modulate.a = 0.0

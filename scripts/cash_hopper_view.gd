@@ -60,6 +60,7 @@ var _seq_running := false
 var _queued_money := 0                   ## sales that arrive while a payout is playing are added up and paid out in the same open drawer
 var _queued_units := 0
 var _queued_res := ""
+var _queued_mats := {}                   ## material -> units of the queued sales (the plate names exactly what was sold)
 var _chain_until_ms := 0                 ## a sale within a few seconds of the last payout plays the short version
 var _vibe := 0.0
 var _lamp_level := 0.5
@@ -622,7 +623,9 @@ func _flush() -> void:
 	var money := 0
 	var main_res := ""
 	var best := -1
+	var mats := {}
 	for res in _pending:
+		mats[str(res)] = int(_pending[res][0])
 		units += int(_pending[res][0])
 		money += int(_pending[res][1])
 		if int(_pending[res][0]) > best:
@@ -635,8 +638,10 @@ func _flush() -> void:
 		_queued_money += money
 		_queued_units += units
 		_queued_res = main_res
+		for r in mats:
+			_queued_mats[r] = int(_queued_mats.get(r, 0)) + int(mats[r])
 		return
-	_run_sequence(money, units, main_res)
+	_run_sequence(money, units, main_res, mats)
 
 func _wait(t: float) -> bool:
 	if not is_inside_tree():
@@ -660,23 +665,28 @@ func _phase(p: String) -> void:
 ## 1 idle -> 2 sale registered (display shows the amount, lamps flash twice, confirmation click, a shudder) -> 3 processing (gears and rollers turn, the cabinet hums, motor sound)
 ## -> 4 counting (the inspection window glows) -> 5 payout (the drawer slides out with the cash bundles, a click, the notification and sparks) -> 6 complete (the display says DONE, the
 ## drawer closes, the lamps dim, back to idle).
-func _run_sequence(money: int, units: int, res: String) -> void:
+func _run_sequence(money: int, units: int, res: String, mats := {}) -> void:
 	_seq_running = true
 	var quick := Time.get_ticks_msec() < _chain_until_ms
 	var drawer_open := false
 	var batch_money := money
 	var batch_units := units
 	var batch_res := res
+	var cur_mats: Dictionary = mats                                            # the materials of the batch being shown now
+	var run_money := 0                                                         # what the open drawer has been paid in this sequence (a sale that rides it adds on)
+	var run_units := 0
+	var run_mats := {}
 	var guard := 0
 	while true:
 		_phase("registered")                                                   # ---- 2
 		_sale_text("+" + QuarryTheme.money_text(batch_money), 1.0)
-		if rig != null:                                                        # the plate counts the sale up while the machine works; a sale riding an open drawer adds on
-			var what: String = game.prog.display(batch_res) if game != null and batch_res != "" else "ROCK"
-			if drawer_open:
-				rig.screen.add_to_sale(batch_money, batch_units, what, 0.6)
-			else:
-				rig.screen.sale(batch_money, batch_units, what, 0.55 if quick else 1.6)
+		if rig != null:                                                        # the plate counts the sale up while the machine works; a sale riding an open drawer carries the number on
+			var from := rig.screen.shown_amount() if drawer_open else 0
+			run_money += batch_money
+			run_units += batch_units
+			for r in cur_mats:
+				run_mats[r] = int(run_mats.get(r, 0)) + int(cur_mats[r])
+			rig.screen.sale(run_money, run_units, _mat_names(run_mats), 0.6 if drawer_open else (0.55 if quick else 1.6), from)
 		_play("SaleRegistered", 2.0 if quick else 1.25)
 		_sfx(clunk_streams[0] if not clunk_streams.is_empty() else null, 1.6, -9.0)
 		_vibe = 1.0
@@ -700,7 +710,7 @@ func _run_sequence(money: int, units: int, res: String) -> void:
 				return
 		_phase("payout")                                                       # ---- 5
 		if rig != null:
-			rig.pay_out(clampi(2 + batch_units / 3, 2, 9))                       # the cash is laid in the (still closed) tray; it shows as the tray slides out
+			rig.pay_out(run_money)                                               # the cash is laid in the (still closed) tray as its real bills and coins; it shows as the tray slides out
 		if not drawer_open:
 			var ot := _play("DrawerOpen", 1.0)
 			if not await _wait(maxf(ot, 0.3)):
@@ -709,7 +719,7 @@ func _run_sequence(money: int, units: int, res: String) -> void:
 			_sfx(load("res://audio/dig_chink_1.wav"), 0.9, -6.0)               # the drawer stops with a mechanical click
 		_show_note(batch_money)
 		if rig != null:
-			rig.screen.paid()                                                  # amount locks, white flash, PAID stamp (the cash is already in the open tray)
+			rig.screen.paid(MeshyHopperRig.breakdown_text(run_money))          # amount locks, white flash, PAID stamp; the footer lists the bills and coins lying in the tray
 		if sparks != null:
 			sparks.restart()
 			sparks.emitting = true
@@ -720,6 +730,8 @@ func _run_sequence(money: int, units: int, res: String) -> void:
 			batch_money = _queued_money
 			batch_units = _queued_units
 			batch_res = _queued_res
+			cur_mats = _queued_mats
+			_queued_mats = {}
 			_queued_money = 0
 			_queued_units = 0
 			guard += 1
@@ -752,9 +764,19 @@ func _run_sequence(money: int, units: int, res: String) -> void:
 		var m := _queued_money
 		var u := _queued_units
 		var r := _queued_res
+		var qm := _queued_mats
+		_queued_mats = {}
 		_queued_money = 0
 		_queued_units = 0
-		_run_sequence(m, u, r)
+		_run_sequence(m, u, r, qm)
+
+## [[display name, units], ...] largest first, for the plate.
+func _mat_names(mats: Dictionary) -> Array:
+	var list := []
+	for r in mats:
+		list.append([game.prog.display(str(r)) if game != null else str(r), int(mats[r])])
+	list.sort_custom(func(a, c): return int(a[1]) > int(c[1]))
+	return list
 
 ## A small coin tick each time the plate's number steps up.
 func _count_tick() -> void:

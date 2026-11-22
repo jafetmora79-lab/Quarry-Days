@@ -1,6 +1,6 @@
 """Cleans the skin weights of the Meshy Cash Hopper (WLD_QD_cash_hopper_meshy.glb).
 Meshy's auto-weights smear the whole cabinet across the tray bones (sliding the tray tore the front plate), so each vertex is hardened to ONE bone:
-the tray's box (|x| <= 0.36, 0.13 <= y <= 0.44, z >= 0.24) -> Bone_006, the funnel bowl -> Bone_002, the grate -> Bone_003, everything else -> Bone_000.
+the tray (every loose piece of the mesh that lies completely inside the tray's box: body, side rails, uprights, front lugs; the frame bar, bolts and gussets next to it do not move) -> Bone_006, the funnel bowl -> Bone_002, the grate -> Bone_003, everything else -> Bone_000.
 usage: python3 tools/reweight_meshy_hopper.py <meshy original.glb> <out.glb> [tray half-width]"""
 import json,struct,sys
 import numpy as np
@@ -22,7 +22,26 @@ ix={n:k for k,n in enumerate(names)}
 chain=[ix[n] for n in ('Bone_006','Bone_007','Bone_008','Bone_009','Bone_010','Bone_011','Bone_012')]
 funnel=[ix[n] for n in ('Bone_001','Bone_002','Bone_003','Bone_004','Bone_005')]
 x,y,z=P[:,0],P[:,1],P[:,2]
-tray=(np.abs(x)<=box)&(y>=0.13)&(y<=0.44)&(z>=0.24)
+# the mesh is a pile of loose pieces (welded by position): a piece belongs to the tray only if ALL of it lies inside the tray's box
+T=view(pr['indices']).reshape(-1,3)
+key=np.round(P*1e4).astype(np.int64)
+_,inv=np.unique(key,axis=0,return_inverse=True); inv=inv.reshape(-1)
+par=list(range(int(inv.max())+1))
+def find(a):
+  while par[a]!=a:
+    par[a]=par[par[a]]; a=par[a]
+  return a
+for t in T:
+  a,b2,c=[int(inv[v]) for v in t]
+  for u,w in ((a,b2),(b2,c)):
+    ru,rw=find(u),find(w)
+    if ru!=rw: par[ru]=rw
+comp=np.array([find(int(inv[v])) for v in range(len(P))])
+tray=np.zeros(len(P),bool)
+for c in np.unique(comp):
+  m=comp==c; lo=P[m].min(0); hi=P[m].max(0)
+  if lo[0]>=-box and hi[0]<=box-0.03 and lo[1]>=0.14 and hi[1]<=0.465 and lo[2]>=0.24:
+    tray|=m
 dom=J[np.arange(len(J)),W.argmax(1)]
 # funnel: dominant joint among Bone_002 / Bone_003 (hardened)
 fb=(dom==ix['Bone_002'])|(dom==ix['Bone_003'])
