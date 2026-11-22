@@ -1,0 +1,247 @@
+extends Node3D
+class_name HopperPlateScreen
+## The Cash Hopper's front screen (the dark plate under the funnel): a small SubViewport drawn as a quad lying on the plate.
+## Unlike ScreenFace (one label) it has a layout: a title strip, a big amount line, a count bar and a footer, and it ANIMATES:
+##   set_idle()      title = tier name, big line = what is going through / READY, footer = TODAY / WAITING / SPEED
+##   sale(money,..)  title = "SALE  12 x LIMESTONE", the big line counts up from $0 to the amount (a `tick` signal for the coin sound), the bar fills with it
+##   paid()          the amount locks, a white flash and a PAID stamp slams on, the amount blinks while the drawer is open
+##   done()          THANK YOU / DONE, then back_to_idle()
+## While something animates the viewport re-renders every frame; at rest it renders once per change (nothing is redrawn every frame for nothing).
+
+signal tick                                      ## each time the counted number moves a step (the owner plays a coin tick)
+
+const INK := Color(0.66, 1.0, 0.72)
+const GOLD := Color(1.0, 0.82, 0.30)
+const GLASS := Color(0.02, 0.07, 0.04)
+const PX := Vector2i(372, 164)
+
+var _vp: SubViewport
+var _title: Label
+var _big: Label
+var _foot: Label
+var _bar_bg: ColorRect
+var _bar: ColorRect
+var _stamp: Label
+var _flash: ColorRect
+var _quad: MeshInstance3D
+var _tw: Tween
+var _blink: Tween
+var _shown := 0.0
+var _target := 0
+var _last_step := -1
+var _mode := "idle"
+var _idle_title := "CASH HOPPER"
+var _idle_big := "READY"
+var _idle_foot := ""
+var _live_left := 0.0                            ## seconds the viewport keeps re-rendering every frame
+var brightness := 1.0 : set = _set_brightness
+
+func setup(size_m: Vector2) -> void:
+	_vp = SubViewport.new()
+	_vp.size = PX
+	_vp.transparent_bg = false
+	_vp.disable_3d = true
+	_vp.gui_disable_input = true
+	_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+	add_child(_vp)
+	var bg := ColorRect.new()
+	bg.color = GLASS
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_vp.add_child(bg)
+	_title = _label(Rect2(8, 4, PX.x - 16, 26), 20, GOLD, HORIZONTAL_ALIGNMENT_LEFT)
+	_big = _label(Rect2(8, 28, PX.x - 16, 74), 62, INK, HORIZONTAL_ALIGNMENT_CENTER)
+	_bar_bg = ColorRect.new()
+	_bar_bg.color = Color(0.05, 0.16, 0.09)
+	_bar_bg.position = Vector2(10, 104)
+	_bar_bg.size = Vector2(PX.x - 20, 8)
+	_vp.add_child(_bar_bg)
+	_bar = ColorRect.new()
+	_bar.color = GOLD
+	_bar.position = Vector2(10, 104)
+	_bar.size = Vector2(0, 8)
+	_vp.add_child(_bar)
+	_foot = _label(Rect2(8, 118, PX.x - 16, 42), 17, Color(INK.r, INK.g, INK.b, 0.85), HORIZONTAL_ALIGNMENT_LEFT)
+	_stamp = _label(Rect2(PX.x - 150, 40, 140, 58), 40, Color(1.0, 0.95, 0.55), HORIZONTAL_ALIGNMENT_CENTER)
+	_stamp.text = "PAID"
+	_stamp.visible = false
+	_stamp.pivot_offset = Vector2(70, 29)
+	_stamp.rotation = -0.14
+	_flash = ColorRect.new()
+	_flash.color = Color(1, 1, 1, 0)
+	_flash.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_vp.add_child(_flash)
+	var scan := ColorRect.new()                                          # scanlines + vignette + glass sheen (the same layer ScreenFace puts on its screens)
+	scan.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var sm := ShaderMaterial.new()
+	var sh := Shader.new()
+	sh.code = ScreenFace.SCAN_SHADER
+	sm.shader = sh
+	scan.material = sm
+	scan.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_vp.add_child(scan)
+	_quad = MeshInstance3D.new()
+	var qm := QuadMesh.new()
+	qm.size = size_m
+	_quad.mesh = qm
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.albedo_texture = _vp.get_texture()
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR
+	_quad.material_override = m
+	_quad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_quad.rotation = Vector3(0, PI, 0)                                   # the quad faces -Z, like the machine's front
+	add_child(_quad)
+	_show_idle()
+
+func _label(r: Rect2, size: int, c: Color, align: int) -> Label:
+	var l := Label.new()
+	l.position = r.position
+	l.size = r.size
+	l.horizontal_alignment = align
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.clip_text = true
+	l.add_theme_font_override("font", QuarryTheme.hud())
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override("font_color", c)
+	l.add_theme_color_override("font_outline_color", Color(c.r * 0.35, c.g * 0.6, c.b * 0.4, 0.45))
+	l.add_theme_constant_override("outline_size", 3)
+	_vp.add_child(l)
+	return l
+
+func _set_brightness(b: float) -> void:
+	brightness = b
+	if _quad != null:
+		(_quad.material_override as StandardMaterial3D).albedo_color = Color(b, b, b, 1.0)
+
+## Keeps the viewport re-rendering every frame for `secs` (animations), then drops back to render-on-change.
+func _live(secs: float) -> void:
+	_live_left = maxf(_live_left, secs)
+	if _vp != null:
+		_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+
+func _process(delta: float) -> void:
+	if _live_left > 0.0:
+		_live_left -= delta
+		if _live_left <= 0.0 and _vp != null:
+			_vp.render_target_update_mode = SubViewport.UPDATE_ONCE              # one last render of the final state
+
+func _redraw() -> void:
+	if _vp != null and _live_left <= 0.0:
+		_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+
+# ------------------------------------------------------------------ the standby page
+
+## What the screen says between sales. The owner calls this a few times a second; it does nothing while a sale is on screen.
+func set_idle(title: String, big: String, foot: String) -> void:
+	if title == _idle_title and big == _idle_big and foot == _idle_foot:
+		return
+	_idle_title = title
+	_idle_big = big
+	_idle_foot = foot
+	if _mode == "idle":
+		_show_idle()
+
+func _show_idle() -> void:
+	_mode = "idle"
+	_title.text = _idle_title
+	_big.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_big.text = _idle_big
+	_big.add_theme_font_size_override("font_size", 62 if _idle_big.length() <= 9 else 38)
+	_big.add_theme_color_override("font_color", INK)
+	_foot.text = _idle_foot
+	_bar.size.x = 0.0
+	_bar_bg.visible = false
+	_stamp.visible = false
+	_flash.color.a = 0.0
+	_redraw()
+
+# ------------------------------------------------------------------ a sale: count up, lock, stamp
+
+## Starts a sale page: the number runs from `from` to `money` in `secs` seconds (quick start, slow settle).
+func sale(money: int, units: int, what: String, secs: float, from := 0) -> void:
+	_kill()
+	_mode = "sale"
+	_target = money
+	_last_step = -1
+	_shown = float(from)
+	_title.text = "SALE   %d x %s" % [units, what.to_upper()]
+	_big.add_theme_color_override("font_color", INK)
+	_big.add_theme_font_size_override("font_size", 62)
+	_big.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_bar_bg.visible = true
+	_stamp.visible = false
+	_flash.color.a = 0.0
+	_foot.text = "COUNTING..."
+	_count(float(from))
+	_live(secs + 0.2)
+	_tw = create_tween()
+	_tw.tween_method(_count, float(from), float(money), maxf(secs, 0.05)).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_tw.tween_callback(func(): _foot.text = "TOTAL  " + QuarryTheme.money_text(_target))
+
+func _count(v: float) -> void:
+	_shown = v
+	_big.text = "+" + QuarryTheme.money_text(int(round(v)))
+	var span := maxf(float(_target), 1.0)
+	_bar.size.x = (PX.x - 20.0) * clampf(v / span, 0.0, 1.0)
+	var step := int(v / span * 12.0)                                    # a tick roughly every twelfth of the way
+	if step != _last_step:
+		_last_step = step
+		tick.emit()
+
+## Adds to a running sale (sales that arrive while the drawer is open): the number carries on from where it is.
+func add_to_sale(more: int, units: int, what: String, secs: float) -> void:
+	sale(_target + more, units, what, secs, int(round(_shown)))
+
+## The amount locks and flashes, a PAID stamp slams onto it.
+func paid() -> void:
+	_kill()
+	_mode = "paid"
+	_big.text = "+" + QuarryTheme.money_text(_target)
+	_big.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT                 # the amount steps left and shrinks a little: the stamp lands beside it, not on it
+	_big.add_theme_font_size_override("font_size", 46)
+	_bar.size.x = PX.x - 20.0
+	_foot.text = "CASH OUT"
+	_stamp.visible = true
+	_stamp.scale = Vector2(2.4, 2.4)
+	_stamp.modulate.a = 0.0
+	_live(1.4)
+	_tw = create_tween()
+	_tw.set_parallel(true)
+	_tw.tween_property(_stamp, "scale", Vector2.ONE, 0.14).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_tw.tween_property(_stamp, "modulate:a", 1.0, 0.08)
+	_tw.tween_property(_flash, "color:a", 0.55, 0.05)
+	_tw.chain().tween_property(_flash, "color:a", 0.0, 0.35)
+	_blink = create_tween().set_loops(3)                                # the amount blinks gold / green while the drawer is open
+	_blink.tween_callback(func(): _big.add_theme_color_override("font_color", GOLD)).set_delay(0.18)
+	_blink.tween_callback(func(): _big.add_theme_color_override("font_color", INK)).set_delay(0.18)
+
+func done() -> void:
+	_kill()
+	_mode = "done"
+	_big.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_big.add_theme_font_size_override("font_size", 62)
+	_title.text = "THANK YOU"
+	_big.text = "DONE"
+	_big.add_theme_color_override("font_color", INK)
+	_foot.text = "TOTAL  " + QuarryTheme.money_text(_target)
+	_bar.size.x = PX.x - 20.0
+	_redraw()
+
+func back_to_idle() -> void:
+	_kill()
+	_show_idle()
+
+func _kill() -> void:
+	for t in [_tw, _blink]:
+		if t != null and (t as Tween).is_valid():
+			(t as Tween).kill()
+	_big.add_theme_color_override("font_color", INK)
+	_stamp.visible = false
+	_flash.color.a = 0.0
+
+func is_idle() -> bool:
+	return _mode == "idle"
+
+func shown_text() -> String:
+	return _big.text if _big != null else ""
