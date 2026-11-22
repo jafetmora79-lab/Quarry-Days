@@ -12,7 +12,7 @@ class_name MeshyHopperRig
 const GLB := "res://assets/world/WLD_QD_cash_hopper_meshy.glb"
 const FIT := 1.25                                    ## the model is 1.5 m wide as delivered; the game's hopper slot is about 1.9 m
 const SLIDE := 0.30                                  ## how far past its modelled position the tray comes out when open (model metres)
-const TRAY_CLOSED := -0.24                           ## where it rests when closed: pushed in, its front flush under the plate (the model's own pose has it half out)
+const TRAY_CLOSED := -0.34                           ## where it rests when closed: pushed in, its front flush under the plate (the model's own pose has it half out)
 const PLATE_POS := Vector3(0.0, 0.685, 0.52)        ## the front plate's centre in the model's own space (+Z is the model's front)
 const PLATE_SIZE := Vector2(0.62, 0.27)
 const LAMPS := [Vector3(-0.505, 1.21, 0.31), Vector3(0.505, 1.21, 0.31)]
@@ -30,6 +30,8 @@ const TRAY_POINT := Vector3(0, 0.5, -1.0)            ## game space: just in fron
 var model: Node3D                                    ## the Meshy scene, turned and scaled (CashHopperView uses this as its `model`)
 var skel: Skeleton3D
 var screen: HopperPlateScreen
+var shutter_open := 0.0                              ## 0 the slot is covered by the roll-up shutter .. 1 rolled up (it opens before the tray moves and closes after it)
+var _shutter: Node3D
 var tray_open := 0.0                                 ## 0 closed .. 1 fully out (can overshoot a little)
 var _b_tray := -1
 var _b_funnel := -1
@@ -87,6 +89,7 @@ func build() -> bool:
 		(mi as MeshInstance3D).extra_cull_margin = 1.0               # skinned: the bounds of the rest pose are not the bounds of the moving one
 		(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 	_build_screen()
+	_build_shutter()
 	_build_lamps()
 	_build_bills()
 	set_process(true)
@@ -103,6 +106,35 @@ func _build_screen() -> void:
 	screen.position = PLATE_POS
 	screen.rotation.y = PI                                            # (the screen's quad faces -Z in its own frame; the model's front is +Z)
 	model.add_child(screen)
+
+## A roll-up shutter of steel slats over the payout slot, so a closed hopper looks closed (the model's slot is an open gap). It hangs from the yellow bar above the slot and rolls up.
+func _build_shutter() -> void:
+	_shutter = Node3D.new()
+	_shutter.name = "Shutter"
+	_shutter.position = Vector3(0.0, 0.445, 0.468)                       # its top edge: the underside of the yellow bar
+	model.add_child(_shutter)
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(0.20, 0.19, 0.27)
+	m.metallic = 0.55
+	m.roughness = 0.5
+	var rim := StandardMaterial3D.new()
+	rim.albedo_color = Color(0.95, 0.62, 0.10)
+	for i in range(7):
+		var b := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(0.62, 0.028, 0.018)
+		b.mesh = bm
+		b.material_override = m
+		b.position = Vector3(0.0, -0.016 - 0.031 * float(i), 0.0)
+		_shutter.add_child(b)
+	var bottom := MeshInstance3D.new()                                   # the yellow bottom rail
+	var rm := BoxMesh.new()
+	rm.size = Vector3(0.64, 0.022, 0.026)
+	bottom.mesh = rm
+	bottom.material_override = rim
+	bottom.position = Vector3(0.0, -0.016 - 0.031 * 7.0 - 0.004, 0.003)
+	bottom.name = "Rail"
+	_shutter.add_child(bottom)
 
 func _build_lamps() -> void:
 	var grad := Gradient.new()
@@ -179,19 +211,26 @@ func play(clip: String, speed := 1.0) -> float:
 			_shake_to = 0.35
 		"DrawerOpen":
 			_shake_to = 0.0
-			_move_tray(1.0, d, Tween.TRANS_BACK, Tween.EASE_OUT)
+			_drawer(true, d)
 		"DrawerClose":
-			_move_tray(0.0, d, Tween.TRANS_CUBIC, Tween.EASE_IN)
+			_drawer(false, d)
 		"ReturnToIdle":
 			_shake_to = 0.0
 	return d
 
-func _move_tray(to: float, secs: float, trans: int, ease_mode: int) -> void:
+## Opening: the shutter rolls up (a quick ratchet), THEN the tray slides out (back-out ease, a little overshoot). Closing is the reverse: tray in, then the shutter comes down.
+func _drawer(open: bool, secs: float) -> void:
 	if _tween != null and _tween.is_valid():
 		_tween.kill()
 	_tween = create_tween()
-	_tween.tween_property(self, "tray_open", to, maxf(secs, 0.05)).set_trans(trans).set_ease(ease_mode)
-	if to <= 0.0:
+	var sh := minf(0.16, secs * 0.32)
+	var tr := maxf(secs - sh, 0.05)
+	if open:
+		_tween.tween_property(self, "shutter_open", 1.0, sh).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		_tween.tween_property(self, "tray_open", 1.0, tr).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	else:
+		_tween.tween_property(self, "tray_open", 0.0, tr).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+		_tween.tween_property(self, "shutter_open", 0.0, sh).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 		_tween.tween_callback(_clear_bills)
 
 ## The cash is already IN the tray: `n` bills are laid on it (fanned, a little rotated, stacked) and ride with it. They stay hidden inside while the tray is
@@ -267,6 +306,9 @@ func _process(delta: float) -> void:
 	_flap_v += (-k * _flap - 7.0 * _flap_v) * delta
 	_flap += _flap_v * delta
 	_flap = clampf(_flap, -0.9, 0.9)
+	if _shutter != null:
+		_shutter.scale.y = maxf(1.0 - shutter_open, 0.001)
+		_shutter.visible = shutter_open < 0.98
 	var tray_v := Vector3(0, 0, _tray_offset())                      # model-space offsets
 	skel.set_bone_pose_position(_b_tray, _tray_rest + _tray_par * tray_v)
 	var j := Vector3(sin(_t * 71.0) * 0.007, sin(_t * 53.0) * 0.005, sin(_t * 61.0) * 0.004) * _shake
