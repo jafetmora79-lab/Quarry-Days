@@ -64,7 +64,8 @@ func setup(id: String) -> void:
 		axle = Vector3.ZERO
 		for w in wheels:
 			axle += _node_pos_in(w, model) / float(wheels.size())            # the hinge the load tips about: between the wheels
-			w.set_meta("radius", float(WHEEL_RADII.get(id, WHEEL_R)))
+			if not w.has_meta("radius"):
+				w.set_meta("radius", float(WHEEL_RADII.get(id, WHEEL_R)))
 	tilt = Node3D.new()
 	tilt.name = "Tilt"
 	tilt.position = axle
@@ -84,10 +85,13 @@ func setup(id: String) -> void:
 ## A Blender cart: turning wheel(s), the tray / frame / handles on a body node that tips about the axle, the usual "Load" pile inside the tray.
 ## Returns null (the procedural prop is used) if the file cannot be loaded or lacks its Body / Wheel nodes.
 func _blender_cart(id: String) -> Node3D:
-	var scene: PackedScene = load(str(CART_GLBS[id]))
-	if scene == null:
-		return null
-	var n: Node3D = scene.instantiate()
+	var n: Node3D = MeshyCarts.build(id) if MeshyCarts.available(id) else null          # the Meshy models first, the Blender ones as the fallback
+	var meshy := n != null
+	if n == null:
+		var scene: PackedScene = load(str(CART_GLBS[id]))
+		if scene == null:
+			return null
+		n = scene.instantiate()
 	n.name = "Gear_" + id
 	body = n.find_child("Body", true, false)
 	wheels.clear()
@@ -104,6 +108,10 @@ func _blender_cart(id: String) -> Node3D:
 	if body == null or wheel == null:
 		wheels.clear()
 		return null
+	if meshy:
+		var pile_m := GearModels._load_pile(n, body.transform * (body.get_meta("load_local") as Vector3), body.get_meta("load_size") as Vector3)
+		_load = pile_m
+		return n
 	var paint: Material = load("res://assets/vehicles/materials/M_QD_WornRed.tres") if id == "wheelbarrow" else load("res://assets/materials/M_QD_SteelPlate.tres")
 	for node in n.find_children("*", "MeshInstance3D", true, false):
 		var mi := node as MeshInstance3D

@@ -73,7 +73,9 @@ func run() -> void:
 			c._animate(1.0 / 60.0)
 		check(absf(c.tilt.rotation.x) < 0.05, "%s: and comes back level" % id)
 		c.queue_free()
-	check(sizes["reinforced_wheelbarrow"].x > sizes["wheelbarrow"].x + 0.05 and counts["reinforced_wheelbarrow"] > counts["wheelbarrow"], "the reinforced barrow is wider and more heavily built than the basic one (%.2f vs %.2f m, %d vs %d parts)" % [sizes["reinforced_wheelbarrow"].x, sizes["wheelbarrow"].x, counts["reinforced_wheelbarrow"], counts["wheelbarrow"]])
-	check(sizes["hand_cart"].x > sizes["wheelbarrow"].x + 0.3, "the hand cart is a different, wider two-wheeled build (%.2f m)" % sizes["hand_cart"].x)
+	# (the Meshy carts are one mesh each, so "parts" no longer tell the barrows apart: the reinforced one is the bigger, and the hand cart is the two-wheeled build)
+	var vol := func(v: Vector3) -> float: return v.x * v.y * v.z
+	check(vol.call(sizes["reinforced_wheelbarrow"]) > vol.call(sizes["wheelbarrow"]) and sizes["reinforced_wheelbarrow"].x > sizes["wheelbarrow"].x, "the reinforced barrow is wider and bigger than the basic one (%.2f vs %.2f m wide)" % [sizes["reinforced_wheelbarrow"].x, sizes["wheelbarrow"].x])
+	check(sizes["hand_cart"].x > sizes["wheelbarrow"].x + 0.05 and sizes["hand_cart"].z > 1.2, "the hand cart is its own, wider two-wheeled build (%.2f m wide, %.2f long)" % [sizes["hand_cart"].x, sizes["hand_cart"].z])
 	print("RESULT: %d checks, %d failures" % [checks, failures.size()])
 	quit(1 if failures.size() > 0 else 0)
