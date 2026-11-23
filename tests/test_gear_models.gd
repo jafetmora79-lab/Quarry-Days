@@ -79,7 +79,7 @@ func run() -> void:
 	for t in tool_tiers:
 		var m: Node3D = tv._build(t)
 		var sg := signature(m)
-		all_ok = all_ok and not sigs.has(sg) and meshes(m) >= 4
+		all_ok = all_ok and not sigs.has(sg) and (meshes(m) >= 4 or ToolModels.MESHY.has(ToolModels.key_of(t)))   # a Meshy tool is one textured mesh
 		light = light and meshes(m) <= 24 and verts(m) <= 5000
 		sigs[sg] = t
 		m.free()

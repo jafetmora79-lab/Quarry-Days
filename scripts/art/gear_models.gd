@@ -23,7 +23,7 @@ const POSE := {
 		"hands": [["L", Vector3(0, 0.15, 0)], ["R", Vector3(0, 0.36, 0)]]},
 	"sledgehammer": {"pause": 0.07, "rest_roll": -0.25, "grip": Vector3(0.2, -0.46, -0.58), "scale": 1.0, "rest": -1.1, "yaw": 0.5, "wind": 0.75, "strike": -1.5, "tip": Vector3(0, 0.74, -0.15), "lift": 0.1,
 		"hands": [["L", Vector3(0, 0.12, 0)], ["R", Vector3(0, 0.4, 0)]]},
-	"steel_pickaxe": {"pause": 0.035, "rest_roll": -0.25, "grip": Vector3(0.34, -0.40, -0.52), "scale": 1.02, "rest": -1.0, "yaw": 0.15, "wind": 0.1, "strike": -1.35, "tip": Vector3(0, 0.55, -0.31),
+	"steel_pickaxe": {"pause": 0.035, "rest_roll": -0.25, "grip": Vector3(0.34, -0.40, -0.52), "scale": 1.02, "rest": -1.0, "yaw": 0.15, "wind": 0.1, "strike": -1.35, "tip": Vector3(0, 0.58, -0.26),
 		"hands": [["L", Vector3(0, 0.14, 0)], ["R", Vector3(0, 0.4, 0)]]},
 	"hardened_pickaxe": {"pause": 0.035, "rest_roll": -0.25, "grip": Vector3(0.34, -0.40, -0.52), "scale": 1.0, "rest": -1.0, "yaw": 0.15, "wind": 0.12, "strike": -1.38, "tip": Vector3(0, 0.57, -0.33),
 		"hands": [["L", Vector3(0, 0.15, 0)], ["R", Vector3(0, 0.42, 0)]]},

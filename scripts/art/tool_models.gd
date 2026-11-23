@@ -35,8 +35,51 @@ static func _scene(file: String) -> PackedScene:
 static func has_tool(key: String) -> bool:
 	return key != "" and _scene("TOOL_QD_%s.glb" % key) != null
 
+## Meshy-generated tools (assets/tools/meshy): file -> how to turn the raw model so the handle runs up +Y and the working end points up/forward (-Z),
+## its butt `butt` below the grip, `length` tall in total. Meshy models are one static mesh with their own painted texture, so they are NOT dressed.
+const MESHY := {
+	"pickaxe_worn": {"basis": Vector3(0, 90, 0), "length": 0.74},                    # raw: handle -Y, head along X
+	"pickaxe_reinforced": {"basis": Vector3(0, 0, -90), "length": 0.80},             # raw: handle +X, head at -X, spikes along Z
+	"steel_pickaxe": {"basis": Vector3(0, 90, -90), "length": 0.80},                 # raw: handle +X, head at -X, curved along Y
+	"pointed_chisel": {"basis": Vector3(0, 0, -90), "length": 0.62},                 # raw: handle +X, point at -X
+}
+const MESHY_BUTT := -0.12
+
+static func _meshy(key: String) -> Node3D:
+	var spec: Dictionary = MESHY[key]
+	var ps := _scene("meshy/%s.glb" % key)
+	if ps == null:
+		return null
+	var raw := ps.instantiate() as Node3D
+	if raw == null:
+		return null
+	var rot := Basis.from_euler(Vector3(deg_to_rad(spec["basis"].x), deg_to_rad(spec["basis"].y), deg_to_rad(spec["basis"].z)))
+	# bounds of the rotated model, to scale it to the wanted length and drop its butt to MESHY_BUTT
+	var lo := Vector3(1e9, 1e9, 1e9)
+	var hi := Vector3(-1e9, -1e9, -1e9)
+	for mi in raw.find_children("*", "MeshInstance3D", true, false):
+		var m := mi as MeshInstance3D
+		var bb := m.get_aabb()
+		for i in 8:
+			var c: Vector3 = rot * (m.transform * bb.get_endpoint(i))
+			lo = lo.min(c)
+			hi = hi.max(c)
+		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var sc := float(spec["length"]) / maxf(hi.y - lo.y, 0.001)
+	var n := Node3D.new()
+	n.name = "Tool_" + key
+	var holder := Node3D.new()
+	holder.transform = Transform3D(rot * sc, Vector3(0, MESHY_BUTT - lo.y * sc, 0))
+	holder.add_child(raw)
+	n.add_child(holder)
+	return n
+
 ## One tool, ready to parent under the swing pivot; null if there is no Blender model for it.
 static func load_tool(key: String) -> Node3D:
+	if MESHY.has(key):
+		var mn := _meshy(key)
+		if mn != null:
+			return mn
 	var ps := _scene("TOOL_QD_%s.glb" % key) if key != "" else null
 	if ps == null:
 		return null

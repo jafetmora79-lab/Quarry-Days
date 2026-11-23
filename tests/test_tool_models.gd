@@ -56,8 +56,10 @@ func run() -> void:
 			for s in m.mesh.get_surface_count():
 				surfaces += 1
 				if m.get_surface_override_material(s) == null and m.material_override == null:
-					all_mapped = false
-		check(all_mapped and surfaces > 0, "%s: every surface wears a project material (%d)" % [key, surfaces])
+					# the Meshy tools (ToolModels.MESHY) keep their own painted texture on purpose: a textured surface material counts
+					if not (ToolModels.MESHY.has(key) and m.mesh.surface_get_material(s) is BaseMaterial3D and (m.mesh.surface_get_material(s) as BaseMaterial3D).albedo_texture != null):
+						all_mapped = false
+		check(all_mapped and surfaces > 0, "%s: every surface wears a project material or the Meshy texture (%d)" % [key, surfaces])
 		if moving.has(key):
 			check(n.has_meta(moving[key]), "%s: has its %s part" % [key, moving[key]])
 		else:
