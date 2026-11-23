@@ -2,16 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b5h2bwei27uoy"
-path="res://.godot/imported/Dmitri_m2.png-87e712e3d397ac96d78a973378ab1804.ctex"
+uid="uid://bi7tnwcprhht3"
+path="res://.godot/imported/CHR_QD_Rosa_Image_0.png-14567413298ddf6e396569735219fa22.ctex"
 metadata={
 "vram_texture": false
+}
+generator_parameters={
+"md5": "8c4ae061b1de6b34584173ae51eb6376"
 }
 
 [deps]
 
-source_file="res://assets/characters/faces/Dmitri_m2.png"
-dest_files=["res://.godot/imported/Dmitri_m2.png-87e712e3d397ac96d78a973378ab1804.ctex"]
+source_file="res://assets/characters/CHR_QD_Rosa_Image_0.png"
+dest_files=["res://.godot/imported/CHR_QD_Rosa_Image_0.png-14567413298ddf6e396569735219fa22.ctex"]
 
 [params]
 
@@ -21,7 +24,7 @@ compress/lossy_quality=0.7
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=false
+mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
@@ -30,5 +33,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

@@ -45,10 +45,10 @@ func run() -> void:
 	# ---- 1: anatomy
 	var meshes := c.model.find_children("*", "MeshInstance3D", true, false)
 	check(c.hips.size() == 4 and c.feet.size() == 4 and c.eyes.size() == 2, "1 four jointed legs with feet, and two eyes")
-	var plate_tris := 0
-	for pm in c.plates.find_children("*", "MeshInstance3D", true, false):
-		plate_tris += (pm as MeshInstance3D).mesh.get_faces().size() / 3
-	check(plate_tris >= 150 and meshes.size() >= 20, "1b rows of armour studs down the back, flank spikes, horns and toes, modelled in Blender (%d studs/spike triangles, %d parts)" % [plate_tris, meshes.size()])
+	var tris := 0                                  # the Meshy ankylosaur: one skinned mesh with the armour studs and spikes modelled in, legs from a clip
+	for pm in meshes:
+		tris += (pm as MeshInstance3D).mesh.get_faces().size() / 3
+	check(tris >= 3000 and c.skel != null and c.clip_ap != null, "1b the dinosaur is the skinned Meshy model with its walk clip (%d triangles)" % tris)
 	check(c.club != null and c.club_tip != null and c.tail_mid != null and c.tail_tip != null and c.head != null and c.neck != null, "1c a three-jointed tail ending in a club, a neck and a head")
 	var lo := Vector3(INF, INF, INF)
 	var hi := Vector3(-INF, -INF, -INF)

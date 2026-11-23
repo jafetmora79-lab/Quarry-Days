@@ -3,7 +3,7 @@ extends SceneTree
 ## standing height while the body moves (a planted foot should stay within ~2 cm of the ground), (b) height and proportions (head, arm span, leg length vs
 ## height), (c) the hands in carry and work poses (distance from each wrist to its target).
 ##   godot --headless --path . -s tools/audit_cast.gd
-const CAST := ["Walter", "Marsh", "Rosa", "Dmitri", "Omar", "Bram", "Felix", "Hana", "Hauler", "Ines", "Lucia", "Miner", "Nia", "Operator", "Petra", "Sofia", "Tomas"]
+const CAST := ["Walter", "Marsh", "Rosa", "Dmitri", "Omar", "Felix", "Hana", "Hauler", "Ines", "Lucia", "Miner", "Nia", "Operator", "Petra", "Sofia"]
 var rows := []
 
 func _initialize() -> void:

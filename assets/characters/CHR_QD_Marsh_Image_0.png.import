@@ -2,16 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cwaxdwomari8s"
-path="res://.godot/imported/Tomas_blink.png-4320b3095df4210674953f5aad29858e.ctex"
+uid="uid://darpfm724pum6"
+path="res://.godot/imported/CHR_QD_Marsh_Image_0.png-6c84fc2e052bd8403739d7a9c2b645dd.ctex"
 metadata={
 "vram_texture": false
+}
+generator_parameters={
+"md5": "e9baa261e15b069644ddf44498e3979a"
 }
 
 [deps]
 
-source_file="res://assets/characters/faces/Tomas_blink.png"
-dest_files=["res://.godot/imported/Tomas_blink.png-4320b3095df4210674953f5aad29858e.ctex"]
+source_file="res://assets/characters/CHR_QD_Marsh_Image_0.png"
+dest_files=["res://.godot/imported/CHR_QD_Marsh_Image_0.png-6c84fc2e052bd8403739d7a9c2b645dd.ctex"]
 
 [params]
 
@@ -21,7 +24,7 @@ compress/lossy_quality=0.7
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=false
+mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
@@ -30,5 +33,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

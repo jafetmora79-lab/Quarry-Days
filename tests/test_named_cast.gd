@@ -25,7 +25,7 @@ func _initialize() -> void:
 	check(ids.size() == 12, "12 people: Walter, Dr. Marsh and ten candidates (the sales clerks were retired) (%d)" % ids.size())
 	for id in ids:
 		var cap := str(id).substr(0, 1).to_upper() + str(id).substr(1)
-		var path := "res://assets/characters/CHR_QD_%s.glb" % cap
+		var path := str(QuarryWorker.MESHY_NAMED.get(id, "res://assets/characters/CHR_QD_%s.glb" % cap))   # Tomas and Bram wear the profession models now
 		if id != "walter" and id != "marsh":
 			check(QuarryWorker.named_model(id) == path, "%s: the worker code finds the named model" % cap)
 		var ps: PackedScene = load(path)

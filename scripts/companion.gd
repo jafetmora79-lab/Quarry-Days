@@ -107,12 +107,19 @@ static func _take(parts: Dictionary, key: String, parent: Node3D) -> void:
 
 ## The Blender dinosaur (tools/world_models/build_world.py -> WLD_QD_dino.glb): the same joints the animation drives, with the modelled body on them. False when it cannot load.
 func _build_from_model() -> bool:
+	if _build_meshy():
+		return true
 	if not WorldModels.has("dino"):
 		return false
 	var d: Dictionary = WorldModels.animal("dino")
 	if d.is_empty():
 		return false
-	var parts: Dictionary = d["parts"]
+	_build_joints(d["parts"])
+	(d["root"] as Node).free()
+	return true
+
+## The joint tree every behaviour is written against (body, neck, head, four legs, tail with its club); `parts` holds the meshes to hang on the joints (none for the Meshy dinosaur).
+func _build_joints(parts: Dictionary) -> void:
 	model = Node3D.new()
 	model.name = "Model"
 	add_child(model)
@@ -173,8 +180,97 @@ func _build_from_model() -> bool:
 	club_tip = Node3D.new()
 	club_tip.position = Vector3(0, 0, 0.12)
 	club.add_child(club_tip)
-	(d["root"] as Node).free()
+
+# ------------------------------------------------------------------ Meshy model
+
+const MESHY := "res://assets/world/WLD_QD_dino_meshy.glb"
+const MESHY_K := 4.0                  ## the file's units -> adult metres (the file's dinosaur is 0.96 long)
+const MESHY_FOOT := 0.147             ## the file's feet sit this far below its origin
+const MESHY_TAIL_EXTRA := 0.06        ## each tail link is stretched by this much (file units) so the club sits where the strike maths puts it (TAIL_REACH)
+const MESHY_CLIP := "dog_walk"
+var skel: Skeleton3D
+var clip_ap: AnimationPlayer
+var _bidx := {}                       ## bone name -> index
+
+## The Meshy ankylosaur (a skinned mesh with a dog-walk clip): visible instead of the old Blender parts, while the invisible joint tree
+## above keeps doing the thinking (follow, rest, tail strike). The clip drives the legs while it walks (in step with `phase`); the neck,
+## head and tail bones are posed from the joints, so the club on screen swings where the strike maths says it does.
+func _build_meshy() -> bool:
+	if not ResourceLoader.exists(MESHY):
+		return false
+	var inst := (load(MESHY) as PackedScene).instantiate() as Node3D
+	var found := inst.find_children("*", "Skeleton3D", true, false)
+	var aps := inst.find_children("*", "AnimationPlayer", true, false)
+	if found.is_empty() or aps.is_empty():
+		inst.free()
+		return false
+	_build_joints({})
+	skel = found[0]
+	clip_ap = aps[0]
+	for i in skel.get_bone_count():
+		_bidx[skel.get_bone_name(i)] = i
+	var a := clip_ap.get_animation(MESHY_CLIP)
+	if a == null:
+		inst.free()
+		return false
+	a = a.duplicate()
+	for i in range(a.get_track_count() - 1, -1, -1):
+		var bn := str(a.track_get_path(i).get_concatenated_subnames())
+		if bn.begins_with("tail") or bn.begins_with("neck") or bn == "head":
+			a.remove_track(i)                              # these follow the joints, not the clip
+	var lib := AnimationLibrary.new()
+	lib.add_animation("walk", a)
+	for ln in clip_ap.get_animation_library_list():
+		clip_ap.remove_animation_library(ln)
+	clip_ap.add_animation_library("", lib)
+	inst.rotation.y = PI                                   # the file's dinosaur faces +Z; this game's faces -Z
+	inst.scale = Vector3.ONE * MESHY_K
+	inst.position = Vector3(0.0, MESHY_FOOT * MESHY_K, PIVOT_LOCAL.z - 0.14 * MESHY_K)   # its tail base (file z = -0.14) on the tail pivot
+	body.add_child(inst)
+	for gi in inst.find_children("*", "GeometryInstance3D", true, false):
+		gi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_pose_meshy(0.0, true)
 	return true
+
+func _bone_yaw(bone_name: String, yaw: float) -> void:
+	var i: int = _bidx.get(bone_name, -1)
+	if i >= 0:
+		skel.set_bone_pose_rotation(i, skel.get_bone_rest(i).basis.get_rotation_quaternion() * Quaternion(Vector3.UP, yaw))
+
+## Every frame: the legs from the clip (frozen to the standing pose when it stops), the tail, neck and head from the joints.
+func _pose_meshy(delta: float, force := false) -> void:
+	if skel == null:
+		return
+	if walk_w > 0.05:
+		if not clip_ap.is_playing():
+			clip_ap.play("walk")
+			clip_ap.pause()
+		clip_ap.seek(fposmod(phase, TAU) / TAU * clip_ap.get_animation("walk").length, true)
+	elif _meshy_walking or force:
+		clip_ap.stop()
+		for i in skel.get_bone_count():
+			var n := skel.get_bone_name(i)
+			if not (n.begins_with("tail") or n.begins_with("neck") or n == "head"):
+				skel.reset_bone_pose(i)
+	_meshy_walking = walk_w > 0.05
+	for i in range(1, 5):                                  # the long tail: stretch the links after the first
+		var n := "tail%d" % (i + 1) if i < 4 else "tail_05"
+		var bi: int = _bidx.get(n, -1)
+		if bi >= 0:
+			skel.set_bone_pose_position(bi, skel.get_bone_rest(bi).origin + Vector3(0, 0, -MESHY_TAIL_EXTRA))
+	_bone_yaw("tail1", tail.rotation.y)
+	_bone_yaw("tail2", tail_mid.rotation.y)
+	_bone_yaw("tail4", tail_tip.rotation.y)
+	_bone_yaw("neck1", neck.rotation.y * 0.5)
+	_bone_yaw("neck2", neck.rotation.y * 0.5 + head.rotation.y * 0.3)
+	var hi: int = _bidx.get("head", -1)
+	if hi >= 0:
+		skel.set_bone_pose_rotation(hi, skel.get_bone_rest(hi).basis.get_rotation_quaternion() * Quaternion(Vector3.RIGHT, -head.rotation.x) * Quaternion(Vector3.UP, head.rotation.y * 0.7))
+		skel.set_bone_pose_scale(hi, Vector3.ONE * head.scale.x)
+	var ci: int = _bidx.get("tail_05", -1)
+	if ci >= 0:
+		skel.set_bone_pose_scale(ci, Vector3.ONE * club.scale.x)
+var _meshy_walking := false
 
 func _build() -> void:
 	if _build_from_model():
@@ -560,3 +656,4 @@ func _animate(delta: float, moving: bool, working: bool) -> void:
 		tail_mid.rotation.y = lerpf(tail_mid.rotation.y, -tail.rotation.y * 0.22 + sin(_t * 1.3) * 0.04, minf(1.0, delta * 14.0))
 		tail_tip.rotation.y = lerpf(tail_tip.rotation.y, -tail_mid.rotation.y * 0.35 - tail.rotation.y * 0.12, minf(1.0, delta * 12.0))
 	tail.rotation.x = lerpf(tail.rotation.x, 0.0 + (0.25 if rest_w > 0.5 else 0.0), s_k)
+	_pose_meshy(delta)

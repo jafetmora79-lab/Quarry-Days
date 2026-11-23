@@ -31,21 +31,21 @@ func visit(fa: FaceAnim, talking: bool, seconds: float, smile := false) -> Dicti
 
 func run() -> void:
 	# ---- face frames on the real models
-	for who in ["Marsh", "Rosa", "Dmitri", "Omar"]:           # (Walter is the Meshy model now: one mesh, no painted face frames)
+	for who in ["Hana", "Omar"]:           # (Walter, Dr. Marsh, Rosa and Dmitri are Meshy models now: one mesh, no painted face frames)
 		var body: Node3D = (load("res://assets/characters/CHR_QD_%s.glb" % who) as PackedScene).instantiate()
 		root.add_child(body)
 		var fa := FaceAnim.new()
 		check(fa.setup(body, who, 3), "%s: face frames load and the head material is found" % who)
-		if who == "Marsh":
+		if who == "Hana":
 			var head: MeshInstance3D = body.find_children("*_Head", "MeshInstance3D", true, false)[0]
 			var shared_tex: Texture2D = (head.mesh.surface_get_material(0) as StandardMaterial3D).albedo_texture
 			var talk := visit(fa, true, 14.0)
-			check(talk.has("blink") and talk.has("m1") and talk.has("m2") and (talk.has("brow") or talk.has("browm1")), "Marsh talking: blinks, opens and closes the mouth and raises the brows (%s)" % str(talk.keys()))
+			check(talk.has("blink") and talk.has("m1") and talk.has("m2") and (talk.has("brow") or talk.has("browm1")), "Hana talking: blinks, opens and closes the mouth and raises the brows (%s)" % str(talk.keys()))
 			var quiet := visit(fa, false, 14.0)
 			var only_rest := true
 			for k in quiet:
 				only_rest = only_rest and (k == "base" or k == "blink")
-			check(quiet.has("blink") and only_rest, "Marsh idle: only blinks (%s)" % str(quiet.keys()))
+			check(quiet.has("blink") and only_rest, "Hana idle: only blinks (%s)" % str(quiet.keys()))
 			var smile := visit(fa, false, 1.0, true)
 			check(smile.has("brow") or smile.has("blink"), "a greeting lifts the brows")
 			check((head.get_active_material(0) as StandardMaterial3D) != head.mesh.surface_get_material(0) and (head.mesh.surface_get_material(0) as StandardMaterial3D).albedo_texture == shared_tex, "the shared model resource is untouched (own material per character)")

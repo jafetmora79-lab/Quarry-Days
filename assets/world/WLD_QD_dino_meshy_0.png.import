@@ -2,16 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://d3oouewi7ym6g"
-path="res://.godot/imported/Dmitri_blink.png-211a2d3b3b49be0c729cbb1dfa79bf62.ctex"
+uid="uid://b7joefk1paavp"
+path="res://.godot/imported/WLD_QD_dino_meshy_0.png-c442cc398f951ea4dda673dcbe1ee9a7.ctex"
 metadata={
 "vram_texture": false
+}
+generator_parameters={
+"md5": "c82928e1cfa14721f862180c321e8fd2"
 }
 
 [deps]
 
-source_file="res://assets/characters/faces/Dmitri_blink.png"
-dest_files=["res://.godot/imported/Dmitri_blink.png-211a2d3b3b49be0c729cbb1dfa79bf62.ctex"]
+source_file="res://assets/world/WLD_QD_dino_meshy_0.png"
+dest_files=["res://.godot/imported/WLD_QD_dino_meshy_0.png-c442cc398f951ea4dda673dcbe1ee9a7.ctex"]
 
 [params]
 
@@ -21,7 +24,7 @@ compress/lossy_quality=0.7
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=false
+mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
@@ -30,5 +33,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

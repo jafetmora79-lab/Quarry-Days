@@ -92,9 +92,15 @@ const CHARACTER := {"miner": "res://assets/characters/CHR_QD_Miner.glb", "operat
 const NAMED := "res://assets/characters/CHR_QD_%s.glb"
 static var _packed := {}
 
+## Candidates that now wear one of the Meshy models (Mixamo rig, baked walk / run clips, no painted face frames): the profession models double as
+## Tomas's and Bram's, Rosa and Dmitri have their own. The rest of the named cast still uses the older hand-built models.
+const MESHY_NAMED := {"tomas": "res://assets/characters/CHR_QD_Operator.glb", "bram": "res://assets/characters/CHR_QD_Hauler.glb"}
+
 static func named_model(candidate_id: String) -> String:
 	if candidate_id == "":
 		return ""
+	if MESHY_NAMED.has(candidate_id):
+		return str(MESHY_NAMED[candidate_id])
 	var path := NAMED % (candidate_id.substr(0, 1).to_upper() + candidate_id.substr(1))
 	return path if ResourceLoader.exists(path) else ""
 var rig: VeilRig
