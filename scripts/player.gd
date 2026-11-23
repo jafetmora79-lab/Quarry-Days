@@ -11,6 +11,7 @@ var locked := false
 var scripted_camera := false         ## a cinematic move (boarding, a repair) owns the camera's orientation: the pitch is not forced back each frame
 var drive_wish := Vector3.INF
 var speed_mult := 1.0          ## 0.8 while pushing or pulling a cart
+var sprint_ok := true         ## false while carrying something heavy (a filled bucket, a mostly full bag, a cart): Shift then does nothing (set by the game)
 var load_mult := 1.0           ## slower with every full bucket carried (set by the game)
 var tool_view: QuarryToolView
 var blueprint: QuarryBlueprintHands
@@ -97,7 +98,7 @@ func _physics_process(delta: float) -> void:
 		var want := Input.is_action_pressed("crouch") and _input_ok()
 		if want != crouching and (want or _can_stand()):
 			crouching = want
-		var speed := 6.0 if Input.is_action_pressed("sprint") and not crouching else 4.2
+		var speed := 6.0 if Input.is_action_pressed("sprint") and sprint_ok and not crouching else 4.2
 		if crouching:
 			speed = 2.2
 		if drive_wish != Vector3.INF:        # scripted walking (tests): a world-space direction instead of the keyboard

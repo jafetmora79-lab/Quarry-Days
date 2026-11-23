@@ -2573,6 +2573,7 @@ func _bucket_tick(delta: float) -> void:
 	if player.tool_view != null and player.tool_view.model != null and player.tool_view.model.has_meta("bucket_model"):           # the bucket is in hand: it shows what it really holds
 		BucketView.set_load(player.tool_view.model.get_meta("bucket_model"), state.hand_bucket, cap)
 		player.tool_view.carry_load = clampf(float(state.total(state.hand_bucket)) / float(maxi(1, cap)), 0.0, 1.0)      # its weight hangs in the pose
+	player.sprint_ok = state.total(state.hand_bucket) == 0 and player.speed_mult >= 0.999 and float(total) <= 0.6 * float(maxi(1, state.capacity()))
 	player.load_mult = 1.0 - minf(0.35, 0.035 * float(maxi(0, BucketView.count_of(total, cap) - 1))) - 0.25 * minf(1.0, float(state.total(state.hand_bucket)) / float(maxi(1, cap)))
 	if Input.is_action_pressed("interact") and last_target != null and is_instance_valid(last_target) and str(last_target.get_meta("kind", "")) == "storage" and total > 0:
 		_dump_hold += delta

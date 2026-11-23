@@ -76,12 +76,16 @@ func run() -> void:
 	var idle_leg: Quaternion = pb.skel.get_bone_pose_rotation(lu)
 	var mx := 0.0
 	for i in 90:
-		pb.animate(1.0 / 60.0, "walk", 2.0)
+		pb.animate(1.0 / 60.0, "walk", 1.3)
+		await process_frame                                   # the baked cycle is played by the AnimationPlayer, one frame at a time
 		mx = maxf(mx, idle_leg.angle_to(pb.skel.get_bone_pose_rotation(lu)))
-	check(mx > 0.25, "walking swings the thigh (%.2f rad from idle)" % mx)
-	for i in 60:
+	check(mx > 0.25 and pb.rig.clip == "Walking", "walking plays the baked Walking cycle and swings the thigh (%.2f rad from idle, clip %s)" % [mx, pb.rig.clip])
+	for i in 30:
 		pb.animate(1.0 / 60.0, "walk", 4.2)
-	check(true, "running speed plays without errors")
+		await process_frame
+	check(pb.rig.clip == "Running", "running speed plays the baked Running cycle (%s)" % pb.rig.clip)
+	pb.animate(1.0 / 60.0, "walk", 2.0, "miner", true)
+	check(pb.rig.clip == "", "carrying something in the hands uses the procedural carry pose, not the cycle")
 	for i in 30:
 		pb.animate(1.0 / 60.0, "idle", 0.0)
 	var arm_idle: Quaternion = pb.skel.get_bone_pose_rotation(rua)
@@ -133,6 +137,17 @@ func run() -> void:
 		await frames(3)
 		check(body.bag_state == int(item[1]), "bag holding %d of %d shows state %d (%d)" % [int(item[0]), st.capacity(), int(item[1]), body.bag_state])
 	st.inventory["limestone"] = 0
+	game._bucket_tick(0.016)
+	check(game.player.sprint_ok, "empty-handed with a light bag the player may sprint")
+	st.hand_bucket = {"limestone": 3}
+	game._bucket_tick(0.016)
+	check(not game.player.sprint_ok, "carrying a filled bucket takes sprinting away")
+	st.hand_bucket = {}
+	st.inventory["limestone"] = st.capacity()
+	game._bucket_tick(0.016)
+	check(not game.player.sprint_ok, "so does a nearly full bag")
+	st.inventory["limestone"] = 0
+	game._bucket_tick(0.016)
 	check(st.capacity() == cap_before and st.inventory.size() == inv_before.size(), "showing the satchel changed no capacity or inventory")
 	# ---- the seated driver is this character
 	game.prog.excavator_state()["started"] = true

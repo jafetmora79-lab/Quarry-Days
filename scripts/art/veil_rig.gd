@@ -62,6 +62,7 @@ func setup(skeleton: Skeleton3D, seed := 0.0) -> void:
 			F = f.normalized()
 	R = F.cross(U).normalized()
 	_build_rest()
+	_init_clips()
 	for side in ["Right", "Left"]:
 		for b in ["UpperArm", "LowerArm", "Hand"]:
 			_arm.append(bone(side + b))
@@ -107,6 +108,60 @@ static func is_mixamo(root: Node) -> bool:
 static func face_forward(body: Node3D) -> void:
 	if is_mixamo(body):
 		body.rotation.y = PI
+
+# ------------------------------------------------------------------ baked clips (the Meshy characters ship a "Walking" and a "Running" cycle)
+
+const CLIP_WALK_SPEED := 1.3                 ## ground speed (m/s) the Walking cycle was made for: the clip plays faster or slower to keep the feet on the ground
+const CLIP_RUN_SPEED := 3.6                  ## the same for the Running cycle
+const CLIP_RUN_FROM := 3.0                   ## from this speed the Running cycle plays instead of Walking
+var clip_ap: AnimationPlayer
+var clip := ""                               ## the cycle playing now ("" = the procedural rig is posing the body)
+var _pose0: Array = []                       ## the local pose of every bone right after setup (arms lowered), restored when a cycle stops
+
+func _init_clips() -> void:
+	var n: Node = skel.get_parent()
+	for i in 4:
+		if n == null:
+			break
+		var ap := n.find_child("AnimationPlayer", true, false) as AnimationPlayer
+		if ap != null:
+			if ap.has_animation("Walking") and ap.has_animation("Running"):
+				clip_ap = ap
+			break
+		n = n.get_parent()
+	if clip_ap == null:
+		return
+	for cn in ["Walking", "Running"]:
+		var a := clip_ap.get_animation(cn)
+		a.loop_mode = Animation.LOOP_LINEAR
+		for ti in range(a.get_track_count() - 1, -1, -1):          # only rotations (and the hips' bob): a scale track would undo the first-person head hiding
+			if a.track_get_type(ti) == Animation.TYPE_SCALE_3D:
+				a.remove_track(ti)
+	for i in skel.get_bone_count():
+		_pose0.append([skel.get_bone_pose_position(i), skel.get_bone_pose_rotation(i), skel.get_bone_pose_scale(i)])
+
+## Plays the walking / running cycle while the body moves on foot with empty arms; true = the clip is posing the body this frame.
+func _clip_step(state: String, speed: float, carrying: bool) -> bool:
+	if clip_ap == null:
+		return false
+	var want := ""
+	if state == "walk" and speed > 0.12 and not carrying and not seated:
+		want = "Running" if speed >= CLIP_RUN_FROM else "Walking"
+	if want != "":
+		if want != clip:
+			clip_ap.play(want, 0.2)
+			clip = want
+		clip_ap.speed_scale = clampf(speed / (CLIP_RUN_SPEED if want == "Running" else CLIP_WALK_SPEED), 0.4, 2.0)
+		skel.position.y = 0.0
+		return true
+	if clip != "":
+		clip_ap.stop()
+		clip = ""
+		for i in _pose0.size():
+			skel.set_bone_pose_position(i, _pose0[i][0])
+			skel.set_bone_pose_rotation(i, _pose0[i][1])
+			skel.set_bone_pose_scale(i, _pose0[i][2])
+	return false
 
 func bone(n: String) -> int:
 	return _b.get(n, -1)
@@ -592,6 +647,9 @@ var _look := Vector2.ZERO
 
 func pose(delta: float, state: String, speed: float, work_kind: String, carrying: bool, phase := -1.0, yaw_rate := 0.0) -> void:
 	_t += delta
+	if _clip_step(state, speed, carrying):
+		_update_tools(delta)
+		return
 	var moving := state == "walk" and speed > 0.12
 	_walk = move_toward(_walk, 1.0 if moving else 0.0, delta * 4.0)
 	_turn = move_toward(_turn, 1.0 if state == "turn" else 0.0, delta * 6.0)
