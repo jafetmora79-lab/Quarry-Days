@@ -33,6 +33,7 @@ var _slide := 0.0           ## how far the off hand has slid along the shaft (m,
 var hidden_for_pour := false     ## the bucket floats over the Cash Hopper on its own: no tool in the hands meanwhile
 var hidden_by_vehicle := false  ## in a machine (or on the way in / out of its cab): no tool and no hands in the view, whatever else asks to show them
 var suppressed := false     ## the game keeps the tool out of sight (at the computer): other code that shows or hides it respects this
+var arms: MeshyArms         ## the character's real arms and gloves (drawn from the hands' grips); null = the procedural hands are shown
 var hands_rig: FPHands      ## the shared hands (see FPHands / FPTools): the tool decides where they close
 var key := ""               ## model key of the tool in hand (ToolModels.key_of)
 var _grips: Array = []
@@ -74,6 +75,20 @@ func _ready() -> void:
 	add_child(pivot)
 	hands_rig = FPHands.new()
 	pivot.add_child(hands_rig)
+	call_deferred("_make_arms")
+
+func _make_arms() -> void:
+	var par := get_parent()
+	if par == null or not FPHands.model_arms:
+		return
+	var a := MeshyArms.new()
+	a.name = "MeshyArms"
+	par.add_child(a)
+	if a.build():
+		arms = a
+	else:
+		a.queue_free()
+		hands_rig.set_visuals(true)
 
 ## The pose definition of a tool tier: the five ladder tools, or one of the Phase 9 tools (tier >= GearModels.TIER_BASE).
 func _def(t: int) -> Dictionary:
@@ -182,6 +197,8 @@ func _process(delta: float) -> void:
 		visible = false
 		if hands_rig != null:
 			hands_rig.hide_all()
+		if arms != null:
+			arms.visible = false
 		return
 	_t += delta
 	var target := 1.0 if operating else 0.0
@@ -522,6 +539,8 @@ func _pose_rig(def: Dictionary) -> void:
 	if hands_rig == null or model == null or not model.visible or _grips.is_empty():
 		if hands_rig != null:
 			hands_rig.hide_all()
+		if arms != null:
+			arms.visible = false
 		return
 	var inv := pivot.basis.inverse()
 	var anchors := {"R": inv * (FPTools.ANCHOR_R - position), "L": inv * (FPTools.ANCHOR_L - position), "pole_R": (inv * Vector3(0.6, -1.0, -0.2)).normalized(), "pole_L": (inv * Vector3(-0.6, -1.0, -0.2)).normalized(), "cam_o": inv * (-position), "cam_back": inv * Vector3(0, 0, 1)}
@@ -540,6 +559,8 @@ func _pose_rig(def: Dictionary) -> void:
 		grips.append(gg)
 	var slide := {"L": _slide, "R": 0.0}
 	hands_rig.pose(grips, model.transform, anchors, toward_cam, clampf(shock, 0.0, 1.0), slide)
+	if arms != null:
+		arms.update(hands_rig, visible)
 
 func _update_clods(delta: float) -> void:
 	for i in range(_clods.size() - 1, -1, -1):

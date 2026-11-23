@@ -40,6 +40,7 @@ static var _m_glove: StandardMaterial3D
 static var _m_sleeve: StandardMaterial3D
 static var _m_band: StandardMaterial3D
 
+static var model_arms := true            ## the character's own arms (MeshyArms) are drawn; these procedural hands only work out where the hands close and stay invisible
 var hands := {}                          ## "R" / "L" -> {root, palm, back, fingers: [[seg nodes]], knuckles, thumb: [seg nodes], cuff, wrist, sleeve, active}
 
 static func _shared() -> void:
@@ -74,8 +75,15 @@ func _mi(parent: Node3D, mesh: Mesh, mat: Material) -> MeshInstance3D:
 	m.mesh = mesh
 	m.material_override = mat
 	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	m.layers = 0 if model_arms else 1
 	parent.add_child(m)
 	return m
+
+## Shows or hides the procedural hand meshes (they are the fallback when the real arms cannot be built).
+func set_visuals(on: bool) -> void:
+	model_arms = not on
+	for m in find_children("*", "MeshInstance3D", true, false):
+		(m as MeshInstance3D).layers = 1 if on else 0
 
 func _make_hand() -> Dictionary:
 	var root := Node3D.new()
@@ -195,6 +203,7 @@ func _place(h: Dictionary, c: Vector3, a: Vector3, r: float, anchor: Vector3, po
 	var pc := c + e0 * (r + 0.016)
 	h["palm"].transform = Transform3D(Basis(a * PALM_W, e0 * 0.026, e1 * 0.062), pc + e1 * 0.004)
 	h["back"].transform = Transform3D(Basis(a * PALM_W * 0.9, e0 * 0.016, e1 * 0.05), pc + e0 * 0.016 + e1 * 0.004)
+	h["solve"] = {"pc": pc, "e0": e0, "e1": e1, "a": a, "r": r, "pre": pre, "tight": tight}
 	# wrist and arm: a two-bone arm from the wrist back to the shoulder (anchor), the elbow bent out and down; the wrist bend away from the palm's line is limited
 	var shoulder: Vector3 = anchor
 	var wrist := pc + e0 * 0.05
