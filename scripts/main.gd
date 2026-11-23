@@ -7207,6 +7207,7 @@ func _spawn_walter(at := Vector3.INF, face_to := Vector3.ZERO, npc := "walter") 
 	root.add_child(model)
 	# their own models (tools/character_cast): Walter's flat cap, glasses, moustache, flannel and stoop are modelled in
 	var body: Node3D = (load("res://assets/characters/CHR_QD_Marsh.glb" if npc == "marsh" else "res://assets/characters/CHR_QD_Walter.glb") as PackedScene).instantiate()
+	VeilRig.face_forward(body)
 	model.add_child(body)
 	for gi in body.find_children("*", "GeometryInstance3D", true, false):
 		gi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

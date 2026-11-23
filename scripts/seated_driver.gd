@@ -71,7 +71,7 @@ func build() -> void:
 		(gi as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var kind := str(vehicle.vtype)
 	rig.wheel_hands = not (kind.contains("excavator") or kind.contains("dozer"))      # a steering wheel on trucks and loaders, the consoles' panel on the tracked machines
-	_head = skel.find_bone("Head")
+	_head = rig.bone("Head")
 	_place()
 
 ## Pelvis on the seat marker: the rig's origin is the floor under it (hips stand 0.95 above the feet, SEAT_DROP lower when seated).

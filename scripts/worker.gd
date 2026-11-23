@@ -86,7 +86,7 @@ func _ready() -> void:
 ## Phase 4: THE VEIL-pipeline character (assets/characters/CHR_QD_<Profession>.glb, built by
 ## tools/veil_pipeline/qd_style_cast.py from THE VEIL's hand-made reference) animated by VeilRig.
 const CHARACTER := {"miner": "res://assets/characters/CHR_QD_Miner.glb", "operator": "res://assets/characters/CHR_QD_Operator.glb",
-	"hauler": "res://assets/characters/CHR_QD_Hauler.glb", "clerk": "res://assets/characters/CHR_QD_Clerk.glb"}
+	"hauler": "res://assets/characters/CHR_QD_Hauler.glb"}
 ## The named cast (tools/character_cast): every hireable candidate has their own model, face, hair, outfit and gear,
 ## on the same 22-bone rig. Records without a known candidate (very old saves) keep the profession model and its looks.
 const NAMED := "res://assets/characters/CHR_QD_%s.glb"
@@ -109,10 +109,11 @@ func _build_rig() -> void:
 	model.rotation.y = 0.0
 	add_child(model)
 	var named := named_model(str(e.get("candidate", "")))
-	var path: String = named if named != "" else CHARACTER[profession]
+	var path: String = named if named != "" else str(CHARACTER.get(profession, CHARACTER["miner"]))
 	if not _packed.has(path):
 		_packed[path] = load(path)
 	var body: Node3D = _packed[path].instantiate()
+	VeilRig.face_forward(body)
 	model.add_child(body)
 	for gi in body.find_children("*", "GeometryInstance3D", true, false):
 		gi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

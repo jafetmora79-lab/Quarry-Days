@@ -31,21 +31,21 @@ func visit(fa: FaceAnim, talking: bool, seconds: float, smile := false) -> Dicti
 
 func run() -> void:
 	# ---- face frames on the real models
-	for who in ["Walter", "Marsh", "Rosa", "Dmitri", "Omar"]:
+	for who in ["Marsh", "Rosa", "Dmitri", "Omar"]:           # (Walter is the Meshy model now: one mesh, no painted face frames)
 		var body: Node3D = (load("res://assets/characters/CHR_QD_%s.glb" % who) as PackedScene).instantiate()
 		root.add_child(body)
 		var fa := FaceAnim.new()
 		check(fa.setup(body, who, 3), "%s: face frames load and the head material is found" % who)
-		if who == "Walter":
+		if who == "Marsh":
 			var head: MeshInstance3D = body.find_children("*_Head", "MeshInstance3D", true, false)[0]
 			var shared_tex: Texture2D = (head.mesh.surface_get_material(0) as StandardMaterial3D).albedo_texture
 			var talk := visit(fa, true, 14.0)
-			check(talk.has("blink") and talk.has("m1") and talk.has("m2") and (talk.has("brow") or talk.has("browm1")), "Walter talking: blinks, opens and closes the mouth and raises the brows (%s)" % str(talk.keys()))
+			check(talk.has("blink") and talk.has("m1") and talk.has("m2") and (talk.has("brow") or talk.has("browm1")), "Marsh talking: blinks, opens and closes the mouth and raises the brows (%s)" % str(talk.keys()))
 			var quiet := visit(fa, false, 14.0)
 			var only_rest := true
 			for k in quiet:
 				only_rest = only_rest and (k == "base" or k == "blink")
-			check(quiet.has("blink") and only_rest, "Walter idle: only blinks (%s)" % str(quiet.keys()))
+			check(quiet.has("blink") and only_rest, "Marsh idle: only blinks (%s)" % str(quiet.keys()))
 			var smile := visit(fa, false, 1.0, true)
 			check(smile.has("brow") or smile.has("blink"), "a greeting lifts the brows")
 			check((head.get_active_material(0) as StandardMaterial3D) != head.mesh.surface_get_material(0) and (head.mesh.surface_get_material(0) as StandardMaterial3D).albedo_texture == shared_tex, "the shared model resource is untouched (own material per character)")
@@ -61,7 +61,7 @@ func run() -> void:
 	rig.setup(sk, 1.0)
 	for i in 90:
 		rig.pose(1.0 / 60.0, "idle", 0.0, "miner", false)
-	var head_i := sk.find_bone("Head")
+	var head_i := rig.bone("Head")
 	var rest_q := sk.get_bone_pose_rotation(head_i)
 	rig.look_yaw = 40.0
 	for i in 120:
@@ -91,26 +91,20 @@ func run() -> void:
 	game.walter_mode = "waiting"
 	game.walter_pose = "idle"
 	var w: Node3D = game.walter_node
-	check(w != null and w.has_meta("face") and w.has_meta("rig"), "Walter spawns with his face animation and rig")
+	check(w != null and w.has_meta("rig"), "Walter spawns with his rig")
 	w.rotation.y = 0.0
 	game.player.global_position = Vector3(4.0, 0, 40.0)             # to his right (+X), 4 m away
 	for i in 90:
 		game._walter_tick(1.0 / 60.0)
 	var rg: VeilRig = w.get_meta("rig")
 	check(absf(rg.look_yaw) > 20.0 and absf(rg.look_yaw) <= 45.0, "he looks at the player, within a natural 45 degrees (%.0f)" % rg.look_yaw)
-	var faces := {}
+	# (Walter is the Meshy model now: one fixed painted face, so the mouth and brow frame checks that were here are gone)
 	game.walter_pose = "talk"
-	for i in 600:
+	for i in 120:
 		game._walter_tick(1.0 / 60.0)
-		faces[(w.get_meta("face") as FaceAnim).current] = true
-	check(faces.has("m1") or faces.has("m2"), "in the dialogue pose his mouth moves (%s)" % str(faces.keys()))
 	game.walter_pose = "idle"
-	var mouths := false
-	for i in 300:
+	for i in 60:
 		game._walter_tick(1.0 / 60.0)
-		var cur: String = (w.get_meta("face") as FaceAnim).current
-		mouths = mouths or cur == "m1" or cur == "m2"
-	check(not mouths, "back to idle his mouth stays closed")
 	game.player.global_position = Vector3(4.0, 0, 70.0)             # far away: he looks ahead again
 	for i in 200:
 		game._walter_tick(1.0 / 60.0)

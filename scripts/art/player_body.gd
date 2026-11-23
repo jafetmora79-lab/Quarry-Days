@@ -37,6 +37,7 @@ func build() -> bool:
 		_packed = load(MODEL)
 	var body: Node3D = _packed.instantiate()
 	body.name = "Model"
+	VeilRig.face_forward(body)
 	add_child(body)
 	for gi in body.find_children("*", "GeometryInstance3D", true, false):
 		(gi as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
@@ -46,7 +47,7 @@ func build() -> bool:
 	skel = found[0]
 	rig = VeilRig.new()
 	rig.setup(skel, 0.0)
-	_head = skel.find_bone("Head")
+	_head = rig.bone("Head")
 	bags = [null, null, null, null]
 	for mi in body.find_children("*Bag*", "MeshInstance3D", true, false):
 		var nm := str(mi.name)

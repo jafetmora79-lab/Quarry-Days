@@ -41,17 +41,26 @@ func _initialize() -> void:
 			continue
 		var sk: Skeleton3D = sks[0]
 		var missing := []
-		for b in BONES + SOCKETS:
-			if sk.find_bone(b) < 0:
-				missing.append(b)
-		check(missing.is_empty(), "%s: humanoid bones and sockets present %s" % [cap, str(missing)])
-		for part in ["_Body", "_Head", "_Hair", "_Shoes"]:
-			check(body.find_child("QD_%s%s" % [cap, part], true, false) is MeshInstance3D, "%s: mesh QD_%s%s" % [cap, cap, part])
+		var meshy := VeilRig.is_mixamo(body)                          # Walter is the Meshy model: Mixamo bones (mapped by VeilRig), one mesh, no sockets or face frames
+		if meshy:
+			var rg := VeilRig.new()
+			rg.setup(sk, 0.0)
+			for b in BONES:
+				if rg.bone(b) < 0:
+					missing.append(b)
+		else:
+			for b in BONES + SOCKETS:
+				if sk.find_bone(b) < 0:
+					missing.append(b)
+		check(missing.is_empty(), "%s: humanoid bones%s present %s" % [cap, "" if meshy else " and sockets", str(missing)])
+		if not meshy:
+			for part in ["_Body", "_Head", "_Hair", "_Shoes"]:
+				check(body.find_child("QD_%s%s" % [cap, part], true, false) is MeshInstance3D, "%s: mesh QD_%s%s" % [cap, cap, part])
 		var top := 0.0
 		for mi in body.find_children("*", "MeshInstance3D", true, false):
 			var ab: AABB = (mi as MeshInstance3D).get_aabb()
 			top = maxf(top, ab.position.y + ab.size.y)
-		var head_y := sk.get_bone_global_rest(sk.find_bone("Head")).origin.y
+		var head_y := sk.get_bone_global_rest(sk.find_bone("mixamorig_Head") if meshy else sk.find_bone("Head")).origin.y
 		check(head_y > 1.3 and head_y < 1.75, "%s: head bone at a human height (%.2f m)" % [cap, head_y])
 		check(UiArt.named_index(id) >= UiArt.NAMED_BASE and UiArt.portrait(UiArt.named_index(id)) != null, "%s: portrait from the model" % cap)
 		body.queue_free()

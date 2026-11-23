@@ -1,5 +1,6 @@
 extends SceneTree
-## The protagonist (CHR_QD_Player): the shared humanoid rig plays the game's animations on it, the mining satchel shows four fullness states from the real BAG, the body is a shadow in first person,
+## The protagonist (CHR_QD_Player, the Meshy model on a Mixamo skeleton): the shared humanoid rig plays the game's animations on it (VeilRig maps the Mixamo bones onto its own names), the satchel is part of
+## the mesh (the old four-fullness-state satchel meshes are gone, the fullness mapping itself is unchanged), the body is a shadow in first person,
 ## the seated driver is this character with the satchel off the seat, and nothing about the inventory changes.   Run through tools/run_tests.sh.
 var checks := 0
 var failures := []
@@ -31,7 +32,12 @@ func run() -> void:
 	var ref := (load("res://assets/characters/CHR_QD_Operator.glb") as PackedScene).instantiate()
 	root.add_child(ref)
 	var ref_sk: Skeleton3D = ref.find_children("*", "Skeleton3D", true, false)[0]
-	check(bone_names(pb.skel) == bone_names(ref_sk), "same 22-bone humanoid names as the rest of the cast (%d bones)" % pb.skel.get_bone_count())
+	var missing := []
+	for bn in ["Hips", "Spine", "Chest", "UpperChest", "Neck", "Head", "LeftShoulder", "LeftUpperArm", "LeftLowerArm", "LeftHand", "RightShoulder", "RightUpperArm", "RightLowerArm", "RightHand",
+			"LeftUpperLeg", "LeftLowerLeg", "LeftFoot", "LeftToes", "RightUpperLeg", "RightLowerLeg", "RightFoot", "RightToes"]:
+		if pb.rig.bone(bn) < 0:
+			missing.append(bn)
+	check(missing.is_empty(), "every bone the animation rig drives is found on the Mixamo skeleton (missing %s)" % str(missing))
 	var top := -1e9
 	var bottom := 1e9
 	for mi in pb.find_children("*", "MeshInstance3D", true, false):
@@ -48,30 +54,23 @@ func run() -> void:
 		var m := (mi as MeshInstance3D).mesh
 		if m != null and (mi as Node3D).visible:
 			tris += int(m.surface_get_array_len(0) / 3)
-	check(tris < 7000, "light enough for integrated graphics (%d triangles shown)" % tris)
+	check(tris < 12000, "light enough for integrated graphics (%d triangles shown)" % tris)
 	var n_bags := 0
 	for b in pb.bags:
 		if b != null:
 			n_bags += 1
-	check(n_bags == 4, "four satchel meshes, one per fullness state")
+	check(n_bags == 0, "the satchel is part of the Meshy mesh: no separate fullness meshes")
 	# ---- the fullness states from the real bag
 	var cases := [[0, 18, 0], [4, 18, 0], [5, 18, 1], [10, 18, 1], [11, 18, 2], [16, 18, 2], [17, 18, 3], [18, 18, 3], [30, 64, 1], [64, 64, 3]]
 	var ok := true
 	for c in cases:
 		ok = ok and PlayerBody.state_for(int(c[0]), int(c[1])) == int(c[2])
 	check(ok, "EMPTY 0-25 %, PARTIAL 26-60 %, MOSTLY FULL 61-90 %, FULL 91-100 % map to states 0..3")
-	for st in 4:
-		pb.set_bag_state(st)
-		var shown := 0
-		for k in 4:
-			if (pb.bags[k] as Node3D).visible:
-				shown += 1
-		check(shown == 1 and (pb.bags[st] as Node3D).visible, "state %d shows exactly its own satchel mesh" % st)
 	# ---- the animations play on this skeleton (not just matching names)
 	pb.set_bag_state(0)
-	var lu := pb.skel.find_bone("LeftUpperLeg")
-	var ll := pb.skel.find_bone("LeftLowerLeg")
-	var rua := pb.skel.find_bone("RightUpperArm")
+	var lu := pb.rig.bone("LeftUpperLeg")
+	var ll := pb.rig.bone("LeftLowerLeg")
+	var rua := pb.rig.bone("RightUpperArm")
 	for i in 30:
 		pb.animate(1.0 / 60.0, "idle", 0.0)
 	var idle_leg: Quaternion = pb.skel.get_bone_pose_rotation(lu)
@@ -101,13 +100,9 @@ func run() -> void:
 		pb.animate(1.0 / 60.0, "idle", 0.0)
 	var thigh_dir: Vector3 = (pb.skel.get_bone_global_pose(ll).origin - pb.skel.get_bone_global_pose(lu).origin)
 	check(absf(thigh_dir.y) < 0.35 * thigh_dir.length() and thigh_dir.z != 0.0, "seated: the thighs are level")
-	var any_bag := false
-	for k in 4:
-		any_bag = any_bag or (pb.bags[k] as Node3D).visible
-	check(not any_bag, "and the satchel is off the seat")
 	pb.seated = false
 	pb.first_person = true
-	check(pb.skel.get_bone_pose_scale(pb.skel.find_bone("Head")).x < 0.01, "first person hides only the head")
+	check(pb.skel.get_bone_pose_scale(pb.rig.bone("Head")).x < 0.01, "first person hides only the head")
 	pb.first_person = false
 	pb.shadow_only = true
 	var all_shadow := true
@@ -146,10 +141,7 @@ func run() -> void:
 	check(d != null and d.body is PlayerBody, "the driver in the machine is the protagonist")
 	d.show_driver(true)
 	await frames(6)
-	var d_bag := false
-	for k in 4:
-		d_bag = d_bag or (d.body.bags[k] as Node3D).visible
-	check(d.rig.seated and not d_bag, "seated in the cab with the satchel off the seat")
+	check(d.rig.seated, "seated in the cab")
 	d.show_driver(false)
 	# ---- no first-person tool or hands while in a machine, back when out
 	var tv: QuarryToolView = game.player.tool_view

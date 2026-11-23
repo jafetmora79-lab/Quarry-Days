@@ -54,6 +54,7 @@ func setup(skeleton: Skeleton3D, seed := 0.0) -> void:
 	_seed = seed
 	for i in skel.get_bone_count():
 		_b[skel.get_bone_name(i)] = i
+	alias_mixamo(_b)
 	if bone("LeftToes") >= 0 and bone("LeftFoot") >= 0:
 		var f := (_gp("LeftToes").origin - _gp("LeftFoot").origin) + (_gp("RightToes").origin - _gp("RightFoot").origin)
 		f.y = 0.0
@@ -77,6 +78,35 @@ func setup(skeleton: Skeleton3D, seed := 0.0) -> void:
 	if bone("LeftUpperLeg") >= 0 and bone("LeftLowerLeg") >= 0 and bone("LeftFoot") >= 0:
 		_leg = 0.5 * (skel.get_bone_global_rest(bone("LeftUpperLeg")).origin.distance_to(skel.get_bone_global_rest(bone("LeftLowerLeg")).origin)
 			+ skel.get_bone_global_rest(bone("LeftLowerLeg")).origin.distance_to(skel.get_bone_global_rest(bone("LeftFoot")).origin))
+
+## The Meshy / Mixamo characters (mixamorig:*) have the same body as the 22-bone cast under other names: the rig's names point at them, so nothing else changes.
+const MIXAMO := {"Chest": "Spine1", "UpperChest": "Spine2", "UpperArm": "Arm", "LowerArm": "ForeArm", "UpperLeg": "UpLeg", "LowerLeg": "Leg", "Toes": "ToeBase"}
+
+static func alias_mixamo(map: Dictionary) -> void:
+	var pre := "mixamorig:" if map.has("mixamorig:Hips") else ("mixamorig_" if map.has("mixamorig_Hips") else "")     # Godot's glTF import turns the colon into an underscore
+	if pre == "":
+		return
+	for n in ["Hips", "Spine", "Neck", "Head"]:
+		map[n] = map.get(pre + n, -1)
+	map["Chest"] = map.get(pre + "Spine1", -1)
+	map["UpperChest"] = map.get(pre + "Spine2", -1)
+	for side in ["Left", "Right"]:
+		for part in ["Shoulder", "Hand", "Foot"]:
+			map[side + part] = map.get(pre + side + part, -1)
+		for part in ["UpperArm", "LowerArm", "UpperLeg", "LowerLeg", "Toes"]:
+			map[side + part] = map.get(pre + side + MIXAMO[part], -1)
+
+## True for a Meshy / Mixamo skeleton (glTF models face +Z, the quarry cast faces -Z).
+static func is_mixamo(root: Node) -> bool:
+	for sk in root.find_children("*", "Skeleton3D", true, false):
+		if (sk as Skeleton3D).find_bone("mixamorig_Hips") >= 0 or (sk as Skeleton3D).find_bone("mixamorig:Hips") >= 0:
+			return true
+	return false
+
+## Turns a freshly instanced Mixamo model to face -Z like the rest of the cast.
+static func face_forward(body: Node3D) -> void:
+	if is_mixamo(body):
+		body.rotation.y = PI
 
 func bone(n: String) -> int:
 	return _b.get(n, -1)
