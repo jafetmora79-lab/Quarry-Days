@@ -147,7 +147,15 @@ func run() -> void:
 	biz.tick(1.0)
 	var v2: Node = game.output_nodes[h2].get_node("CashHopperView")
 	await frames(40)
-	check(v2._live_floats >= 0 and str(v2.display.text).contains("TODAY") and str(v2.display.text).contains("WAITING"), "the machine's display shows what is selling, what waits, today's earnings and speed")
+	# (the Meshy hopper has no ScreenFace: its plate screen carries the same numbers on its footer line; the Blender fallback still has `display`)
+	if v2.rig != null:                                                          # (its plate shows the sale first, then goes back to the idle page with the numbers)
+		var g := 0
+		while g < 900 and not (v2.rig.screen.is_idle() and not v2._seq_running):
+			await physics_frame
+			g += 1
+		v2._refresh_display()
+	var disp_text := str(v2.display.text) if v2.display != null else (str(v2.rig.screen._foot.text) if v2.rig != null else "")
+	check(v2._live_floats >= 0 and disp_text.contains("TODAY") and disp_text.contains("WAITING") and disp_text.contains("SPEED"), "the machine's display shows what is selling, what waits, today's earnings and speed (%s)" % disp_text)
 	# --- 8. Grandpa's short introduction
 	game.prog.story["hopper_intro"] = false
 	game._hopper_intro(h2)

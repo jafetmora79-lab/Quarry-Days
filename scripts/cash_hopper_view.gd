@@ -45,6 +45,7 @@ var _live_floats := 0
 var _rock_mats := {}
 var _rng := RandomNumberGenerator.new()
 var _last_current := ""
+var rig: MeshyHopperRig                  ## the rigged Meshy hopper (when its model is in the game): the payout is played on its bones, its front plate is a live screen
 var piston: Node3D                       ## the ram on the front corner: pumps while it works (the Blender model)
 var funnel_node: Node3D                  ## the funnel: it shivers while rock goes through
 var drawer: Node3D                       ## the payout drawer: it slides out on every payout
@@ -59,6 +60,7 @@ var _seq_running := false
 var _queued_money := 0                   ## sales that arrive while a payout is playing are added up and paid out in the same open drawer
 var _queued_units := 0
 var _queued_res := ""
+var _queued_mats := {}                   ## material -> units of the queued sales (the plate names exactly what was sold)
 var _chain_until_ms := 0                 ## a sale within a few seconds of the last payout plays the short version
 var _vibe := 0.0
 var _lamp_level := 0.5
@@ -110,7 +112,21 @@ func setup(g, i: int) -> void:
 	points["Attach_Audio"].add_child(audio)
 	clunk_streams = [load("res://audio/breaker_hit.wav"), load("res://audio/hit_hammer.wav"), load("res://audio/rock_break.wav")]
 	coin_stream = load("res://audio/coin.wav")
-	if WorldModels.has("cash_hopper"):
+	if MeshyHopperRig.available():
+		var r := MeshyHopperRig.new()
+		r.name = "MeshyHopper"
+		if r.build():
+			rig = r
+			model = r.model
+			points["Attach_Body"].add_child(r)
+			for k in MeshyHopperRig.MARKERS:
+				(points[k] as Node3D).position = MeshyHopperRig.MARKERS[k]
+			r.tick.connect(_count_tick)
+		else:
+			r.free()
+	if rig != null:
+		pass                                                           # (the Meshy hopper is built; the Blender one below is the fallback)
+	elif WorldModels.has("cash_hopper"):
 		var hm: Dictionary = WorldModels.animal("cash_hopper")            # the Blender hopper (tools/world_models/build_world.py), the game's own materials swapped in
 		if not hm.is_empty():
 			model = hm["root"]
@@ -157,16 +173,17 @@ func setup(g, i: int) -> void:
 		_piston_y0 = piston.position.y
 	if model == null:
 		_build_placeholder()
-	display = ScreenFace.new()
-	display.name = "Display"
-	if drawer != null:
-		display.setup(Vector2(0.19, 0.30), Vector2i(114, 180), 12, Color(0.66, 1.0, 0.72), HORIZONTAL_ALIGNMENT_CENTER)
-	else:
-		display.setup(Vector2(1.2, 0.5), Vector2i(480, 200), 36, Color(0.75, 1.0, 0.7))
-	display.position = Vector3(0, 0, -0.003)
-	points["Attach_Display"].add_child(display)
+	if rig == null:
+		display = ScreenFace.new()
+		display.name = "Display"
+		if drawer != null:
+			display.setup(Vector2(0.19, 0.30), Vector2i(114, 180), 12, Color(0.66, 1.0, 0.72), HORIZONTAL_ALIGNMENT_CENTER)
+		else:
+			display.setup(Vector2(1.2, 0.5), Vector2i(480, 200), 36, Color(0.75, 1.0, 0.7))
+		display.position = Vector3(0, 0, -0.003)
+		points["Attach_Display"].add_child(display)
 	_refresh_display()
-	if drawer != null:
+	if drawer != null or rig != null:
 		_build_extras()
 		_play("Idle")
 		for k in range(4):
@@ -186,19 +203,20 @@ func _rel(n: Node3D) -> Transform3D:
 
 ## The letters and lights the model has frames for: the sale display on top, the CASH HOPPER name, the lamps' glow, the payout sparks.
 func _build_extras() -> void:
-	sale_display = ScreenFace.new()
-	sale_display.name = "SaleDisplay"
-	sale_display.setup(Vector2(0.48, 0.185), Vector2i(260, 100), 44, Color(0.45, 1.0, 0.6), HORIZONTAL_ALIGNMENT_CENTER)
-	sale_display.rotation = Vector3(-0.336, 0, 0)
-	sale_display.position = Vector3(0, 0.02, -0.075)                         # (on the glass: its centre is 2.6 cm in front of the marker, along the slope)
-	points["Attach_SaleDisplay"].add_child(sale_display)
-	_sale_text("READY", 0.5)
-	var sign_l := ScreenFace.new()                                         # the name, painted on the strip under the emblem (a plate, not a screen)
-	sign_l.name = "Plaque"
-	sign_l.setup(Vector2(0.5, 0.075), Vector2i(300, 45), 26, Color(1.0, 0.82, 0.3), HORIZONTAL_ALIGNMENT_CENTER, false)
-	sign_l.text = "CASH HOPPER"
-	sign_l.position = Vector3(0, 0, -0.012)
-	points["Attach_Sign"].add_child(sign_l)
+	if rig == null:
+		sale_display = ScreenFace.new()
+		sale_display.name = "SaleDisplay"
+		sale_display.setup(Vector2(0.48, 0.185), Vector2i(260, 100), 44, Color(0.45, 1.0, 0.6), HORIZONTAL_ALIGNMENT_CENTER)
+		sale_display.rotation = Vector3(-0.336, 0, 0)
+		sale_display.position = Vector3(0, 0.02, -0.075)                         # (on the glass: its centre is 2.6 cm in front of the marker, along the slope)
+		points["Attach_SaleDisplay"].add_child(sale_display)
+		_sale_text("READY", 0.5)
+		var sign_l := ScreenFace.new()                                         # the name, painted on the strip under the emblem (a plate, not a screen)
+		sign_l.name = "Plaque"
+		sign_l.setup(Vector2(0.5, 0.075), Vector2i(300, 45), 26, Color(1.0, 0.82, 0.3), HORIZONTAL_ALIGNMENT_CENTER, false)
+		sign_l.text = "CASH HOPPER"
+		sign_l.position = Vector3(0, 0, -0.012)
+		points["Attach_Sign"].add_child(sign_l)
 	glow = OmniLight3D.new()
 	glow.light_color = Color(1.0, 0.62, 0.2)
 	glow.omni_range = 3.0
@@ -252,7 +270,7 @@ func _build_extras() -> void:
 	sparks.initial_velocity_min = 0.5
 	sparks.initial_velocity_max = 1.1
 	sparks.gravity = Vector3(0, -2.5, 0)
-	sparks.position = Vector3(0, 0.6, -1.15)
+	sparks.position = MeshyHopperRig.TRAY_POINT if rig != null else Vector3(0, 0.6, -1.15)
 	var qm := QuadMesh.new()
 	qm.size = Vector2(0.03, 0.03)
 	sparks.mesh = qm
@@ -284,7 +302,9 @@ func _apply_tier(ti: int, celebrate := true) -> void:
 	scale = Vector3.ONE * float(look["scale"])
 	var from_steel := Color(0.31, 0.39, 0.34)
 	var from_dk := Color(0.20, 0.26, 0.23)
-	for mi in model.find_children("*", "MeshInstance3D", true, false):
+	if rig != null:
+		rig.apply_tier(ti)                                                     # (each tier has its own Meshy model, screen skin, status window and lights)
+	for mi in ([] if rig != null else model.find_children("*", "MeshInstance3D", true, false)):
 		var m := mi as MeshInstance3D
 		if m.mesh == null:
 			continue
@@ -320,6 +340,8 @@ func _apply_tier(ti: int, celebrate := true) -> void:
 
 func _set_lamp(level: float) -> void:
 	_lamp_level = level
+	if rig != null:
+		rig.set_lamp(level)
 	if _lamp_mat != null:
 		_lamp_mat.emission_energy_multiplier = level
 	if glow != null:
@@ -557,7 +579,7 @@ func _process(delta: float) -> void:
 	_t += delta
 	for cn in _cash_nodes:
 		(cn as Node3D).visible = not bool((cn as Node3D).get_meta("tier_hidden", false))
-	if anim == null:                                                       # (no Blender clips: the old procedural spin, only while it works)
+	if anim == null and rig == null:                                       # (no Blender clips: the old procedural spin, only while it works)
 		var working: bool = b.cash_current(index) != ""
 		_work = move_toward(_work, 1.0 if working else 0.0, delta * (4.0 if working else 1.6))
 		_fw_speed = move_toward(_fw_speed, (7.0 + 0.5 * minf(b.cash_rate(index), 40.0)) * (1.0 if working else 0.0), delta * (30.0 if working else 7.0))
@@ -601,7 +623,9 @@ func _flush() -> void:
 	var money := 0
 	var main_res := ""
 	var best := -1
+	var mats := {}
 	for res in _pending:
+		mats[str(res)] = int(_pending[res][0])
 		units += int(_pending[res][0])
 		money += int(_pending[res][1])
 		if int(_pending[res][0]) > best:
@@ -614,8 +638,10 @@ func _flush() -> void:
 		_queued_money += money
 		_queued_units += units
 		_queued_res = main_res
+		for r in mats:
+			_queued_mats[r] = int(_queued_mats.get(r, 0)) + int(mats[r])
 		return
-	_run_sequence(money, units, main_res)
+	_run_sequence(money, units, main_res, mats)
 
 func _wait(t: float) -> bool:
 	if not is_inside_tree():
@@ -625,6 +651,8 @@ func _wait(t: float) -> bool:
 
 ## Plays a Blender clip; returns how long it takes at that speed (0 when the model has no such clip).
 func _play(clip: String, speed := 1.0) -> float:
+	if rig != null:
+		return rig.play(clip, speed)                                       # (the Meshy hopper plays the same clip names on its own bones)
 	if anim == null or not anim.has_animation(clip):
 		return 0.0
 	anim.play(clip, 0.0, speed)
@@ -637,17 +665,28 @@ func _phase(p: String) -> void:
 ## 1 idle -> 2 sale registered (display shows the amount, lamps flash twice, confirmation click, a shudder) -> 3 processing (gears and rollers turn, the cabinet hums, motor sound)
 ## -> 4 counting (the inspection window glows) -> 5 payout (the drawer slides out with the cash bundles, a click, the notification and sparks) -> 6 complete (the display says DONE, the
 ## drawer closes, the lamps dim, back to idle).
-func _run_sequence(money: int, units: int, res: String) -> void:
+func _run_sequence(money: int, units: int, res: String, mats := {}) -> void:
 	_seq_running = true
 	var quick := Time.get_ticks_msec() < _chain_until_ms
 	var drawer_open := false
 	var batch_money := money
 	var batch_units := units
 	var batch_res := res
+	var cur_mats: Dictionary = mats                                            # the materials of the batch being shown now
+	var run_money := 0                                                         # what the open drawer has been paid in this sequence (a sale that rides it adds on)
+	var run_units := 0
+	var run_mats := {}
 	var guard := 0
 	while true:
 		_phase("registered")                                                   # ---- 2
 		_sale_text("+" + QuarryTheme.money_text(batch_money), 1.0)
+		if rig != null:                                                        # the plate counts the sale up while the machine works; a sale riding an open drawer carries the number on
+			var from := rig.screen.shown_amount() if drawer_open else 0
+			run_money += batch_money
+			run_units += batch_units
+			for r in cur_mats:
+				run_mats[r] = int(run_mats.get(r, 0)) + int(cur_mats[r])
+			rig.screen.sale(run_money, run_units, _mat_names(run_mats), 0.6 if drawer_open else (0.55 if quick else 1.6), from)
 		_play("SaleRegistered", 2.0 if quick else 1.25)
 		_sfx(clunk_streams[0] if not clunk_streams.is_empty() else null, 1.6, -9.0)
 		_vibe = 1.0
@@ -670,6 +709,8 @@ func _run_sequence(money: int, units: int, res: String) -> void:
 			if not await _wait(maxf(ct, 0.3)):
 				return
 		_phase("payout")                                                       # ---- 5
+		if rig != null:
+			rig.pay_out(run_money)                                               # the cash is laid in the (still closed) tray as its real bills and coins; it shows as the tray slides out
 		if not drawer_open:
 			var ot := _play("DrawerOpen", 1.0)
 			if not await _wait(maxf(ot, 0.3)):
@@ -677,16 +718,20 @@ func _run_sequence(money: int, units: int, res: String) -> void:
 			drawer_open = true
 			_sfx(load("res://audio/dig_chink_1.wav"), 0.9, -6.0)               # the drawer stops with a mechanical click
 		_show_note(batch_money)
+		if rig != null:
+			rig.screen.paid(MeshyHopperRig.breakdown_text(run_money))          # amount locks, white flash, PAID stamp; the footer lists the bills and coins lying in the tray
 		if sparks != null:
 			sparks.restart()
 			sparks.emitting = true
 		_coin_sound(batch_units)
-		if not await _wait(0.25 if quick else 0.35):
+		if not await _wait((0.55 if quick else 1.0) if rig != null else (0.25 if quick else 0.35)):      # (the Meshy hopper holds the drawer open longer: the bills land and the PAID stamp is read)
 			return
 		if _queued_money > 0 and guard < 12:                                   # sales that arrived meanwhile are paid out in the same open drawer
 			batch_money = _queued_money
 			batch_units = _queued_units
 			batch_res = _queued_res
+			cur_mats = _queued_mats
+			_queued_mats = {}
 			_queued_money = 0
 			_queued_units = 0
 			guard += 1
@@ -695,6 +740,8 @@ func _run_sequence(money: int, units: int, res: String) -> void:
 		break
 	_phase("complete")                                                         # ---- 6
 	_sale_text("DONE", 0.8)
+	if rig != null:
+		rig.screen.done()
 	if not await _wait(0.2):
 		return
 	if drawer_open:
@@ -709,15 +756,32 @@ func _run_sequence(money: int, units: int, res: String) -> void:
 	_play("Idle")
 	_phase("idle")
 	_sale_text("READY", 0.5)
+	if rig != null:
+		rig.screen.back_to_idle()
 	_chain_until_ms = Time.get_ticks_msec() + 4000
 	_seq_running = false
 	if _queued_money > 0:                                                      # a sale landed during the close: play it next, short
 		var m := _queued_money
 		var u := _queued_units
 		var r := _queued_res
+		var qm := _queued_mats
+		_queued_mats = {}
 		_queued_money = 0
 		_queued_units = 0
-		_run_sequence(m, u, r)
+		_run_sequence(m, u, r, qm)
+
+## [[display name, units], ...] largest first, for the plate.
+func _mat_names(mats: Dictionary) -> Array:
+	var list := []
+	for r in mats:
+		list.append([game.prog.display(str(r)) if game != null else str(r), int(mats[r])])
+	list.sort_custom(func(a, c): return int(a[1]) > int(c[1]))
+	return list
+
+## A small coin tick each time the plate's number steps up.
+func _count_tick() -> void:
+	if coin_stream != null:
+		_sfx(coin_stream, 1.7 + _rng.randf() * 0.4, -17.0, 0.0)
 
 func _thump_sound(units: int) -> void:
 	_vibe = 1.0
@@ -1128,12 +1192,18 @@ func _make_rock(res: String) -> MeshInstance3D:
 	return rock
 
 func _refresh_display() -> void:
-	if display == null or game == null or index < 0 or index >= game.business.outputs.size():
+	if (display == null and rig == null) or game == null or index < 0 or index >= game.business.outputs.size():
 		return
 	var b = game.business
 	var cur: String = b.cash_current(index)
 	var q: int = b.cash_queue(index)
 	var tier := str(b.cash_tier(index).get("name", "Hopper"))
+	if rig != null:                                                            # the Meshy hopper's plate: tier name, what is going through, and the day's numbers on one line
+		rig.screen.set_idle(tier.to_upper(), (game.prog.display(cur).to_upper() if cur != "" else "READY"),
+			"TODAY %s   WAITING %d/%d   SPEED %.0f/s" % [QuarryTheme.money_text(b.cash_today(index)), q, b.output_capacity_of(index), b.cash_rate(index)])
+		if rig.top_screen != null:                                             # the upgraded hoppers' status window
+			rig.top_screen.set_stats(b.cash_rate(index), q, b.output_capacity_of(index), cur != "", game.prog.display(cur) if cur != "" else "")
+		return
 	display.text = "%s\nNOW  %s\nWAITING  %d / %d\nTODAY  %s\nSPEED  %.0f / s" % [tier.to_upper(), (game.prog.display(cur).to_upper() if cur != "" else "IDLE"), q, b.output_capacity_of(index),
 		QuarryTheme.money_text(b.cash_today(index)), b.cash_rate(index)]
 
