@@ -42,6 +42,14 @@ const MESHY := {
 	"pickaxe_reinforced": {"basis": Vector3(0, 0, -90), "length": 0.80},             # raw: handle +X, head at -X, spikes along Z
 	"steel_pickaxe": {"basis": Vector3(0, 90, -90), "length": 0.80},                 # raw: handle +X, head at -X, curved along Y
 	"pointed_chisel": {"basis": Vector3(0, 0, -90), "length": 0.62},                 # raw: handle +X, point at -X
+	"rock_hammer": {"basis": Vector3(0, 90, 0), "length": 0.66},                     # raw: handle -Y, head on top along X
+	"sledgehammer": {"basis": Vector3(0, 90, 0), "length": 0.90},
+	"shovel": {"basis": Vector3(0, 0, 180), "length": 0.92},                         # raw: D-grip on top, blade at the bottom: flipped
+	# powered tools are rigged by Meshy (an auto-rig chain, no clips): `pivot` is the raw point that becomes the grip origin, `scale` fixes the size.
+	# "pump" = the whole machine is wrapped in a "Spinner" node the rig rattles; "bone" = twist this bone chain about its own axis for "rotate".
+	"jackhammer": {"basis": Vector3.ZERO, "pivot": Vector3(0, 1.52, 0), "scale": 0.394, "pump": true},
+	"pneumatic_chisel": {"basis": Vector3.ZERO, "pivot": Vector3(0, 1.6, 0), "scale": 0.38, "pump": true},
+	"drill": {"basis": Vector3(0, -90, 0), "pivot": Vector3(0.2, 0.75, 0), "scale": 0.3, "bone": "Bone_002"},
 }
 const MESHY_BUTT := -0.12
 
@@ -65,14 +73,58 @@ static func _meshy(key: String) -> Node3D:
 			lo = lo.min(c)
 			hi = hi.max(c)
 		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var sc := float(spec["length"]) / maxf(hi.y - lo.y, 0.001)
 	var n := Node3D.new()
 	n.name = "Tool_" + key
 	var holder := Node3D.new()
-	holder.transform = Transform3D(rot * sc, Vector3(0, MESHY_BUTT - lo.y * sc, 0))
+	if spec.has("pivot"):
+		var sc2 := float(spec["scale"])
+		holder.transform = Transform3D(rot * sc2, (rot * sc2) * (-(spec["pivot"] as Vector3)))
+	else:
+		var sc := float(spec["length"]) / maxf(hi.y - lo.y, 0.001)
+		holder.transform = Transform3D(rot * sc, Vector3(0, MESHY_BUTT - lo.y * sc, 0))
 	holder.add_child(raw)
-	n.add_child(holder)
+	if spec.get("pump", false):
+		# the whole machine sits in a node called Spinner at the pose code's rest height (y -0.42), so its pump_y rattle moves the machine
+		var sp := Node3D.new()
+		sp.name = "Spinner"
+		sp.position = Vector3(0, -0.42, 0)
+		holder.position += Vector3(0, 0.42, 0)
+		sp.add_child(holder)
+		n.add_child(sp)
+		n.set_meta("spinner", sp)
+	else:
+		n.add_child(holder)
+		if spec.has("bone"):
+			var sk := raw.find_child("*", true, false) as Skeleton3D
+			for c in raw.find_children("*", "Skeleton3D", true, false):
+				sk = c as Skeleton3D
+			if sk != null:
+				var bs := BoneSpin.new()
+				bs.name = "Spinner"
+				bs.setup(sk, str(spec["bone"]))
+				n.add_child(bs)
+				n.set_meta("spinner", bs)
 	return n
+
+## Twists one bone of a Meshy auto-rig about its own axis (toward its child) by this node's rotation.z, so the pose code's `spinner.rotate_z()` turns a bit or chuck.
+class BoneSpin extends Node3D:
+	var sk: Skeleton3D
+	var bone := -1
+	var axis := Vector3.UP
+	var rest: Quaternion
+	func setup(s: Skeleton3D, bone_name: String) -> void:
+		sk = s
+		bone = s.find_bone(bone_name)
+		if bone < 0:
+			return
+		var ch := s.get_bone_children(bone)
+		var g := s.get_bone_global_rest(bone)
+		if ch.size() > 0:
+			axis = (g.basis.inverse() * (s.get_bone_global_rest(ch[0]).origin - g.origin)).normalized()
+		rest = s.get_bone_rest(bone).basis.get_rotation_quaternion()
+	func _process(_d: float) -> void:
+		if sk != null and bone >= 0:
+			sk.set_bone_pose_rotation(bone, rest * Quaternion(axis, rotation.z))
 
 ## One tool, ready to parent under the swing pivot; null if there is no Blender model for it.
 static func load_tool(key: String) -> Node3D:

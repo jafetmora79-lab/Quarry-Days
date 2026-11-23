@@ -59,7 +59,7 @@ const TOOL := {
 	1: {"pause": 0.035, "rest_roll": -0.25, "grip": Vector3(0.34, -0.40, -0.52), "scale": 1.05, "rest": -1.0, "yaw": 0.15, "wind": 0.2, "lift": 0.03, "strike": -1.35, "follow": 0.11, "roll": 0.24, "lunge": 1.15, "kick": 1.0, "tip": Vector3(0, 0.48, -0.27)},    # the pickaxe: a higher overhead arc with a follow-through
 	2: {"pause": 0.035, "rest_roll": -0.25, "grip": Vector3(0.34, -0.40, -0.52), "scale": 1.0, "rest": -1.0, "yaw": 0.15, "wind": 0.3, "lift": 0.05, "strike": -1.35, "follow": 0.13, "roll": 0.26, "lunge": 1.2, "kick": 1.15, "tip": Vector3(0, 0.6, -0.23)},    # reinforced: the heaviest wind-up
 	3: {"grip": Vector3(0.28, -0.3, -0.5), "scale": 0.7, "power": true, "spin": "rotate", "amp": 0.006, "rest_rot": Vector3(0.12, 0.2, 0.0), "tip": Vector3(0, 0.12, -0.54)},
-	4: {"grip": Vector3(0.3, -0.12, -0.5), "scale": 0.7, "power": true, "spin": "pump_y", "amp": 0.014, "rest_rot": Vector3(0.0, 0.3, 0.0), "model_pitch": 0.8, "tip": Vector3(0, -0.61, 0)},
+	4: {"grip": Vector3(0.3, -0.12, -0.5), "scale": 1.0, "power": true, "spin": "pump_y", "amp": 0.014, "rest_rot": Vector3(0.0, 0.3, 0.0), "model_pitch": 0.8, "tip": Vector3(0, -0.61, 0)},
 }
 const REACH_MIN := 0.85      # the working end meets the rock this far in front of the camera, at least...
 const REACH_MAX := 1.6       # ...and at most (mining reach in main.gd is just beyond this)

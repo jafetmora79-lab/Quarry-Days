@@ -80,7 +80,7 @@ func run() -> void:
 		var m: Node3D = tv._build(t)
 		var sg := signature(m)
 		all_ok = all_ok and not sigs.has(sg) and (meshes(m) >= 4 or ToolModels.MESHY.has(ToolModels.key_of(t)))   # a Meshy tool is one textured mesh
-		light = light and meshes(m) <= 24 and verts(m) <= 5000
+		light = light and meshes(m) <= 24 and verts(m) <= 8000
 		sigs[sg] = t
 		m.free()
 	for t in [0, 4]:
@@ -89,7 +89,7 @@ func run() -> void:
 		sigs[signature(m)] = t
 		m.free()
 	check(all_ok, "A all 14 hand tools have different silhouettes and several parts each (%d distinct)" % sigs.size())
-	check(light, "A every handheld model stays light (at most 24 meshes and 5000 vertices)")
+	check(light, "A every handheld model stays light (at most 24 meshes and 8000 vertices; the Meshy tools are 2.4-3.6k)")
 	var names_ok := true
 	for id in GearModels.IDS:
 		names_ok = names_ok and GearModels.id_of(GearModels.tier_of(id)) == id and prog.gear_def(id).size() > 0

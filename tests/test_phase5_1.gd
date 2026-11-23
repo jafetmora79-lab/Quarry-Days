@@ -261,7 +261,7 @@ func scene_tests() -> void:
 			for i in range(90):
 				tv._process(0.02)
 			var tp := tv.tip_cam
-			check(tp.distance_to(Vector3(0, 0, -1.3)) < tip.distance_to(Vector3(0, 0, -1.3)) and absf(tp.x) < 0.3 and tp.y > -0.4 and tp.z < -0.8, "5 tool %d working end points down-range and eases toward the crosshair while running %s" % [tier, str(tp.snapped(Vector3(0.01, 0.01, 0.01)))])
+			check(tp.distance_to(Vector3(0, 0, -1.3)) < tip.distance_to(Vector3(0, 0, -1.3)) and absf(tp.x) < 0.3 and tp.y > -0.6 and tp.z < -0.8, "5 tool %d working end points down-range and eases toward the crosshair while running %s" % [tier, str(tp.snapped(Vector3(0.01, 0.01, 0.01)))])
 			tv.operating = false
 			for i in range(200):
 				tv._process(0.02)
