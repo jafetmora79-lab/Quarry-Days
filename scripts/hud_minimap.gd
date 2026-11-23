@@ -176,8 +176,10 @@ func _draw() -> void:
 			if not bool(prog.cleanup.get("cleared", {}).get(str(id), false)):
 				var dp := prog.cleanup_pos(str(id))
 				var dm := to_map(dp.x, dp.y)
-				if _in_disc(dm):
-					draw_circle(dm, 1.3, Color(0.45, 0.78, 0.4))
+				if _in_disc(dm):                                                  # every weed clump and rubble heap still to clear: a pulsing red dot
+					var pk := 0.5 + 0.5 * sin(float(Time.get_ticks_msec()) * 0.0045)
+					draw_circle(dm, 2.3, Color(0.1, 0.03, 0.03, 0.85))
+					draw_circle(dm, 1.7, Color(1.0, 0.22 + 0.2 * pk, 0.16 + 0.1 * pk))
 	# machines and workers
 	for v in game.vehicle_nodes.values():
 		if is_instance_valid(v):

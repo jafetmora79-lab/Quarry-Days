@@ -748,7 +748,7 @@ func _pulse_cleanup(delta: float) -> void:
 func _cleanup_beacon(_body: Node3D, _weed: bool) -> void:
 	_debris_outline_dirty = true                                  # the red silhouette (no beam, ring or name) is drawn by _update_debris_outline()
 
-## Every weed clump and rubble heap near the player is outlined by its overall silhouette in a breathing red line (the same mask-pass outline as the E target, own layer and colour).
+## The weed clump or rubble heap under the crosshair is outlined by its silhouette in a pulsing red line, like the items in THE VEIL (the same mask-pass outline as the E target, own layer and colour). The minimap marks all of them.
 var _debris_outline: HighlightOutline
 var _debris_outline_dirty := true
 var _debris_outline_t := 0.0
@@ -766,26 +766,19 @@ func _update_debris_outline(delta: float) -> void:
 			_debris_outline_ids = ""
 		_debris_outline_dirty = true
 		return
-	_debris_outline_t -= delta
-	if _debris_outline_t > 0.0 and not _debris_outline_dirty:
-		return
-	_debris_outline_t = 0.5
-	_debris_outline_dirty = false
 	if _debris_outline == null:
 		_debris_outline = HighlightOutline.new()
 		add_child(_debris_outline)
-		_debris_outline.setup(player.camera, 1 << 18, Color(1.0, 0.25, 0.18, 1.0), 0.7)
-	var here: Vector3 = driving.global_position if driving else player.global_position
+		_debris_outline.setup(player.camera, 1 << 18, Color(1.0, 0.25, 0.18, 1.0), 0.9)      # pulsing red, own mask layer
+	# only the weed clump or rubble heap you are AIMING at is outlined (the rest of the site is found on the minimap, where every one is a marker)
 	var meshes: Array = []
 	var ids := ""
-	for id in cleanup_nodes:
-		var n: Node3D = cleanup_nodes[id]
-		if not is_instance_valid(n) or n.global_position.distance_to(here) > DEBRIS_OUTLINE_RANGE:
-			continue
-		var vis := n.get_node_or_null("Visual") as MeshInstance3D
+	var t: Node3D = last_target
+	if t != null and is_instance_valid(t) and not driving and not placement and not construction and str(t.get_meta("kind", "")) == "debris":
+		var vis := t.get_node_or_null("Visual") as MeshInstance3D
 		if vis != null:
 			meshes.append(vis)
-			ids += str(id) + ","
+			ids = str(t.get_meta("debris_id", "")) + ","
 	if ids == _debris_outline_ids:
 		return
 	_debris_outline_ids = ids
