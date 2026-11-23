@@ -40,7 +40,7 @@ static var _m_glove: StandardMaterial3D
 static var _m_sleeve: StandardMaterial3D
 static var _m_band: StandardMaterial3D
 
-static var model_arms := true            ## the character's own arms (MeshyArms) are drawn; these procedural hands only work out where the hands close and stay invisible
+static var model_arms := true            ## true = no hands are drawn in first person (the tool moves on its own); the rig still works out where hands would close (tests, grips)
 var hands := {}                          ## "R" / "L" -> {root, palm, back, fingers: [[seg nodes]], knuckles, thumb: [seg nodes], cuff, wrist, sleeve, active}
 
 static func _shared() -> void:
