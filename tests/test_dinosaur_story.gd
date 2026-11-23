@@ -54,6 +54,8 @@ func run() -> void:
 	var hi := Vector3(-INF, -INF, -INF)
 	for mi in meshes:
 		var m: MeshInstance3D = mi
+		if not m.is_visible_in_tree():
+			continue                                   # (the hatchling model is hidden while it is grown)
 		var bb: AABB = c.model.global_transform.affine_inverse() * (m.global_transform * m.mesh.get_aabb())
 		lo = lo.min(bb.position)
 		hi = hi.max(bb.end)

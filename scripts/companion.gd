@@ -227,10 +227,43 @@ func _build_meshy() -> bool:
 	inst.scale = Vector3.ONE * MESHY_K
 	inst.position = Vector3(0.0, MESHY_FOOT * MESHY_K, PIVOT_LOCAL.z - 0.14 * MESHY_K)   # its tail base (file z = -0.14) on the tail pivot
 	body.add_child(inst)
-	for gi in inst.find_children("*", "GeometryInstance3D", true, false):
+	_models["adult"] = {"node": inst, "skel": skel, "ap": clip_ap, "bidx": _bidx.duplicate(), "extra": MESHY_TAIL_EXTRA}
+	var baby := MeshyBaby.build()                          # the hatchling's own model, rigged from a static mesh (see MeshyBaby)
+	if baby != null:
+		baby.rotation.y = PI
+		baby.scale = Vector3.ONE * BABY_K
+		baby.position = Vector3(0.0, 0.0, PIVOT_LOCAL.z - 0.14 * MESHY_K)
+		baby.visible = false
+		body.add_child(baby)
+		var bs := baby.find_children("*", "Skeleton3D", true, false)[0] as Skeleton3D
+		var bi := {}
+		for i in bs.get_bone_count():
+			bi[bs.get_bone_name(i)] = i
+		_models["baby"] = {"node": baby, "skel": bs, "ap": baby.get_node("AnimationPlayer"), "bidx": bi, "extra": 0.0}
+	for gi in body.find_children("*", "GeometryInstance3D", true, false):
 		gi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_use_meshy("adult")
 	_pose_meshy(0.0, true)
 	return true
+
+const BABY_K := 15.0                  ## the baby file's units -> metres at adult scale (the hatchling stage scales it down to about a metre and a half)
+var _models := {}
+var _tail_extra := MESHY_TAIL_EXTRA
+var _baby := false
+
+## Shows the hatchling's model or the grown one and points the posing code at it.
+func _use_meshy(which: String) -> void:
+	if not _models.has(which):
+		which = "adult"
+	for k in _models:
+		(_models[k]["node"] as Node3D).visible = (k == which)
+	var m: Dictionary = _models[which]
+	skel = m["skel"]
+	clip_ap = m["ap"]
+	_bidx = m["bidx"]
+	_tail_extra = float(m["extra"])
+	_baby = which == "baby"
+	_meshy_walking = true                                   # makes the next pose reset the legs
 
 func _bone_yaw(bone_name: String, yaw: float) -> void:
 	var i: int = _bidx.get(bone_name, -1)
@@ -253,11 +286,11 @@ func _pose_meshy(delta: float, force := false) -> void:
 			if not (n.begins_with("tail") or n.begins_with("neck") or n == "head"):
 				skel.reset_bone_pose(i)
 	_meshy_walking = walk_w > 0.05
-	for i in range(1, 5):                                  # the long tail: stretch the links after the first
+	for i in range(1, 5 if _tail_extra > 0.0 else 1):      # the long tail: stretch the links after the first
 		var n := "tail%d" % (i + 1) if i < 4 else "tail_05"
 		var bi: int = _bidx.get(n, -1)
 		if bi >= 0:
-			skel.set_bone_pose_position(bi, skel.get_bone_rest(bi).origin + Vector3(0, 0, -MESHY_TAIL_EXTRA))
+			skel.set_bone_pose_position(bi, skel.get_bone_rest(bi).origin + Vector3(0, 0, -_tail_extra))
 	_bone_yaw("tail1", tail.rotation.y)
 	_bone_yaw("tail2", tail_mid.rotation.y)
 	_bone_yaw("tail4", tail_tip.rotation.y)
@@ -266,10 +299,10 @@ func _pose_meshy(delta: float, force := false) -> void:
 	var hi: int = _bidx.get("head", -1)
 	if hi >= 0:
 		skel.set_bone_pose_rotation(hi, skel.get_bone_rest(hi).basis.get_rotation_quaternion() * Quaternion(Vector3.RIGHT, -head.rotation.x) * Quaternion(Vector3.UP, head.rotation.y * 0.7))
-		skel.set_bone_pose_scale(hi, Vector3.ONE * head.scale.x)
+		skel.set_bone_pose_scale(hi, Vector3.ONE * (1.0 if _baby else head.scale.x))
 	var ci: int = _bidx.get("tail_05", -1)
 	if ci >= 0:
-		skel.set_bone_pose_scale(ci, Vector3.ONE * club.scale.x)
+		skel.set_bone_pose_scale(ci, Vector3.ONE * (1.0 if _baby else club.scale.x))
 var _meshy_walking := false
 
 func _build() -> void:
@@ -377,6 +410,8 @@ func set_stage(s: String) -> void:
 	# proportions: the young are all head, eyes and little armour
 	var head_k: float = {"hatchling": 1.5, "juvenile": 1.2, "adult": 1.0}.get(s, 1.0)
 	head.scale = Vector3.ONE * head_k
+	if skel != null:
+		_use_meshy("baby" if s == "hatchling" else "adult")
 	plates.scale = Vector3(1.0, {"hatchling": 0.5, "juvenile": 0.8, "adult": 1.0}.get(s, 1.0), 1.0)
 	club.scale = Vector3.ONE * {"hatchling": 0.55, "juvenile": 0.8, "adult": 1.0}.get(s, 1.0)
 	for e in eyes:
