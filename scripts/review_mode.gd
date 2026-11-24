@@ -316,6 +316,7 @@ func _meshes_at(o: Vector3, d: Vector3, at: Vector3, by_ray: bool) -> Array:
 func _start_note() -> void:
 	_pending = {}
 	_pending["target"] = point_at()
+	_pending["terrain"] = _terrain_probe(_pending["target"])
 	var cam := get_viewport().get_camera_3d()
 	if cam:
 		_pending["camera"] = {"position": _v(cam.global_position), "rotation_deg": _v(cam.global_rotation_degrees), "fov": cam.fov}
@@ -335,6 +336,33 @@ func _start_note() -> void:
 				img.resize(960, int(img.get_height() * 960.0 / img.get_width()), Image.INTERPOLATE_BILINEAR)
 			_pending["_image"] = img
 	_open_dialog()
+
+
+## The diggable ground around what was clicked: heights (cm), whether each vertex is locked, and how much loose dirt lies on it, 16 x 16 m at 0.5 m, so a ground problem can be reproduced exactly.
+func _terrain_probe(target: Dictionary) -> Dictionary:
+	var g = world.get("live_terrain")
+	if g == null or g.terrain == null or not target.has("hit_position"):
+		return {}
+	var hp: Array = target["hit_position"]
+	var t = g.terrain
+	var heights: Array = []
+	var locks: Array = []
+	var loose: Array = []
+	for dz in range(-16, 17):
+		var hr: Array = []
+		var lr := ""
+		var sr: Array = []
+		for dx in range(-16, 17):
+			var x: float = float(hp[0]) + dx * 0.5
+			var z: float = float(hp[2]) + dz * 0.5
+			hr.append(int(round(t.height_at(x, z) * 100.0)))
+			lr += "L" if t.is_locked_at(x, z) else "."
+			var v: Vector2i = t.vertex_at(Vector3(x, 0.0, z))
+			sr.append(int(round(t.lsum[t.idx(v.x, v.y)] * 100.0)))
+		heights.append(hr)
+		locks.append(lr)
+		loose.append(sr)
+	return {"centre": [hp[0], hp[2]], "step": 0.5, "heights_cm": heights, "locked": locks, "loose_cm": loose}
 
 
 func _open_dialog() -> void:
@@ -416,7 +444,7 @@ func add_note(type: String, text: String, data: Dictionary = {}) -> Dictionary:
 	if g.get("hud") != null and g.hud.get("objective_label") != null:
 		c["objective"] = g.hud.objective_label.text
 	note["context"] = c
-	for k in ["target", "camera", "player"]:
+	for k in ["target", "camera", "player", "terrain"]:
 		if data.has(k):
 			note[k] = data[k]
 	var img: Image = data.get("_image")
