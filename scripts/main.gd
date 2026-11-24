@@ -984,6 +984,7 @@ func _build_pit_zone() -> void:
 		world.add_child(live_terrain)
 		live_terrain.attach(self)
 		_soil_on_terrain()
+		pit_zone.hide_level_visuals()                      # the terrain draws the real pits and ramps: the old level slabs, roads and walls are not shown over it
 
 ## The soil field is real ground: its soil is loose topsoil lying on the terrain. Hooked up as soon as the terrain exists (the field is built earlier, units-only).
 func _soil_on_terrain() -> void:

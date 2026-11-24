@@ -293,6 +293,20 @@ func wall_segments(lp: Dictionary) -> Array:
 			out.append([end, rect.position.x, strip.position.x, z, z])
 	return out
 
+## Marks a level pit's visual (its floor, haul road, ramp side, curb and cliff walls) so it can be hidden when the live terrain draws the real ground (see hide_level_visuals).
+func _lvl(n: Node) -> Node:
+	n.set_meta("level_vis", true)
+	return n
+
+## The diggable terrain carves its own pits, roads and ramps: the pit zone's old level floors, roads, curbs and pale cut-stone walls would float over them (white slabs and dashes above the dirt).
+func hide_level_visuals() -> void:
+	var v := get_node_or_null("PitZoneVisuals")
+	if v == null:
+		return
+	for c in v.get_children():
+		if c.has_meta("level_vis"):
+			(c as Node3D).visible = false
+
 ## Collision shell of quarry levels 2-4: ramp, flat road, retaining walls and floor slabs (with a hole for the next level's pit).
 ## Everything is there from the start, under the flush columns of the level's rock; digging is what opens it up.
 func _build_levels() -> void:
@@ -616,7 +630,7 @@ func _build_art() -> void:
 			hole.append(level_pits[k + 1]["rect"])
 		var lf := MeshKit.Soup.new()
 		_cell_quads(lf, cols.position.x, cols.end.x, cols.position.y, cols.end.y, yb + 0.012, 3.0, false, hole)
-		MeshKit.inst(vis, lf.mesh(), MeshKit.mat("ExcavatedDirt"))
+		_lvl(MeshKit.inst(vis, lf.mesh(), MeshKit.mat("ExcavatedDirt")))
 		var lroad := MeshKit.Soup.new()
 		var fz0 := float(sp["fn"])
 		var fz1 := float(sp["fs"])
@@ -643,15 +657,15 @@ func _build_art() -> void:
 				lroad.quad(Vector3(sx0, y0r, z0r), Vector3(sx1, y0r, z0r), Vector3(sx1, y1r, z1r), Vector3(sx0, y1r, z1r))      # the ramp runs the other way: wind it to face up
 			lw.quad(Vector3(xe, y0r, z0r), Vector3(xe, yb, z0r), Vector3(xe, yb, z1r), Vector3(xe, y1r, z1r))
 			lw.quad(Vector3(xe, y0r, z0r), Vector3(xe, y1r, z1r), Vector3(xe, yb, z1r), Vector3(xe, yb, z0r))
-		MeshKit.inst(vis, lroad.mesh(), MeshKit.mat("GroundRoad"))
-		MeshKit.inst(vis, lw.mesh(), level_rock(int(lp["n"])))
+		_lvl(MeshKit.inst(vis, lroad.mesh(), MeshKit.mat("GroundRoad")))
+		_lvl(MeshKit.inst(vis, lw.mesh(), level_rock(int(lp["n"]))))
 		var lang := atan2(rise, run)
 		var ltilt := lang if tn else -lang
 		var lc := MeshKit.Soup.new()
 		var lcs := _curb_span(float(sp["rs"]), float(sp["rn"]), yt, yb, tn)
 		var cxo: float = (cols.position.x + 0.15) if lp["west"] else (cols.end.x - 0.15)
 		MeshKit.box_into(lc, Vector3.ZERO, Vector3(0.25, 0.35, float(lcs["len"])), Vector2.ONE, Transform3D(Basis(Vector3.RIGHT, ltilt), Vector3(cxo, float(lcs["y"]) + 0.17, float(lcs["z"]))))
-		MeshKit.inst(vis, lc.mesh(), MeshKit.mat("Hazard"))
+		_lvl(MeshKit.inst(vis, lc.mesh(), MeshKit.mat("Hazard")))
 		# cliff faces of the pit walls, in the level's own rock colour
 		var lh := rise + 0.3
 		var wsoup := MeshKit.Soup.new()
@@ -664,7 +678,7 @@ func _build_art() -> void:
 				"south": _wall(wsoup, float(wl[2]) - float(wl[1]) + 0.9, lh, 0.8, sd, 2, 0.0, Vector3((float(wl[1]) + float(wl[2])) * 0.5, yb, float(wl[3]) + 0.4))
 				"west": _wall(wsoup, rect.size.y + 1.8, lh, 0.8, sd, 2, -PI * 0.5, Vector3(float(wl[1]) - 0.4, yb, (float(wl[3]) + float(wl[4])) * 0.5))
 				"east": _wall(wsoup, rect.size.y + 1.8, lh, 0.8, sd, 2, PI * 0.5, Vector3(float(wl[1]) + 0.4, yb, (float(wl[3]) + float(wl[4])) * 0.5))
-		MeshKit.inst(vis, wsoup.mesh(), level_rock(int(lp["n"])))
+		_lvl(MeshKit.inst(vis, wsoup.mesh(), level_rock(int(lp["n"]))))
 	if flat:
 		_build_fence_art(vis)       # industrial fencing instead of any rock enclosure
 		_build_dig_boundary(vis)
