@@ -315,7 +315,33 @@ func dig(p: Vector3, radius: float, depth: float, budget: float, max_hardness: i
 	cand.sort_custom(func(a, b): return a[0] < b[0])
 	var left := budget / AREA
 	var blocked: Array = []
+	# A scoop SHAVES BUMPS first: a pile or a ridge inside the blade's circle is cut down toward the circle's mean height, highest cells first, instead of the blade biting a hole at the centre of the
+	# pile and leaving a ring (which took dozens of scoops to level). Only what is left of the budget after that digs normally.
+	var plan: Array = []
+	if mode == "scoop":
+		var mean := 0.0                                  # the local base level: the average ground height on a ring 2.4 blade-radii out (a pile or ridge stands above it)
+		for q in range(8):
+			var an := TAU * float(q) / 8.0
+			mean += height_at(p.x + cos(an) * radius * 2.4, p.z + sin(an) * radius * 2.4)
+		mean /= 8.0
+		var pr := radius * 1.8                           # the cells the blade can shave: a little wider than its bite (the grid is 0.5 m: the bite itself is one or two vertices)
+		var pre := int(ceil(pr / CELL)) + 1
+		var peaks: Array = []
+		for j2 in range(maxi(0, g.y - pre), mini(VR - 1, g.y + pre) + 1):
+			for i2 in range(maxi(0, g.x - pre), mini(V - 1, g.x + pre) + 1):
+				var k2 := idx(i2, j2)
+				if locked[k2] != 0:
+					continue
+				var vp2 := vertex_xz(i2, j2)
+				var d2 := Vector2(vp2.x - p.x, vp2.y - p.z).length()
+				var hh := vheight(k2) - mean
+				if d2 <= pr and hh > 0.03:
+					peaks.append([d2, i2, j2, hh])
+		peaks.sort_custom(func(a, b): return a[3] > b[3])
+		plan = peaks
 	for c in cand:
+		plan.append([c[0], c[1], c[2], INF])
+	for c in plan:
 		if left <= 0.000001:
 			break
 		var i: int = c[1]
@@ -324,22 +350,23 @@ func dig(p: Vector3, radius: float, depth: float, budget: float, max_hardness: i
 		var mats := {}
 		var took := 0.0
 		var allow := INF
+		var dc := minf(depth, float(c[3]))
 		if mode != "break":
 			var fl := dig_floor(i, j)
 			allow = maxf(0.0, vheight(k) - float(fl[0]))
 			if allow <= 0.000001:
 				res["limit"] = str(fl[1])
 				continue
-			if minf(depth, left) > allow + 0.000001:
+			if minf(dc, left) > allow + 0.000001:
 				res["limit"] = str(fl[1])
 		if mode == "break":
-			took = _take_natural(k, minf(depth, left), max_hardness, mats, blocked)
+			took = _take_natural(k, minf(dc, left), max_hardness, mats, blocked)
 			for id in mats:
 				_put_loose(k, str(id), float(mats[id]))
 			res["broken"] = float(res["broken"]) + took * AREA
 			left -= took
 		else:
-			var want := minf(minf(depth, left), allow)
+			var want := minf(minf(dc, left), allow)
 			took = _take_loose(k, want, mats)
 			if took < want - 0.000001:
 				took += _take_natural(k, want - took, max_hardness, mats, blocked)

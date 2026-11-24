@@ -213,7 +213,7 @@ def bucket(root):
 
 # ---------------------------------------------------------------------------------------------- scrub bushes and field stones (the quarry's surface decor)
 _mat("BushDeep", (0.17, 0.29, 0.12)); _mat("BushMid", (0.28, 0.42, 0.16)); _mat("BushLight", (0.45, 0.55, 0.22)); _mat("BushDry", (0.58, 0.50, 0.24)); _mat("TwigBrown", (0.32, 0.23, 0.14))
-_mat("FieldStoneA", (0.64, 0.60, 0.52)); _mat("FieldStoneB", (0.52, 0.48, 0.42)); _mat("FieldStoneC", (0.74, 0.70, 0.60)); _mat("FieldStoneMoss", (0.36, 0.44, 0.24))
+_mat("FieldStoneA", (0.48, 0.42, 0.34)); _mat("FieldStoneB", (0.38, 0.34, 0.29)); _mat("FieldStoneC", (0.55, 0.48, 0.38)); _mat("FieldStoneMoss", (0.28, 0.36, 0.19))
 
 
 def scrub_bush(root):
