@@ -374,11 +374,66 @@ func dig(p: Vector3, radius: float, depth: float, budget: float, max_hardness: i
 			left -= took
 		if took > 0.0:
 			_dirty_vertex(i, j)
+	if mode == "scoop":
+		tidy_ridges(p, radius * 3.0 + 1.0)                     # thin walls of natural ground left between dug floors fall in: the floors end up clean
 	if not blocked.is_empty() and float(res["volume"]) + float(res["broken"]) <= 0.000001:
 		res["blocked_by"] = blocked[0]
 	elif not blocked.is_empty():
 		res["blocked_by"] = blocked[0]                       # it dug something, then reached rock
 	return res
+
+var discarded := 0.0             ## m3 of dirt the ridge tidy-up has let fall away (kept so the books can still balance)
+const RIDGE_HALF := 6            ## vertices (3 m) each way that are searched for lower ground: a crest with lower ground within 3 m on BOTH sides is a ridge
+const RIDGE_DROP := 0.22         ## how much lower (m) both sides must be
+## Thin ridges of natural ground (a wall left standing between two dug patches, a spine left by digging beside it) are levelled down to the higher of the two floors beside them: nobody has to shovel
+## a wall a scoop at a time to get a clean floor. Only dirt is touched (natural topsoil-class ground and loose topsoil / clay: never rock or ore heaps, never locked ground), never below what may be dug there. Runs around a dig point; a few passes let a wide crest fall in from the middle outward. Returns the vertices lowered.
+func tidy_ridges(p: Vector3, radius: float) -> int:
+	var g := vertex_at(p)
+	var reach := int(ceil(radius / CELL))
+	var total := 0
+	var axes := [Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1), Vector2i(1, -1)]
+	for _pass in range(6):
+		var changed := 0
+		for j in range(maxi(RIDGE_HALF, g.y - reach), mini(VR - 1 - RIDGE_HALF, g.y + reach) + 1):
+			for i in range(maxi(RIDGE_HALF, g.x - reach), mini(V - 1 - RIDGE_HALF, g.x + reach) + 1):
+				var k := idx(i, j)
+				if locked[k] != 0:
+					continue
+				if lsum[k] > 0.02:                                   # loose heaps fall in too, but only dirt (topsoil / clay): a rock or ore heap someone made stays as it is
+					var did: String = geo.order[mini(_dominant_loose(k), geo.order.size() - 1)]
+					if str(geo.props(did).get("resource", "")) != "topsoil":
+						continue
+				var h := vheight(k)
+				for ax in axes:
+					var span := RIDGE_HALF if (ax.x == 0 or ax.y == 0) else RIDGE_HALF * 2 / 3
+					var ha := INF
+					var hb := INF
+					for t in range(1, span + 1):
+						var ka := idx(i - ax.x * t, j - ax.y * t)
+						var kb := idx(i + ax.x * t, j + ax.y * t)
+						if locked[ka] == 0:
+							ha = minf(ha, vheight(ka))
+						if locked[kb] == 0:
+							hb = minf(hb, vheight(kb))
+					if h - ha < RIDGE_DROP or h - hb < RIDGE_DROP:
+						continue
+					var fl := dig_floor(i, j)
+					var amt := minf(h - (maxf(ha, hb) + 0.04), h - float(fl[0]))
+					if amt <= 0.01:
+						continue
+					var mats := {}
+					var got := _take_loose(k, amt, mats)
+					if got < amt - 0.000001:
+						got += _take_natural(k, amt - got, 0, mats, [])
+					if got > 0.0:
+						discarded += got * AREA
+						_dirty_vertex(i, j)
+						changed += 1
+						break
+		total += changed
+		if changed == 0:
+			break
+	return total
 
 ## A loader bucket: cuts everything inside a rectangle in front of the lip down to the lip's height (never deeper), at most `budget` m3.
 func cut_box(lip: Vector3, right: Vector3, fwd: Vector3, half_width: float, back: float, ahead: float, budget: float, max_hardness: int, loose_only := false) -> Dictionary:

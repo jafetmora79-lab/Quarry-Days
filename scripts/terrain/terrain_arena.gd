@@ -112,7 +112,7 @@ static func total_of(d: Dictionary) -> float:
 
 ## Every cubic metre: ground + shovel + box. Must never change.
 func accounted_total() -> float:
-	return terrain.total_volume() + total_of(carry) + total_of(box)
+	return terrain.total_volume() + total_of(carry) + total_of(box) + terrain.discarded
 
 # ------------------------------------------------------------------ player and tools
 
