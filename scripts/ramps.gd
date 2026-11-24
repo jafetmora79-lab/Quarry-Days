@@ -20,6 +20,9 @@ const MIN_LEN := 3.0
 const MAX_LEN := 30.0
 const MAX_RAMPS := 8
 const HEADROOM := 3.4
+## A ramp has to climb to the quarry's ground level (the highest ground round its foot, `rim`), or be a stage that a later ramp continues from when the hole is too deep for one.
+const EVAL_EVERY_MSEC := 220   ## the plan preview re-evaluates at most this often for the same aim (the check is dozens of ray casts: running it every frame made the game lag)
+var _eval_cache := {}
 
 var game
 var ramps: Array = []            ## [{"id", "x", "z", "yaw", "y0", "y1", "len", "w", "base", "stage"}]
@@ -76,6 +79,16 @@ func landing_near(p: Vector3, r := 2.2) -> Dictionary:
 
 ## Plans a ramp that starts at `aim` (a point on the ground you are looking at) and runs the way you face (`yaw`).
 ## Returns {valid, reason, note, x, z, yaw, y0, y1, len, w, base, slope, stage}.
+## The live preview: the same check, re-run at most every EVAL_EVERY_MSEC for the same aim (placing still uses `evaluate`, always fresh).
+func preview(aim: Vector3, yaw: float) -> Dictionary:
+	var ck := "%d|%d|%d|%d|%d" % [roundi(aim.x * 4.0), roundi(aim.y * 4.0), roundi(aim.z * 4.0), roundi(yaw * 20.0), ramps.size()]
+	var now := Time.get_ticks_msec()
+	if _eval_cache.get("key", "") == ck and now - int(_eval_cache.get("t", -99999)) < EVAL_EVERY_MSEC:
+		return (_eval_cache["out"] as Dictionary).duplicate(true)
+	var res := evaluate(aim, yaw)
+	_eval_cache = {"key": ck, "t": now, "out": res.duplicate(true)}
+	return res
+
 func evaluate(aim: Vector3, yaw: float) -> Dictionary:
 	var out := {"valid": false, "reason": "", "note": "", "x": aim.x, "z": aim.z, "yaw": yaw, "y0": aim.y, "y1": aim.y, "len": 0.0, "w": WIDTH, "base": aim.y, "slope": 0.0, "stage": false}
 	if ramps.size() >= MAX_RAMPS:
@@ -145,6 +158,9 @@ func evaluate(aim: Vector3, yaw: float) -> Dictionary:
 		if rim < 3.0 or _rim_walls < STAGE_ENCLOSED:
 			out["reason"] = "Nothing to climb to from here."
 			return out
+		if rim - 0.8 <= MAX_RISE:
+			out["reason"] = "Aim at the wall: the ramp has to climb to the quarry's ground level."
+			return out                               # (a free-standing stage is only for a hole too deep to climb out of in one ramp)
 		# no wall within reach: a free-standing stage that ends in a landing (the next ramp continues from it)
 		length = STAGE_LEN
 		y_e = y_s + STAGE_SLOPE * length
@@ -202,6 +218,9 @@ func evaluate(aim: Vector3, yaw: float) -> Dictionary:
 		if Geometry2D.intersect_polygons(mine, theirs).size() > 0:
 			out["reason"] = "It would overlap another ramp."
 			return out
+	if not bool(out["stage"]) and y_e < y_s + rim - 0.8 and rim - 0.8 <= MAX_RISE:
+		out["reason"] = "A ramp has to climb to the quarry's ground level. Aim at the wall that reaches the top edge."
+		return out
 	out["base"] = lowest - 0.1
 	out["valid"] = true
 	return out

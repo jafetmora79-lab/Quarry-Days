@@ -84,6 +84,8 @@ func _render(key: String, build: Callable, mode: String, px: int) -> void:
 	# "tool": the handle runs up to the right, the working end shows side-on; "view": a three-quarter view from above (machines, carts, crushers)
 	if mode == "view":
 		model.basis = Basis(Vector3.UP, deg_to_rad(-38))
+	elif key == "tool:shovel":
+		model.basis = Basis(Vector3.BACK, deg_to_rad(150.0))                 # the blade face-on at the lower end, the handle up to the right (side-on it read as a lance)
 	else:
 		model.basis = Basis(Vector3.BACK, deg_to_rad(-42)) * Basis(Vector3.UP, deg_to_rad(90))     # turn it side-on first, then lay it diagonal in the picture plane
 	await get_tree().process_frame

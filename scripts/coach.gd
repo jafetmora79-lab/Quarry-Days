@@ -166,6 +166,7 @@ func _start_fly() -> void:
 	_panel.visible = false
 	_ui_was = game.ui.visible
 	game.ui.visible = false                                  # a clean picture: no HUD during the fly-over
+	_show_character(true)
 
 func _fly_process(delta: float) -> void:
 	_fly_t += delta
@@ -176,6 +177,7 @@ func _fly_process(delta: float) -> void:
 	var look := Vector3(x + lerpf(10.0, -10.0, e), 0.4, -16.0)
 	fly_cam.global_position = pos
 	fly_cam.look_at(look, Vector3.UP)
+	_character_looks(look)
 	var bar_h := 84.0 * clampf(_fly_t / 0.6, 0.0, 1.0) * clampf((FLY_SECONDS - _fly_t) / 0.6, 0.0, 1.0)
 	_bar_top.offset_bottom = bar_h
 	_bar_bot.offset_top = -bar_h
@@ -200,9 +202,32 @@ func _end_fly() -> void:
 	_caption.visible = false
 	_skip.visible = false
 	game.ui.visible = _ui_was
+	_show_character(false)
 	game.player.camera.current = true
 	game.player.locked = false
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+## During the fly-over the player is a person in the picture, not a floating shovel: the tool view is hidden and the body is drawn (head and all), its head following where the camera looks.
+func _show_character(on: bool) -> void:
+	var tv = game.player.tool_view
+	if tv != null:
+		tv.visible = (not on) and not tv.suppressed and not tv.hidden_by_vehicle
+	var pb = game.player_body
+	if pb != null and is_instance_valid(pb):
+		pb.set_shadow_only(not on)
+		pb.set_first_person(not on)
+		if not on and pb.rig != null:
+			pb.rig.look_yaw = 0.0
+			pb.rig.look_pitch = 0.0
+
+func _character_looks(target: Vector3) -> void:
+	var pb = game.player_body
+	if pb == null or not is_instance_valid(pb) or pb.rig == null:
+		return
+	var d: Vector3 = target - game.player.global_position
+	var rel := wrapf(atan2(-d.x, -d.z) - game.player.rotation.y, -PI, PI)
+	pb.rig.look_yaw = clampf(rad_to_deg(rel), -70.0, 70.0)
+	pb.rig.look_pitch = clampf(rad_to_deg(atan2(d.y - 1.6, maxf(Vector2(d.x, d.z).length(), 1.0))), -20.0, 20.0)
 
 # ------------------------------------------------------------------ the guide panel
 

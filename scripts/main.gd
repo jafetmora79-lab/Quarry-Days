@@ -481,6 +481,10 @@ func _build_blueprint_ground() -> void:
 		var m := _solid(world, "Tunnel mountain", Vector3(-62.0, 4.0, (float(part[0]) + float(part[1])) * 0.5), Vector3(76.0, 8.0, float(part[1]) - float(part[0])), Color(0.34, 0.33, 0.3))
 		m.visible = false
 		m.set_meta("nav_skip", true)
+	# the tunnel mountain's NORTH side faces the quarry plateau (the model is 100 x 80 m at (-70, 25): its north foot is at z = -14.6): a solid wall in front of it, so nobody walks into the rock from the quarry side
+	var mn := _solid(world, "Tunnel mountain north", Vector3(-73.5, 10.0, -15.5), Vector3(95.0, 20.0, 4.0), Color(0.34, 0.33, 0.3))
+	mn.visible = false
+	mn.set_meta("nav_skip", true)
 
 ## Invisible walkable ground block (the art layer draws the surface).
 func _floor_piece(label: String, pos: Vector3, size: Vector3) -> StaticBody3D:
@@ -3001,6 +3005,51 @@ func _hopper_intake_fx(idx: int, source: String, moved: Dictionary, origin: Vect
 		if int(moved[res]) > 0:
 			v.intake(source, str(res), int(moved[res]), origin)
 
+## The bag's stones thrown into the Cash Hopper's funnel the way they are thrown into a bucket (see _throw_units): up to 8 stones in the air, spaced out, each in an arc that lands in the funnel mouth.
+## The hopper has already taken them (the money logic ran before this); the flight is the show, and the hopper's own intake animation plays as the last stone lands.
+func _throw_bag_to_hopper(idx: int, moved: Dictionary) -> void:
+	var v = output_nodes[idx].get_node_or_null("CashHopperView") if idx >= 0 and idx < output_nodes.size() else null
+	if v == null:
+		return
+	var seq := []
+	for res in moved:
+		for i in range(int(moved[res])):
+			seq.append(str(res))
+	if seq.is_empty():
+		return
+	var stones := mini(seq.size(), 8)
+	var from: Vector3 = player.camera.global_position + player.camera.global_basis * Vector3(0.3, -0.5, -0.1)
+	var mouth: Vector3 = (v as Node3D).to_global(v._funnel_top()) + Vector3(0, 0.1, 0)
+	for s in range(stones):
+		var node := MeshInstance3D.new()
+		var soup := MeshKit.Soup.new()
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 40 + s
+		PileModels.chunk_into(soup, Vector3.ZERO, Vector3(0.1, 0.08, 0.09), rng)
+		node.mesh = soup.mesh()
+		node.material_override = MeshKit.mat(BucketView.MATS.get(seq[s % seq.size()], "RockLimestone"))
+		node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		node.visible = false
+		world.add_child(node)
+		var spin := Vector3(rng.randf_range(-6, 6), rng.randf_range(-6, 6), rng.randf_range(-6, 6))
+		var tw := create_tween()
+		tw.tween_interval(0.12 * float(s) + 0.08)
+		tw.tween_callback(func(): node.visible = true)
+		tw.tween_method(func(t: float):
+			node.global_position = from.lerp(mouth, t) + Vector3(0, sin(t * PI) * 0.7, 0)
+			node.rotation = spin * t, 0.0, 1.0, 0.45)
+		var last := s == stones - 1
+		tw.tween_callback(func():
+			if is_instance_valid(node):
+				node.queue_free()
+			if is_instance_valid(v):
+				fx.impact(mouth, str(seq[0]), 0.4, Vector3.UP)
+				_sfx_at("hit_pick", mouth, -8.0)
+				if last:
+					for res in moved:
+						if int(moved[res]) > 0:
+							v.intake("belt", str(res), int(moved[res]), mouth))
+
 ## Where the player's hands are, for the animations of tossing and pouring (a little in front of and below the eyes).
 func _hand_origin() -> Vector3:
 	var cam := player.camera
@@ -3012,7 +3061,10 @@ func cash_deposit(idx: int, keys: Array, from_crate := false) -> int:
 	for k in moved:
 		n += int(moved[k])
 	if n > 0:
-		_hopper_intake_fx(idx, "shovel" if (not from_crate and state.equipped == "shovel") else "hand", moved, _hand_origin())
+		if not from_crate and state.equipped != "shovel" and DisplayServer.get_name() != "headless":
+			_throw_bag_to_hopper(idx, moved)                  # the same toss as into a bucket: the hand reaches to the hip and the stones fly in an arc into the funnel
+		else:
+			_hopper_intake_fx(idx, "shovel" if (not from_crate and state.equipped == "shovel") else "hand", moved, _hand_origin())
 		if player != null and player.tool_view != null:
 			player.tool_view.throw_motion()
 		pickup_audio.play()
@@ -8532,7 +8584,7 @@ func _ramp_tool(lmb: bool) -> void:
 		_ramp_lmb_prev = lmb
 		_ramp_rmb_prev = rmb
 		return
-	var plan := ramps.evaluate(hit["position"], player.rotation.y)
+	var plan := ramps.evaluate(hit["position"], player.rotation.y) if lmb and not _ramp_lmb_prev else ramps.preview(hit["position"], player.rotation.y)      # (the preview is throttled; a click always checks fresh)
 	if look_ramp >= 0 and not (lmb and false):
 		# aiming at a ramp: only its top landing is a start for the next stage (evaluate snaps to it); otherwise show removal
 		var near_landing := not ramps.landing_near(hit["position"]).is_empty()
