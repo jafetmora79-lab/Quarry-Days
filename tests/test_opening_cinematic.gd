@@ -129,6 +129,8 @@ func run() -> void:
 	await wait_until(game, func(): return not game.est_running, 60 * 14)
 	await frames(20)
 	game.hud.close_card()
+	if game.walter_dialog != null:
+		game.walter_dialog.skip()                     # (Grandpa now says the first-day tips himself instead of a note card)
 	await frames(10)
 	check(bool(game.prog.story["intro_seen"]) and not game.player.locked and not game.walter_intro_running, "the intro is over: the player is free")
 	check(game.player.camera.current and absf(game.player.camera.rotation.z) < 0.001 and not game.est_running, "the player's own camera is back, level")

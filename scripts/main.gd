@@ -7563,9 +7563,12 @@ func _end_walter_intro(skipped: bool) -> void:
 	tw.tween_property(player.camera, "rotation:x", 0.0, 0.6)
 	var st: Dictionary = prog.cfg.get("story", {})
 	var proceed := func():
-		if str(st.get("intro2", "")) != "":
-			hud.show_card(str(st.get("intro2_title", "YOUR FIRST DAY")), str(st.get("intro2", "")), func(): _finish_intro())
+		# no note card: Grandpa says it himself when he is standing there, otherwise it is a passing thought ("Grandpa said...")
+		var tip := "Cut the weeds and break the rubble heaps first. Sell the stone at the office computer, and sleep in the house when it gets dark."
+		if not skipped and walter_node != null and is_instance_valid(walter_node) and player.global_position.distance_to(walter_node.global_position) < 25.0:
+			_open_walter_dialog([{"speaker": "GRANDPA WALTER", "text": tip}], func(_s: bool): _finish_intro())
 		else:
+			hud.toast("Grandpa said...", tip, "info")
 			_finish_intro()
 	if not skipped and intro_shots_enabled and prog.natural_start():
 		_first_job_shot(proceed)                             # shot 4: the first job, then back into the player's own eyes
