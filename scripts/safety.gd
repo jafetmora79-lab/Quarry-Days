@@ -8,7 +8,7 @@ class_name QuarrySafety
 
 signal rescued(reason: String)
 
-const DROP := 1.0            ## a fall at least this deep starts the watch
+const DROP := 1.35           ## a fall at least this deep starts the watch (a ledge of up to 1.25 m can be climbed with Space, so shallower holes are never a trap)
 const WATCH := 5.0           ## seconds without a way out before the rescue
 const ESCAPE_UP := 0.9       ## climbing this far back up counts as getting out
 const ESCAPE_FAR := 7.0      ## so does walking this far away (down a ramp, along a trench)
@@ -69,6 +69,9 @@ func tick(delta: float) -> void:
 		airborne += delta
 	if watching:
 		watch_t += delta
+		var tvw = player.get("tool_view")
+		if tvw != null and tvw.phase >= 0.0:
+			watch_t = 0.0                                       # swinging a tool in the hole: they are digging, not stuck
 		var p := player.global_position
 		if p.y - land_pos.y >= ESCAPE_UP or Vector2(p.x - land_pos.x, p.z - land_pos.z).length() >= ESCAPE_FAR:
 			watching = false

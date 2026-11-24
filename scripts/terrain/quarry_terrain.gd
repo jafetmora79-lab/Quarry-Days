@@ -384,7 +384,7 @@ func dig(p: Vector3, radius: float, depth: float, budget: float, max_hardness: i
 
 var discarded := 0.0             ## m3 of dirt the ridge tidy-up has let fall away (kept so the books can still balance)
 const RIDGE_HALF := 6            ## vertices (3 m) each way that are searched for lower ground: a crest with lower ground within 3 m on BOTH sides is a ridge
-const RIDGE_DROP := 0.22         ## how much lower (m) both sides must be
+const RIDGE_DROP := 0.1          ## how much lower (m) both sides must be (a 0.2 m divider left between two floors counts)
 ## Thin ridges of natural ground (a wall left standing between two dug patches, a spine left by digging beside it) are levelled down to the higher of the two floors beside them: nobody has to shovel
 ## a wall a scoop at a time to get a clean floor. Only dirt is touched (natural topsoil-class ground and loose topsoil / clay: never rock or ore heaps, never locked ground), never below what may be dug there. Runs around a dig point; a few passes let a wide crest fall in from the middle outward. Returns the vertices lowered.
 func tidy_ridges(p: Vector3, radius: float) -> int:
