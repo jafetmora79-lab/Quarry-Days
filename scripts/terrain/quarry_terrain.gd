@@ -374,8 +374,8 @@ func dig(p: Vector3, radius: float, depth: float, budget: float, max_hardness: i
 			left -= took
 		if took > 0.0:
 			_dirty_vertex(i, j)
-	if mode == "scoop":
-		tidy_ridges(p, radius * 3.0 + 1.0)                     # thin walls of natural ground left between dug floors fall in: the floors end up clean
+	if mode == "scoop" or mode == "break":
+		tidy_ridges(p, maxf(radius * 3.0 + 1.0, 5.0))          # thin walls of natural ground left between dug floors fall in (within about 5 m of the blow, with any hand tool): the floors end up clean
 	if not blocked.is_empty() and float(res["volume"]) + float(res["broken"]) <= 0.000001:
 		res["blocked_by"] = blocked[0]
 	elif not blocked.is_empty():
