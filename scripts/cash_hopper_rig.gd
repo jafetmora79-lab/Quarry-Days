@@ -78,6 +78,72 @@ func build() -> bool:
 	set_process(true)
 	return true
 
+## Cuts loose pieces out of a model's mesh: a piece is a connected set of triangles (welded vertices) whose box matches [centre, size] (in the model's own space) within 1 cm.
+func _drop_pieces(root: Node3D, pieces: Array) -> void:
+	var inv := root.global_transform.affine_inverse()
+	for mi in root.find_children("*", "MeshInstance3D", true, false):
+		var m := mi as MeshInstance3D
+		var mesh := m.mesh as ArrayMesh
+		if mesh == null:
+			continue
+		var xf := inv * m.global_transform
+		for si in range(mesh.get_surface_count()):
+			var arr := mesh.surface_get_arrays(si)
+			var verts: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+			var idx: PackedInt32Array = arr[Mesh.ARRAY_INDEX]
+			if idx.is_empty():
+				continue
+			var par := PackedInt32Array()
+			par.resize(verts.size())
+			for i in verts.size():
+				par[i] = i
+			var seen := {}
+			for i in verts.size():
+				var key := Vector3i((verts[i] * 2000.0).round())
+				if seen.has(key):
+					par[_uf(par, i)] = _uf(par, int(seen[key]))
+				else:
+					seen[key] = i
+			for t in range(0, idx.size(), 3):
+				par[_uf(par, idx[t])] = _uf(par, idx[t + 1])
+				par[_uf(par, idx[t + 1])] = _uf(par, idx[t + 2])
+			var lo := {}
+			var hi := {}
+			for t in range(0, idx.size(), 3):
+				var r := _uf(par, idx[t])
+				for k in 3:
+					var p: Vector3 = xf * verts[idx[t + k]]
+					lo[r] = Vector3(minf(lo[r].x, p.x), minf(lo[r].y, p.y), minf(lo[r].z, p.z)) if lo.has(r) else p
+					hi[r] = Vector3(maxf(hi[r].x, p.x), maxf(hi[r].y, p.y), maxf(hi[r].z, p.z)) if hi.has(r) else p
+			var drop := {}
+			for r in lo:
+				var c: Vector3 = (lo[r] + hi[r]) * 0.5
+				var sz: Vector3 = hi[r] - lo[r]
+				for pc in pieces:
+					if c.distance_to(pc[0]) < 0.01 and sz.distance_to(pc[1]) < 0.01:
+						drop[r] = true
+			if drop.is_empty():
+				continue
+			var keep := PackedInt32Array()
+			for t in range(0, idx.size(), 3):
+				if not drop.has(_uf(par, idx[t])):
+					keep.append(idx[t])
+					keep.append(idx[t + 1])
+					keep.append(idx[t + 2])
+			var a2 := arr.duplicate()
+			a2[Mesh.ARRAY_INDEX] = keep
+			var nm := ArrayMesh.new()
+			nm.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, a2)
+			nm.surface_set_material(0, mesh.surface_get_material(si))
+			m.mesh = nm
+			return
+
+static func _uf(par: PackedInt32Array, x: int) -> int:
+	while par[x] != x:
+		par[x] = par[par[x]]
+		x = par[x]
+	return x
+
 func _make_variant(ti: int, path: String) -> Dictionary:
 	var cfg: Dictionary = CFG[ti]
 	if path == "":
@@ -114,6 +180,8 @@ func _make_variant(ti: int, path: String) -> Dictionary:
 		v["funnel"] = root.get_node_or_null("Funnel")
 		if v["tray"] == null or v["funnel"] == null:
 			return {}
+	if ti == 0:
+		_drop_pieces(root, [[Vector3(0.428, 0.209, 0.443), Vector3(0.319, 0.232, 0.12)]])       # the stray green wedge beside the shutter (it poked out of the front and flickered as the tray moved)
 	for mi in root.find_children("*", "MeshInstance3D", true, false):
 		(mi as MeshInstance3D).extra_cull_margin = 1.0               # skinned / moved parts: the rest-pose bounds are not the moving bounds
 		var m := mi as MeshInstance3D
@@ -126,7 +194,7 @@ func _make_variant(ti: int, path: String) -> Dictionary:
 	var screen_n := HopperPlateScreen.new()
 	screen_n.name = "PlateScreen"
 	screen_n.setup(cfg["plate_size"], ti)
-	screen_n.position = cfg["plate"]
+	screen_n.position = (cfg["plate"] as Vector3) + Vector3(0.0, 0.0, 0.009)       # a hair in front of the bezel: coplanar with it, its corners flickered (z-fighting) as the view moved
 	screen_n.rotation.y = PI                                          # (the screen's quad faces -Z in its own frame; the model's front is +Z)
 	root.add_child(screen_n)
 	screen_n.tick.connect(func(): tick.emit())
