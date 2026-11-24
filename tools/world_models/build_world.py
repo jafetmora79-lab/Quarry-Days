@@ -1066,7 +1066,7 @@ def fossil_nest(root):
 MODELS = {
     "pine_tall": pine_tall, "pine_young": pine_young, "birch": birch, "log": log, "stump": stump, "bush": bush, "fern": fern, "grass": grass, "flowers": flowers,
     "mossy_stone": mossy_stone, "peak_a": peak_a, "peak_b": peak_b, "ridge": ridge, "foothill": foothill, "cliff": cliff, "tunnel_mountain": tunnel_mountain,
-    "tunnel_portal": tunnel_portal, "tunnel_set": tunnel_set, "cash_hopper": hopper_model.build, "overburden_weeds": overburden_models.weeds, "overburden_rubble": overburden_models.rubble, "ore_pieces": ground_models.ore_pieces, "dirt_clods": ground_models.dirt_clods, "bucket": ground_models.bucket, "excavator_kit": repair_kit.excavator_kit, "repair_parts": repair_kit.repair_parts, "pine_far": pine_far, "pickup": pickup, "dino": dino, "egg": egg, "incubator": incubator, "fossil_nest": fossil_nest, "deer": deer, "rabbit": rabbit,
+    "tunnel_portal": tunnel_portal, "tunnel_set": tunnel_set, "cash_hopper": hopper_model.build, "overburden_weeds": overburden_models.weeds, "overburden_rubble": overburden_models.rubble, "ore_pieces": ground_models.ore_pieces, "dirt_clods": ground_models.dirt_clods, "scrub_bush": ground_models.scrub_bush, "field_stone": ground_models.field_stone, "bucket": ground_models.bucket, "excavator_kit": repair_kit.excavator_kit, "repair_parts": repair_kit.repair_parts, "pine_far": pine_far, "pickup": pickup, "dino": dino, "egg": egg, "incubator": incubator, "fossil_nest": fossil_nest, "deer": deer, "rabbit": rabbit,
 }
 
 

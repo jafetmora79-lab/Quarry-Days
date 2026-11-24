@@ -189,11 +189,16 @@ func _build_decor(dd: Dictionary) -> void:
 		var cs := MeshKit.Soup.new()
 		MeshKit.rock_into(cs, Vector3.ZERO, Vector3(0.7, 0.3, 0.6), 41, 2, 6)
 		clod_mesh = cs.mesh()
+	# the Blender scrub bush and field stone (their own colours) replace the plain faceted blobs
+	var bush_mesh: Mesh = WorldModels.mesh("scrub_bush")
+	var rock_mesh: Mesh = WorldModels.mesh("field_stone")
+	var bush_model := bush_mesh != null
+	var rock_model := rock_mesh != null
 	# kind: [mesh, base colour, tint spread, share of the columns that get one, scale range, lift]
 	var kinds := [
-		[scrub.mesh(), Color(0.27, 0.37, 0.19), 0.2, 0.10, Vector2(0.8, 1.35), -0.05],
+		[bush_mesh if bush_model else scrub.mesh(), Color(0.27, 0.37, 0.19), 0.2, 0.10, Vector2(0.8, 1.35), -0.05],
 		[tuft.mesh(), Color(0.55, 0.58, 0.3), 0.22, 0.30, Vector2(0.8, 1.5), 0.0],
-		[stone.mesh(), Color(0.62, 0.58, 0.5), 0.2, 0.07, Vector2(0.7, 1.4), -0.05],
+		[rock_mesh if rock_model else stone.mesh(), Color(0.62, 0.58, 0.5), 0.2, 0.07, Vector2(0.7, 1.4), -0.05],
 		[pebbles.mesh(), Color(0.6, 0.55, 0.47), 0.2, 0.22, Vector2(0.9, 1.6), 0.0],
 		[clod_mesh, Color(0.46, 0.32, 0.21), 0.16, 0.22, Vector2(0.9, 1.7), 0.0],
 	]
@@ -233,7 +238,7 @@ func _build_decor(dd: Dictionary) -> void:
 		var mmi := MultiMeshInstance3D.new()
 		mmi.multimesh = mm
 		mmi.name = "Decor%d" % ki
-		mmi.material_override = null if (ki == 4 and clod_model) else _decor_material()
+		mmi.material_override = null if ((ki == 4 and clod_model) or (ki == 0 and bush_model) or (ki == 2 and rock_model)) else _decor_material()
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		mmi.visibility_range_end = 420.0
 		add_child(mmi)

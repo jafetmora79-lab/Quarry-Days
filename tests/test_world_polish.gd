@@ -40,11 +40,8 @@ func run() -> void:
 	check(said.contains("good stone") and said.contains("yours now") and said.contains("fishing rod"), "A Walter hands the quarry over at the yard (the retirement lines belong to the drive, which headless runs skip)")
 	game.walter_dialog.skip()
 	await process_frame
-	check(game.hud.card_open() and game.hud.card_title.text.contains("FIRST DAY") and game.hud.card_body.text.contains("sleep"), "A a card explains the first day, including sleeping")
-	check(not prog.story["intro_seen"], "A the intro is not finished until the card is closed")
-	game.hud.close_card()
-	await process_frame
-	check(prog.story["intro_seen"] and not game.hud.card_open() and not game.player.locked, "A closing the card finishes the intro and frees the player")
+	check(not game.hud.card_open(), "A no note card any more: Grandpa says the first-day tips himself (or they are a passing thought when he is not there)")
+	check(prog.story["intro_seen"] and not game.player.locked, "A skipping the handover finishes the intro and frees the player")
 	# ---- the house
 	var bed: StaticBody3D = null
 	var home_floor: StaticBody3D = null

@@ -29,6 +29,7 @@ const COLOURS := {
 	"CopperRock": Color(0.28, 0.36, 0.30), "Malachite": Color(0.20, 0.64, 0.46), "CopperOrange": Color(0.82, 0.44, 0.19),
 	"QuartzRock": Color(0.70, 0.68, 0.64), "QuartzWhite": Color(0.92, 0.92, 0.88),
 	"PebbleA": Color(0.58, 0.52, 0.44), "PebbleB": Color(0.45, 0.41, 0.37), "PebbleC": Color(0.70, 0.64, 0.54),
+	"BushDeep": Color(0.17, 0.29, 0.12), "BushMid": Color(0.28, 0.42, 0.16), "BushLight": Color(0.45, 0.55, 0.22), "BushDry": Color(0.58, 0.50, 0.24), "TwigBrown": Color(0.32, 0.23, 0.14), "FieldStoneA": Color(0.64, 0.60, 0.52), "FieldStoneB": Color(0.52, 0.48, 0.42), "FieldStoneC": Color(0.74, 0.70, 0.60), "FieldStoneMoss": Color(0.36, 0.44, 0.24),
 	"ClodDark": Color(0.27, 0.18, 0.12), "ClodMid": Color(0.40, 0.28, 0.18), "ClodLight": Color(0.52, 0.37, 0.25), "ClodStone": Color(0.62, 0.57, 0.49),
 	"BucketSteel": Color(0.46, 0.49, 0.51), "BucketRim": Color(0.30, 0.32, 0.35), "BucketRust": Color(0.50, 0.28, 0.14), "BucketBand": Color(0.36, 0.38, 0.40),
 	"BucketHandle": Color(0.16, 0.16, 0.17), "BucketDirt": Color(0.40, 0.28, 0.18), "BucketInner": Color(0.12, 0.11, 0.10),
