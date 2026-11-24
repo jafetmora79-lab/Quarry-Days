@@ -86,6 +86,4 @@ func rescue(reason := "stuck") -> void:
 	last_ground_y = to.y
 	rescues += 1
 	last_reason = reason
-	if game.hud:
-		game.hud.toast("Back on solid ground", "You %s. Climbing out is not possible there, so you were lifted back out." % reason, "info")
 	rescued.emit(reason)
