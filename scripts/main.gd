@@ -5931,11 +5931,14 @@ func _driver_show(v: QuarryVehicle, on: bool, inside: bool) -> void:
 	d.first_person = inside
 	d.show_driver(on)
 
+var _eye_home := Vector3.INF      ## the on-foot camera's own position, kept from before boarding: getting out always restores THIS, never a position caught mid-animation
+
 func _board_vehicle(v: QuarryVehicle) -> void:
 	repair_busy = true
 	player.locked = true
 	var cam := player.camera
 	var home := cam.position
+	_eye_home = home
 	var frames := QuarryBoarding.poses_in(v, cam.global_transform)
 	QuarryBoarding.play(self, cam, frames, {"approach": func(): _driver_show(v, true, true)},
 		func(): _board_done(v, home))
@@ -5955,6 +5958,7 @@ func _board_done(v: QuarryVehicle, home: Vector3) -> void:
 		cam.global_transform = seat_xf
 		repair_busy = true
 		var tw := create_tween()
+		_board_tw = tw
 		tw.tween_method(func(w: float): cam.global_transform = seat_xf.interpolate_with(v.camera.global_transform, w), 0.0, 1.0, 0.55).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 		tw.tween_callback(func():
 			cam.position = home
@@ -5963,6 +5967,8 @@ func _board_done(v: QuarryVehicle, home: Vector3) -> void:
 			if driving == v:
 				_driver_show(v, true, false)
 				v.camera.current = true)
+
+var _board_tw: Tween
 
 func _enter_now(v: QuarryVehicle) -> void:
 	driving = v
@@ -5984,6 +5990,8 @@ func _enter_now(v: QuarryVehicle) -> void:
 func exit_vehicle() -> bool:
 	if driving == null:
 		return false
+	if repair_busy:
+		return false                          # still climbing in (the camera is easing to the seat): getting out now used to leave the player stuck on top of the truck with a broken eye height
 	if absf(driving.speed) > 1.2:
 		_notify("Brake to a stop before getting out (Space).")
 		return false
@@ -6005,7 +6013,9 @@ func _alight_vehicle(v: QuarryVehicle, chase: Transform3D) -> void:
 	repair_busy = true
 	player.locked = true
 	var cam := player.camera
-	var home := cam.position
+	if _board_tw != null and _board_tw.is_valid():
+		_board_tw.kill()
+	var home := _eye_home if _eye_home != Vector3.INF else cam.position
 	var ground := player.global_transform * Transform3D(Basis(), home)
 	var frames := QuarryBoarding.poses_out(v, ground)
 	var eye: Transform3D = frames[0][0]
