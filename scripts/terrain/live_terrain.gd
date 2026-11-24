@@ -12,7 +12,7 @@ class_name LiveTerrain
 const ORIGIN := Vector2(-122.0, -108.0)
 const SIZE := Vector2(256.0, 96.0)
 ## The entrance plaza: the gate road onto the quarry surface, its apron, and the machines either side of it (storage bin, Cash Hopper). It is never dug, so the way in always stays whole.
-const ENTRANCE_PLAZA := Rect2(-14.0, -32.0, 28.0, 25.0)
+const ENTRANCE_PLAZA := QuarryProgression.ENTRANCE_PLAZA
 
 var game
 var prog

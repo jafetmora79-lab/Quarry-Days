@@ -764,6 +764,9 @@ func area_for_point(p: Vector3) -> String:
 				return str(a["id"])
 	return ""
 
+## The entrance plaza (gate road, apron, the hopper and storage sides): never dug, by hand, machine, crew or dinosaur, whatever the layer.
+const ENTRANCE_PLAZA := Rect2(-14.0, -32.0, 28.0, 25.0)
+
 ## The marked excavation of a formation (its area's `rect`: world x0, z0, x1, z1) or an empty array when the whole formation may be worked.
 func dig_rect(id: String) -> Array:
 	for a in area_defs():
@@ -778,6 +781,8 @@ func column_in_dig_area(id: String, col: int) -> bool:
 	if r.is_empty():
 		return true
 	var p := column_pos(id, col)
+	if ENTRANCE_PLAZA.grow(float(fdef(id).get("cell", 2.0)) * 0.5).has_point(Vector2(p.x, p.z)):
+		return false
 	var m := float(fdef(id).get("cell", 2.0)) * 0.5
 	return p.x >= float(r[0]) - m and p.x <= float(r[2]) + m and p.z >= float(r[1]) - m and p.z <= float(r[3]) + m
 

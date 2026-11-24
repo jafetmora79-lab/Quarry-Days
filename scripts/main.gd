@@ -1352,6 +1352,8 @@ func loose_count(kind: String) -> int:
 
 ## Surface areas with a marked rectangle (Area 1) can only be dug inside it; the hillside and soil field beyond the survey lines stay untouched.
 func _inside_dig_perimeter(kind: String, p: Vector3) -> bool:
+	if QuarryProgression.ENTRANCE_PLAZA.has_point(Vector2(p.x, p.z)):
+		return false                               # the entrance plaza is never dug, whichever system the blow lands on
 	var dr := prog.dig_rect(kind)
 	if not dr.is_empty():
 		return p.x >= float(dr[0]) - 0.3 and p.x <= float(dr[2]) + 0.3 and p.z >= float(dr[1]) - 0.3 and p.z <= float(dr[3]) + 0.3

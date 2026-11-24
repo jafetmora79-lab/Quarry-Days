@@ -74,7 +74,7 @@ func run() -> void:
 	st.equipped = "shovel"
 	# ---- mining topsoil with the shovel, refused with the hammer
 	var kind := "q_top"
-	var col := prog.nearest_column(kind, Vector3(0, 0, -20), false)
+	var col := prog.nearest_column(kind, Vector3(0, 0, -58), false)
 	check(col >= 0, "there is topsoil to dig")
 	var bag0: int = st.total(st.inventory)
 	game.player.global_position = prog.column_pos(kind, col) + Vector3(5.5, 2.0, 0)
@@ -88,7 +88,7 @@ func run() -> void:
 	got = game.player_mine(kind, col, 999.0, prog.column_pos(kind, col))
 	check(got > 0 and st.total(st.inventory) > bag0, "the shovel digs topsoil into the bag (%d units)" % got)
 	# ---- digging directly under the player's feet
-	var col2 := prog.nearest_column(kind, Vector3(0, 0, -20), false)
+	var col2 := prog.nearest_column(kind, Vector3(0, 0, -58), false)
 	var pos2: Vector3 = prog.column_pos(kind, col2)
 	var node: QuarryFormation = game.formation_nodes[kind]
 	game.player.global_position = Vector3(pos2.x, pos2.y + float(prog.chunks_left(kind, col2)) * float(prog.fdef(kind).get("tier_h", 1.2)) + 0.15, pos2.z)
