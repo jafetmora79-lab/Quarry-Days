@@ -5286,9 +5286,9 @@ func _create_cash_hopper(index: int) -> void:
 	body.add_child(view)
 	output_nodes.append(body)
 
-## Where the old hopper stands: east of the office in the open, clear of the doorway and ramp (it faces the yard, -Z). (It took the place of the Quick Sell kiosk.)
+## Where the old hopper stands: just inside the quarry, past the central gate, on the other side from the storage bin (the same spot mirrored across the entrance; it faces -Z like the bin).
 func cash_hopper_pos() -> Vector3:
-	return Vector3(OFFICE_POS.x + 5.5, 0.0, OFFICE_POS.z - 2.6) if blueprint else Vector3(OFFICE_POS.x - 6.0, 0.0, OFFICE_POS.z - 5.5)
+	return Vector3(-STORAGE_POS.x, 0.0, STORAGE_POS.z) if blueprint else Vector3(OFFICE_POS.x - 6.0, 0.0, OFFICE_POS.z - 5.5)
 
 ## Every game owns the old hopper. Adds its record (and, in a running game, its machine) when it is missing: new games and saves from before it existed.
 func _ensure_cash_hopper(create_node: bool) -> void:

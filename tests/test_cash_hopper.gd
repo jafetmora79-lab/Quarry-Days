@@ -59,7 +59,7 @@ func run() -> void:
 	check(hs.size() == 1, "a new game owns exactly one Cash Hopper (Grandpa's old one)")
 	var h: int = hs[0]
 	var hpos: Vector3 = QuarryBusiness.v3(biz.outputs[h]["position"])
-	check(hpos.distance_to(game.OFFICE_POS) > 4.5 and hpos.distance_to(game.OFFICE_POS) < 9.0, "it stands near the office, clear of its door (%.1f m away)" % hpos.distance_to(game.OFFICE_POS))
+	check(absf(hpos.x + game.STORAGE_POS.x) < 0.01 and absf(hpos.z - game.STORAGE_POS.z) < 0.01, "it stands just inside the quarry gate, on the other side from the storage bin (%s)" % str(hpos))
 	var body: Node = game.output_nodes[h]
 	var view: Node = body.get_node_or_null("CashHopperView")
 	var pts_ok := view != null
