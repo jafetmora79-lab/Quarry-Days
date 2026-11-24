@@ -104,6 +104,8 @@ func _build_material() -> void:
 		var path := "res://assets/textures/%s.png" % str(geo.props(id).get("texture", "T_QD_ExcavatedDirt"))
 		if ResourceLoader.exists(path):
 			material.set_shader_parameter("tex%d" % m, load(path))
+		var tn: Array = geo.props(id).get("tint", [1.0, 1.0, 1.0])
+		material.set_shader_parameter("tint%d" % m, Vector3(float(tn[0]), float(tn[1]), float(tn[2])))
 
 # ------------------------------------------------------------------ indexing and queries
 

@@ -13,6 +13,9 @@ static func mat(name: String) -> Material:
 		return _mats[name]
 	var path := name if name.begins_with("res://") else MAT_DIR + "M_QD_" + name + ".tres"
 	var m: Material = load(path)
+	if name in ["CutLimestone", "RockLimestone"] and m is StandardMaterial3D:
+		m = (m as StandardMaterial3D).duplicate()                 # the pale cut stone glared almost white in the sun: warmed and darkened
+		(m as StandardMaterial3D).albedo_color = Color(0.68, 0.6, 0.48)
 	_mats[name] = m
 	return m
 
