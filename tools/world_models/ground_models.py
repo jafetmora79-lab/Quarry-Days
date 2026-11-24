@@ -231,7 +231,7 @@ def scrub_bush(root):
         d = r.uniform(0.0, 0.42) * (1.1 - h * 0.7)
         sz = r.uniform(0.22, 0.34) * (1.0 - h * 0.35)
         y = 0.16 + h * 0.42
-        chunk(t, (math.cos(a) * d, y, math.sin(a) * d), (sz * 1.15, sz * 0.85, sz * 1.1), mats[min(3, int(h * 3.4))] if k > 1 else "BushDeep", r, 0.20, sub=1, base_clip=0.6)
+        chunk(t, (math.cos(a) * d, y, math.sin(a) * d), (sz * 1.15, sz * 0.85, sz * 1.1), mats[min(3, int(h * 3.4))] if k > 1 else "BushDeep", r, 0.20, sub=0, base_clip=0.6)
     for k in range(6):                                             # light and dry leaf tips poking out of the top
         a = r.uniform(0, 2 * math.pi)
         d = r.uniform(0.05, 0.4)
@@ -245,8 +245,8 @@ def field_stone(root):
     t = TM("Body", root, holder=True)
     r = random.Random(58)
     chunk(t, (0.0, 0.0, 0.0), (0.46, 0.34, 0.40), "FieldStoneA", r, 0.18, sub=1, base_clip=0.45)
-    chunk(t, (0.02, 0.22, 0.02), (0.34, 0.16, 0.30), "FieldStoneC", r, 0.16, sub=1, base_clip=0.2)          # the lighter weathered top
-    chunk(t, (0.42, 0.0, 0.18), (0.22, 0.16, 0.2), "FieldStoneB", r, 0.2, sub=1, base_clip=0.4)
+    chunk(t, (0.02, 0.22, 0.02), (0.34, 0.16, 0.30), "FieldStoneC", r, 0.16, sub=0, base_clip=0.2)          # the lighter weathered top
+    chunk(t, (0.42, 0.0, 0.18), (0.22, 0.16, 0.2), "FieldStoneB", r, 0.2, sub=0, base_clip=0.4)
     chunk(t, (-0.38, 0.0, -0.2), (0.16, 0.11, 0.15), "FieldStoneB", r, 0.22, sub=0, base_clip=0.4)
     chunk(t, (-0.15, 0.0, 0.48), (0.1, 0.07, 0.09), "FieldStoneC", r, 0.25, sub=0, base_clip=0.4)
     chunk(t, (-0.18, 0.02, -0.34), (0.2, 0.1, 0.12), "FieldStoneMoss", r, 0.2, sub=0, base_clip=0.5)

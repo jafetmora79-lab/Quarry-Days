@@ -240,7 +240,7 @@ func _build_decor(dd: Dictionary) -> void:
 		mmi.name = "Decor%d" % ki
 		mmi.material_override = null if ((ki == 4 and clod_model) or (ki == 0 and bush_model) or (ki == 2 and rock_model)) else _decor_material()
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		mmi.visibility_range_end = 420.0
+		mmi.visibility_range_end = 130.0
 		add_child(mmi)
 		var on: Array = []
 		on.resize(xfs.size())
