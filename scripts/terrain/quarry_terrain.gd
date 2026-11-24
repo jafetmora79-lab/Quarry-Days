@@ -375,6 +375,8 @@ func dig(p: Vector3, radius: float, depth: float, budget: float, max_hardness: i
 		if took > 0.0:
 			_dirty_vertex(i, j)
 	if mode == "scoop" or mode == "break":
+		_tidy_at = p                                           # (and a wider, once-only pass when the blows stop, see _physics_process)
+		_tidy_t = 0.5
 		tidy_ridges(p, maxf(radius * 3.0 + 1.0, 6.0))          # thin walls of natural ground left between dug floors fall in (within about 5 m of the blow, with any hand tool): the floors end up clean
 	if not blocked.is_empty() and float(res["volume"]) + float(res["broken"]) <= 0.000001:
 		res["blocked_by"] = blocked[0]
@@ -382,6 +384,8 @@ func dig(p: Vector3, radius: float, depth: float, budget: float, max_hardness: i
 		res["blocked_by"] = blocked[0]                       # it dug something, then reached rock
 	return res
 
+var _tidy_at := Vector3.INF      ## where the last hand blow landed (the wider tidy pass runs there when the blows stop)
+var _tidy_t := 0.0
 var discarded := 0.0             ## m3 of dirt the ridge tidy-up has let fall away (kept so the books can still balance)
 const RIDGE_HALF := 8            ## vertices (4 m) each way that are searched for lower ground: a crest with lower ground within 4 m on BOTH sides is a ridge
 const RIDGE_DROP := 0.06         ## how much lower (m) both sides must be (so even the little pile left between two shallow patches counts)
@@ -879,6 +883,11 @@ func _physics_process(delta: float) -> void:
 	_coll_timer -= delta
 	if active.size() > 0:
 		relax(700)
+	if _tidy_at != Vector3.INF:
+		_tidy_t -= delta
+		if _tidy_t <= 0.0:                                          # the blows have stopped for half a second: tidy a wider area around the last one once
+			tidy_ridges(_tidy_at, 11.0)
+			_tidy_at = Vector3.INF
 	flush()
 
 # ------------------------------------------------------------------ saving
