@@ -233,6 +233,7 @@ func _begin_drive() -> void:
 	g.walter_pose = "idle"
 	if w.has_meta("rig"):
 		w.get_meta("rig").wheel_hands = true            # both hands on the wheel; they turn with the road
+		w.get_meta("rig").seated = true                 # sitting on the bench (legs bent, pelvis down on the cushion), not standing inside it
 	# the passenger's eyes
 	look_yaw = 0.0
 	look_pitch = 0.0
@@ -500,6 +501,7 @@ func _begin_yard(from_truck: bool) -> void:
 func _restore_truck() -> void:
 	if g.walter_node != null and is_instance_valid(g.walter_node) and g.walter_node.has_meta("rig"):
 		g.walter_node.get_meta("rig").wheel_hands = false
+		g.walter_node.get_meta("rig").seated = false
 	if rig != null and is_instance_valid(rig):
 		rig.global_position = _truck_spot()
 		rig.rotation = Vector3(0.0, float(_truck_cfg().get("yaw", 1.5708)), 0.0)

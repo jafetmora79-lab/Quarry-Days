@@ -947,7 +947,10 @@ func refresh_panels() -> void:
 				_obj_primary = "%s  (%s)" % [r2[0], _amount(r2)]           # the first thing still to do
 				break
 		if prog.natural_start() and bool(prog.story.get("intro_seen", false)) and not prog.excavator_ready():
-			_obj_primary = "Repair the Excavator (%d/%d parts)" % [prog.repairs_done(), prog.REPAIR_PARTS.size()]     # the opening's first job leads the tracker
+			if prog.machinery_unlocked():
+				_obj_primary = "Repair the Excavator (%d/%d parts)" % [prog.repairs_done(), prog.REPAIR_PARTS.size()]     # the opening's first job leads the tracker
+			else:
+				_obj_primary = "Clear the overburden (%d left)" % prog.cleanup_left()                                     # the machinery opens once the weeds and rubble are gone
 		var frac := frac_sum / float(maxi(1, frac_n))
 		var all_met: bool = prog.requirements_met(next)
 		_obj_target = 1.0 if all_met else minf(frac, 0.99)

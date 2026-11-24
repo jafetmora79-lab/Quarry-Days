@@ -9,14 +9,14 @@ class_name QuarryTheme
 ##   TITLE 15 -> 30 px (major headings)   SECTION 11 -> 22 px   HEAD 12 -> 24 px   HUD 9 -> 18 px   BODY 9 -> 18 px   DIALOG 10 -> 20 px (dialogue and letters)   SMALL 8 -> 16 px
 ## Text is never shrunk below SMALL to fit: it wraps instead. Fonts are re-rasterised at the final window scale (canvas_items stretch), so text stays sharp at any DPI.
 
-const TITLE := 15
-const SECTION := 11
-const HEAD := 12
+const TITLE := 16
+const SECTION := 12
+const HEAD := 13
 const HERO := 18                 ## the main menu's name of the game
-const BODY := 9
-const HUD := 9
-const DIALOG := 10
-const SMALL := 8
+const BODY := 10
+const HUD := 10
+const DIALOG := 11
+const SMALL := 9
 const PIXEL_GRID := 13          ## the pixel font's em: sizes that are a whole multiple of it keep every glyph pixel a crisp square
 
 const BG := Color(0.13, 0.1, 0.075, 0.95)

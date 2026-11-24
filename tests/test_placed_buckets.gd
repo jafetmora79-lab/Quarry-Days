@@ -57,14 +57,17 @@ func run() -> void:
 	# ---- dug dirt fills the nearest bucket with room, then the next one, then the bag
 	var bag0: int = st.total(st.inventory)
 	game.mine_point_hint = ground
-	game._terrain_yield({"topsoil": 1.0}, [])            # 11 units
+	game._terrain_yield({"topsoil": 1.0}, [])            # 11 units (they fly in from the dig point: the load shows as they land)
+	await frames(110)
 	check(pb.total_of(a["load"]) == 11 and st.total(st.inventory) == bag0, "dirt dug near a bucket goes into it, not the bag (%d)" % pb.total_of(a["load"]))
 	game._terrain_yield({"topsoil": 1.0}, [])            # 11 more: 7 fit in the first, 4 go to the second
+	await frames(110)
 	check(pb.total_of(a["load"]) == 18 and pb.total_of(b["load"]) == 4, "a full bucket passes the rest to the next one (%d / %d)" % [pb.total_of(a["load"]), pb.total_of(b["load"])])
 	pb.receive(pp, ground, "topsoil", 14)
 	check(pb.total_of(b["load"]) == 18, "both are now full")
 	var bag1: int = st.total(st.inventory)
 	game._terrain_yield({"topsoil": 1.0}, [])
+	await frames(110)
 	check(st.total(st.inventory) == bag1 + 11, "with every bucket full the dirt goes to the bag as before")
 	# a bucket out of reach does not take dirt
 	var far: Dictionary = pb.place(ground + Vector3(30.0, 0.0, 0.0), {}, 0.0)

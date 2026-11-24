@@ -1719,6 +1719,10 @@ func repairs_done() -> int:
 func repairs_complete() -> bool:
 	return repairs_done() == REPAIR_PARTS.size()
 
+## The machinery opens once the overburden is cleared (weeds and rubble): until then there is nothing for it to do, so its repair parts are not out and it stays parked. Old saves are not gated.
+func machinery_unlocked() -> bool:
+	return not natural_start() or cleanup_cleared_all()
+
 ## The machine can be driven: every repair is done and Grandpa has started it (or the save is from before the opening).
 func excavator_ready() -> bool:
 	return repairs_complete() and bool(story["excavator"].get("started", false))

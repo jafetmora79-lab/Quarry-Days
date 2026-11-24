@@ -4,11 +4,14 @@ class_name BucketView
 ## layer by layer from the bottom: soil as a smooth heaped mound, gravel as loose small stones, rock as blocky chunks, ore as chunks with the mineral showing - each in its own material.
 ## `set_load(model, {resource: units}, capacity)` redraws the contents (only when they changed). Used by the bucket in the hands, the placed buckets and the hotbar picture.
 
-const H := 0.34                       ## height of the wall
-const R0 := 0.175                     ## outer radius at the base
-const R1 := 0.225                     ## outer radius at the rim
-const WALL := 0.014
+const H := 0.43                       ## height of the wall (the Meshy pail at MESHY_S; the contents are drawn into these dimensions)
+const R0 := 0.145                     ## outer radius at the base
+const R1 := 0.16                      ## outer radius at the rim
+const WALL := 0.012
 const FLOOR_Y := 0.03
+const MESHY := "res://assets/tools/meshy/bucket_meshy_unused.glb"      ## the Meshy pail: hollow, rusty steel, a wire bail with a wooden grip (the procedural pail below is the fallback)
+const MESHY_S := 0.45
+static var _meshy_cache := {}
 
 const MATS := {"topsoil": "ExcavatedDirt", "soil": "ExcavatedDirt", "clay": "Clay", "gravel": "RockGravel", "crushed_stone": "RockGravel", "limestone": "RockLimestone",
 	"coal": "RockCoal", "iron_ore": "RockIron", "copper_ore": "RockCopper", "gold_ore": "RockGold"}
@@ -41,6 +44,20 @@ static func build() -> Node3D:
 	_mats()
 	var n := Node3D.new()
 	n.name = "bucket"
+	var mp: Variant = _meshy_part()
+	if mp != null:
+		var mroot := Node3D.new()
+		mroot.name = "Body"
+		n.add_child(mroot)
+		var mi := MeshInstance3D.new()
+		mi.mesh = mp["mesh"]
+		mi.transform = mp["xf"]
+		mroot.add_child(mi)
+		var mfill := Node3D.new()
+		mfill.name = "Fill"
+		n.add_child(mfill)
+		n.set_meta("fill", mfill)
+		return n
 	var seg := 10
 	var outer := MeshKit.Soup.new()
 	var inner := MeshKit.Soup.new()
@@ -93,6 +110,30 @@ static func build() -> Node3D:
 	n.add_child(fill)
 	n.set_meta("fill", fill)
 	return n
+
+## The Meshy pail's mesh and the transform that stands it on y = 0, centred, at MESHY_S; null when the file is missing.
+static func _meshy_part() -> Variant:
+	if _meshy_cache.has("p"):
+		return _meshy_cache["p"]
+	var out: Variant = null
+	if ResourceLoader.exists(MESHY):
+		var src := (load(MESHY) as PackedScene).instantiate() as Node3D
+		for m in src.find_children("*", "MeshInstance3D", true, false):
+			var mi := m as MeshInstance3D
+			if mi.mesh == null:
+				continue
+			var t := Transform3D()
+			var cur: Node = mi
+			while cur != null and cur != src and cur is Node3D:
+				t = (cur as Node3D).transform * t
+				cur = cur.get_parent()
+			var ab: AABB = t * mi.mesh.get_aabb()
+			var c := ab.get_center()
+			out = {"mesh": mi.mesh, "xf": Transform3D(Basis.from_scale(Vector3.ONE * MESHY_S), Vector3(-c.x, -ab.position.y, -c.z) * MESHY_S) * t}
+			break
+		src.free()
+	_meshy_cache["p"] = out
+	return out
 
 # ------------------------------------------------------------------ contents
 

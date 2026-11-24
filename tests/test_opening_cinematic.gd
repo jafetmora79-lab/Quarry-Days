@@ -197,4 +197,4 @@ func post_spot(g) -> Vector3:
 
 func game_objective_ok(g) -> bool:
 	var t := str(g.hud.objective_label.text).to_lower()
-	return g.hud.objective_label.is_visible_in_tree() and (t.contains("excavator") or t.contains("repair"))
+	return g.hud.objective_label.is_visible_in_tree() and (t.contains("excavator") or t.contains("repair") or t.contains("overburden"))

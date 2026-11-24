@@ -70,7 +70,10 @@ func run() -> void:
 	var ex: QuarryVehicle = game._starter_vehicle()
 	check(ex != null and ex.vtype == "starter_excavator" and game.fleet.vehicles.size() == 2, "B the new game owns Grandpa's mini excavator and utility truck")
 	check(not game.fleet.types().has("starter_excavator") and game.fleet.buy_block_reason("starter_excavator") == "Not for sale", "B it is not in the shop")
-	check(not prog.excavator_ready() and game.opening_parts.size() == 3, "B it is broken and the three parts lie near the workshop")
+	check(not prog.excavator_ready() and game.opening_parts.is_empty() and not prog.machinery_unlocked(), "B it is broken and parked: no parts are out until the overburden is cleared")
+	prog.cleanup["done"] = true
+	game._on_site_cleared()
+	check(prog.machinery_unlocked() and game.opening_parts.size() == 3, "B once the site is cleared the three parts lie near the workshop")
 	game.enter_vehicle(ex)
 	check(game.driving == null, "B it cannot be driven before the repairs")
 	var spec: Dictionary = game.fleet.spec("starter_excavator")

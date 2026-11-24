@@ -912,6 +912,7 @@ func _on_area_completed(id: String) -> void:
 
 ## The whole site is clean: Walt's letter arrives with money, and the hillside opens.
 func _on_site_cleared() -> void:
+	_spawn_repair_parts()                               # the machinery opens: its repair parts come out next to the workshop
 	if blueprint and formation_nodes.has("q_top"):
 		(formation_nodes["q_top"] as QuarryFormation).clean_decor(Vector3.ZERO, 0.0, true)       # every bush, tuft and loose stone: only dirt is left
 	var cu: Dictionary = prog.cleanup_cfg()
@@ -1587,6 +1588,7 @@ func _player_body_tick(delta: float) -> void:
 # ------------------------------------------------------------------ placed buckets (the bucket tool)
 ## The bucket is a container, not a scoop: click puts one down where you aim (a green ghost shows where it can stand), dirt dug near it fills the nearest bucket with room,
 ## E picks a filled one up (you carry one at a time, slowed by its weight) and E at the storage box or the Cash Hopper tips it in. Click again to put a carried bucket down.
+var review: QuarryReviewMode
 var placed_buckets: PlacedBuckets
 var mine_point_hint := Vector3.ZERO
 
@@ -1842,7 +1844,7 @@ func _player_yield(res: String, n: int, at: Vector3) -> int:
 	var put := 0
 	if placed_buckets != null and is_instance_valid(placed_buckets) and not placed_buckets.items.is_empty():
 		placed_buckets.cap = state.bucket_capacity()
-		put = placed_buckets.receive(player.global_position, at, res, n)
+		put = _fly_into_buckets(res, n, at)
 		if put > 0:
 			state.note_lifetime("mined", res, put)
 	if put < n:
@@ -1850,6 +1852,29 @@ func _player_yield(res: String, n: int, at: Vector3) -> int:
 	if put > 0 and player != null and player.tool_view != null and player.tool_view.phase >= 0.0:
 		player.tool_view.set_payload(res)                 # the strike really collected something: it sits on the shovel's blade until it is tipped off
 	return put
+
+## What was just dug goes straight into the nearest bucket(s) in reach with room: each piece flies from the point of impact into the pail (it never lands on the ground first); the bucket's
+## load shows it as the pieces arrive. Returns the units sent (the rest goes to the bag).
+func _fly_into_buckets(res: String, n: int, at: Vector3) -> int:
+	var pb := placed_buckets
+	var src := at if at != Vector3.INF else player.global_position + Vector3(0, 1.0, 0)
+	var order := []
+	for it in pb.items:
+		var b: Node3D = it["body"]
+		var p := b.global_position
+		if Vector2(p.x - player.global_position.x, p.z - player.global_position.z).length() <= PlacedBuckets.REACH_FILL and absf(p.y - player.global_position.y) < 2.5:
+			order.append(b)
+	order.sort_custom(func(a, b): return a.global_position.distance_to(src) < b.global_position.distance_to(src))
+	var left := n
+	for b in order:
+		if left <= 0:
+			break
+		var k := mini(pb.room_of(b), left)
+		if k <= 0:
+			continue
+		_throw_units({res: k}, b, src)
+		left -= k
+	return n - left
 
 ## The bucket in hand tipped over the ground: one bucket's load (up to the bucket size, the biggest heap of it first) is poured where you aim, as loose material on the terrain (units -> m3 at
 ## each material's rate, so nothing is created or lost; a fraction of a unit stays in `terrain_rem`). Pouring at the starter box dumps the bucket into it instead.
@@ -2033,6 +2058,9 @@ func _setup_ui() -> void:
 	hud = HUDScript.new()
 	ui.add_child(hud)
 	hud.setup(self)
+	review = QuarryReviewMode.new()                     # F2: review mode (sticky notes about what is wrong, saved with what was pointed at; read with tools/review_notes.py)
+	review.name = "ReviewMode"
+	add_child(review)
 	if touch_mode:
 		hud.tutorial = false # keyboard hints make no sense on a touchscreen
 		var touch := TouchScript.new()
@@ -2325,7 +2353,9 @@ func _physics_process(delta: float) -> void:
 			"storage": prompt = _storage_prompt()
 			"vehicle":
 				var vrec := fleet.vehicle(int(last_target.get_meta("vehicle_id")))
-				if not vrec.is_empty() and str(vrec["type"]) == "starter_excavator" and not prog.excavator_ready():
+				if not vrec.is_empty() and str(vrec["type"]) == "starter_excavator" and not prog.excavator_ready() and natural_start_enabled and not prog.machinery_unlocked():
+					prompt = "Grandpa's excavator: parked until the overburden is cleared (%d left)" % prog.cleanup_left()
+				elif not vrec.is_empty() and str(vrec["type"]) == "starter_excavator" and not prog.excavator_ready():
 					prompt = ("E: fit the %s" % prog.carried_part()) if prog.carried_part() != "" else ("E: Grandpa's excavator - %d of 3 repairs done" % prog.repairs_done())
 				elif not vrec.is_empty():
 					prompt = ("[AUTO CREW ON - J: off]  " if crew.is_auto(vrec) else ("J: auto crew  |  " if crew.eligible(last_target_vehicle_node(vrec)) == "" else "")) + "E: drive %s (%d/%d %s)" % [fleet.spec(vrec["type"])["title"], fleet.cargo_total(vrec), fleet.capacity(vrec), "in bucket" if fleet.kind(str(vrec["type"])) != "truck" else "in bed"]
@@ -3632,7 +3662,7 @@ func _decorate_starter() -> void:
 	OpeningModels.fitted(cab, prog.repair_done("battery"), prog.repair_done("hose"), prog.repair_done("fuel"), v.model_root, v.arm)
 
 func _spawn_repair_parts() -> void:
-	var natural := natural_start_enabled and prog.natural_start()
+	var natural := natural_start_enabled and prog.natural_start() and prog.machinery_unlocked()      # the parts only come out once the overburden is cleared
 	for id in QuarryProgression.REPAIR_PARTS:
 		var want: bool = natural and not prog.repair_done(id) and prog.carried_part() != id
 		if want and not opening_parts.has(id):
@@ -3852,7 +3882,9 @@ func _pick_up_part(id: String) -> void:
 func _use_starter(v: QuarryVehicle) -> void:
 	if repair_busy or walter_dialog != null:
 		return
-	if prog.carried_part() != "":
+	if natural_start_enabled and not prog.machinery_unlocked():
+		_notify("Grandpa's excavator stays parked until the overburden is cleared: pull the weeds and break the rubble heaps first (%d left)." % prog.cleanup_left())
+	elif prog.carried_part() != "":
 		_install_part(v)
 	elif prog.repairs_complete() and not bool(prog.excavator_state()["started"]):
 		_excavator_start_scene(v)

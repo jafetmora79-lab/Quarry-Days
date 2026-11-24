@@ -227,5 +227,5 @@ static func _build_procedural() -> Dictionary:
 	return {"root": root, "wheels": wheels, "interior": inside, "headlights": lights}
 
 ## Where things sit in the cab (truck-local metres): Walt at the wheel (hips on the bench), the passenger's eyes.
-const SEAT_WALT := Vector3(-0.45, 0.12, 0.1)
+const SEAT_WALT := Vector3(-0.45, 0.5, 0.15)      ## the rig origin (the floor under his feet, 0.5 up in the cab) so that, seated (VeilRig.SEAT_DROP), his pelvis rests on the bench
 const EYE := Vector3(0.45, 1.6, 0.08)
