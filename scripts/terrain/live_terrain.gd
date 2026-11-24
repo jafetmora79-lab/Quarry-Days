@@ -11,6 +11,8 @@ class_name LiveTerrain
 
 const ORIGIN := Vector2(-122.0, -108.0)
 const SIZE := Vector2(256.0, 96.0)
+## The entrance plaza: the gate road onto the quarry surface, its apron, and the machines either side of it (storage bin, Cash Hopper). It is never dug, so the way in always stays whole.
+const ENTRANCE_PLAZA := Rect2(-14.0, -32.0, 28.0, 25.0)
 
 var game
 var prog
@@ -35,6 +37,7 @@ func attach(g) -> void:
 	if dr.is_empty():
 		dr = [ORIGIN.x + 2.0, ORIGIN.y + 4.0, ORIGIN.x + SIZE.x - 2.0, ORIGIN.y + SIZE.y - 2.0]
 	terrain.unlock_rect(Rect2(float(dr[0]), float(dr[1]), float(dr[2]) - float(dr[0]), float(dr[3]) - float(dr[1])))   # ... except the marked excavation
+	terrain.lock_rect(ENTRANCE_PLAZA)                               # ... and not the entrance plaza
 	for id in geo._formations:
 		for i in range(prog.column_count(id)):
 			if prog.chunks_left(id, i) < prog.column_tiers(id, i):
@@ -296,6 +299,7 @@ func lock_structures() -> void:
 			terrain.locked[terrain.idx(i, j)] = 0 if (dig.has_point(Vector2(x, z)) and not edge) else 1
 	for r in rects:
 		terrain.lock_rect(r, 1.0)
+	terrain.lock_rect(ENTRANCE_PLAZA)
 	locked_structures = rects.size()
 
 ## Footprint of a structure: flatten and lock it so nothing digs or slumps under it (and unlock when it is sold or moved).
@@ -318,5 +322,5 @@ func unlock_footprint(center: Vector3, half: Vector2) -> void:
 			var z := terrain.origin.y + float(j) * QuarryTerrain.CELL
 			for i in range(terrain.V):
 				var x := terrain.origin.x + float(i) * QuarryTerrain.CELL
-				if full.has_point(Vector2(x, z)) and not dig.has_point(Vector2(x, z)):
+				if full.has_point(Vector2(x, z)) and (not dig.has_point(Vector2(x, z)) or ENTRANCE_PLAZA.has_point(Vector2(x, z))):
 					terrain.locked[terrain.idx(i, j)] = 1

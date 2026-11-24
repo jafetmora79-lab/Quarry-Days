@@ -1942,7 +1942,7 @@ func _terrain_strike(point: Vector3) -> Dictionary:
 			return {}
 		res_name = str(prog.fdef(fid)["resource"])
 	if lt.terrain.is_locked_at(point.x, point.z):
-		_notify("Outside the marked survey area: dig inside the white line.")
+		_notify("Keep the entrance clear: dig further in." if LiveTerrain.ENTRANCE_PLAZA.has_point(Vector2(point.x, point.z)) else "Outside the marked survey area: dig inside the white line.")
 		return {}
 	var t := prog.tool()
 	var digs := str(t.get("class", "")) == "digging"

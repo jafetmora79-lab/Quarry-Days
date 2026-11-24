@@ -55,5 +55,6 @@ func run() -> void:
 	var dr: Array = game.prog.dig_rect("q_top")
 	check(dr.size() == 4 and float(dr[0]) <= -120.0 and float(dr[2]) >= 120.0, "6 the dig area is the surveyed area (%s)" % str(dr))
 	check(t.is_locked_at(0.0, -108.0) or t.is_locked_at(0.0, -105.0), "7 ground beyond the survey line is locked")
+	check(t.is_locked_at(0.0, -20.0) and t.is_locked_at(-9.0, -15.0) and t.is_locked_at(9.0, -15.0) and not t.is_locked_at(0.0, -45.0), "8 the entrance plaza (gate road, hopper and storage side) is never dug, the ground beyond it is open")
 	print("RESULT: %d checks, %d failures" % [checks, failures.size()])
 	quit(1 if failures.size() > 0 else 0)
