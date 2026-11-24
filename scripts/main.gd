@@ -481,10 +481,6 @@ func _build_blueprint_ground() -> void:
 		var m := _solid(world, "Tunnel mountain", Vector3(-62.0, 4.0, (float(part[0]) + float(part[1])) * 0.5), Vector3(76.0, 8.0, float(part[1]) - float(part[0])), Color(0.34, 0.33, 0.3))
 		m.visible = false
 		m.set_meta("nav_skip", true)
-	# the tunnel mountain's NORTH side faces the quarry plateau (the model is 100 x 80 m at (-70, 25): its north foot is at z = -14.6): a solid wall in front of it, so nobody walks into the rock from the quarry side
-	var mn := _solid(world, "Tunnel mountain north", Vector3(-73.5, 10.0, -15.5), Vector3(95.0, 20.0, 4.0), Color(0.34, 0.33, 0.3))
-	mn.visible = false
-	mn.set_meta("nav_skip", true)
 
 ## Invisible walkable ground block (the art layer draws the surface).
 func _floor_piece(label: String, pos: Vector3, size: Vector3) -> StaticBody3D:

@@ -346,7 +346,8 @@ def tunnel_mountain(root):
             return 0.0
         face = 14.0 * min(1.0, (u / 3.2) ** 0.6)
         base = (face + 17.0 * smooth(3.0, 36.0, u) * (1.0 - 0.55 * smooth(55.0, 82.0, u))) * (1.0 - smooth(85.55, 85.65, u))
-        lat = 1.0 - smooth(14.0, 40.0, abs(z))
+        zs = abs(z) * (40.0 / 31.4) if z < 0.0 else abs(z)       # the north flank (toward the quarry, z < 0) reaches the ground 8.6 m sooner: its foot is at the quarry fence line (world z = -8), never over the quarry plateau
+        lat = 1.0 - smooth(14.0, 40.0, zs)
         rg = 0.0
         for (ang, fr, ph, am) in waves:
             q = x * math.cos(ang) + z * math.sin(ang)
