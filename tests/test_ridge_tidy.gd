@@ -46,11 +46,11 @@ func run() -> void:
 	check(t.height_at(-17.0, -65.0) < 0.12 and t.height_at(-9.0, -65.0) < 0.12, "3 the dug floors stay clean")
 	var gap: float = t.height_at(1.0, -65.0)
 	check(gap < 0.1, "4 the ground between the two soil pads is untouched (%.2f)" % gap)
-	# a wide wall (5.5 m) is a pad, not a ridge: its middle stays
+	# a wide wall (10 m) is a pad, not a ridge: its middle stays
 	trench(t, 8.0, 12.0, -71.0, -58.0)
-	trench(t, 17.5, 23.0, -71.0, -58.0)
+	trench(t, 22.0, 26.0, -71.0, -58.0)
 	t.tidy_ridges(Vector3(14.5, 0, -65.0), 8.0)
-	check(t.height_at(14.5, -65.0) > 0.6, "5 a wide wall is left standing (%.2f m)" % t.height_at(14.5, -65.0))
+	check(t.height_at(17.0, -65.0) > 0.6, "5 a wide wall (10 m) is left standing, it is ground still to dig (%.2f m)" % t.height_at(17.0, -65.0))
 	# the marked area is the dig limit
 	var dr: Array = game.prog.dig_rect("q_top")
 	check(dr.size() == 4 and float(dr[0]) <= -120.0 and float(dr[2]) >= 120.0, "6 the dig area is the surveyed area (%s)" % str(dr))

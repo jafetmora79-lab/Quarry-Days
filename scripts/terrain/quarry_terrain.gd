@@ -375,7 +375,7 @@ func dig(p: Vector3, radius: float, depth: float, budget: float, max_hardness: i
 		if took > 0.0:
 			_dirty_vertex(i, j)
 	if mode == "scoop" or mode == "break":
-		tidy_ridges(p, maxf(radius * 3.0 + 1.0, 5.0))          # thin walls of natural ground left between dug floors fall in (within about 5 m of the blow, with any hand tool): the floors end up clean
+		tidy_ridges(p, maxf(radius * 3.0 + 1.0, 6.0))          # thin walls of natural ground left between dug floors fall in (within about 5 m of the blow, with any hand tool): the floors end up clean
 	if not blocked.is_empty() and float(res["volume"]) + float(res["broken"]) <= 0.000001:
 		res["blocked_by"] = blocked[0]
 	elif not blocked.is_empty():
@@ -383,19 +383,32 @@ func dig(p: Vector3, radius: float, depth: float, budget: float, max_hardness: i
 	return res
 
 var discarded := 0.0             ## m3 of dirt the ridge tidy-up has let fall away (kept so the books can still balance)
-const RIDGE_HALF := 6            ## vertices (3 m) each way that are searched for lower ground: a crest with lower ground within 3 m on BOTH sides is a ridge
-const RIDGE_DROP := 0.1          ## how much lower (m) both sides must be (a 0.2 m divider left between two floors counts)
-## Thin ridges of natural ground (a wall left standing between two dug patches, a spine left by digging beside it) are levelled down to the higher of the two floors beside them: nobody has to shovel
-## a wall a scoop at a time to get a clean floor. Only dirt is touched (natural topsoil-class ground and loose topsoil / clay: never rock or ore heaps, never locked ground), never below what may be dug there. Runs around a dig point; a few passes let a wide crest fall in from the middle outward. Returns the vertices lowered.
+const RIDGE_HALF := 8            ## vertices (4 m) each way that are searched for lower ground: a crest with lower ground within 4 m on BOTH sides is a ridge
+const RIDGE_DROP := 0.06         ## how much lower (m) both sides must be (so even the little pile left between two shallow patches counts)
+## Piles and walls of natural ground left between dug patches (a crest with lower ground within 4 m on both sides) are levelled down to the higher of the two floors beside them: dig two patches
+## next to each other and the space between them flattens by itself, wherever it stands, up to about 6 m from the blow. Only dirt is touched (natural topsoil-class ground and loose topsoil / clay:
+## never rock or ore heaps, never locked ground), never below what may be dug there. Works on a local copy of the heights (cheap), a few passes so a wide crest falls in from the middle outward.
+## Returns the vertices lowered.
 func tidy_ridges(p: Vector3, radius: float) -> int:
 	var g := vertex_at(p)
 	var reach := int(ceil(radius / CELL))
+	var R := RIDGE_HALF
+	var i0 := maxi(0, g.x - reach - R)
+	var i1 := mini(V - 1, g.x + reach + R)
+	var j0 := maxi(0, g.y - reach - R)
+	var j1 := mini(VR - 1, g.y + reach + R)
+	var w := i1 - i0 + 1
+	var hh := j1 - j0 + 1
+	var H := PackedFloat32Array()
+	H.resize(w * hh)
+	for j in range(hh):
+		for i in range(w):
+			H[j * w + i] = vheight(idx(i0 + i, j0 + j))
 	var total := 0
-	var axes := [Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1), Vector2i(1, -1)]
 	for _pass in range(6):
 		var changed := 0
-		for j in range(maxi(RIDGE_HALF, g.y - reach), mini(VR - 1 - RIDGE_HALF, g.y + reach) + 1):
-			for i in range(maxi(RIDGE_HALF, g.x - reach), mini(V - 1 - RIDGE_HALF, g.x + reach) + 1):
+		for j in range(maxi(g.y - reach, j0), mini(g.y + reach, j1) + 1):
+			for i in range(maxi(g.x - reach, i0), mini(g.x + reach, i1) + 1):
 				var k := idx(i, j)
 				if locked[k] != 0:
 					continue
@@ -403,22 +416,25 @@ func tidy_ridges(p: Vector3, radius: float) -> int:
 					var did: String = geo.order[mini(_dominant_loose(k), geo.order.size() - 1)]
 					if str(geo.props(did).get("resource", "")) != "topsoil":
 						continue
-				var h := vheight(k)
-				for ax in axes:
-					var span := RIDGE_HALF if (ax.x == 0 or ax.y == 0) else RIDGE_HALF * 2 / 3
+				var li := i - i0
+				var lj := j - j0
+				var h: float = H[lj * w + li]
+				for axis in range(2):
 					var ha := INF
 					var hb := INF
-					for t in range(1, span + 1):
-						var ka := idx(i - ax.x * t, j - ax.y * t)
-						var kb := idx(i + ax.x * t, j + ax.y * t)
-						if locked[ka] == 0:
-							ha = minf(ha, vheight(ka))
-						if locked[kb] == 0:
-							hb = minf(hb, vheight(kb))
+					for t in range(1, R + 1):
+						var ax := li - t if axis == 0 else li
+						var az := lj if axis == 0 else lj - t
+						var bx := li + t if axis == 0 else li
+						var bz := lj if axis == 0 else lj + t
+						if ax >= 0 and az >= 0:
+							ha = minf(ha, H[az * w + ax])
+						if bx < w and bz < hh:
+							hb = minf(hb, H[bz * w + bx])
 					if h - ha < RIDGE_DROP or h - hb < RIDGE_DROP:
 						continue
 					var fl := dig_floor(i, j)
-					var amt := minf(h - (maxf(ha, hb) + 0.04), h - float(fl[0]))
+					var amt := minf(h - (maxf(ha, hb) + 0.03), h - float(fl[0]))
 					if amt <= 0.01:
 						continue
 					var mats := {}
@@ -428,6 +444,7 @@ func tidy_ridges(p: Vector3, radius: float) -> int:
 					if got > 0.0:
 						discarded += got * AREA
 						_dirty_vertex(i, j)
+						H[lj * w + li] = vheight(k)
 						changed += 1
 						break
 		total += changed
